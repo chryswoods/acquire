@@ -1,0 +1,11 @@
+schema_version: 20180708
+name: identity-root
+version: 0.0.111
+runtime: docker
+format: http-stream
+type: sync
+timeout: 20
+triggers:
+- name: root
+  type: http
+  source: /

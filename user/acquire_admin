@@ -1,0 +1,94 @@
+#!/Users/chris/miniconda3/bin/python
+
+import argparse
+import sys
+
+parser = argparse.ArgumentParser(description="Log in and run admin commands for  "
+                                             "Acquire-based services",
+                                 prog="acquire_admin")
+
+parser.add_argument('-s', '--service', type=str, nargs='?',
+                    help="The service to connect to")
+
+parser.add_argument('-f', '--function', type=str, nargs='?',
+                    help="The function on the service to call as an admin")
+
+parser.add_argument('-a', '--args', type=str, nargs='*',
+                    help="Arguments, of the form X=Y, to pass to the service")
+
+parser.add_argument('--remember-password', action="store_true", default=True,
+                    help="Remember the password (default on)")
+
+parser.add_argument('--remember-device', action="store_true", default=None,
+                    help="Remember this device (saves OTP code, default off)")
+
+parser.add_argument('--no-remember-device', action="store_true", default=None,
+                    help="Don't remember this device, and don't ask to")
+
+parser.add_argument('--no-remember-password', action="store_true", default=None,
+                    help="Don't remember the password, and don't ask to")
+
+parser.add_argument('--remove-service', type=str, nargs="*",
+                    help="Remove locally stored information about the passed service(s)")
+
+args = parser.parse_args()
+                         
+from Acquire.Client import ServiceWallet
+
+remember_device = args.remember_device
+
+if args.no_remember_device:
+    remember_device = False
+
+remember_password = args.remember_password
+
+if remember_password is None:
+    remember_password = True
+
+if args.no_remember_password:
+    remember_password = False
+
+if not remember_password:
+    # should not remember the otpsecret if 
+    # we don't trust this to remember the password!
+    remember_device = False
+
+do_nothing = (args.function is None)
+
+if args.remove_service:
+    for service in args.remove_service:
+        do_nothing = False
+        print("Removing locally stored information about service '%s'" % service)
+        try:
+            ServiceWallet.remove_service_info(service)
+        except Exception as e:
+            print(e)
+            pass
+        try:
+            ServiceWallet.remove_service(service)
+        except Exception as e:
+            print(e)
+            pass
+
+if do_nothing:
+    parser.print_help(sys.stdout)
+    sys.exit(0)
+
+wallet = ServiceWallet()
+
+function = args.function
+arguments = {}
+
+if args.args:
+    for arg in args.args:
+        words = arg.split("=")
+        arguments[words[0]] = words[1]
+
+try:
+    response = wallet.call_admin_function(function, arguments,
+                                          args.service, remember_password,
+                                          remember_device)
+
+    print(response)
+except Exception as e:
+    print(str(e))

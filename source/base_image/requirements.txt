@@ -1,0 +1,7 @@
+fdk
+oci
+lazy_import
+pyotp
+pycurl
+qrcode[pil]
+cachetools
