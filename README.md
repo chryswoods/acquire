@@ -1,5 +1,7 @@
 # Acquire
 
+(C) Christopher Woods 2018 - Released under the [Apache 2 License](LICENSE)
+
 ## An Access, Accounting and Authorisation (Identity) Infrastructure for the Cloud
 
 Acquire is a AAAI infrastructure for the cloud. It provides a cloud-neutral
