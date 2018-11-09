@@ -63,13 +63,36 @@ def login_to_service_account(testing_dir=None):
             "variables! %s" % testing_dir)
 
     # use the password to decrypt the SECRET_KEY in the config
-    secret_key = _PrivateKey.from_data(_json.loads(_os.getenv("SECRET_KEY")),
-                                       password)
+    try:
+        secret_key = _PrivateKey.from_data(
+                            _json.loads(_os.getenv("SECRET_KEY")),
+                            password)
+    except Exception as e:
+        raise ServiceAccountError(
+            "You must supply the password used to unlock the configuration "
+            "key in the 'SECRET_KEY' environment variable: %s" % str(e))
+
+    config = _os.getenv("SECRET_CONFIG")
+
+    if config is None:
+        raise ServiceAccountError(
+            "You must supply the encrypted config in teh 'SECRET_CONFIG' "
+            "environment variable!")
+
+    try:
+        config = secret_key.decrypt(_string_to_bytes(config)).decode("utf-8")
+    except Exception as e:
+        raise ServiceAccountError(
+            "Cannot decrypt the 'SECRET_CONFIG' with the 'SECRET_KEY'. Are "
+            "you sure that the configuration has been set up correctly? %s "
+            % str(e))
 
     # use the secret_key to decrypt the config in SECRET_CONFIG
-    config = _json.loads(secret_key.decrypt(
-                         _string_to_bytes(_os.getenv("SECRET_CONFIG")))
-                         .decode("utf-8"))
+    try:
+        config = _json.loads(config)
+    except Exception as e:
+        raise ServiceAccountError(
+            "Unable to decode valid JSON from the config: %s" % str(e))
 
     # get info from this config
     access_data = config["LOGIN"]
