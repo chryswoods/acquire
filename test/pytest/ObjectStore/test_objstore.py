@@ -6,7 +6,7 @@ import pytest
 # instead create and use a fake object store locally
 import os
 
-from Acquire.ObjectStore import ObjectStore
+from Acquire.ObjectStore import ObjectStore, ObjectStoreError
 from Acquire.Service import login_to_service_account
 
 
@@ -49,3 +49,15 @@ def test_objstore(bucket):
 
     for name in names:
         assert(name in keys)
+
+    new_bucket = ObjectStore.create_bucket(bucket, "new_bucket")
+
+    ObjectStore.set_object_from_json(new_bucket, "test/object2", data)
+    assert(data == ObjectStore.get_object_from_json(new_bucket,
+                                                    "test/object2"))
+
+    with pytest.raises(ObjectStoreError):
+        new_bucket = ObjectStore.create_bucket(bucket, "testing_objstore")
+
+    with pytest.raises(ObjectStoreError):
+        new_bucket = ObjectStore.create_bucket(bucket, "new_bucket")

@@ -36,6 +36,9 @@ async def handler(ctx, data=None, loop=None):
         if function is None:
             from root import run as _root
             result = _root(args)
+        elif function == "open":
+            from open import run as _open
+            result = _open(args)
         elif function == "setup":
             from setup import run as _setup
             result = _setup(args)

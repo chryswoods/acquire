@@ -4,16 +4,72 @@ import datetime as _datetime
 import uuid as _uuid
 import json as _json
 import os as _os
+import copy as _copy
+import uuid as _uuid
 
 from ._errors import ObjectStoreError
 
 __all__ = ["OCI_ObjectStore"]
 
 
+def _sanitise_bucket_name(bucket_name):
+    """This function sanitises the passed bucket name. It will always
+        return a valid bucket name. If "None" is passed, then a new,
+        unique bucket name will be generated"""
+
+    if bucket_name is None:
+        return str(_uuid.uuid4())
+
+    return "_".join(bucket_name.split())
+
+
 class OCI_ObjectStore:
     """This is the backend that abstracts using the Oracle Cloud
        Infrastructure object store
     """
+
+    @staticmethod
+    def create_bucket(bucket, bucket_name, compartment=None):
+        """Create and return a new bucket in the object store called
+           'bucket_name', optionally placing it into the compartment
+           identified by 'compartment'. This will raise an
+           ObjectStoreError if this bucket already exists
+        """
+        new_bucket = _copy.copy(bucket)
+
+        new_bucket["bucket_name"] = str(bucket_name)
+
+        if compartment is not None:
+            bucket["compartment_id"] = compartment
+
+        try:
+            from oci.object_storage import ObjectStorageClient as \
+                _ObjectStorageClient
+            from oci.object_storage.models import CreateBucketDetails as \
+                _CreateBucketDetails
+        except:
+            raise ImportError(
+                "Cannot import OCI. Please install OCI, e.g. via "
+                "'pip install oci' so that you can connect to the "
+                "Oracle Cloud Infrastructure")
+
+        try:
+            request = _CreateBucketDetails()
+            request.compartment_id = new_bucket["compartment_id"]
+            client = new_bucket["client"]
+            request.name = _sanitise_bucket_name(bucket_name)
+
+            new_bucket["bucket"] = client.create_bucket(
+                                        client.get_namespace().data,
+                                        request).data
+        except Exception as e:
+            # couldn't create the bucket - likely because it already
+            # exists - try to connect to the existing bucket
+            raise ObjectStoreError(
+                "Unable to create the bucket '%s', likely because it "
+                "already exists: %s" % (bucket_name, str(e)))
+
+        return new_bucket
 
     @staticmethod
     def get_object_as_file(bucket, key, filename):

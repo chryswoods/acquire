@@ -27,6 +27,11 @@ def use_oci_object_store_backend():
 
 class ObjectStore:
     @staticmethod
+    def create_bucket(bucket, bucket_name, compartment=None):
+        return _objstore_backend.create_bucket(bucket, bucket_name,
+                                               compartment)
+
+    @staticmethod
     def get_object_as_file(bucket, key, filename):
         return _objstore_backend.get_object_as_file(bucket, key, filename)
 

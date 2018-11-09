@@ -18,6 +18,27 @@ class Testing_ObjectStore:
     """This is a dummy object store that writes objects to
        the standard posix filesystem when running tests
     """
+    @staticmethod
+    def create_bucket(bucket, bucket_name, compartment=None):
+        """Create and return a new bucket in the object store called
+           'bucket_name', optionally placing it into the compartment
+           identified by 'compartment'. This will raise an
+           ObjectStoreError if this bucket already exists
+        """
+        if compartment is not None:
+            bucket_name = _os.path.join(str(compartment), str(bucket_name))
+        else:
+            bucket_name = str(bucket_name)
+
+        full_name = _os.path.join(_os.path.split(bucket)[0], bucket_name)
+
+        if _os.path.exists(full_name):
+            raise ObjectStoreError(
+                "CANNOT CREATE NEW BUCKET '%s': EXISTS!" % bucket_name)
+
+        _os.makedirs(full_name)
+
+        return full_name
 
     @staticmethod
     def get_object_as_file(bucket, key, filename):
@@ -142,13 +163,13 @@ class Testing_ObjectStore:
            of the file located by 'filename'"""
 
         Testing_ObjectStore.set_object(bucket, key,
-                                        open(filename, 'rb').read())
+                                       open(filename, 'rb').read())
 
     @staticmethod
     def set_string_object(bucket, key, string_data):
         """Set the value of 'key' in 'bucket' to the string 'string_data'"""
         Testing_ObjectStore.set_object(bucket, key,
-                                        string_data.encode("utf-8"))
+                                       string_data.encode("utf-8"))
 
     @staticmethod
     def set_object_from_json(bucket, key, data):
