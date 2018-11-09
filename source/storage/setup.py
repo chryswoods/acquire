@@ -57,7 +57,12 @@ def run(args):
 
     # first, do we have an existing Service object? If not,
     # we grant access to the first user!
-    bucket = login_to_service_account()
+    try:
+        bucket = login_to_service_account()
+    except Exception as e:
+        raise ServiceSetupError(
+            "Cannot log into the service account needed to access the "
+            "object store that underlies this service: %s" % str(e))
 
     # The data is stored in the object store at the key _service_info
     # and is encrypted using the value of $SERVICE_PASSWORD
