@@ -28,7 +28,8 @@ class Service:
         self._service_url = service_url
 
         if self._service_type:
-            if self._service_type not in ["identity", "access", "accounting"]:
+            if self._service_type not in ["identity", "access",
+                                          "accounting", "storage"]:
                 raise ServiceError("Services of type '%s' are not allowed!" %
                                    self._service_type)
 
@@ -98,6 +99,13 @@ class Service:
         """Return whether or not this is an accounting service"""
         if self._service_type:
             return self._service_type == "accounting"
+        else:
+            return False
+
+    def is_storage_service(self):
+        """Return whether or not this is a storage service"""
+        if self._service_type:
+            return self._service_type == "storage"
         else:
             return False
 
@@ -239,6 +247,9 @@ class Service:
         elif service.is_access_service():
             from Acquire.Access import AccessService as _AccessService
             return _AccessService(service)
+        elif service.is_storage_service():
+            from Acquire.Storage import StorageService as _StorageService
+            return _StorageService(service)
         elif service.is_accounting_service():
             from Acquire.Accounting import AccountingService \
                                         as _AccountingService

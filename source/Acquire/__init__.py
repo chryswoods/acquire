@@ -10,7 +10,7 @@ three services:
     This manages user accounts and allows users to authenticate
 
 (2) Accounting Service (Acquire.Accounting)
-    This 
+    This
 """
 
 import lazy_import as _lazy_import
