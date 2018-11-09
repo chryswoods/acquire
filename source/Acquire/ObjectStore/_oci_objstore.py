@@ -40,7 +40,7 @@ class OCI_ObjectStore:
         new_bucket["bucket_name"] = str(bucket_name)
 
         if compartment is not None:
-            bucket["compartment_id"] = compartment
+            new_bucket["compartment_id"] = str(compartment)
 
         try:
             from oci.object_storage import ObjectStorageClient as \
