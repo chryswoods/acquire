@@ -67,6 +67,9 @@ async def handler(ctx, data=None, loop=None):
         elif function == "test":
             from test import run as _test
             result = _test(args)
+        elif function == "warm":
+            from warm import run as _warm
+            result = _warm(args)
         else:
             result = {"status": -1,
                       "message": "Unknown function '%s'" % function}
