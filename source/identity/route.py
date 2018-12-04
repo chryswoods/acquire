@@ -2,10 +2,21 @@
 import asyncio
 import fdk
 import json
+import sys
+import os
 
 from Acquire.Service import unpack_arguments, get_service_private_key
 from Acquire.Service import create_return_value, pack_return_value, \
                             start_profile, end_profile
+
+
+def one_hot_spare():
+    """This function will (in the background) cause the function service
+       to spin up another hot spare ready to process another request.
+       This ensures that, if a user makes a request while this
+       thread is busy, then the cold-start time to spin up another
+       thread has been mitigated."""
+    os.system("%s one_hot_spare.py &" % sys.executable)
 
 
 async def handler(ctx, data=None, loop=None):
@@ -32,6 +43,9 @@ async def handler(ctx, data=None, loop=None):
         function = str(args["function"])
     except:
         function = None
+
+    if function != "warm":
+        one_hot_spare()
 
     try:
         if function is None:
