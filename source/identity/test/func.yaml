@@ -1,6 +1,6 @@
 schema_version: 20180708
 name: identity-test
-version: 0.0.51
+version: 0.0.52
 runtime: docker
 format: http-stream
 type: sync

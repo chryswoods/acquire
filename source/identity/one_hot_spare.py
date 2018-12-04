@@ -4,6 +4,9 @@ from io import BytesIO
 import pycurl
 import json
 
+import socket
+import sys
+
 
 def one_hot_spare():
     """Call this function to ensure that there is one hot spare
@@ -27,4 +30,12 @@ def one_hot_spare():
         pass
 
 
-one_hot_spare()
+try:
+    import socket
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    ## Create an abstract socket, by prefixing it with null. 
+    s.bind( '\0one_hot_spare_lock') 
+
+    one_hot_spare()
+except:
+    sys.exit (0) 
