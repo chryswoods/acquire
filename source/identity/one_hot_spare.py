@@ -12,7 +12,7 @@ def one_hot_spare():
     args = {}
     args["function"] = "warm"
 
-    service_url = "http://130.61.60.88:8080/t/storage"
+    service_url = "http://130.61.60.88:8080/t/identity"
 
     buffer = BytesIO()
     c = pycurl.Curl()

@@ -3,7 +3,7 @@ import asyncio
 import fdk
 import json
 import sys
-import os
+import subprocess
 
 from Acquire.Service import unpack_arguments, get_service_private_key
 from Acquire.Service import create_return_value, pack_return_value, \
@@ -16,8 +16,9 @@ def one_hot_spare():
        This ensures that, if a user makes a request while this
        thread is busy, then the cold-start time to spin up another
        thread has been mitigated."""
-    os.system("%s one_hot_spare.py &" % sys.executable)
-
+    subprocess.popen(args="one_hot_spare.py",
+                     exe=sys.executable,
+                     close_fds=True)
 
 async def handler(ctx, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
