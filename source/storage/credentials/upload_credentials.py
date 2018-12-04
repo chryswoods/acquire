@@ -19,8 +19,8 @@ secret_config = {}
 
 """
 [DEFAULT]
-user=ocid1.user.oc1..aaaaaaaahxlrqhcgfzdv52ias5yt6go6ybgmb5hv7at5amepal22tagvaczq
-fingerprint=11:7e:8f:d4:2a:c8:73:e9:0c:e6:08:94:16:3b:72:e4
+user=ocid1.user.oc1..aaaaaaaavtaunkjmfj2uoouozmmojpix42kml72jy3nltu6srhipltnhv74q
+fingerprint=b7:3e:01:9e:75:b3:68:75:29:69:bf:57:34:e5:e3:8b
 key_file=~/.oci/oci_api_key.pem
 pass_phrase=XXXXXX
 tenancy=ocid1.tenancy.oc1..aaaaaaaa3eiex6fbfj626uwhs3dg24oygknrhhgfj4khqearluf4i74zdt2a
@@ -29,11 +29,11 @@ region=eu-frankfurt-1
 
 data = {}
 
-# OCID for the user "bss-auth-service"
-data["user"] = "ocid1.user.oc1..aaaaaaaannghzuszdcdzsqokagzq4wmyfg3hbhfnl4buu7lyq5ob23hk6tja"
+# OCID for the user "acquire-storage-service"
+data["user"] = "ocid1.user.oc1..aaaaaaaavtaunkjmfj2uoouozmmojpix42kml72jy3nltu6srhipltnhv74q"
 
 # Fingerprint for the login keyfile
-data["fingerprint"] = "c9:95:cd:af:49:f5:7d:69:e3:71:6a:1d:54:80:3b:ae"
+data["fingerprint"] = "b7:3e:01:9e:75:b3:68:75:29:69:bf:57:34:e5:e3:8b"
 
 # The keyfile itself - we will now read the file and pull it into text
 keyfile = sys.argv[1]
@@ -58,7 +58,7 @@ secret_config["LOGIN"] = data
 
 data = {}
 data["compartment"] = "ocid1.compartment.oc1..aaaaaaaat33j7w74mdyjenwoinyeawztxe7ri6qkfbm5oihqb5zteamvbpzq"
-data["bucket"] = "acquire_access"
+data["bucket"] = "acquire_storage"
 
 secret_config["BUCKET"] = data
 
@@ -67,5 +67,5 @@ secret_config["PASSWORD"] = sys.argv[2]
 config_data = bytes_to_string(config_key.encrypt(json.dumps(secret_config).encode("utf-8")))
 secret_key = json.dumps(config_key.to_data(sys.argv[3]))
 
-os.system("fn config app access SECRET_CONFIG '%s'" % config_data)
-os.system("fn config app access SECRET_KEY '%s'" % secret_key)
+os.system("fn config app storage SECRET_CONFIG '%s'" % config_data)
+os.system("fn config app storage SECRET_KEY '%s'" % secret_key)
