@@ -1,3 +1,6 @@
 
 if __name__ == "__main__":
-    print("<html><body><p>Hello World</p></body></html>")
+    with open("index.html", "r") as FILE:
+        lines = FILE.readlines()
+        for line in lines:
+            print(line, end="")
