@@ -1,6 +1,7 @@
 
 from Acquire.Service import login_to_service_account
 from Acquire.Service import create_return_value
+from Acquire.Service import get_service_info
 
 from Acquire.ObjectStore import ObjectStore
 
@@ -32,21 +33,20 @@ def run(args):
     pubkey = privkey.public_key()
     otp = OTP()
 
-    provisioning_uri = otp.provisioning_uri(username)
-
     # save the encrypted private key (encrypted using the user's password)
     # and encrypted OTP secret (encrypted using the public key)
     user_account.set_keys(privkey.bytes(password), pubkey.bytes(),
                           otp.encrypt(pubkey))
 
-    # remove the key and password from memory
-    privkey = None
-    password = None
-
     # now log into the central identity account to either register
     # the user, or to update to a new password
     bucket = login_to_service_account()
     account_key = "accounts/%s" % user_account.sanitised_name()
+
+    service_info = get_service_info()
+
+    provisioning_uri = otp.provisioning_uri(username, issuer="Acquire@%s" %
+                                            service_info.canonical_url())
 
     try:
         existing_data = ObjectStore.get_object_from_json(bucket,

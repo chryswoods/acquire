@@ -169,17 +169,20 @@ def unpack_arguments(args, key=None, public_cert=None):
     try:
         is_encrypted = data["encrypted"]
     except:
-        if public_cert:
+        is_encrypted = False
+
+    if public_cert:
+        if not is_encrypted:
             raise UnpackingError(
                 "Cannot unpack the result as it should be "
                 "signed, but it isn't! (only encrypted results are signed)")
 
-        is_encrypted = False
-
-    if public_cert:
         try:
             signature = _string_to_bytes(data["signature"])
         except:
+            signature = None
+
+        if signature is None:
             raise UnpackingError(
                 "We requested that the data was signed "
                 "but a signature was not provided!")

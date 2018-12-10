@@ -320,7 +320,7 @@ class User:
             return None
 
         if identity_url is None:
-            identity_url = _get_identity_url()
+            identity_url = self.identity_service_url()
 
         privkey = _PrivateKey()
 

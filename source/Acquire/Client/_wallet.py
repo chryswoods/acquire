@@ -111,21 +111,32 @@ class Wallet:
         return wallet_key
 
     @staticmethod
-    def _get_userfile(username):
-        """Return the userfile for the passed username"""
-        return "%s/user_%s_encrypted" % (
+    def _get_userfile(username, identity_url):
+        """Return the userfile for the passed username logging into the
+           passed identity url"""
+        return "%s/user_%s_%s_encrypted" % (
             Wallet._wallet_dir(),
-            _base64.b64encode(username.encode("utf-8")).decode("utf-8"))
+            _base64.b64encode(username.encode("utf-8")).decode("utf-8"),
+            _base64.b64encode(identity_url.encode("utf-8")).decode("utf-8"))
 
     @staticmethod
     def remove_user_info(username):
         """Call this function to remove the userinfo associated
-           with the account 'username'
+           with the account 'username' for all identity services
         """
-        userfile = Wallet._get_userfile(username)
+        wallet_dir = Wallet._wallet_dir()
 
-        if _os.path.exists(userfile):
-            _os.unlink(userfile)
+        userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
+
+        userinfos = {}
+
+        for userfile in userfiles:
+            try:
+                userinfo = self._read_userfile(userfile)
+                if userifo["username"] == username:
+                    _os.unlink(userfile)
+            except:
+                pass
 
     def _read_userfile(self, filename):
         """Read all info from the passed userfile"""
@@ -153,9 +164,11 @@ class Wallet:
             self._cache[filename] = data
             return data
 
-    def _read_userinfo(self, username):
-        """Read all info for the passed user"""
-        return self._read_userfile(Wallet._get_userfile(username))
+    def _read_userinfo(self, username, identity_url):
+        """Read all info for the passed user at the identity service
+           reached at 'identity_url'"""
+        return self._read_userfile(Wallet._get_userfile(username,
+                                                        identity_url))
 
     def _get_username(self):
         """Function to find a username automatically, of if that fails,
@@ -210,12 +223,13 @@ class Wallet:
 
         return username
 
-    def _get_user_password(self, username):
-        """Get the user password. If remember_device then save the
+    def _get_user_password(self, username, identity_url):
+        """Get the user password for the passed user on the passed
+           identity_url. If remember_device then save the
            password in the wallet if it is not already there
         """
         try:
-            userinfo = self._read_userinfo(username)
+            userinfo = self._read_userinfo(username, identity_url)
 
             if userinfo:
                 password = userinfo["password"]
@@ -229,10 +243,11 @@ class Wallet:
         self._manual_password = True
         return _getpass.getpass(prompt="Please enter the login password: ")
 
-    def _get_otpcode(self, username):
-        """Get the OTP code for this user account"""
+    def _get_otpcode(self, username, identity_url):
+        """Get the OTP code for the passed user on the passed identity
+           service url"""
         try:
-            userinfo = self._read_userinfo(username)
+            userinfo = self._read_userinfo(username, identity_url)
 
             if userinfo:
                 secret = self._wallet_key.decrypt(
@@ -327,7 +342,7 @@ class Wallet:
         # the login URL is of the form "server/code"
         words = url.split("/")
         identity_service = "/".join(words[0:-1])
-        short_uid = words[-1]
+        short_uid = words[-1].split("=")[-1]
 
         # get the public key of this identity service
         service_key = self._get_service_key(identity_service)
@@ -338,8 +353,8 @@ class Wallet:
             username = self._get_username()
 
         print("Logging in using username '%s'" % username)
-        password = self._get_user_password(username)
-        otpcode = self._get_otpcode(username)
+        password = self._get_user_password(username, identity_service)
+        otpcode = self._get_otpcode(username, identity_service)
 
         print("\nLogging in to '%s', session '%s'..." % (
               identity_service, short_uid), end="")
@@ -390,7 +405,7 @@ class Wallet:
                     pass
 
             try:
-                user_info = self._read_userinfo(username)
+                user_info = self._read_userinfo(username, identity_service)
             except:
                 user_info = {}
 
@@ -420,7 +435,8 @@ class Wallet:
 
                 packed_data = _pack_arguments(user_info)
 
-                with open(Wallet._get_userfile(username), "wb") as FILE:
+                with open(Wallet._get_userfile(
+                          username, identity_service), "wb") as FILE:
                     FILE.write(packed_data)
 
         self._manual_password = False
