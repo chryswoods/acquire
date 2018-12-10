@@ -128,12 +128,10 @@ class Wallet:
 
         userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
 
-        userinfos = {}
-
         for userfile in userfiles:
             try:
                 userinfo = self._read_userfile(userfile)
-                if userifo["username"] == username:
+                if userinfo["username"] == username:
                     _os.unlink(userfile)
             except:
                 pass
