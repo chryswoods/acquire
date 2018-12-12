@@ -41,10 +41,14 @@ def run(args):
 
     # now create/get handle to the bucket in which we will be placing the
     # new object
-    new_bucket = ObjectStore.get_bucket(
-                    bucket, bucket_name="test_bucket",
-                    compartment=service.storage_compartment(),
-                    create_if_needed=True)
+    try:
+        new_bucket = ObjectStore.get_bucket(
+                        bucket, bucket_name="test_bucket",
+                        compartment=service.storage_compartment(),
+                        create_if_needed=True)
+    except Exception as e:
+        raise RequestBucketError(
+            "Unable to open the bucket 'test_bucket': %s" % str(e))
 
     ObjectStore.set_string_object(new_bucket, "test_key", "Hello World!")
 
