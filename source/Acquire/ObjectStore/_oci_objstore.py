@@ -43,8 +43,6 @@ class OCI_ObjectStore:
             new_bucket["compartment_id"] = str(compartment)
 
         try:
-            from oci.object_storage import ObjectStorageClient as \
-                _ObjectStorageClient
             from oci.object_storage.models import CreateBucketDetails as \
                 _CreateBucketDetails
         except:
@@ -68,6 +66,70 @@ class OCI_ObjectStore:
             raise ObjectStoreError(
                 "Unable to create the bucket '%s', likely because it "
                 "already exists: %s" % (bucket_name, str(e)))
+
+        return new_bucket
+
+    @staticmethod
+    def get_bucket(bucket, bucket_name, compartment=None,
+                   create_if_needed=True):
+        """Find and return a new bucket in the object store called
+           'bucket_name', optionally placing it into the compartment
+           identified by 'compartment'. If 'create_if_needed' is True
+           then the bucket will be created if it doesn't exist. Otherwise,
+           if the bucket does not exist then an exception will be raised.
+        """
+        new_bucket = _copy.copy(bucket)
+
+        new_bucket["bucket_name"] = str(bucket_name)
+
+        if compartment is not None:
+            new_bucket["compartment_id"] = str(compartment)
+
+        try:
+            from oci.object_storage.models import CreateBucketDetails as \
+                _CreateBucketDetails
+        except:
+            raise ImportError(
+                "Cannot import OCI. Please install OCI, e.g. via "
+                "'pip install oci' so that you can connect to the "
+                "Oracle Cloud Infrastructure")
+
+        # try to get the existing bucket
+        client = new_bucket["client"]
+        namespace = client.get_namespace().data
+        sanitised_name = _sanitise_bucket_name(bucket_name)
+
+        try:
+            existing_bucket = client.get_bucket(
+                                namespace, sanitised_name).data
+        except:
+            existing_bucket = None
+
+        if existing_bucket:
+            return existing_bucket
+
+        if create_if_needed:
+            try:
+                request = _CreateBucketDetails()
+                request.compartment_id = new_bucket["compartment_id"]
+                request.name = sanitised_name
+
+                client.create_bucket(namespace, request)
+            except:
+                pass
+
+            try:
+                existing_bucket = client.get_bucket(
+                                    namespace, sanitised_name).data
+            except:
+                existing_bucket = None
+
+        if existing_bucket is None:
+            raise ObjectStoreError(
+                "There is not bucket called '%s'. Please check the "
+                "compartment and access permissions." % bucket_name)
+
+        new_bucket["bucket"] = existing_bucket
 
         return new_bucket
 

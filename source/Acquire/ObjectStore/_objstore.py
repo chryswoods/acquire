@@ -32,6 +32,12 @@ class ObjectStore:
                                                compartment)
 
     @staticmethod
+    def get_bucket(bucket, bucket_name, compartment=None,
+                   create_if_needed=True):
+        return _objstore_backend.get_bucket(bucket, bucket_name,
+                                            compartment, create_if_needed)
+
+    @staticmethod
     def get_object_as_file(bucket, key, filename):
         return _objstore_backend.get_object_as_file(bucket, key, filename)
 

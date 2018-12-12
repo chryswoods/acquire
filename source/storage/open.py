@@ -1,12 +1,11 @@
 
 from Acquire.Service import create_return_value
 from Acquire.Service import login_to_service_account
-from Acquire.Service import call_function
-from Acquire.Service import Service
-
-from Acquire.Crypto import PrivateKey
+from Acquire.Service import get_service_info
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
+
+from Acquire.Service import ServiceAccountError
 
 
 class CreateBucketError(Exception):
@@ -34,14 +33,27 @@ def run(args):
 
     bucket = login_to_service_account()
 
-    new_bucket = ObjectStore.create_bucket(bucket, "test_bucket",
-        "ocid1.compartment.oc1..aaaaaaaatlvutbwbc6675hnhmueefnl6pvhlpugjixkjt27atmj2a4z3xjaq")
+    service = get_service_info(bucket=bucket)
 
-    ObjectStore.set_string_object(new_bucket, "test", "Hello World!")
+    if not service.is_storage_service():
+        raise ServiceAccountError(
+            "We can only perform storage functions using a StorageService...")
+
+    # now create/get handle to the bucket in which we will be placing the
+    # new object
+    new_bucket = ObjectStore.get_bucket(
+                    bucket, bucket_name="test_bucket",
+                    compartment=service.storage_compartment(),
+                    create_if_needed=True)
+
+    ObjectStore.set_string_object(new_bucket, "test_key", "Hello World!")
 
     status = 0
     message = "Success"
 
     return_value = create_return_value(status, message)
+
+    return_value["test_key"] = ObjectStore.get_string_object(new_bucket,
+                                                             "test_key")
 
     return return_value

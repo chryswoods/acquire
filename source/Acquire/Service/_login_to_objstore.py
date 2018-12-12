@@ -112,6 +112,11 @@ def login_to_service_account(testing_dir=None):
     # save the service password to the environment
     _os.environ["SERVICE_PASSWORD"] = config["PASSWORD"]
 
+    # save any other decrypted config data to environment variables
+    for key in config.keys():
+        if key not in ["LOGIN", "BUCKET", "PASSWORD"]:
+            _os.environ[key] = config[key]
+
     # we have OCI login details, so make sure that we are using
     # the OCI object store backend
     from Acquire.ObjectStore import use_oci_object_store_backend as \

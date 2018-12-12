@@ -28,11 +28,12 @@ __all__ = ["get_service_info", "get_service_private_key",
 # Cache this function as the data will rarely change, and this
 # will prevent too many runs to the ObjectStore
 @_cached(_cache)
-def _get_service_info_data():
+def _get_service_info_data(bucket=None):
     """Internal function that loads up the service info data from
        the object store.
     """
-    bucket = _login_to_service_account()
+    if bucket is None:
+        bucket = _login_to_service_account()
 
     # find the service info from the object store
     service_key = "_service_info"
@@ -47,13 +48,14 @@ def _get_service_info_data():
     return service
 
 
-def get_service_info(need_private_access=False):
+def get_service_info(need_private_access=False,
+                     bucket=None):
     """Return the service info object for this service. If private
        access is needed then this will decrypt and access the private
        keys and signing certificates, which is slow if you just need
        the public certificates.
     """
-    service = _get_service_info_data()
+    service = _get_service_info_data(bucket)
 
     if need_private_access:
         service_password = _os.getenv("SERVICE_PASSWORD")
@@ -68,23 +70,27 @@ def get_service_info(need_private_access=False):
     return service
 
 
-def get_service_private_key():
+def get_service_private_key(bucket=None):
     """This function returns the private key for this service"""
-    return get_service_info(need_private_access=True).private_key()
+    return get_service_info(need_private_access=True,
+                            bucket=bucket).private_key()
 
 
-def get_service_private_certificate():
+def get_service_private_certificate(bucket=None):
     """This function returns the private signing certificate
        for this service
     """
-    return get_service_info(need_private_access=True).private_certificate()
+    return get_service_info(need_private_access=True,
+                            bucket=bucket).private_certificate()
 
 
-def get_service_public_key():
+def get_service_public_key(bucket=None):
     """This function returns the public key for this service"""
-    return get_service_info(need_private_access=False).public_key()
+    return get_service_info(need_private_access=False,
+                            bucket=bucket).public_key()
 
 
-def get_service_public_certificate():
+def get_service_public_certificate(bucket=None):
     """This function returns the public certificate for this service"""
-    return get_service_info(need_private_access=False).public_certificate()
+    return get_service_info(need_private_access=False,
+                            bucket=bucket).public_certificate()
