@@ -106,6 +106,6 @@ def get_service_public_key():
     return get_service_info(need_private_access=False).public_key()
 
 
-def get_service_public_certificate(bucket=None):
+def get_service_public_certificate():
     """This function returns the public certificate for this service"""
     return get_service_info(need_private_access=False).public_certificate()
