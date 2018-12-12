@@ -43,7 +43,7 @@ def run(args):
     # new object
     try:
         new_bucket = ObjectStore.get_bucket(
-                        bucket, bucket_name="test_bucket",
+                        bucket=bucket, bucket_name="test_bucket",
                         compartment=service.storage_compartment(),
                         create_if_needed=True)
     except Exception as e:

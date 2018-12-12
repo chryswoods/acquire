@@ -97,7 +97,7 @@ class OCI_ObjectStore:
         # try to get the existing bucket
         client = new_bucket["client"]
         namespace = client.get_namespace().data
-        sanitised_name = _sanitise_bucket_name(bucket_name)
+        sanitised_name = _sanitise_bucket_name(str(bucket_name))
 
         try:
             existing_bucket = client.get_bucket(
@@ -106,7 +106,8 @@ class OCI_ObjectStore:
             existing_bucket = None
 
         if existing_bucket:
-            return existing_bucket
+            new_bucket["bucket"] = existing_bucket
+            return new_bucket
 
         if create_if_needed:
             try:
