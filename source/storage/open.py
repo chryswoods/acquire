@@ -53,7 +53,7 @@ def run(args):
     # First save an empty object, so that we can then create
     # a PAR that can be used to write the actual data
     ObjectStore.set_object_from_json(new_bucket, "test_key",
-                                     {None})
+                                     None)
 
     status = 0
     message = "Success"
