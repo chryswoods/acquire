@@ -50,14 +50,17 @@ def run(args):
         raise RequestBucketError(
             "Unable to open the bucket 'test_bucket': %s" % str(e))
 
-    ObjectStore.set_string_object(new_bucket, "test_key", "Hello World!")
+    # First save an empty object, so that we can then create
+    # a PAR that can be used to write the actual data
+    ObjectStore.set_object_from_json(new_bucket, "test_key",
+                                     {None})
 
     status = 0
     message = "Success"
 
     return_value = create_return_value(status, message)
 
-    return_value["test_key"] = ObjectStore.get_string_object(new_bucket,
-                                                             "test_key")
+    return_value["test_key"] = ObjectStore.get_object_from_json(new_bucket,
+                                                                "test_key")
 
     return return_value
