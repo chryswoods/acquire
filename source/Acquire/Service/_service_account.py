@@ -38,7 +38,13 @@ def _get_service_info_data(bucket=None):
     # find the service info from the object store
     service_key = "_service_info"
 
-    service = _ObjectStore.get_object_from_json(bucket, service_key)
+    try:
+        service = _ObjectStore.get_object_from_json(bucket, service_key)
+    except Exception as e:
+        raise MissingServiceAccountError(
+            "Unable to load the service account for this service. An "
+            "error occured while loading the data from the object "
+            "store: %s" % str(e))
 
     if not service:
         raise MissingServiceAccountError(
