@@ -61,17 +61,27 @@ def get_service_info(need_private_access=False,
        keys and signing certificates, which is slow if you just need
        the public certificates.
     """
-    service = _get_service_info_data(bucket)
+    try:
+        service = _get_service_info_data(bucket)
+    except Exception as e:
+        raise MissingServiceAccountError(
+            "Unable to read the service info from the object store! : %s" %
+            str(e))
 
-    if need_private_access:
-        service_password = _os.getenv("SERVICE_PASSWORD")
+    try:
+        if need_private_access:
+            service_password = _os.getenv("SERVICE_PASSWORD")
 
-        if service_password is None:
-            raise ServiceAccountError("You must supply a $SERVICE_PASSWORD")
+            if service_password is None:
+                raise ServiceAccountError("You must supply a $SERVICE_PASSWORD")
 
-        service = _Service.from_data(service, service_password)
-    else:
-        service = _Service.from_data(service)
+            service = _Service.from_data(service, service_password)
+        else:
+            service = _Service.from_data(service)
+
+    except Exception as e:
+        raise MissingServiceAccountError(
+            "Unable to create the ServiceAccount object: %s" % str(e))
 
     return service
 
