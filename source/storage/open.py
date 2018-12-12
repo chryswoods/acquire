@@ -31,13 +31,13 @@ def run(args):
     # need creating and the UID of the user who made the request
     # (so that they can put their files in their own bucket)
 
-    bucket = login_to_service_account()
-
-    service = get_service_info(bucket=bucket)
+    service = get_service_info()
 
     if not service.is_storage_service():
         raise ServiceAccountError(
             "We can only perform storage functions using a StorageService...")
+
+    bucket = login_to_service_account()
 
     # now create/get handle to the bucket in which we will be placing the
     # new object
