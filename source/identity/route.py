@@ -18,7 +18,7 @@ def one_hot_spare():
        thread is busy, then the cold-start time to spin up another
        thread has been mitigated."""
     devnull = open(os.devnull, "w")
-    subprocess.Popen(["nohup", sys.executable, "one_hot_spare.py"], 
+    subprocess.Popen(["nohup", sys.executable, "one_hot_spare.py"],
                      stdout=devnull,
                      stderr=subprocess.STDOUT)
 

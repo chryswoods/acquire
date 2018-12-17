@@ -9,7 +9,7 @@ __all__ = ["OTP"]
 class OTP:
     """This class handles everything to do with obtaining and
        verifying a one-time-password"""
-    def __init__(self):
+    def __init__(self, secret=None):
         """This creates a new one-time-password"""
         try:
             import pyotp as _pyotp
@@ -18,7 +18,10 @@ class OTP:
                 "Cannot create a one-time-password as the "
                 "pyotp module is not available. Please install and try again")
 
-        self._secret = _pyotp.random_base32()
+        if secret:
+            self._secret = secret
+        else:
+            self._secret = _pyotp.random_base32()
 
     def __str__(self):
         """Return a string representation of this OTP"""

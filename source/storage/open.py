@@ -31,6 +31,10 @@ def run(args):
     # need creating and the UID of the user who made the request
     # (so that they can put their files in their own bucket)
 
+    user_uid = args["user_uid"]
+    object_name = args['object_name']
+    md5sum = args["md5sum"]
+
     service = get_service_info()
 
     if not service.is_storage_service():
@@ -39,8 +43,8 @@ def run(args):
 
     bucket = login_to_service_account()
 
-    # now create/get handle to the bucket in which we will be placing the
-    # new object
+    # get the bucket used for user data
+
     try:
         new_bucket = ObjectStore.get_bucket(
                         bucket=bucket, bucket_name="test_bucket",
