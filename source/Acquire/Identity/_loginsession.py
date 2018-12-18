@@ -126,11 +126,16 @@ class LoginSession:
         """Return the UUID of this request"""
         return self._uid
 
+    @staticmethod
+    def to_short_uid(long_uid):
+        """Return the short UID version of the passed long uid"""
+        return long_uid[:8]
+
     def short_uuid(self):
         """Return a short UUID that will be used to
            provide a more human-readable session ID"""
         if self._uid:
-            return self._uid[:8]
+            return LoginSession.to_short_uid(self._uid)
         else:
             return None
 

@@ -1,6 +1,11 @@
 
 import json as _json
 
+try:
+    import pycurl as _pycurl
+except:
+    _pycurl = None
+
 from io import BytesIO as _BytesIO
 
 from Acquire.Crypto import PublicKey as _PublicKey
@@ -223,9 +228,7 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
        service signing certificate, and we will validate the
        signature using 'public_cert'
     """
-    try:
-        import pycurl as _pycurl
-    except:
+    if _pycurl is None:
         raise RemoteFunctionCallError(
             "Cannot call remote functions as "
             "the pycurl module cannot be imported! It needs "

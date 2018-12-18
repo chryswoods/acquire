@@ -15,15 +15,36 @@ from ._errors import ServiceAccountError
 # cause problems for a maximum of 300 seconds)
 _cache = _TTLCache(maxsize=50, ttl=300)
 
-__all__ = ["login_to_service_account"]
+__all__ = ["login_to_service_account",
+           "_push_testing_objstore", "_pop_testing_objstore"]
 
 _current_testing_objstore = None
+_testing_objstore_stack = []
 
+
+def _push_testing_objstore(testing_dir):
+    """Function used in testing to push a new object store onto the stack"""
+    global _current_testing_objstore
+    _testing_objstore_stack.append(_current_testing_objstore)
+    _current_testing_objstore = testing_dir
+
+
+def _pop_testing_objstore():
+    """Function used in testing to pop an object store from the stack"""
+    global _current_testing_objstore
+    global _testing_objstore_stack
+
+    try:
+        d = _testing_objstore_stack.pop()
+    except:
+        d = None
+
+    _current_testing_objstore = d
 
 # Cache this function as the result changes very infrequently, as involves
 # lots of round trips to the object store, and it will give the same
 # result regardless of which Fn function on the service makes the call
-@_cached(_cache)
+#@_cached(_cache)
 def login_to_service_account(testing_dir=None):
     """This function logs into the object store account of the service account.
        Accessing the object store means being able to access

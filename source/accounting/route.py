@@ -33,25 +33,25 @@ async def handler(ctx, data=None, loop=None):
 
     try:
         if function is None:
-            from root import run as _root
+            from accounting.root import run as _root
             result = _root(args)
         elif function == "create_account":
-            from create_account import run as _create_account
+            from accounting.create_account import run as _create_account
             result = _create_account(args)
         elif function == "deposit":
-            from deposit import run as _deposit
+            from accounting.deposit import run as _deposit
             result = _deposit(args)
         elif function == "get_account_uids":
-            from get_account_uids import run as _get_account_uids
+            from accounting.get_account_uids import run as _get_account_uids
             result = _get_account_uids(args)
         elif function == "get_info":
-            from get_info import run as _get_info
+            from accounting.get_info import run as _get_info
             result = _get_info(args)
         elif function == "perform":
-            from perform import run as _perform
+            from accounting.perform import run as _perform
             result = _perform(args)
         elif function == "setup":
-            from setup import run as _setup
+            from accounting.setup import run as _setup
             result = _setup(args)
         else:
             result = {"status": -1,

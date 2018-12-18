@@ -47,45 +47,45 @@ async def handler(ctx, data=None, loop=None):
     except:
         function = None
 
-    if function != "warm":
-        one_hot_spare()
+    # if function != "warm":
+    #     one_hot_spare()
 
     try:
         if function is None:
-            from root import run as _root
+            from identity.root import run as _root
             result = _root(args)
         elif function == "request_login":
-            from request_login import run as _request_login
+            from identity.request_login import run as _request_login
             result = _request_login(args)
         elif function == "get_keys":
-            from get_keys import run as _get_keys
+            from identity.get_keys import run as _get_keys
             result = _get_keys(args)
         elif function == "get_status":
-            from get_status import run as _get_status
+            from identity.get_status import run as _get_status
             result = _get_status(args)
         elif function == "login":
-            from login import run as _login
+            from identity.login import run as _login
             result = _login(args)
         elif function == "logout":
-            from logout import run as _logout
+            from identity.logout import run as _logout
             result = _logout(args)
         elif function == "register":
-            from register import run as _register
+            from identity.register import run as _register
             result = _register(args)
         elif function == "request_login":
-            from request_login import run as _request_login
+            from identity.request_login import run as _request_login
             result = _request_login(args)
         elif function == "setup":
-            from setup import run as _setup
+            from identity.setup import run as _setup
             result = _setup(args)
         elif function == "whois":
-            from whois import run as _whois
+            from identity.whois import run as _whois
             result = _whois(args)
         elif function == "test":
-            from test import run as _test
+            from identity.test import run as _test
             result = _test(args)
         elif function == "warm":
-            from warm import run as _warm
+            from identity.warm import run as _warm
             result = _warm(args)
         else:
             result = {"status": -1,
