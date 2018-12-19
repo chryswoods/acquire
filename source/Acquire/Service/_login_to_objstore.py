@@ -3,17 +3,16 @@ import os as _os
 import json as _json
 
 from cachetools import cached as _cached
-from cachetools import TTLCache as _TTLCache
+from cachetools import LRUCache as _LRUCache
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
 from ._errors import ServiceAccountError
 
-# The cache can hold a maximum of 50 objects, and will be renewed
-# every 300 seconds (so any changes in this service's key would
-# cause problems for a maximum of 300 seconds)
-_cache = _TTLCache(maxsize=50, ttl=300)
+# The cache can hold a maximum of 50 objects, and will remove the
+# least recently used items from the cache
+_cache = _LRUCache(maxsize=50)
 
 __all__ = ["login_to_service_account",
            "_push_testing_objstore", "_pop_testing_objstore"]
@@ -25,14 +24,17 @@ _testing_objstore_stack = []
 def _push_testing_objstore(testing_dir):
     """Function used in testing to push a new object store onto the stack"""
     global _current_testing_objstore
+    global _cache
     _testing_objstore_stack.append(_current_testing_objstore)
     _current_testing_objstore = testing_dir
+    _cache.clear()
 
 
 def _pop_testing_objstore():
     """Function used in testing to pop an object store from the stack"""
     global _current_testing_objstore
     global _testing_objstore_stack
+    global _cache
 
     try:
         d = _testing_objstore_stack.pop()
@@ -40,11 +42,13 @@ def _pop_testing_objstore():
         d = None
 
     _current_testing_objstore = d
+    _cache.clear()
+
 
 # Cache this function as the result changes very infrequently, as involves
 # lots of round trips to the object store, and it will give the same
 # result regardless of which Fn function on the service makes the call
-#@_cached(_cache)
+@_cached(_cache)
 def login_to_service_account(testing_dir=None):
     """This function logs into the object store account of the service account.
        Accessing the object store means being able to access

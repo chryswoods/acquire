@@ -7,7 +7,7 @@ from Acquire.Service import create_return_value, pack_return_value, \
                             start_profile, end_profile
 
 
-async def handler(ctx, data=None, loop=None):
+def handler(ctx, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
        a single accounting function to stay hot for longer"""
     try:
@@ -78,5 +78,9 @@ async def handler(ctx, data=None, loop=None):
         return json.dumps(message)
 
 
+async def async_handler(ctx, data=None, loop=None):
+    return handler(ctx, data, loop)
+
+
 if __name__ == "__main__":
-    fdk.handle(handler)
+    fdk.handle(async_handler)

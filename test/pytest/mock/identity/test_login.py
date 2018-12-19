@@ -33,9 +33,6 @@ class MockedPyCurl:
         self._data[typ] = value
 
     def perform(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         url = self._data["URL"]
 
         global _services
@@ -55,7 +52,7 @@ class MockedPyCurl:
         else:
             raise ValueError("Cannot recognise service from '%s'" % url)
 
-        result = loop.run_until_complete(func(None, self._data["POSTFIELDS"]))
+        result = func(None, self._data["POSTFIELDS"])
 
         _pop_testing_objstore()
 
@@ -90,17 +87,24 @@ def aaai_services(tmpdir_factory):
     responses["identity"] = response
 
     args["service_url"] = "accounting"
+    args["new_service"] = "identity"
     response = call_function("accounting", function="setup", args=args)
     responses["accounting"] = response
+
+    args["service_url"] = "storage"
+    args["new_service"] = "identity"
+    response = call_function("storage", function="setup", args=args)
+    responses["storage"] = response
+
+    args["service_url"] = "access"
+    args["new_service"] = "identity"
+    response = call_function("access", function="setup", args=args)
+    responses["access"] = response
 
     return responses
 
 
 def test_login(aaai_services):
-    response = call_function("identity")
-    print(response)
-    assert(False)
-
     # register the new user
     username = "testuser"
     password = "ABCdef12345"

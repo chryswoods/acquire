@@ -22,7 +22,7 @@ def one_hot_spare():
                      stdout=devnull,
                      stderr=subprocess.STDOUT)
 
-async def handler(ctx, data=None, loop=None):
+def handler(ctx, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
        a single identity function to stay hot for longer"""
 
@@ -112,5 +112,9 @@ async def handler(ctx, data=None, loop=None):
         return json.dumps(message)
 
 
+async def async_handler(ctx, data=None, loop=None):
+    return handler(ctx, data, loop)
+
+
 if __name__ == "__main__":
-    fdk.handle(handler)
+    fdk.handle(async_handler)

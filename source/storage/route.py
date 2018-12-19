@@ -8,7 +8,7 @@ from Acquire.Service import create_return_value, pack_return_value, \
                             start_profile, end_profile
 
 
-async def handler(ctx, data=None, loop=None):
+def handler(ctx, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
        a single access function to stay hot for longer"""
     try:
@@ -34,13 +34,13 @@ async def handler(ctx, data=None, loop=None):
 
     try:
         if function is None:
-            from root import run as _root
+            from storage.root import run as _root
             result = _root(args)
         elif function == "open":
-            from open import run as _open
+            from storage.open import run as _open
             result = _open(args)
         elif function == "setup":
-            from setup import run as _setup
+            from storage.setup import run as _setup
             result = _setup(args)
         else:
             result = {"status": -1,
@@ -67,5 +67,9 @@ async def handler(ctx, data=None, loop=None):
         return json.dumps(message)
 
 
+async def async_handler(ctx, data=None, loop=None):
+    return handler(ctx, data, loop)
+
+
 if __name__ == "__main__":
-    fdk.handle(handler)
+    fdk.handle(async_handler)
