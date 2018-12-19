@@ -43,6 +43,7 @@ def _get_key(key):
             return None
 
         key = _PublicKey.read_bytes(_string_to_bytes(key))
+        return key
     else:
         return key()
 
@@ -96,10 +97,8 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
     except:
         sign_result = False
 
-    print("SIGN RESULT? %s" % sign_result)
-    print(key)
-
     key = _get_key(key)
+
     response_key = _get_key(response_key)
 
     if response_key:
@@ -109,17 +108,14 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         if public_cert:
             result["sign_with_service_key"] = True
 
-    elif sign_result:
+    elif sign_result and (key is None):
         raise PackingError(
             "You cannot ask the service to sign the response "
             "without also providing a key to encrypt it with too")
 
     result = _json.dumps(result).encode("utf-8")
 
-    print(":::RESULT:::")
-    print(result)
-
-    if key:
+    if key is not None:
         response = {}
 
         result_data = key.encrypt(result)
