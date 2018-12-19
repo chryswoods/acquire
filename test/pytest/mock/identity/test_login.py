@@ -6,9 +6,9 @@ import re
 import asyncio
 
 import Acquire.Service
+import Acquire.Client
 
 from Acquire.Crypto import PrivateKey, OTP
-from Acquire.Identity import LoginSession
 
 from Acquire.Service import login_to_service_account
 from Acquire.Service import _push_testing_objstore, _pop_testing_objstore
@@ -55,6 +55,9 @@ class MockedPyCurl:
         result = func(None, self._data["POSTFIELDS"])
 
         _pop_testing_objstore()
+
+        if type(result) is str:
+            result = result.encode("utf-8")
 
         self._data["WRITEDATA"].write(result)
 
@@ -109,16 +112,9 @@ def test_login(aaai_services):
     username = "testuser"
     password = "ABCdef12345"
 
-    args = {"username": username,
-            "password": password}
+    user = Acquire.Client.User(username, identity_url="identity")
 
-    result = register(args)
-
-    assert("status" in result)
-    assert(result["status"] == 0)
-
-    assert("provisioning_uri" in result)
-    provisioning_uri = result["provisioning_uri"]
+    (provisioning_uri, qrcode) = user.register(password)
 
     # extract the shared secret from the provisioning URI
     otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
@@ -127,6 +123,11 @@ def test_login(aaai_services):
     otp = OTP(otpsecret)
 
     # now get and check the whois lookup...
+    user_uid = user.uid()
+    check_username = Acquire.Client.uid_to_username(user_uid,
+                                                    identity_url="identity")
+
+    assert(check_username == username)
 
     session_key = PrivateKey()
     session_cert = PrivateKey()

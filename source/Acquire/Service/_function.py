@@ -171,6 +171,12 @@ def unpack_arguments(args, key=None, public_cert=None):
         raise RemoteFunctionCallError(
             "Server returned the error string: '%s'" % (data["error"]))
 
+    if "status" in data:
+        if data["status"] != 0:
+            raise RemoteFunctionCallError(
+                "Function exited with status %d: %s" % (data["status"],
+                                                        data["message"]))
+
     try:
         is_encrypted = data["encrypted"]
     except:
@@ -180,7 +186,8 @@ def unpack_arguments(args, key=None, public_cert=None):
         if not is_encrypted:
             raise UnpackingError(
                 "Cannot unpack the result as it should be "
-                "signed, but it isn't! (only encrypted results are signed)")
+                "signed, but it isn't! (only encrypted results are signed) "
+                "Response == %s" % _json.dumps(data))
 
         try:
             signature = _string_to_bytes(data["signature"])
