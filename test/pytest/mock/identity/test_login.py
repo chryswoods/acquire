@@ -70,7 +70,6 @@ Acquire.Service._function._pycurl.Curl = MockedPyCurl
 
 _services = {}                    # global objstore for each service
 
-
 @pytest.fixture(scope="module")
 def aaai_services(tmpdir_factory):
     global _services
@@ -120,7 +119,7 @@ def test_login(aaai_services):
     otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
                           provisioning_uri).groups()[0]
 
-    otp = OTP(otpsecret)
+    user_otp = OTP(otpsecret)
 
     # now get and check the whois lookup...
     user_uid = user.uid()
@@ -129,27 +128,22 @@ def test_login(aaai_services):
 
     assert(check_username == username)
 
-    session_key = PrivateKey()
-    session_cert = PrivateKey()
+    (login_url, qrcode) = user.request_login()
 
-    args = {"username": "testuser",
-            "public_key": session_key.public_key().to_data(),
-            "public_certificate": session_cert.public_key().to_data()}
-
-    result = request_login(args)
-
-    assert("status" in result)
-    assert(result["status"] == 0)
-
-    assert("login_url" in result)
-    login_url = result["login_url"]
-
-    assert("session_uid" in result)
-    session_uid = result["session_uid"]
+    assert(type(login_url) is str)
 
     short_uid = re.search(r"id=([\w\d+]+)",
                           login_url).groups()[0]
 
-    assert(short_uid == LoginSession.to_short_uid(session_uid))
+    args = {}
+    args["short_uid"] = short_uid
+    args["username"] = username
+    args["password"] = password
+    args["otpcode"] = user_otp.generate()
 
-    assert(False)
+    result = call_function("identity", "login", args=args)
+
+    assert("status" in result)
+    assert(result["status"] == 0)
+
+    user.logout()

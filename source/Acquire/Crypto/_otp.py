@@ -54,6 +54,11 @@ class OTP:
            for the user called 'username' and is issued by 'issuer'"""
         return self._totp().provisioning_uri(username, issuer_name=issuer)
 
+    def generate(self):
+        """Generate and return the current OTP code"""
+        totp = self._totp()
+        return totp.now()
+
     def verify(self, code):
         """Verify that the passed code is correct. This raises an exception
            if the code is incorrect, or does nothing if the code is correct"""
@@ -63,6 +68,7 @@ class OTP:
         # improves usability and tolerance for clock drift with only
         # minor increase in OTP validity time
         if not self._totp().verify(code, valid_window=1):
+            print("%s versus %s" % (code, self.generate_otp()))
             raise OTPError("The passed OTP code is incorrect")
 
         # note that, ideally, we need to save whether or not this code
