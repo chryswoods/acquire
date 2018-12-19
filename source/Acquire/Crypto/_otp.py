@@ -68,7 +68,6 @@ class OTP:
         # improves usability and tolerance for clock drift with only
         # minor increase in OTP validity time
         if not self._totp().verify(code, valid_window=1):
-            print("%s versus %s" % (code, self.generate_otp()))
             raise OTPError("The passed OTP code is incorrect")
 
         # note that, ideally, we need to save whether or not this code

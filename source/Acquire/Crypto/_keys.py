@@ -53,7 +53,7 @@ def _string_to_bytes(s):
 def _assert_strong_passphrase(passphrase, mangleFunction):
     """This function returns whether or not the passed
        passphrase is sufficiently strong. To be strong,
-       the password must be between 6-20 characters,
+       the password must be between 6-50 characters,
        mix upper and lower case, and contain letters and
        numbers
     """
@@ -63,9 +63,9 @@ def _assert_strong_passphrase(passphrase, mangleFunction):
     else:
         passphrase = str(passphrase)
 
-    if len(passphrase) < 6 or len(passphrase) > 20:
+    if len(passphrase) < 6 or len(passphrase) > 50:
         raise WeakPassphraseError("The pass-phrase '%s' must contain between "
-                                  "6 and 20 characters" % passphrase)
+                                  "6 and 50 characters" % passphrase)
 
     if not (_re.search(r'[A-Z]', passphrase) and
             _re.search(r'[a-z]', passphrase) and
