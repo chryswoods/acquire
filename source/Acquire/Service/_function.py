@@ -9,6 +9,7 @@ except:
 from io import BytesIO as _BytesIO
 
 from Acquire.Crypto import PublicKey as _PublicKey
+from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
@@ -33,7 +34,7 @@ def _get_key(key):
     """
     if key is None:
         return None
-    elif isinstance(key, _PublicKey):
+    elif isinstance(key, _PublicKey) or isinstance(key, _PrivateKey):
         return key
     elif isinstance(key, dict):
         try:
@@ -43,12 +44,7 @@ def _get_key(key):
 
         key = _PublicKey.read_bytes(_string_to_bytes(key))
     else:
-        try:
-            key = key()
-        except:
-            pass
-
-    return key
+        return key()
 
 
 def create_return_value(status, message, log=None, error=None):
@@ -100,6 +96,9 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
     except:
         sign_result = False
 
+    print("SIGN RESULT? %s" % sign_result)
+    print(key)
+
     key = _get_key(key)
     response_key = _get_key(response_key)
 
@@ -110,12 +109,15 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         if public_cert:
             result["sign_with_service_key"] = True
 
-    elif public_cert:
+    elif sign_result:
         raise PackingError(
             "You cannot ask the service to sign the response "
             "without also providing a key to encrypt it with too")
 
     result = _json.dumps(result).encode("utf-8")
+
+    print(":::RESULT:::")
+    print(result)
 
     if key:
         response = {}
@@ -131,6 +133,11 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         response["encrypted"] = True
         result = _json.dumps(response).encode("utf-8")
 
+    elif sign_result:
+        raise PackingError(
+            "The service must encrypt the response before it "
+            "can be signed.")
+
     return result
 
 
@@ -139,7 +146,7 @@ def pack_arguments(args, key=None, response_key=None, public_cert=None):
     return pack_return_value(args, key, response_key, public_cert)
 
 
-def unpack_arguments(args, key=None, public_cert=None):
+def unpack_arguments(args, key=None, public_cert=None, is_return_value=False):
     """Call this to unpack the passed arguments that have been encoded
        as a json string, packed using pack_arguments. This will always
        return a dictionary. If there are no arguments, then an empty
@@ -167,15 +174,18 @@ def unpack_arguments(args, key=None, public_cert=None):
                 "Cannot decode a json dictionary from '%s' : %s" %
                 (data, str(e)))
 
-    if len(data) == 1 and "error" in data:
-        raise RemoteFunctionCallError(
-            "Server returned the error string: '%s'" % (data["error"]))
-
-    if "status" in data:
-        if data["status"] != 0:
+    if is_return_value:
+        # extra checks if this is a return value of a function rather
+        # than the arguments
+        if len(data) == 1 and "error" in data:
             raise RemoteFunctionCallError(
-                "Function exited with status %d: %s" % (data["status"],
-                                                        data["message"]))
+                "Server returned the error string: '%s'" % (data["error"]))
+
+        if "status" in data:
+            if data["status"] != 0:
+                raise RemoteFunctionCallError(
+                    "Function exited with status %d: %s" % (data["status"],
+                                                            data["message"]))
 
     try:
         is_encrypted = data["encrypted"]
@@ -220,7 +230,8 @@ def unpack_arguments(args, key=None, public_cert=None):
 def unpack_return_value(return_value, key=None, public_cert=None):
     """Call this to unpack the passed arguments that have been encoded
        as a json string, packed using pack_arguments"""
-    return unpack_arguments(return_value, key, public_cert)
+    return unpack_arguments(return_value, key, public_cert,
+                            is_return_value=True)
 
 
 def call_function(service_url, function=None, args_key=None, response_key=None,

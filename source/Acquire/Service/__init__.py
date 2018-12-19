@@ -13,6 +13,7 @@ from ._service_account import *
 from ._service import *
 from ._profile import *
 from ._errors import *
+from ._cache_management import *
 
 try:
     if __IPYTHON__:

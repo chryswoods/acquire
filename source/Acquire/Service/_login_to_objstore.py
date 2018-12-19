@@ -8,6 +8,7 @@ from cachetools import LRUCache as _LRUCache
 from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
+from ._cache_management import clear_service_cache as _clear_service_cache
 from ._errors import ServiceAccountError
 
 # The cache can hold a maximum of 50 objects, and will remove the
@@ -24,17 +25,15 @@ _testing_objstore_stack = []
 def _push_testing_objstore(testing_dir):
     """Function used in testing to push a new object store onto the stack"""
     global _current_testing_objstore
-    global _cache
     _testing_objstore_stack.append(_current_testing_objstore)
     _current_testing_objstore = testing_dir
-    _cache.clear()
+    _clear_service_cache()
 
 
 def _pop_testing_objstore():
     """Function used in testing to pop an object store from the stack"""
     global _current_testing_objstore
     global _testing_objstore_stack
-    global _cache
 
     try:
         d = _testing_objstore_stack.pop()
@@ -42,7 +41,7 @@ def _pop_testing_objstore():
         d = None
 
     _current_testing_objstore = d
-    _cache.clear()
+    _clear_service_cache()
 
 
 # Cache this function as the result changes very infrequently, as involves

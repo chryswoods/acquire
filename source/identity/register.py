@@ -14,6 +14,10 @@ class ExistingAccountError(Exception):
     pass
 
 
+class RegisterAccountError(Exception):
+    pass
+
+
 def run(args):
     """This function will allow a user to register an account with a
        username and password"""
@@ -45,8 +49,14 @@ def run(args):
 
     service_info = get_service_info()
 
-    provisioning_uri = otp.provisioning_uri(username, issuer="Acquire@%s" %
-                                            service_info.canonical_url())
+    try:
+        provisioning_uri = otp.provisioning_uri(username,
+                                                issuer="Acquire@%s" %
+                                                service_info.canonical_url())
+    except Exception as e:
+        raise RegisterAccountError(
+            "Cannot get the ORI to register an account (%s): %s"
+            % (str(service_info), str(e)))
 
     try:
         existing_data = ObjectStore.get_object_from_json(bucket,

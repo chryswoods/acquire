@@ -2,7 +2,7 @@
 import base64 as _base64
 
 from cachetools import cached as _cached
-from cachetools import TTLCache as _TTLCache
+from cachetools import LRUCache as _LRUCache
 
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from Acquire.Crypto import PrivateKey as _PrivateKey
@@ -15,10 +15,9 @@ from ._login_to_objstore import login_to_service_account as \
 
 from ._errors import ServiceError, ServiceAccountError
 
-# The cache can hold a maximum of 50 objects, and will be renewed
-# every 300 seconds (so any changes in this service's key would
-# cause problems for a maximum of 300 seconds)
-_cache = _TTLCache(maxsize=50, ttl=300)
+# The cache can hold a maximum of 50 objects, and will replace the least
+# recently used items first
+_cache = _LRUCache(maxsize=50)
 
 __all__ = ["url_to_encoded", "get_trusted_service_info",
            "set_trusted_service_info", "remove_trusted_service_info",

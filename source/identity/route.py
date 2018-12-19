@@ -22,6 +22,7 @@ def one_hot_spare():
                      stdout=devnull,
                      stderr=subprocess.STDOUT)
 
+
 def handler(ctx, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
        a single identity function to stay hot for longer"""
@@ -35,7 +36,8 @@ def handler(ctx, data=None, loop=None):
         args = unpack_arguments(data, get_service_private_key)
     except Exception as e:
         result = {"status": -1,
-                  "message": "Cannot unpack arguments: %s" % e}
+                  "message": "Cannot unpack arguments (%s): %s"
+                  % (data, str(e))}
         return json.dumps(result)
     except:
         result = {"status": -1,
