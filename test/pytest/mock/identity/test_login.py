@@ -9,7 +9,6 @@ from Acquire.Client import User, uid_to_username
 from Acquire.Crypto import OTP
 
 
-
 @pytest.mark.parametrize("username, password",
                          [("testuser", "ABCdef12345"),
                           ("something", "!!DDerfld31"),
@@ -19,6 +18,9 @@ def test_login(username, password, aaai_services):
     user = User(username, identity_url="identity")
 
     (provisioning_uri, qrcode) = user.register(password)
+
+    assert(qrcode is not None)
+    assert(type(provisioning_uri) is str)
 
     # extract the shared secret from the provisioning URI
     otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
