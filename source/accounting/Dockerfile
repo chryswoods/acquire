@@ -4,9 +4,12 @@ FROM chryswoods/acquire-base:latest
 # {"message":"internal server error"}
 USER root
 
-ADD *.py $HOME/
-RUN python3 -m compileall $HOME/*.py
+WORKDIR $HOME
+RUN mkdir $PYTHON_EXT/accounting
 
-ADD secret_key $HOME/
+ADD *.py $PYTHON_EXT/accounting/
+RUN python3 -m compileall $PYTHON_EXT/accounting/*.py
+
+ADD route.py secret_key ./
 
 ENTRYPOINT ["python", "route.py"]

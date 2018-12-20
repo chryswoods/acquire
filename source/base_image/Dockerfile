@@ -87,9 +87,14 @@ ADD fixed/fast_fdk__init__.py /python/fdk/__init__.py
 
 # Add the function last as this is the thing that will change
 # most often
-ADD Acquire /function/Acquire
+ENV PYTHON_EXT=/function/python_modules
 
-RUN python3 -m compileall /function/Acquire/*
+RUN mkdir $PYTHON_EXT
+ADD Acquire $PYTHON_EXT/Acquire
+
+ENV PYTHONPATH=$PYTHONPATH:$PYTHON_EXT
+
+RUN python3 -m compileall $PYTHON_EXT/Acquire/*
 
 ENTRYPOINT ["bash"]
 

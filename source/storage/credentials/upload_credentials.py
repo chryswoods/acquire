@@ -61,6 +61,7 @@ data["compartment"] = "ocid1.compartment.oc1..aaaaaaaat33j7w74mdyjenwoinyeawztxe
 data["bucket"] = "acquire_storage"
 
 secret_config["BUCKET"] = data
+secret_config["STORAGE_COMPARTMENT"] = "ocid1.compartment.oc1..aaaaaaaatlvutbwbc6675hnhmueefnl6pvhlpugjixkjt27atmj2a4z3xjaq"
 
 secret_config["PASSWORD"] = sys.argv[2]
 
