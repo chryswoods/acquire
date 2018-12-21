@@ -41,6 +41,32 @@ class Testing_ObjectStore:
         return full_name
 
     @staticmethod
+    def get_bucket(bucket, bucket_name, compartment=None,
+                   create_if_needed=True):
+        """Find and return a new bucket in the object store called
+           'bucket_name', optionally placing it into the compartment
+           identified by 'compartment'. If 'create_if_needed' is True
+           then the bucket will be created if it doesn't exist. Otherwise,
+           if the bucket does not exist then an exception will be raised.
+        """
+        if compartment is not None:
+            bucket_name = _os.path.join(str(compartment), str(bucket_name))
+        else:
+            bucket_name = str(bucket_name)
+
+        full_name = _os.path.join(_os.path.split(bucket)[0], bucket_name)
+
+        if not _os.path.exists(full_name):
+            if create_if_needed:
+                _os.makedirs(full_name)
+            else:
+                raise ObjectStoreError(
+                    "There is no bucket available called '%s' in "
+                    "compartment '%s'" % (bucket_name,compartment))
+
+        return full_name
+
+    @staticmethod
     def get_object_as_file(bucket, key, filename):
         """Get the object contained in the key 'key' in the passed 'bucket'
            and writing this to the file called 'filename'"""

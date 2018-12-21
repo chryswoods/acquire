@@ -61,3 +61,22 @@ def test_objstore(bucket):
 
     with pytest.raises(ObjectStoreError):
         new_bucket = ObjectStore.create_bucket(bucket, "new_bucket")
+
+    with pytest.raises(ObjectStoreError):
+        new_bucket = ObjectStore.get_bucket(bucket, "get_bucket",
+                                            create_if_needed=False)
+
+    new_bucket = ObjectStore.get_bucket(bucket, "get_bucket",
+                                        create_if_needed=True)
+
+    test_key = "test_string"
+    test_value = "test_string_value"
+
+    ObjectStore.set_string_object(new_bucket, test_key, test_value)
+
+    new_bucket2 = ObjectStore.get_bucket(bucket, "get_bucket",
+                                         create_if_needed=False)
+
+    test_value2 = ObjectStore.get_string_object(new_bucket2, test_key)
+
+    assert(test_value == test_value2)
