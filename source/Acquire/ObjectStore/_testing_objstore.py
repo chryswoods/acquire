@@ -7,7 +7,8 @@ import json as _json
 import glob as _glob
 import threading
 
-from ._errors import ObjectStoreError
+from ._par import PAR as _PAR
+from ._errors import ObjectStoreError, PARError
 
 _rlock = threading.RLock()
 
@@ -62,9 +63,42 @@ class Testing_ObjectStore:
             else:
                 raise ObjectStoreError(
                     "There is no bucket available called '%s' in "
-                    "compartment '%s'" % (bucket_name,compartment))
+                    "compartment '%s'" % (bucket_name, compartment))
 
         return full_name
+
+    @staticmethod
+    def create_par(bucket, key=None, writeable=False, duration=3600):
+        """Create a pre-authenticated request for the passed bucket and
+           key (if key is None then the request is for the entire bucket).
+           This will return a PAR object that will contain a URL that can
+           be used to access the object/bucket. If writeable is true, then
+           the URL will also allow the object/bucket to be written to.
+           PARs are time-limited. Set the lifetime in seconds by passing
+           in 'duration' (by default this is one hour)
+        """
+        if key is not None:
+            if not _os.path.exists("%s/%s._data" % (bucket, key)):
+                raise PARError(
+                    "The object '%s' in bucket '%s' does not exist!" %
+                    (key, bucket))
+        elif not _os.path.exists(bucket):
+            raise PARError("The bucket '%s' does not exist!" % bucket)
+
+        url = "file://%s" % bucket
+
+        if key:
+            url = "%s/%s._data" % (url, key)
+
+        # get the UTC timestamp when this PAR should expire
+        expires_datetime = _datetime.datetime.utcnow() + \
+            _datetime.timedelta(seconds=duration)
+
+        expires_timestamp = expires_datetime.replace(
+            tzinfo=_datetime.timezone.utc).timestamp()
+
+        return _PAR(url=url, key=key, expires_timestamp=expires_timestamp,
+                    is_writeable=writeable, driver="testing_objstore")
 
     @staticmethod
     def get_object_as_file(bucket, key, filename):

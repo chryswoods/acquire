@@ -8,6 +8,7 @@ based on permissions routed via the access service
 """
 
 from ._storage_service import *
+from ._bucket import *
 
 try:
     if __IPYTHON__:

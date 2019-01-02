@@ -1,11 +1,6 @@
 
 import pytest
 
-# Testing mode is switched on using this environment variable.
-# This tells Acquire not to try to log into the cloud, but to
-# instead create and use a fake object store locally
-import os
-
 from Acquire.ObjectStore import ObjectStore, ObjectStoreError
 from Acquire.Service import login_to_service_account
 
