@@ -196,12 +196,12 @@ class PAR:
 
         par._url = data["url"]
 
-        if not par._url is None:
+        if par._url is not None:
             par._url = str(par._url)
 
         par._key = data["key"]
 
-        if not par._key is None:
+        if par._key is not None:
             par._key = str(par._key)
 
         par._created_timestamp = data["created_timestamp"]

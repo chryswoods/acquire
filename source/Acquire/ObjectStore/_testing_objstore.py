@@ -27,10 +27,13 @@ class Testing_ObjectStore:
            identified by 'compartment'. This will raise an
            ObjectStoreError if this bucket already exists
         """
+        bucket_name = str(bucket_name)
+
         if compartment is not None:
-            bucket_name = _os.path.join(str(compartment), str(bucket_name))
-        else:
-            bucket_name = str(bucket_name)
+            if compartment.endswith("/"):
+                bucket = compartment
+            else:
+                bucket = "%s/" % compartment
 
         full_name = _os.path.join(_os.path.split(bucket)[0], bucket_name)
 
@@ -51,10 +54,13 @@ class Testing_ObjectStore:
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
         """
+        bucket_name = str(bucket_name)
+
         if compartment is not None:
-            bucket_name = _os.path.join(str(compartment), str(bucket_name))
-        else:
-            bucket_name = str(bucket_name)
+            if compartment.endswith("/"):
+                bucket = compartment
+            else:
+                bucket = "%s/" % compartment
 
         full_name = _os.path.join(_os.path.split(bucket)[0], bucket_name)
 

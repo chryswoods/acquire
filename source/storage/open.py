@@ -59,6 +59,9 @@ def run(args):
     ObjectStore.set_object_from_json(new_bucket, "test_key",
                                      None)
 
+    par = ObjectStore.create_par(new_bucket, "test_key",
+                                 readable=True, writeable=True)
+
     status = 0
     message = "Success"
 
@@ -66,5 +69,7 @@ def run(args):
 
     return_value["test_key"] = ObjectStore.get_object_from_json(new_bucket,
                                                                 "test_key")
+
+    return_value["par"] = par.to_data()
 
     return return_value

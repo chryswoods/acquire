@@ -7,7 +7,9 @@ import os as _os
 import copy as _copy
 import uuid as _uuid
 
-from ._errors import ObjectStoreError
+from ._par import PAR as _PAR
+
+from ._errors import ObjectStoreError, PARError, PARPermissionsError
 
 __all__ = ["OCI_ObjectStore"]
 
@@ -153,12 +155,81 @@ class OCI_ObjectStore:
         expires_timestamp = expires_datetime.replace(
             tzinfo=_datetime.timezone.utc).timestamp()
 
+        is_bucket = (key is None)
+
         # Limitation of OCI - cannot have a bucket PAR with
         # read permissions!
-        if (key is None) and readable:
+        if is_bucket and readable:
             raise PARError(
                 "You cannot create a Bucket PAR that has read permissions "
                 "due to a limitation in the underlying platform")
+
+        try:
+            from oci.object_storage.models import \
+                CreatePreauthenticatedRequestDetails as \
+                _CreatePreauthenticatedRequestDetails
+        except:
+            raise ImportError(
+                "Cannot import OCI. Please install OCI, e.g. via "
+                "'pip install oci' so that you can connect to the "
+                "Oracle Cloud Infrastructure")
+
+        oci_par = None
+
+        try:
+            request = _CreatePreauthenticatedRequestDetails()
+
+            if is_bucket:
+                request.access_type = "AnyObjectWrite"
+            elif readable and writeable:
+                request.access_type = "ObjectReadWrite"
+            elif readable:
+                request.access_type = "ObjectRead"
+            elif writeable:
+                request.access_type = "ObjectWrite"
+            else:
+                raise ObjectStoreError(
+                    "Unsupported permissions model for PAR!")
+
+            request.name = str(_uuid.uuid4())
+
+            if not is_bucket:
+                request.object_name = key
+
+            request.time_expires = expires_datetime
+
+            client = bucket["client"]
+
+            oci_par = client.create_preauthenticated_request(
+                                        client.get_namespace().data,
+                                        bucket["bucket_name"],
+                                        request).data
+        except Exception as e:
+            # couldn't create the preauthenticated request
+            raise ObjectStoreError(
+                "Unable to create the preauthenticated request '%s': %s" %
+                (str(request), str(e)))
+
+        if oci_par is None:
+            raise ObjectStoreError(
+                "Unable to create the preauthenticated request!")
+
+        created_timestamp = oci_par.time_created.replace(
+                                tzinfo=_datetime.timezone.utc).timestamp()
+
+        expires_timestamp = oci_par.time_expires.replace(
+                                tzinfo=_datetime.timezone.utc).timestamp()
+
+        par = _PAR(url=oci_par.access_uri,
+                   key=key,
+                   created_timestamp=created_timestamp,
+                   expires_timestamp=expires_timestamp,
+                   is_readable=readable,
+                   is_writeable=writeable,
+                   par_id=str(oci_par.id),
+                   driver="oci")
+
+        return par
 
     @staticmethod
     def get_object_as_file(bucket, key, filename):

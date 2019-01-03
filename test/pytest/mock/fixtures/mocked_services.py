@@ -125,12 +125,14 @@ def aaai_services(tmpdir_factory):
     _services["accounting"] = tmpdir_factory.mktemp("accounting")
     _services["access"] = tmpdir_factory.mktemp("access")
     _services["storage"] = tmpdir_factory.mktemp("storage")
+    _services["userdata"] = tmpdir_factory.mktemp("userdata")
 
     args = {"password": "ABCdef12345"}
 
     responses = {}
 
     os.environ["SERVICE_PASSWORD"] = "Service_pa33word"
+    os.environ["STORAGE_COMPARTMENT"] = str(_services["userdata"])
 
     args["service_url"] = "identity"
     response = call_function("identity", function="setup", args=args)
@@ -141,14 +143,14 @@ def aaai_services(tmpdir_factory):
     response = call_function("accounting", function="setup", args=args)
     responses["accounting"] = response
 
-    args["service_url"] = "storage"
-    args["new_service"] = "identity"
-    response = call_function("storage", function="setup", args=args)
-    responses["storage"] = response
-
     args["service_url"] = "access"
     args["new_service"] = "identity"
     response = call_function("access", function="setup", args=args)
     responses["access"] = response
+
+    args["service_url"] = "storage"
+    args["new_service"] = "identity"
+    response = call_function("storage", function="setup", args=args)
+    responses["storage"] = response
 
     return responses
