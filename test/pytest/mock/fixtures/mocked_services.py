@@ -92,6 +92,14 @@ class MockedPyCurl:
 
         self._data["WRITEDATA"].write(result)
 
+    def getinfo(self, key):
+        url = self._data["URL"]
+
+        if url.startswith("http"):
+            return self._c.getinfo(key)
+        else:
+            return 200
+
     def close(self):
         try:
             self._c.close()

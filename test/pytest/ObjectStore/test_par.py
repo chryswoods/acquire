@@ -17,7 +17,8 @@ def bucket(tmpdir_factory):
 
 def test_par(bucket):
     # first try to create a PAR for the whole bucket
-    par = ObjectStore.create_par(bucket, writeable=False, duration=100)
+    par = ObjectStore.create_par(bucket, readable=False, writeable=True,
+                                 duration=100)
 
     # should not take 10 seconds to create and return the PAR...
     assert(par.seconds_remaining(buffer=0) > 90)
@@ -58,8 +59,10 @@ def test_par(bucket):
 
     assert(ObjectStore.get_string_object(bucket, key) == value)
 
-    par = ObjectStore.create_par(bucket, writeable=True, duration=120)
+    par = ObjectStore.create_par(bucket, readable=False,
+                                 writeable=True, duration=120)
 
+    assert(not par.is_readable())
     assert(par.is_writeable())
     assert(par.is_bucket())
 
@@ -69,21 +72,14 @@ def test_par(bucket):
                "three": "€√≠ç~ç~€", "four": "hello world!",
                "subdir/five": "#º©√∆˚∆˚¬€ €˚∆ƒ¬"}
 
-    writer = par.write()
-    reader = par.read()
-
     for (key, value) in keyvals.items():
-        fullkey = "%s/%s" % (d, key)
-        writer.set_string_object(fullkey, value)
+        par.write().set_string_object("%s/%s" % (d, key), value)
 
-        assert(reader.get_string_object(fullkey) == value)
+    for key in keyvals.keys():
+        par = ObjectStore.create_par(bucket, "%s/%s" % (d, key), duration=60)
+        value = par.read().get_string_object()
 
-    objnames = reader.get_all_object_names(d)
-    objs = writer.get_all_strings(d)
-
-    for (key, value) in keyvals.items():
-        assert(key in objnames)
-        assert(objs[key] == value)
+        assert(keyvals[key] == value)
 
 
 def test_remote_par():
@@ -106,5 +102,26 @@ def test_remote_par():
     assert(val != original)
 
     assert(val == value)
+
+    assert(False)
+
+
+def test_remote_bucket_par():
+    remote_par = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/YqMRUmCZz6RCJdKlj63zTXQdPj1l7RCJW9bFWy7DxEY/n/chryswoods/b/testbucket/o/"
+
+    expires_timestamp = datetime.datetime(2020, 1, 1).replace(
+            tzinfo=datetime.timezone.utc).timestamp()
+
+    par = PAR(url=remote_par, is_readable=False, is_writeable=True,
+              expires_timestamp=expires_timestamp)
+
+    key = "this/is/a/test"
+    value = "some value " + str(uuid.uuid4())
+
+    par.write().set_string_object(key, value)
+
+    test = par.read().get_string_object(key)
+
+    assert(test == value)
 
     assert(False)

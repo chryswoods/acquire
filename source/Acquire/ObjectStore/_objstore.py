@@ -58,7 +58,8 @@ class ObjectStore:
                                             compartment, create_if_needed)
 
     @staticmethod
-    def create_par(bucket, key=None, writeable=False, duration=3600):
+    def create_par(bucket, key=None, readable=True,
+                   writeable=False, duration=3600):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
            This will return a PAR object that will contain a URL that can
@@ -67,7 +68,8 @@ class ObjectStore:
            PARs are time-limited. Set the lifetime in seconds by passing
            in 'duration' (by default this is one hour)
         """
-        par = _objstore_backend.create_par(bucket, key, writeable, duration)
+        par = _objstore_backend.create_par(bucket, key, readable,
+                                           writeable, duration)
 
         if not isinstance(par, _PAR):
             raise TypeError("A create_par request should always return an "

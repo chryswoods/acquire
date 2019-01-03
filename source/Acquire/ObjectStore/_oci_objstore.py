@@ -135,6 +135,32 @@ class OCI_ObjectStore:
         return new_bucket
 
     @staticmethod
+    def create_par(bucket, key=None, readable=True,
+                   writeable=False, duration=3600):
+        """Create a pre-authenticated request for the passed bucket and
+           key (if key is None then the request is for the entire bucket).
+           This will return a PAR object that will contain a URL that can
+           be used to access the object/bucket. If writeable is true, then
+           the URL will also allow the object/bucket to be written to.
+           PARs are time-limited. Set the lifetime in seconds by passing
+           in 'duration' (by default this is one hour)
+        """
+
+        # get the UTC timestamp when this PAR should expire
+        expires_datetime = _datetime.datetime.utcnow() + \
+            _datetime.timedelta(seconds=duration)
+
+        expires_timestamp = expires_datetime.replace(
+            tzinfo=_datetime.timezone.utc).timestamp()
+
+        # Limitation of OCI - cannot have a bucket PAR with
+        # read permissions!
+        if (key is None) and readable:
+            raise PARError(
+                "You cannot create a Bucket PAR that has read permissions "
+                "due to a limitation in the underlying platform")
+
+    @staticmethod
     def get_object_as_file(bucket, key, filename):
         """Get the object contained in the key 'key' in the passed 'bucket'
            and writing this to the file called 'filename'"""

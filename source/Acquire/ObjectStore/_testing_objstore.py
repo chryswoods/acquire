@@ -6,6 +6,7 @@ import uuid as _uuid
 import json as _json
 import glob as _glob
 import threading
+import uuid as _uuid
 
 from ._par import PAR as _PAR
 from ._errors import ObjectStoreError, PARError
@@ -68,7 +69,8 @@ class Testing_ObjectStore:
         return full_name
 
     @staticmethod
-    def create_par(bucket, key=None, writeable=False, duration=3600):
+    def create_par(bucket, key=None, readable=True,
+                   writeable=False, duration=3600):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
            This will return a PAR object that will contain a URL that can
@@ -90,15 +92,32 @@ class Testing_ObjectStore:
         if key:
             url = "%s/%s" % (url, key)
 
+        # get the time this PAR was created
+        created_datetime = _datetime.datetime.utcnow()
+
         # get the UTC timestamp when this PAR should expire
-        expires_datetime = _datetime.datetime.utcnow() + \
+        expires_datetime = created_datetime + \
             _datetime.timedelta(seconds=duration)
+
+        created_timestamp = created_datetime.replace(
+            tzinfo=_datetime.timezone.utc).timestamp()
 
         expires_timestamp = expires_datetime.replace(
             tzinfo=_datetime.timezone.utc).timestamp()
 
-        return _PAR(url=url, key=key, expires_timestamp=expires_timestamp,
-                    is_writeable=writeable, driver="testing_objstore")
+        # mimic limitations of OCI - cannot have a bucket PAR with
+        # read permissions!
+        if (key is None) and readable:
+            raise PARError(
+                "You cannot create a Bucket PAR that has read permissions "
+                "due to a limitation in the underlying platform")
+
+        return _PAR(url=url, key=key,
+                    created_timestamp=created_timestamp,
+                    expires_timestamp=expires_timestamp,
+                    is_readable=readable, is_writeable=writeable,
+                    par_id=str(_uuid.uuid4()),
+                    driver="testing_objstore")
 
     @staticmethod
     def get_object_as_file(bucket, key, filename):

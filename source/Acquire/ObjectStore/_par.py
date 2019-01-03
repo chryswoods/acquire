@@ -27,26 +27,46 @@ class PAR:
        the server to the client
     """
     def __init__(self, url=None, key=None,
-                 expires_timestamp=0, is_writeable=False,
+                 created_timestamp=0,
+                 expires_timestamp=0,
+                 is_readable=True,
+                 is_writeable=False,
+                 par_id=None,
                  driver=None):
         """Construct a PAR result by passing in the URL at which the
            object can be accessed, the UTC timestamp when this expires,
            whether this is writeable, and (optionally) 'key' for the
            object that is accessed (if this is not supplied then an
-           entire bucket is accessed). If 'is_writeable' then read/write
-           access has been granted. Otherwise access is read-only.
+           entire bucket is accessed). If 'is_readable', then read-access
+           has been granted, while if 'is_writeable' then write
+           access has been granted. Otherwise no access is possible.
            This also records the type of object store behind this PAR
-           in the free-form string 'driver'
+           in the free-form string 'driver'. You can optionally supply
+           the ID of the PAR by passing in 'par_id', and the time it
+           was created using 'created_timestamp' (in the same format
+           as 'expires_timestamp' - should be a UTC timestamp)
         """
         self._url = url
         self._key = key
+        self._created_timestamp = created_timestamp
         self._expires_timestamp = expires_timestamp
         self._driver = driver
+        self._par_id = par_id
+
+        if is_readable:
+            self._is_readable = True
+        else:
+            self._is_readable = False
 
         if is_writeable:
             self._is_writeable = True
         else:
             self._is_writeable = False
+
+        if not (self._is_readable or self._is_writeable):
+            raise PARPermissionsError(
+                "You cannot create a PAR that has no read or write "
+                "permissions!")
 
     def __str__(self):
         try:
@@ -70,6 +90,16 @@ class PAR:
                 "The URL behind this PAR has expired and is no longer valid")
 
         return self._url
+
+    def par_id(self):
+        """Return the ID of the PAR, if this was supplied by the underlying
+           driver. This could be useful for PAR management by the server
+        """
+        return self._par_id
+
+    def is_readable(self):
+        """Return whether or not this PAR gives read access"""
+        return self._is_readable
 
     def is_writeable(self):
         """Return whether or not this PAR gives write access"""
@@ -117,6 +147,10 @@ class PAR:
 
     def read(self):
         """Return an object that can be used to read data from this PAR"""
+        if not self.is_readable():
+            raise PARPermissionsError(
+                "You do not have permission to read from this PAR: %s" % self)
+
         if self.is_bucket():
             return BucketReader(self)
         else:
@@ -124,6 +158,10 @@ class PAR:
 
     def write(self):
         """Return an object that can be used to write data to this PAR"""
+        if not self.is_writeable():
+            raise PARPermissionsError(
+                "You do not have permission to write to this PAR: %s" % self)
+
         if self.is_bucket():
             return BucketWriter(self)
         else:
@@ -146,17 +184,22 @@ def _read_local(url):
 
 
 def _read_remote(url):
-    """Internal functiom used to read data from a remote URL"""
+    """Internal function used to read data from a remote URL"""
     if _pycurl is None:
         raise PARError("We need pycurl installed to read remote PARs!")
+
+    print("READING REMOTE %s" % url)
 
     buffer = _BytesIO()
     c = _pycurl.Curl()
     c.setopt(c.URL, url)
     c.setopt(c.WRITEDATA, buffer)
 
+    status_code = None
+
     try:
         c.perform()
+        status_code = c.getinfo(_pycurl.HTTP_CODE)
         c.close()
     except _pycurl.error as e:
         raise PARReadError(
@@ -168,7 +211,16 @@ def _read_remote(url):
             "Cannot read the remote PAR URL '%s' because of a possible "
             "nework issue: %s" % (url, str(e)))
 
-    return buffer.getvalue()
+    output = buffer.getvalue()
+
+    print("STATUS CODE = %s : OUTPUT = %s" % (status_code, output))
+
+    if status_code != 200:
+        raise PARReadError(
+            "Failed to read data from the PAR URL. HTTP status code = %s, "
+            "returned output: %s" % (status_code, output))
+
+    return output
 
 
 def _list_local(url):
@@ -269,6 +321,10 @@ class BucketReader:
                 raise ValueError(
                     "You can only create a BucketReader from a PAR that "
                     "represents an entire bucket: %s" % par)
+            elif not par.is_readable():
+                raise PARPermissionsError(
+                    "You cannot create a BucketReader from a PAR without "
+                    "read permissions: %s" % par)
 
             self._par = par
         else:
@@ -280,7 +336,15 @@ class BucketReader:
         if self._par is None:
             raise PARError("You cannot read data from an empty PAR")
 
-        url = "%s/%s" % (self._par.url(), key)
+        while key.startswith("/"):
+            key = key[1:]
+
+        url = self._par.url()
+
+        if url.endswith("/"):
+            url = "%s%s" % (url, key)
+        else:
+            url = "%s/%s" % (url, key)
 
         if url.startswith("file://"):
             return _read_local(url)
@@ -379,25 +443,42 @@ class BucketReader:
         return objects
 
 
-class BucketWriter(BucketReader):
-    """This is an extension of BucketReader that supports writing
-       data to any object in a bucket via a PAR
+class BucketWriter:
+    """This class provides functions to enable writing data to a
+       bucket via a PAR
     """
     def __init__(self, par):
-        super().__init__(par)
-
-        if self._par is not None:
-            if not self._par.is_writeable():
+        if par:
+            if not isinstance(par, PAR):
+                raise TypeError(
+                    "You can only create a BucketReader from a PAR")
+            elif not par.is_bucket():
+                raise ValueError(
+                    "You can only create a BucketReader from a PAR that "
+                    "represents an entire bucket: %s" % par)
+            elif not par.is_writeable():
                 raise PARPermissionsError(
-                    "You cannot create a BucketWriter from a read-only "
-                    "PAR: %s" % self._par)
+                    "You cannot create a BucketWriter from a PAR without "
+                    "write permissions: %s" % par)
+
+            self._par = par
+        else:
+            self._par = None
 
     def set_object(self, key, data):
         """Set the value of 'key' in 'bucket' to binary 'data'"""
         if self._par is None:
             raise PARError("You cannot write data to an empty PAR")
 
-        url = "%s/%s" % (self._par.url(), key)
+        while key.startswith("/"):
+            key = key[1:]
+
+        url = self._par.url()
+
+        if url.endswith("/"):
+            url = "%s%s" % (url, key)
+        else:
+            url = "%s/%s" % (url, key)
 
         if url.startswith("file://"):
             return _write_local(url, data)
@@ -432,6 +513,10 @@ class ObjectReader:
                 raise ValueError(
                     "You can only create an ObjectReader from a PAR that "
                     "represents an object: %s" % par)
+            elif not par.is_readable():
+                raise PARPermissionsError(
+                    "You cannot create an ObjectReader from a PAR without "
+                    "read permissions: %s" % par)
 
             self._par = par
         else:
@@ -489,13 +574,22 @@ class ObjectWriter(ObjectReader):
        the object via the PAR
     """
     def __init__(self, par=None):
-        super().__init__(par=par)
-
-        if self._par is not None:
-            if not self._par.is_writeable():
+        if par:
+            if not isinstance(par, PAR):
+                raise TypeError(
+                    "You can only create an ObjectReader from a PAR")
+            elif par.is_bucket():
+                raise ValueError(
+                    "You can only create an ObjectReader from a PAR that "
+                    "represents an object: %s" % par)
+            elif not par.is_writeable():
                 raise PARPermissionsError(
-                    "You cannot create an ObjectWriter from a read-only "
-                    "PAR: %s" % self._par)
+                    "You cannot create an ObjectWriter from a PAR without "
+                    "write permissions: %s" % par)
+
+            self._par = par
+        else:
+            self._par = None
 
     def set_object(self, data):
         """Set the value of the object behind this PAR to the binary 'data'"""
