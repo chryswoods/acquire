@@ -19,7 +19,13 @@ def use_testing_object_store_backend(backend):
     from ._testing_objstore import Testing_ObjectStore as _Testing_ObjectStore
     set_object_store_backend(_Testing_ObjectStore)
     bucket = "%s/testing_objstore" % backend
-    _os.mkdir(bucket)
+
+    try:
+        # make sure that this directory exists if it doesn't already
+        _os.mkdir(bucket)
+    except:
+        pass
+
     return bucket
 
 

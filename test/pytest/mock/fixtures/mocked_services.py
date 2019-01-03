@@ -18,6 +18,7 @@ from accounting.route import handler as accounting_handler
 from access.route import handler as access_handler
 from storage.route import handler as storage_handler
 
+from pycurl import Curl as _original_Curl
 
 class MockedPyCurl:
     """Mocked pycurl.PyCurl class. This provides a PyCurl which calls
@@ -29,6 +30,7 @@ class MockedPyCurl:
     """
     def __init__(self):
         self._data = {}
+        self._c = _original_Curl()
 
     URL = "URL"
     WRITEDATA = "WRITEDATA"
@@ -36,9 +38,22 @@ class MockedPyCurl:
 
     def setopt(self, typ, value):
         self._data[typ] = value
+        try:
+            if typ == MockedPyCurl.URL:
+                self._c.setopt(self._c.URL, value)
+            elif typ == MockedPyCurl.WRITEDATA:
+                self._c.setopt(self._c.WRITEDATA, value)
+            elif typ == MockedPyCurl.POSTFIELDS:
+                self._c.setopt(self._c.POSTFIELDS, value)
+        except:
+            pass
 
     def perform(self):
         url = self._data["URL"]
+
+        if url.startswith("http"):
+            self._c.perform()
+            return
 
         global _services
 
@@ -67,7 +82,10 @@ class MockedPyCurl:
         self._data["WRITEDATA"].write(result)
 
     def close(self):
-        pass
+        try:
+            self._c.close()
+        except:
+            pass
 
 
 # monkey-patch _pycurl.Curl so that we can mock calls

@@ -83,3 +83,25 @@ def test_par(bucket):
     for (key, value) in keyvals.items():
         assert(key in objnames)
         assert(objs[key] == value)
+
+
+def test_remote_par():
+    remote_par = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/UtFZPuH8gLbOgR_mfa1lim7nf7DTk5qkLGBuvpPwqMU/n/chryswoods/b/testbucket/o/transactions"
+
+    expires_timestamp = datetime.datetime(2020,1,1).replace(
+            tzinfo=datetime.timezone.utc).timestamp()
+
+    par = PAR(url=remote_par, key="test", is_writeable=True,
+              expires_timestamp=expires_timestamp)
+
+    data = par.read().get_string_object()
+
+    value = "∆^∆ƒ^ø∆  ∆^ø∑∆ ƒ ∆^ø∑øøø"
+
+    par.write().set_string_object(value)
+
+    val = par.read().get_string_object()
+
+    assert(val == value)
+
+    assert(False)

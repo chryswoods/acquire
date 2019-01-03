@@ -3,7 +3,15 @@ import datetime as _datetime
 import json as _json
 import os as _os
 
-from ._errors import PARError, PARTimeoutError, PARPermissionsError
+try:
+    import pycurl as _pycurl
+except:
+    _pycurl = None
+
+from io import BytesIO as _BytesIO
+
+from ._errors import PARError, PARTimeoutError, PARPermissionsError, \
+                     PARReadError, PARWriteError
 
 __all__ = ["PAR", "BucketReader", "BucketWriter", "ObjectReader",
            "ObjectWriter"]
@@ -139,7 +147,28 @@ def _read_local(url):
 
 def _read_remote(url):
     """Internal functiom used to read data from a remote URL"""
-    return None
+    if _pycurl is None:
+        raise PARError("We need pycurl installed to read remote PARs!")
+
+    buffer = _BytesIO()
+    c = _pycurl.Curl()
+    c.setopt(c.URL, url)
+    c.setopt(c.WRITEDATA, buffer)
+
+    try:
+        c.perform()
+        c.close()
+    except _pycurl.error as e:
+        raise PARReadError(
+            "Cannot read the remote PAR URL '%s' because of a possible "
+            "network issue: curl errorcode %s, message '%s'" %
+            (url, e.args[0], e.args[1]))
+    except Exception as e:
+        raise PARReadError(
+            "Cannot read the remote PAR URL '%s' because of a possible "
+            "nework issue: %s" % (url, str(e)))
+
+    return buffer.getvalue()
 
 
 def _list_local(url):
@@ -187,7 +216,29 @@ def _write_local(url, data):
 
 def _write_remote(url, data):
     """Internal function used to write data to the passed remote URL"""
-    return
+    if _pycurl is None:
+        raise PARError("We need pycurl installed to read remote PARs!")
+
+    buffer = _BytesIO()
+    c = _pycurl.Curl()
+    c.setopt(c.URL, url)
+    c.setopt(c.WRITEDATA, buffer)
+    c.setopt(c.POSTFIELDS, data)
+
+    try:
+        c.perform()
+        c.close()
+    except _pycurl.error as e:
+        raise PARWriteError(
+            "Cannot write data to the remote PAR URL '%s' because of a "
+            "possible network issue: curl errorcode %s, message '%s'" %
+            (url, e.args[0], e.args[1]))
+    except Exception as e:
+        raise PARWriteError(
+            "Cannot write data to the remote PAR URL '%s' because of a "
+            "possible nework issue: %s" % (url, str(e)))
+
+    print(buffer.getvalue())
 
 
 def _join_bucket_and_prefix(url, prefix):
@@ -244,7 +295,14 @@ class BucketReader:
 
     def get_string_object(self, key):
         """Return the string in 'bucket' associated with 'key'"""
-        return self.get_object(key).decode("utf-8")
+        data = self.get_object(key)
+
+        try:
+            return data.decode("utf-8")
+        except Exception as e:
+            raise TypeError(
+                "The object behind this PAR cannot be converted to a string. "
+                "Error is: %s" % str(e))
 
     def get_object_from_json(self, key):
         """Return an object constructed from json stored at 'key' in
@@ -400,7 +458,14 @@ class ObjectReader:
     def get_string_object(self):
         """Return the object behind this PAR as a string (raises exception
            if it is not a string)'"""
-        return self.get_object().decode("utf-8")
+        data = self.get_object()
+
+        try:
+            return data.decode("utf-8")
+        except Exception as e:
+            raise TypeError(
+                "The object behind this PAR cannot be converted to a string. "
+                "Error is: %s" % str(e))
 
     def get_object_from_json(self):
         """Return an object constructed from json stored at behind

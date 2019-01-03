@@ -35,7 +35,13 @@ def _get_service_info_data():
 
     # get the bucket again - can't pass as an argument as this is a cached
     # function - luckily _login_to_service_account is also a cached function
-    bucket = _login_to_service_account()
+    try:
+        bucket = _login_to_service_account()
+    except ServiceAccountError as e:
+        raise e
+    except Exception as e:
+        raise ServiceAccountError(
+            "Cannot log into the service account: %s" % str(e))
 
     # find the service info from the object store
     service_key = "_service_info"
