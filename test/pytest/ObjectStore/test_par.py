@@ -51,6 +51,19 @@ def test_par(bucket):
     with pytest.raises(PARPermissionsError):
         par.write().set_string_object(value)
 
+    par = ObjectStore.create_par(bucket, key, readable=True, writeable=True)
+
+    data = par.to_data()
+    par2 = PAR.from_data(data)
+
+    value = "something " + str(uuid.uuid4())
+
+    par2.write().set_string_object(value)
+
+    val = par.read().get_string_object()
+
+    assert(val == value)
+
     par = ObjectStore.create_par(bucket, key, writeable=True, duration=60)
 
     par.write().set_string_object(value)

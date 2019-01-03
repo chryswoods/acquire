@@ -167,6 +167,52 @@ class PAR:
         else:
             return ObjectWriter(self)
 
+    def to_data(self):
+        """Return a json-serialisable dictionary that contains all data
+           for this object
+        """
+        data = {}
+
+        data["url"] = self._url
+        data["key"] = self._key
+        data["created_timestamp"] = self._created_timestamp
+        data["expires_timestamp"] = self._expires_timestamp
+        data["driver"] = self._driver
+        data["par_id"] = self._par_id
+        data["is_readable"] = self._is_readable
+        data["is_writeable"] = self._is_writeable
+
+        return data
+
+    @staticmethod
+    def from_data(data):
+        """Return a PAR constructed from the passed json-deserliased
+           dictionary
+        """
+        if data is None or len(data) == 0:
+            return None
+
+        par = PAR()
+
+        par._url = data["url"]
+
+        if not par._url is None:
+            par._url = str(par._url)
+
+        par._key = data["key"]
+
+        if not par._key is None:
+            par._key = str(par._key)
+
+        par._created_timestamp = data["created_timestamp"]
+        par._expires_timestamp = data["expires_timestamp"]
+        par._driver = data["driver"]
+        par._par_id = data["par_id"]
+        par._is_readable = data["is_readable"]
+        par._is_writeable = data["is_writeable"]
+
+        return par
+
 
 def _url_to_filepath(url):
     """Internal function used to strip the "file://" from the beginning
