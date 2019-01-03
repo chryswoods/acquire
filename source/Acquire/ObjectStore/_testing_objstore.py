@@ -88,7 +88,7 @@ class Testing_ObjectStore:
         url = "file://%s" % bucket
 
         if key:
-            url = "%s/%s._data" % (url, key)
+            url = "%s/%s" % (url, key)
 
         # get the UTC timestamp when this PAR should expire
         expires_datetime = _datetime.datetime.utcnow() + \

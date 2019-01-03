@@ -1,6 +1,7 @@
 
 
-__all__ = ["ObjectStoreError", "MutexTimeoutError", "PARError"]
+__all__ = ["ObjectStoreError", "MutexTimeoutError", "PARError",
+           "PARTimeoutError", "PARPermissionsError"]
 
 
 class ObjectStoreError(Exception):
@@ -12,4 +13,12 @@ class MutexTimeoutError(Exception):
 
 
 class PARError(Exception):
+    pass
+
+
+class PARTimeoutError(PARError):
+    pass
+
+
+class PARPermissionsError(PARError):
     pass

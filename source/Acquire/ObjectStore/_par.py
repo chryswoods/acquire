@@ -1,8 +1,9 @@
 
 import datetime as _datetime
 import json as _json
+import os as _os
 
-from ._errors import PARError
+from ._errors import PARError, PARTimeoutError, PARPermissionsError
 
 __all__ = ["PAR", "BucketReader", "BucketWriter", "ObjectReader",
            "ObjectWriter"]
@@ -18,7 +19,7 @@ class PAR:
        the server to the client
     """
     def __init__(self, url=None, key=None,
-                 expires_timestamp=None, is_writeable=False,
+                 expires_timestamp=0, is_writeable=False,
                  driver=None):
         """Construct a PAR result by passing in the URL at which the
            object can be accessed, the UTC timestamp when this expires,
@@ -34,26 +35,32 @@ class PAR:
         self._expires_timestamp = expires_timestamp
         self._driver = driver
 
-        if self.seconds_remaining() < 60:
-            raise PARError(
-                "It is not valid to create a PAR with less than 60 "
-                "seconds of validity: %s" % str(self))
-
         if is_writeable:
             self._is_writeable = True
         else:
             self._is_writeable = False
 
     def __str__(self):
+        try:
+            my_url = self.url()
+        except:
+            return "PAR( expired )"
+
         if self._key is None:
             return "PAR( bucket=True, url=%s, seconds_remaining=%s )" % \
-                (self.url(), self.seconds_remaining())
+                (my_url, self.seconds_remaining(buffer=0))
         else:
             return "PAR( key=%s, url=%s, seconds_remaining=%s )" % \
-                (self.key(), self.url(), self.seconds_remaining())
+                (self.key(), my_url, self.seconds_remaining(buffer=0))
 
     def url(self):
-        """Return the URL at which the bucket/object can be accessed"""
+        """Return the URL at which the bucket/object can be accessed. This
+           will raise a PARTimeoutError if the url has less than 30 seconds
+           of validity left"""
+        if self.seconds_remaining(buffer=30) <= 0:
+            raise PARTimeoutError(
+                "The URL behind this PAR has expired and is no longer valid")
+
         return self._url
 
     def is_writeable(self):
@@ -77,16 +84,23 @@ class PAR:
         """Return the underlying object store driver used for this PAR"""
         return self._driver
 
-    def seconds_remaining(self):
+    def seconds_remaining(self, buffer=30):
         """Return the number of seconds remaining before this PAR expires.
            This will return 0 if the PAR has already expired. To be safe,
            you should renew PARs if the number of seconds remaining is less
-           than 60
+           than 60. This will subtract 'buffer' seconds from the actual
+           validity to provide a buffer against race conditions (function
+           says this is valid when it is not)
         """
         now = _datetime.datetime.utcnow()
         expires = _datetime.datetime.utcfromtimestamp(self._expires_timestamp)
 
-        delta = (expires - now).total_seconds()
+        buffer = float(buffer)
+
+        if buffer < 0:
+            buffer = 0
+
+        delta = (expires - now).total_seconds() - buffer
 
         if delta < 0:
             return 0
@@ -112,14 +126,14 @@ def _url_to_filepath(url):
     """Internal function used to strip the "file://" from the beginning
        of a file url
     """
-    return url.split("file://")[0]
+    return url[7:]
 
 
 def _read_local(url):
     """Internal function used to read data from the local testing object
        store
     """
-    with open(_url_to_filepath(url), "rb") as FILE:
+    with open("%s._data" % _url_to_filepath(url), "rb") as FILE:
         return FILE.read()
 
 
@@ -129,13 +143,51 @@ def _read_remote(url):
 
 
 def _list_local(url):
-    """List all of the objects keys below 'url'"""
-    return []
+    """Internal function to list all of the objects keys below 'url'"""
+    local_dir = _url_to_filepath(url)
+
+    keys = []
+
+    for dirpath, _dirnames, filenames in _os.walk(local_dir):
+        local_path = dirpath[len(local_dir):]
+        has_local_path = (len(local_path) > 0)
+
+        for filename in filenames:
+            if filename.endswith("._data"):
+                filename = filename[0:-6]
+
+                if has_local_path:
+                    keys.append("%s/%s" % (local_path, filename))
+                else:
+                    keys.append(filename)
+
+    return keys
 
 
 def _list_remote(url):
-    """List all of the objects keys below 'url'"""
+    """Internal function to list all of the objects keys below 'url'"""
     return []
+
+
+def _write_local(url, data):
+    """Internal function used to write data to a local file"""
+    filename = "%s._data" % _url_to_filepath(url)
+
+    try:
+        with open(filename, 'wb') as FILE:
+            FILE.write(data)
+            FILE.flush()
+    except:
+        dir = "/".join(filename.split("/")[0:-1])
+        _os.makedirs(dir, exist_ok=True)
+        with open(filename, 'wb') as FILE:
+            FILE.write(data)
+            FILE.flush()
+
+
+def _write_remote(url, data):
+    """Internal function used to write data to the passed remote URL"""
+    return
 
 
 def _join_bucket_and_prefix(url, prefix):
@@ -219,8 +271,21 @@ class BucketReader:
 
         # scan the object names returned and discard the ones that don't
         # match the prefix
+        matches = []
 
-        return objnames
+        if len(part) > 0:
+            for objname in objnames:
+                if objname.startswith(part):
+                    objname = objname[len(part):]
+
+                    while objname.startswith("/"):
+                        objname = objname[1:]
+
+                    matches.append(objname)
+        else:
+            matches = objnames
+
+        return matches
 
     def get_all_objects(self, prefix=None):
         """Return all of the objects in the passed bucket"""
@@ -259,11 +324,11 @@ class BucketWriter(BucketReader):
        data to any object in a bucket via a PAR
     """
     def __init__(self, par):
-        super().__init__(self, par)
+        super().__init__(par)
 
         if self._par is not None:
             if not self._par.is_writeable():
-                raise ValueError(
+                raise PARPermissionsError(
                     "You cannot create a BucketWriter from a read-only "
                     "PAR: %s" % self._par)
 
@@ -299,7 +364,57 @@ class BucketWriter(BucketReader):
 class ObjectReader:
     """This class provides functions for reading an object via a PAR"""
     def __init__(self, par=None):
-        pass
+        if par:
+            if not isinstance(par, PAR):
+                raise TypeError(
+                    "You can only create an ObjectReader from a PAR")
+            elif par.is_bucket():
+                raise ValueError(
+                    "You can only create an ObjectReader from a PAR that "
+                    "represents an object: %s" % par)
+
+            self._par = par
+        else:
+            self._par = None
+
+    def get_object(self):
+        """Return the binary data contained in this object"""
+        if self._par is None:
+            raise PARError("You cannot read data from an empty PAR")
+
+        url = self._par.url()
+
+        if url.startswith("file://"):
+            return _read_local(url)
+        else:
+            return _read_remote(url)
+
+    def get_object_as_file(self, filename):
+        """Get the object contained in this PAR and write this to
+           the file called 'filename'"""
+        objdata = self.get_object()
+
+        with open(filename, "wb") as FILE:
+            FILE.write(objdata)
+
+    def get_string_object(self):
+        """Return the object behind this PAR as a string (raises exception
+           if it is not a string)'"""
+        return self.get_object().decode("utf-8")
+
+    def get_object_from_json(self):
+        """Return an object constructed from json stored at behind
+           this PAR. This returns None if there is no data
+           behind this PAR
+        """
+        data = None
+
+        try:
+            data = self.get_string_object()
+        except:
+            return None
+
+        return _json.loads(data)
 
 
 class ObjectWriter(ObjectReader):
@@ -307,4 +422,40 @@ class ObjectWriter(ObjectReader):
        the object via the PAR
     """
     def __init__(self, par=None):
-        super().__init__(self, par)
+        super().__init__(par=par)
+
+        if self._par is not None:
+            if not self._par.is_writeable():
+                raise PARPermissionsError(
+                    "You cannot create an ObjectWriter from a read-only "
+                    "PAR: %s" % self._par)
+
+    def set_object(self, data):
+        """Set the value of the object behind this PAR to the binary 'data'"""
+        if self._par is None:
+            raise PARError("You cannot write data to an empty PAR")
+
+        url = self._par.url()
+
+        if url.startswith("file://"):
+            return _write_local(url, data)
+        else:
+            return _write_remote(url, data)
+
+    def set_object_from_file(self, filename):
+        """Set the value of the object behind this PAR to equal the contents
+           of the file located by 'filename'"""
+        with open(filename, "rb") as FILE:
+            data = FILE.read()
+            self.set_object(data)
+
+    def set_string_object(self, string_data):
+        """Set the value of the object behind this PAR to the
+           string 'string_data'
+        """
+        self.set_object(string_data.encode("utf-8"))
+
+    def set_object_from_json(self, data):
+        """Set the value of the object behind this PAR to equal to contents
+           of 'data', which has been encoded to json"""
+        self.set_string_object(_json.dumps(data))
