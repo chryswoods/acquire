@@ -223,6 +223,8 @@ def _write_remote(url, data):
     c = _pycurl.Curl()
     c.setopt(c.URL, url)
     c.setopt(c.WRITEDATA, buffer)
+    c.setopt(c.CUSTOMREQUEST, "PUT")
+    c.setopt(c.POST, True)
     c.setopt(c.POSTFIELDS, data)
 
     try:

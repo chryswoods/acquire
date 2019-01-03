@@ -269,6 +269,7 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
     c = _pycurl.Curl()
     c.setopt(c.URL, service_url)
     c.setopt(c.WRITEDATA, buffer)
+    c.setopt(c.POST, True)
     c.setopt(c.POSTFIELDS, args_json)
 
     args = None

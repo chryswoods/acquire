@@ -18,7 +18,11 @@ from accounting.route import handler as accounting_handler
 from access.route import handler as access_handler
 from storage.route import handler as storage_handler
 
-from pycurl import Curl as _original_Curl
+try:
+    from pycurl import Curl as _original_Curl
+except:
+    _original_Curl = None
+
 
 class MockedPyCurl:
     """Mocked pycurl.PyCurl class. This provides a PyCurl which calls
@@ -31,10 +35,13 @@ class MockedPyCurl:
     def __init__(self):
         self._data = {}
         self._c = _original_Curl()
+        # self._c.setopt(self._c.VERBOSE, True)
 
     URL = "URL"
     WRITEDATA = "WRITEDATA"
     POSTFIELDS = "POSTFIELDS"
+    POST = "POST"
+    CUSTOMREQUEST = "CUSTOMREQUEST"
 
     def setopt(self, typ, value):
         self._data[typ] = value
@@ -45,6 +52,10 @@ class MockedPyCurl:
                 self._c.setopt(self._c.WRITEDATA, value)
             elif typ == MockedPyCurl.POSTFIELDS:
                 self._c.setopt(self._c.POSTFIELDS, value)
+            elif typ == MockedPyCurl.POST:
+                self._c.setopt(self._c.POST, value)
+            elif typ == MockedPyCurl.CUSTOMREQUEST:
+                self._c.setopt(self._c.CUSTOMREQUEST, value)
         except:
             pass
 
