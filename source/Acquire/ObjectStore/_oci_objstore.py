@@ -29,9 +29,9 @@ def _get_object_url_for_region(region, uri):
     """Internal function used to get the full URL to the passed PAR URI
        for the specified region. This has the format;
 
-       https://objectstorage.{region}-1.oraclecloud.com/{uri}
+       https://objectstorage.{region}.oraclecloud.com/{uri}
     """
-    server = "https://objectstorage.%s-1.oraclecloud.com" % region
+    server = "https://objectstorage.%s.oraclecloud.com" % region
 
     while uri.startswith("/"):
         uri = uri[1:]
