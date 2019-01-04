@@ -62,6 +62,8 @@ def run(args):
     par = ObjectStore.create_par(new_bucket, "test_key",
                                  readable=True, writeable=True)
 
+    par2 = ObjectStore.create_par(new_bucket, readable=False, writeable=True)
+
     status = 0
     message = "Success"
 
@@ -71,5 +73,6 @@ def run(args):
                                                                 "test_key")
 
     return_value["par"] = par.to_data()
+    return_value["par2"] = par2.to_data()
 
     return return_value
