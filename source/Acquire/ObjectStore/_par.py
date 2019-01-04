@@ -429,16 +429,10 @@ class BucketReader:
 
     def get_object_from_json(self, key):
         """Return an object constructed from json stored at 'key' in
-           the passed bucket. This returns None if there is no data
-           at this key
+           the passed bucket. This raises an exception if there is no
+           data or the PAR has expired
         """
-        data = None
-
-        try:
-            data = self.get_string_object(key)
-        except:
-            return None
-
+        data = self.get_string_object(key)
         return _json.loads(data)
 
     def get_all_object_names(self, prefix=None):
@@ -613,16 +607,10 @@ class ObjectReader:
 
     def get_object_from_json(self):
         """Return an object constructed from json stored at behind
-           this PAR. This returns None if there is no data
-           behind this PAR
+           this PAR. This raises an exception if there is no data
+           or the PAR has expired
         """
-        data = None
-
-        try:
-            data = self.get_string_object()
-        except:
-            return None
-
+        data = self.get_string_object()
         return _json.loads(data)
 
 
