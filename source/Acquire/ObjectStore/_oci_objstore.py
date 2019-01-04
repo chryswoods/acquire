@@ -25,6 +25,16 @@ def _sanitise_bucket_name(bucket_name):
     return "_".join(bucket_name.split())
 
 
+def _get_object_server_from_region(region):
+    """Internal function used to get the full path to the oracle
+       server used to serve PARs for a given region. This is
+       in the format;
+
+       https://objectstorage.{region}-1.oraclecloud.com
+    """
+    return "https://objectstorage.%s-1.oraclecloud.com" % region
+
+
 class OCI_ObjectStore:
     """This is the backend that abstracts using the Oracle Cloud
        Infrastructure object store
@@ -220,13 +230,18 @@ class OCI_ObjectStore:
         expires_timestamp = oci_par.time_expires.replace(
                                 tzinfo=_datetime.timezone.utc).timestamp()
 
-        par = _PAR(url=oci_par.access_uri,
-                   key=key,
+        # the URI returned by OCI does not include the server. We need
+        # to get the server based on the region of this bucket
+        url = "%s/%s" % (_get_object_server_from_region(bucket["region"]),
+                         oci_par.access_uri)
+
+        par = _PAR(url=url, key=oci_par.object_name,
                    created_timestamp=created_timestamp,
                    expires_timestamp=expires_timestamp,
                    is_readable=readable,
                    is_writeable=writeable,
                    par_id=str(oci_par.id),
+                   par_name=str(oci_par.name),
                    driver="oci")
 
         return par

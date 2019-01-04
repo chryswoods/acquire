@@ -108,6 +108,9 @@ class OCIAccount:
             bucket["client"] = client
             bucket["compartment_id"] = compartment
 
+            # save the region as this is needed for some services
+            bucket["region"] = login["region"]
+
             namespace = client.get_namespace().data
             bucket["namespace"] = namespace
             bucket["bucket_name"] = bucket_name

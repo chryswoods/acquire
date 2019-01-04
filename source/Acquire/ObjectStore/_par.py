@@ -31,7 +31,7 @@ class PAR:
                  expires_timestamp=0,
                  is_readable=True,
                  is_writeable=False,
-                 par_id=None,
+                 par_id=None, par_name=None,
                  driver=None):
         """Construct a PAR result by passing in the URL at which the
            object can be accessed, the UTC timestamp when this expires,
@@ -42,7 +42,8 @@ class PAR:
            access has been granted. Otherwise no access is possible.
            This also records the type of object store behind this PAR
            in the free-form string 'driver'. You can optionally supply
-           the ID of the PAR by passing in 'par_id', and the time it
+           the ID of the PAR by passing in 'par_id', the user-supplied name,
+           of the PAR by passing in 'par_name', and the time it
            was created using 'created_timestamp' (in the same format
            as 'expires_timestamp' - should be a UTC timestamp)
         """
@@ -52,6 +53,7 @@ class PAR:
         self._expires_timestamp = expires_timestamp
         self._driver = driver
         self._par_id = par_id
+        self._par_name = par_name
 
         if is_readable:
             self._is_readable = True
@@ -96,6 +98,13 @@ class PAR:
            driver. This could be useful for PAR management by the server
         """
         return self._par_id
+
+    def par_name(self):
+        """Return the user-supplied name of the PAR, if this was supplied
+           by the user and supported by the underlying driver. This could
+           be useful for PAR management by the server
+        """
+        return self._par_name
 
     def is_readable(self):
         """Return whether or not this PAR gives read access"""
@@ -179,6 +188,7 @@ class PAR:
         data["expires_timestamp"] = self._expires_timestamp
         data["driver"] = self._driver
         data["par_id"] = self._par_id
+        data["par_name"] = self._par_name
         data["is_readable"] = self._is_readable
         data["is_writeable"] = self._is_writeable
 
@@ -208,6 +218,7 @@ class PAR:
         par._expires_timestamp = data["expires_timestamp"]
         par._driver = data["driver"]
         par._par_id = data["par_id"]
+        par._par_name = data["par_name"]
         par._is_readable = data["is_readable"]
         par._is_writeable = data["is_writeable"]
 
