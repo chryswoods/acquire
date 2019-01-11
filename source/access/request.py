@@ -7,6 +7,8 @@ from Acquire.Crypto import PrivateKey
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
 
+from Acquire.Identity import Authorisation, AuthorisationError
+
 from Acquire.Access import Request
 
 
@@ -21,15 +23,28 @@ def run(args):
     message = None
 
     request = None
-    access_token = None
+    authorisation = None
 
     if "request" in args:
         request = Request.from_data(args["request"])
-        access_token = request.to_data()
+
+    if "authorisation" in args:
+        authorisation = Authorisation.from_data(args["authorisation"])
+
+    if request is None:
+        status = 0
+        message = "No request"
+
+    if authorisation is None:
+        raise AuthorisationError(
+            "You must provide a valid authorisation to make the request %s"
+            % str(request))
+
+    authorisation.verify(request.signature())
+
+    status = 0
+    message = "Request has been validated"
 
     return_value = create_return_value(status, message)
-
-    if access_token:
-        return_value["access_token"] = access_token
 
     return return_value

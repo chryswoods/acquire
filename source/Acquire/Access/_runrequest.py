@@ -5,8 +5,6 @@ import uuid as _uuid
 from ._request import Request as _Request
 from ._checksum import get_filesize_and_checksum as _get_filesize_and_checksum
 
-from Acquire.Identity import Authorisation as _Authorisation
-
 from ._errors import RunRequestError
 
 __all__ = ["RunRequest"]
@@ -52,13 +50,12 @@ class RunRequest(_Request):
        from which the output can be read. The calculation will
        start once the input has been signalled as loaded.
     """
-    def __init__(self, runfile=None, authorisation=None):
+    def __init__(self, runfile=None):
         """Construct the request
         """
         super().__init__()
 
         self._uid = None
-        self._authorisation = None
         self._runinfo = None
         self._tarfile = None
         self._tarfilename = None
@@ -281,9 +278,9 @@ class RunRequest(_Request):
         # everything is ok - set the UID of this request
         self._uid = str(_uuid.uuid4())
 
-    def authorisation(self):
-        """Return the authorisation behind this request"""
-        return self._authorisation
+    def signature(self):
+        """Return a signature that uniquely defines this request"""
+        return "%s=%s" % (self.uid(), self.tarfile_md5sum())
 
     def to_data(self):
         """Return this request as a json-serialisable dictionary"""
@@ -292,10 +289,6 @@ class RunRequest(_Request):
 
         data = super().to_data()
         data["uid"] = self._uid
-
-        if self._authorisation is not None:
-            data["authorisation"] = self._authorisation.to_data()
-
         data["runinfo"] = self._runinfo
         data["tarsize"] = self._tarsize
         data["tarmd5"] = self._tarmd5
@@ -308,11 +301,6 @@ class RunRequest(_Request):
             r = RunRequest()
 
             r._uid = data["uid"]
-
-            if "authorisation" in data:
-                r._authorisation = _Authorisation.from_data(
-                                                data["authorisation"])
-
             r._runinfo = data["runinfo"]
             r._tarsize = int(data["tarsize"])
             r._tarmd5 = data["tarmd5"]

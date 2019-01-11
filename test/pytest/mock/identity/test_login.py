@@ -6,6 +6,7 @@ import re
 
 from Acquire.Service import call_function
 from Acquire.Client import User, uid_to_username
+from Acquire.Identity import Authorisation
 from Acquire.Crypto import OTP
 
 
@@ -51,5 +52,14 @@ def test_login(username, password, aaai_services):
 
     assert("status" in result)
     assert(result["status"] == 0)
+
+    user.wait_for_login()
+    assert(user.is_logged_in())
+
+    auth = Authorisation(user=user, resource="test")
+
+    print(auth.identity_url())
+
+    auth.verify("test")
 
     user.logout()

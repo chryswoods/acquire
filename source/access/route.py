@@ -39,6 +39,9 @@ def handler(ctx, data=None, loop=None):
         elif function == "request":
             from access.request import run as _request
             result = _request(args)
+        elif function == "run_calculation":
+            from access.run_calculation import run as _run_calculation
+            result = _run_calculation(args)
         elif function == "request_bucket":
             from access.request_bucket import run as _request_bucket
             result = _request_bucket(args)
