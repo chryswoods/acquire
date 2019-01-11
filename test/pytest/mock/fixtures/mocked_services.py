@@ -6,12 +6,18 @@
 
 import pytest
 import os
+import sys
+import re
+import uuid
 
 import Acquire.Service
 
 from Acquire.Service import login_to_service_account
 from Acquire.Service import _push_testing_objstore, _pop_testing_objstore
 from Acquire.Service import call_function
+
+from Acquire.Client import User, uid_to_username
+from Acquire.Crypto import OTP
 
 from identity.route import handler as identity_handler
 from accounting.route import handler as accounting_handler
@@ -154,3 +160,44 @@ def aaai_services(tmpdir_factory):
     responses["storage"] = response
 
     return responses
+
+
+@pytest.fixture(scope="module")
+def authenticated_user(aaai_services):
+    # register the new user
+    username = str(uuid.uuid4())
+    password = "RF%5s123!" % str(uuid.uuid4())[0:5]
+
+    user = User(username, identity_url="identity")
+    (provisioning_uri, qrcode) = user.register(password)
+
+    otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
+                          provisioning_uri).groups()[0]
+
+    user_otp = OTP(otpsecret)
+
+    # now log the user in
+    (login_url, qrcode) = user.request_login()
+
+    assert(type(login_url) is str)
+
+    short_uid = re.search(r"id=([\w\d+]+)",
+                          login_url).groups()[0]
+
+    args = {}
+    args["short_uid"] = short_uid
+    args["username"] = username
+    args["password"] = password
+    args["otpcode"] = user_otp.generate()
+
+    result = call_function("identity", "login", args=args)
+
+    print(result)
+
+    assert(result["status"] == 0)
+
+    user.wait_for_login()
+
+    assert(user.is_logged_in())
+
+    return user

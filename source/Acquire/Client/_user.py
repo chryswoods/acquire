@@ -294,9 +294,6 @@ class User:
             permission = "Log out request for %s" % self._session_uid
             signature = self.signing_key().sign(permission)
 
-            print("Logging out %s from session %s" % (self._username,
-                                                      self._session_uid))
-
             result = _call_function(
                             identity_url, "logout",
                             args_key=self.identity_service().public_key(),
@@ -304,7 +301,6 @@ class User:
                             session_uid=self._session_uid,
                             permission=permission,
                             signature=_bytes_to_string(signature))
-            print(result)
 
             self._status = _LoginStatus.LOGGED_OUT
 
@@ -408,7 +404,6 @@ class User:
 
         try:
             prune_message = result["prune_message"]
-            print("Pruning old sessions...\n%s" % "\n".join(prune_message))
         except:
             pass
 
