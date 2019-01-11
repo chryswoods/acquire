@@ -8,7 +8,9 @@ Service
 
 from ._access_service import *
 from ._errors import *
+from ._checksum import *
 from ._request import *
+from ._runrequest import *
 from ._filewriterequest import *
 
 try:

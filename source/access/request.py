@@ -20,11 +20,12 @@ def run(args):
     status = 0
     message = None
 
+    request = None
     access_token = None
 
-    request = Request.from_data(args["request"])
-
-    access_token = request.to_data()
+    if "request" in args:
+        request = Request.from_data(args["request"])
+        access_token = request.to_data()
 
     return_value = create_return_value(status, message)
 

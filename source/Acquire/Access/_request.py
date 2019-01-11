@@ -42,7 +42,16 @@ class Request:
                 from ._filewriterequest import FileWriteRequest \
                                             as _FileWriteRequest
                 return _FileWriteRequest.from_data(data)
+            elif classname == "RunRequest":
+                from ._runrequest import RunRequest as _RunRequest
+                return _RunRequest.from_data(data)
             else:
                 raise TypeError("Unknown type '%s'" % classname)
 
         return Request()
+
+    def _from_data(self, data):
+        """Call this function from derived classes to load data
+           into this Request
+        """
+        pass

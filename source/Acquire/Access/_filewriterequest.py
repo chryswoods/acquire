@@ -335,9 +335,9 @@ class FileWriteRequest(_Request):
 
     @staticmethod
     def from_data(data):
-        f = FileWriteRequest()
-
         if (data and len(data) > 0):
+            f = FileWriteRequest()
+
             f._uid = data["uid"]
             f._destination_keys = data["destination_keys"]
             f._file_sizes = data["file_sizes"]
@@ -346,4 +346,8 @@ class FileWriteRequest(_Request):
             f._account_uid = data["account_uid"]
             f._accounting_service_url = data["accounting_service_url"]
 
-        return f
+            super()._from_data(data)
+
+            return f
+        else:
+            return None
