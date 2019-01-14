@@ -346,7 +346,7 @@ class FileWriteRequest(_Request):
             f._account_uid = data["account_uid"]
             f._accounting_service_url = data["accounting_service_url"]
 
-            super()._from_data(data)
+            f._from_data(data)
 
             return f
         else:

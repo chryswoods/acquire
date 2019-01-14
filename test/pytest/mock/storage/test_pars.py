@@ -4,6 +4,7 @@ import pytest
 from Acquire.Service import call_function
 from Acquire.ObjectStore import PAR
 
+
 def test_create_par(aaai_services):
 
     args = {}
@@ -31,5 +32,3 @@ def test_create_par(aaai_services):
 
     assert(val != value)
     assert(val == newval)
-
-    assert(False)

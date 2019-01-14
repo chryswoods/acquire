@@ -63,7 +63,7 @@ def run(args):
     # ... it data about how to write output and receipt the account
 
     # 1. ask the storage service to create a new bucket for the simulation
-    # 2. create a PAR for the bucket used by the user to upload their
+    # 2. create a PAR for the bucket used by the user to upload their
     #    input file (as described in the runinfo in the RunRequest)
     # 3. create a bucket write PAR that will be used by the run service
     # 4. create the data that will be passed (at the end of the calculation)

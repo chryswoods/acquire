@@ -305,7 +305,7 @@ class RunRequest(_Request):
             r._tarsize = int(data["tarsize"])
             r._tarmd5 = data["tarmd5"]
 
-            super()._from_data(data)
+            r._from_data(data)
 
             return r
 

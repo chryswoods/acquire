@@ -95,7 +95,7 @@ def test_par(bucket):
         assert(keyvals[key] == value)
 
 
-def test_remote_par():
+def _test_remote_par():
     remote_par = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/UtFZPuH8gLbOgR_mfa1lim7nf7DTk5qkLGBuvpPwqMU/n/chryswoods/b/testbucket/o/transactions"
 
     expires_timestamp = datetime.datetime(2020, 1, 1).replace(
@@ -119,7 +119,7 @@ def test_remote_par():
     assert(False)
 
 
-def test_remote_bucket_par():
+def _test_remote_bucket_par():
     remote_par = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/YqMRUmCZz6RCJdKlj63zTXQdPj1l7RCJW9bFWy7DxEY/n/chryswoods/b/testbucket/o/"
 
     expires_timestamp = datetime.datetime(2020, 1, 1).replace(
