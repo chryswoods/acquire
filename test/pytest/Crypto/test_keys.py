@@ -11,6 +11,8 @@ def test_keys():
     privkey = PrivateKey()
     pubkey = privkey.public_key()
 
+    assert(privkey.fingerprint() == pubkey.fingerprint())
+
     message = "Hello World"
 
     sig = privkey.sign(message.encode("utf-8"))
@@ -38,6 +40,8 @@ def test_keys():
     bytes = pubkey.bytes()
     pubkey2 = PublicKey.read_bytes(bytes)
 
+    assert(pubkey.fingerprint() == pubkey2.fingerprint())
+
     assert(bytes == pubkey2.bytes())
 
     long_message = str([random.getrandbits(8)
@@ -55,10 +59,12 @@ def test_keys():
 
     pubkey2 = PublicKey.from_data(data)
 
+    assert(pubkey.fingerprint() == pubkey2.fingerprint())
     assert(pubkey.bytes() == pubkey2.bytes())
 
     data = privkey.to_data("testPass33")
 
     privkey2 = PrivateKey.from_data(data, "testPass33")
 
+    assert(privkey.fingerprint() == privkey2.fingerprint())
     assert(privkey == privkey2)

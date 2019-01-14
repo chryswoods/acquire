@@ -1,5 +1,6 @@
 
 import uuid as _uuid
+import json as _json
 from copy import copy as _copy
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
@@ -163,6 +164,32 @@ class Service:
     def decrypt(self, message):
         """Decrypt the passed message"""
         return self.private_key().decrypt(message)
+
+    def encrypt_data(self, data):
+        """Encrypt the passed data, ready for transport to the service.
+           Data should be a json-serialisable dictionary. This will
+           return a new json-serialisable dictionary, which will contain
+           the URL of the service this should be sent to, and the encrypted
+           data, e.g. as;
+
+           data = {"canonical_url" : "http://etc.etc.etc",
+                   "fingerprint" : "KEY_FINGERPRINT",
+                   "encrypted_data" : "ENCRYPTED_DATA"}
+        """
+        return {"canonical_url": self.canonical_url(),
+                "fingerprint": self.private_key().fingerprint(),
+                "encrypted_data": self.encrypt(_json.dumps(data))}
+
+    def decrypt_data(self, data):
+        """Decrypt the passed data that has been encrypted and sent to
+           this service (encrypted via the 'encrypt_data' function).
+           This will return a json-deserialisable dictionary. Note that
+           the 'canonical_url' should match the canonical_url of this
+           service. The data should also contain the fingerprint of the
+           key used to encrypt the data, enabling the service to
+           perform key rotation and management.
+        """
+        pass
 
     def verify_admin_user(self, password, otpcode, remember_device=False):
         """Verify that we are the admin user verifying that

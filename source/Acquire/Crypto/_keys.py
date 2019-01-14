@@ -26,6 +26,8 @@ _padding = _lazy_import.lazy_module(
             "cryptography.hazmat.primitives.asymmetric.padding")
 _fernet = _lazy_import.lazy_module("cryptography.fernet")
 
+_hashlib = _lazy_import.lazy_module("hashlib")
+
 __all__ = ["PrivateKey", "PublicKey"]
 
 
@@ -135,6 +137,16 @@ class PublicKey:
         """Read and return a public key from 'filename'"""
         with open(filename, "rb") as FILE:
             return PublicKey.read_bytes(FILE.read())
+
+    def fingerprint(self):
+        """Return the fingerprint of this key - this is useful to help
+           work out which key to use to decrypt data
+        """
+        md5 = _hashlib.md5()
+        md5.update(self.bytes())
+        h = md5.hexdigest()
+        # return this signature as "AA:BB:CC:DD:EE:etc."
+        return ":".join([h[i:i+2] for i in range(0, len(h), 2)])
 
     def encrypt(self, message):
         """Encrypt and return the passed message. For short messages this
@@ -331,6 +343,12 @@ class PrivateKey:
             return 0
         else:
             return int(self._privkey.key_size / 8)
+
+    def fingerprint(self):
+        """Return the fingerprint of this key - this is useful to help
+           work out which key to use to decrypt data
+        """
+        return self.public_key().fingerprint()
 
     def encrypt(self, message):
         """Encrypt and return the passed message"""
