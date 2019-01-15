@@ -4,8 +4,9 @@ import os
 
 from Acquire.Access import RunRequest
 from Acquire.Identity import Authorisation
-from Acquire.Service import call_function
+from Acquire.Service import call_function, get_remote_service_info
 from Acquire.Client import Account, deposit
+from Acquire.Crypto import PrivateKey
 
 
 def _testdata():
@@ -28,13 +29,21 @@ def test_run_calc(aaai_services, authenticated_user):
 
     assert(account.balance() >= 100.0)
 
-    # now provide an authorisation to spend from this account
+    # now write a cheque which will provide authorisation to spend money from
+    # this account. This will be written to the access service to
+    # give it the authority to create a transation in the account.
+    # This cheque authorises only a single transaction, performable only
+    # by the service whose canonical URL is supplied
+    cheque = account.write_cheque(canonical_url="access",
+                                  max_spend=50.0)
 
+    print(cheque)
 
+    # create a request for the calculation described in 'run.yaml' and
+    # authorise it using the authenticated user (who may be different to the
+    # user who pays for the job - hence the need for a different
+    # authorisation for the request and for the cheque)
     runfile = "%s/run.yaml" % _testdata()
-
-    # create a request for this calculation and authorise
-    # it using the authenticated user
     r = RunRequest(runfile=runfile)
 
     func = "run_calculation"
@@ -42,7 +51,9 @@ def test_run_calc(aaai_services, authenticated_user):
     args["request"] = r.to_data()
     args["authorisation"] = Authorisation(user=user,
                                           resource=r.signature())
+    args["cheque"] = cheque
 
-    result = call_function("access", func, args)
+    access_service = get_remote_service_info("access")
+    result = access_service.call_function(func, args)
 
-    print(result)
+    assert(result["status"] == 0)

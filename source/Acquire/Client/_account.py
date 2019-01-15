@@ -1,5 +1,6 @@
 
 import datetime as _datetime
+import json as _json
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
 
@@ -10,6 +11,10 @@ from Acquire.Identity import Authorisation as _Authorisation
 
 from Acquire.Accounting import Transaction as _Transaction
 from Acquire.Accounting import create_decimal as _create_decimal
+
+from Acquire.ObjectStore import decimal_to_string as _decimal_to_string
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+from Acquire.ObjectStore import create_uuid as _create_uuid
 
 from ._errors import LoginError, AccountError
 
@@ -426,6 +431,45 @@ class Account:
         """
         self._refresh(force_update)
         return (self._balance - self._liability) < -(self._overdraft_limit)
+
+    def write_cheque(self, canonical_url=None, max_spend=None,
+                     expiry_date=None):
+        """Create and return a cheque that can be used at any point
+           in the future to authorise a transaction. If 'canonical_url'
+           is supplied, then only the service with matching canonical
+           url can 'cash' the cheque (it will need to sign the cheque
+           before sending it to the accounting service). If 'max_spend'
+           is specified, then the cheque is only valid up to that
+           maximum spend. Otherwise, it is valid up to the maximum
+           daily spend limit (or other limits) of the account. If
+           'expiry_date' is supplied then this cheque is valid only
+           before the supplied datetime. Note that
+           this cheque is for a future transaction, and so no check
+           if made if there is sufficient funds now, and this does
+           not affect the account. If there are insufficient funds
+           when the cheque is cashed (or it breaks spending limits)
+           then the cheque will bounce.
+        """
+        if max_spend is not None:
+            max_spend = _decimal_to_string(max_spend)
+
+        if expiry_date is not None:
+            expiry_date = _datetime_to_string(expiry_date)
+
+        if canonical_url is not None:
+            canonical_url = str(canonical_url)
+
+        info = _json.dumps({"canonical_url": canonical_url,
+                            "max_spend": max_spend,
+                            "expiry_date": expiry_date,
+                            "uid": _create_uuid(),
+                            "account_uid": self.uid()})
+
+        auth = _Authorisation(user=self._user, resource=info)
+
+        data = {"info": info, "authorisation": auth.to_data()}
+
+        return self._accounting_service.encrypt_data(data)
 
     def perform(self, transaction, credit_account, is_provisional=False):
         """Tell this accounting service to apply the transfer described

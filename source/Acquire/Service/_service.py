@@ -10,6 +10,8 @@ from Acquire.Crypto import OTP as _OTP
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
+from ._function import call_function as _call_function
+
 __all__ = ["Service"]
 
 
@@ -148,6 +150,20 @@ class Service:
     def public_certificate(self):
         """Return the public signing certificate for this service"""
         return self._pubcert
+
+    def call_function(self, func, args=None):
+        """Call the function 'func' on this service, optionally passing
+           in the arguments 'args'. This is a simple wrapper around
+           Acquire.Service.call_function which automatically
+           gets the correct URL, encrypts the arguments using the
+           service's public key, and supplies a key to encrypt
+           the response (and automatically then decrypts the
+           response)
+        """
+        return _call_function(self.canonical_url(), function=func,
+                              args_key=self.public_key(),
+                              public_cert=self.public_certificate(),
+                              response_key=_PrivateKey())
 
     def sign(self, message):
         """Sign the specified message"""
