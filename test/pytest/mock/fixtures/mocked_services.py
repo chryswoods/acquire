@@ -159,6 +159,8 @@ def aaai_services(tmpdir_factory):
     response = call_function("storage", function="setup", args=args)
     responses["storage"] = response
 
+    responses["_services"] = _services
+
     return responses
 
 

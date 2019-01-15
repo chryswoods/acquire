@@ -165,31 +165,112 @@ class Service:
         """Decrypt the passed message"""
         return self.private_key().decrypt(message)
 
+    def sign_data(self, data):
+        """Sign the passed data, ready for transport. Data should be
+           a json-serialisable dictionary. This will return a new
+           json-serialisable dictionary, which will contain the
+           signature and json-serialised original data, e.g. as;
+
+           data = {"service_uid" : "SERVICE_UID",
+                   "fingerprint" : "KEY_FINGERPRINT",
+                   "signed_data" : "JSON_ENCODED_DATA",
+                   "signature" : "SIG OF JSON_ENCODED_DATA"}
+        """
+        data = _json.dumps(data)
+
+        return {"service_uid": str(self.uid()),
+                "canonical_url": str(self.canonical_url()),
+                "fingerprint": str(self.private_certificate().fingerprint()),
+                "signed_data": data,
+                "signature": _bytes_to_string(self.sign(data))
+                }
+
+    def verify_data(self, data):
+        """Verify the passed data has been signed by this service. The
+           passed data should have the same format as that produced
+           by 'sign_data'. If the data is verified then this will
+           return a json-deserialised dictionary of the verified data.
+           Note that the 'service_uid' should match the UID of this
+           service. The data should also contain the fingerprint of the
+           key used to encrypt the data, enabling the service to
+           perform key rotation and management.
+        """
+        try:
+            service_uid = data["service_uid"]
+            fingerprint = data["fingerprint"]
+            signature = _string_to_bytes(data["signature"])
+            data = data["signed_data"]
+        except Exception as e:
+            raise ServiceError(
+                "The signed data is not of the correct format: %s" % str(e))
+
+        if service_uid != self.uid():
+            raise ServiceError(
+                "Cannot verify the data as it wasn't signed for this "
+                "service - unmatched service UID: %s versus %s" %
+                (service_uid, self.uid()))
+
+        if fingerprint != self.public_certificate().fingerprint():
+            raise ServiceError(
+                "Cannot verify the data as we don't recognise the "
+                "fingerprint of the signing key: %s versus %s" %
+                (fingerprint, self.public_certificate().fingerprint()))
+
+        self.verify(signature, data)
+        return _json.loads(data)
+
     def encrypt_data(self, data):
         """Encrypt the passed data, ready for transport to the service.
            Data should be a json-serialisable dictionary. This will
            return a new json-serialisable dictionary, which will contain
-           the URL of the service this should be sent to, and the encrypted
+           the UID of the service this should be sent to (together with
+           the canonical URL, which enables this data to be forwarded
+           to where it needs to go), and the encrypted
            data, e.g. as;
 
-           data = {"canonical_url" : "http://etc.etc.etc",
+           data = {"service_uid" : "SERVICE_UID",
+                   "canonical_url" : "CANONICAL_URL",
                    "fingerprint" : "KEY_FINGERPRINT",
                    "encrypted_data" : "ENCRYPTED_DATA"}
         """
-        return {"canonical_url": self.canonical_url(),
-                "fingerprint": self.private_key().fingerprint(),
-                "encrypted_data": self.encrypt(_json.dumps(data))}
+        return {"service_uid": str(self.uid()),
+                "canonical_url": str(self.canonical_url()),
+                "fingerprint": str(self.public_key().fingerprint()),
+                "encrypted_data": _bytes_to_string(
+                                    self.encrypt(_json.dumps(data)))
+                }
 
     def decrypt_data(self, data):
         """Decrypt the passed data that has been encrypted and sent to
            this service (encrypted via the 'encrypt_data' function).
            This will return a json-deserialisable dictionary. Note that
-           the 'canonical_url' should match the canonical_url of this
+           the 'service_uid' should match the UID of this
            service. The data should also contain the fingerprint of the
            key used to encrypt the data, enabling the service to
            perform key rotation and management.
         """
-        pass
+        try:
+            service_uid = data["service_uid"]
+            fingerprint = data["fingerprint"]
+            data = _string_to_bytes(data["encrypted_data"])
+        except Exception as e:
+            raise ServiceError(
+                "The encrypted data is not of the correct format: %s" % str(e))
+
+        if service_uid != self.uid():
+            raise ServiceError(
+                "Cannot decrypt the data as it wasn't encrypted for this "
+                "service - unmatched service UID: %s versus %s" %
+                (service_uid, self.uid()))
+
+        if fingerprint != self.private_key().fingerprint():
+            raise ServiceError(
+                "Cannot decrypt the data as we don't recognise the "
+                "fingerprint of the encryption key: %s versus %s" %
+                (fingerprint, self.private_key().fingerprint()))
+
+        data = self.decrypt(data)
+        return _json.loads(data)
 
     def verify_admin_user(self, password, otpcode, remember_device=False):
         """Verify that we are the admin user verifying that
