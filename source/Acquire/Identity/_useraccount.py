@@ -24,7 +24,7 @@ class UserAccount:
        easy saving a retrieval from an object store
     """
 
-    def __init__(self, username=None):
+    def __init__(self, username=None, password=None):
         """Construct from the passed username"""
         self._username = username
         self._sanitised_username = UserAccount.sanitise_username(username)
@@ -36,7 +36,10 @@ class UserAccount:
         if username is None:
             self._status = None
         else:
-            self._status = "disabled"
+            if password:
+                self.reset_password(password)
+            else:
+                self._status = "disabled"
 
     def __str__(self):
         return "UserAccount( name : %s )" % self._username
@@ -140,6 +143,24 @@ class UserAccount:
             self._uuid = str(_uuid.uuid4())
 
         self._status = "active"
+
+    def reset_password(self, password):
+        """Call this function to reset the password of this account.
+           Note that this will reset the password, returning the
+           new provisioning_uri of the 2FA one-time-code generator
+        """
+        privkey = _PrivateKey()
+        pubkey = privkey.public_key()
+        otp = _OTP()
+
+        self.set_keys(privkey.bytes(password), pubkey.bytes(),
+                      otp.encrypt(pubkey))
+
+        service = _get_service_info()
+
+        return otp.provisioning_uri(self.username(),
+                                    issuer="Acquire@%s" %
+                                    service.canonical_url())
 
     @staticmethod
     def sanitise_username(username):

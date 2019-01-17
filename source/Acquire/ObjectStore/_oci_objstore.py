@@ -8,6 +8,7 @@ import copy as _copy
 import uuid as _uuid
 
 from ._par import PAR as _PAR
+from ._encoding import get_datetime_now as _get_datetime_now
 
 from ._errors import ObjectStoreError, PARError, PARPermissionsError
 
@@ -36,7 +37,7 @@ def _get_object_url_for_region(region, uri):
     while uri.startswith("/"):
         uri = uri[1:]
 
-    return "%s/%s" % (server,uri)
+    return "%s/%s" % (server, uri)
 
 
 class OCI_ObjectStore:
@@ -162,12 +163,9 @@ class OCI_ObjectStore:
            in 'duration' (by default this is one hour)
         """
 
-        # get the UTC timestamp when this PAR should expire
-        expires_datetime = _datetime.datetime.utcnow() + \
+        # get the UTC datetime when this PAR should expire
+        expires_datetime = _get_datetime_now() + \
             _datetime.timedelta(seconds=duration)
-
-        expires_timestamp = expires_datetime.replace(
-            tzinfo=_datetime.timezone.utc).timestamp()
 
         is_bucket = (key is None)
 
@@ -228,20 +226,20 @@ class OCI_ObjectStore:
             raise ObjectStoreError(
                 "Unable to create the preauthenticated request!")
 
-        created_timestamp = oci_par.time_created.replace(
-                                tzinfo=_datetime.timezone.utc).timestamp()
+        created_datetime = oci_par.time_created.replace(
+                                tzinfo=_datetime.timezone.utc)
 
-        expires_timestamp = oci_par.time_expires.replace(
-                                tzinfo=_datetime.timezone.utc).timestamp()
+        expires_datetime = oci_par.time_expires.replace(
+                                tzinfo=_datetime.timezone.utc)
 
         # the URI returned by OCI does not include the server. We need
-        # to get the server based on the region of this bucket
+        # to get the server based on the region of this bucket
         url = _get_object_url_for_region(bucket["region"],
                                          oci_par.access_uri)
 
         par = _PAR(url=url, key=oci_par.object_name,
-                   created_timestamp=created_timestamp,
-                   expires_timestamp=expires_timestamp,
+                   created_datetime=created_datetime,
+                   expires_datetime=expires_datetime,
                    is_readable=readable,
                    is_writeable=writeable,
                    par_id=str(oci_par.id),
@@ -465,7 +463,7 @@ class OCI_ObjectStore:
         """
         OCI_ObjectStore.set_string_object(
                 bucket, "%s/%s" % (prefix,
-                                   _datetime.datetime.utcnow().timestamp()),
+                                   _get_datetime_now().timestamp()),
                 str(message))
 
     @staticmethod

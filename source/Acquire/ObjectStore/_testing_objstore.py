@@ -9,6 +9,10 @@ import threading
 import uuid as _uuid
 
 from ._par import PAR as _PAR
+from ._encoding import get_datetime_now as _get_datetime_now
+from ._encoding import datetime_to_string as _datetime_to_string
+from ._encoding import string_to_datetime as _string_to_datetime
+
 from ._errors import ObjectStoreError, PARError
 
 _rlock = threading.RLock()
@@ -99,17 +103,11 @@ class Testing_ObjectStore:
             url = "%s/%s" % (url, key)
 
         # get the time this PAR was created
-        created_datetime = _datetime.datetime.utcnow()
+        created_datetime = _get_datetime_now()
 
-        # get the UTC timestamp when this PAR should expire
+        # get the UTC datetime when this PAR should expire
         expires_datetime = created_datetime + \
             _datetime.timedelta(seconds=duration)
-
-        created_timestamp = created_datetime.replace(
-            tzinfo=_datetime.timezone.utc).timestamp()
-
-        expires_timestamp = expires_datetime.replace(
-            tzinfo=_datetime.timezone.utc).timestamp()
 
         # mimic limitations of OCI - cannot have a bucket PAR with
         # read permissions!
@@ -119,8 +117,8 @@ class Testing_ObjectStore:
                 "due to a limitation in the underlying platform")
 
         return _PAR(url=url, key=key,
-                    created_timestamp=created_timestamp,
-                    expires_timestamp=expires_timestamp,
+                    created_datetime=created_datetime,
+                    expires_datetime=expires_datetime,
                     is_readable=readable, is_writeable=writeable,
                     par_id=str(_uuid.uuid4()),
                     driver="testing_objstore")
@@ -271,7 +269,7 @@ class Testing_ObjectStore:
 
         Testing_ObjectStore.set_string_object(
             bucket, "%s/%s" % (
-                prefix, _datetime.datetime.utcnow().timestamp()), str(message))
+                prefix, _get_datetime_now().timestamp()), str(message))
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):

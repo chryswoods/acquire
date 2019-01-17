@@ -128,7 +128,7 @@ class User:
        This represents a single client login, and is the
        user-facing part of Acquire
     """
-    def __init__(self, username, identity_url=None):
+    def __init__(self, username, identity_url=None, identity_uid=None):
         """Construct a null user"""
         self._username = username
         self._status = _LoginStatus.EMPTY
@@ -136,6 +136,9 @@ class User:
 
         if identity_url:
             self._identity_url = identity_url
+
+        if identity_uid:
+            self._identity_uid = identity_uid
 
         self._user_uid = None
 
@@ -220,10 +223,35 @@ class User:
         if self._identity_service:
             return self._identity_service
 
-        self._identity_service = _get_identity_service(
-                                    self.identity_service_url())
+        identity_service = _get_identity_service(
+                                self.identity_service_url())
+
+        # if the user supplied the UID then validate this is correct
+        if self._identity_uid:
+            if identity_service.uid() != self._identity_uid:
+                raise LoginError(
+                    "The UID of the identity service at '%s', which is "
+                    "%s, does not match that supplied by the user, '%s'. "
+                    "You should double-check that the UID is correct, or "
+                    "that you have supplied the correct identity_url" %
+                    (self.identity_service_url(), identity_service.uid(),
+                     self._identity_uid))
+        else:
+            self._identity_uid = identity_service.uid()
+
+        self._identity_service = identity_service
 
         return self._identity_service
+
+    def identity_service_uid(self):
+        """Return the UID of the identity service. The combination
+           of user_uid+service_uid should uniquely identify this user
+           account anywhere in the world
+        """
+        if self._identity_uid is not None:
+            return self._identity_uid
+        else:
+            return self._identity_service.uid()
 
     def identity_service_url(self):
         """Return the URL to the identity service. This is the full URL
@@ -401,11 +429,6 @@ class User:
             message = result["message"]
         except:
             message = str(result)
-
-        try:
-            prune_message = result["prune_message"]
-        except:
-            pass
 
         if status != 0:
             error = "Failed to login. Error = %d. Message = %s" % \

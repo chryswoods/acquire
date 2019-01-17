@@ -8,7 +8,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "string_to_encoded", "encoded_to_string",
            "decimal_to_string", "string_to_decimal",
            "datetime_to_string", "string_to_datetime",
-           "create_uuid"]
+           "get_datetime_now", "create_uuid"]
 
 
 def create_uuid():
@@ -72,6 +72,14 @@ def datetime_to_string(d):
        to UTC if the passed datetime is for another timezone)
     """
     return d.astimezone(_datetime.timezone.utc).isoformat()
+
+
+def get_datetime_now():
+    """Return the current time in the UTC timezone. This creates an
+       object that will be properly stored using datetime_to_string
+       and string_to_datetime
+    """
+    return _datetime.datetime.now(_datetime.timezone.utc)
 
 
 def string_to_datetime(s):

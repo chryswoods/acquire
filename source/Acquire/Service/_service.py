@@ -1,14 +1,17 @@
 
 import uuid as _uuid
 import json as _json
-from copy import copy as _copy
+from copy import deepcopy as _deepcopy
+import datetime as _datetime
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Crypto import PublicKey as _PublicKey
-from Acquire.Crypto import OTP as _OTP
 
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
 
 from ._function import call_function as _call_function
 
@@ -21,14 +24,19 @@ class ServiceError(Exception):
 
 class Service:
     """This class represents a service in the system. Services
-       will either be identity services, access services or
-       accounting services.
+       will either be identity services, access services,
+       storage services or accounting services.
     """
     def __init__(self, service_type=None, service_url=None):
         """Construct a new service of the specified type, with
            the specified URL."""
         self._service_type = service_type
         self._service_url = service_url
+        self._canonical_url = service_url
+        self._skeleton_key = None
+        self._uid = None
+        self._pubcert = None
+        self._pubkey = None
 
         if self._service_type:
             if self._service_type not in ["identity", "access",
@@ -36,53 +44,147 @@ class Service:
                 raise ServiceError("Services of type '%s' are not allowed!" %
                                    self._service_type)
 
-            self._uuid = str(_uuid.uuid4())
+            self._uid = str(_uuid.uuid4())
+            self._skeleton_key = _PrivateKey()
+
             self._privkey = _PrivateKey()
-            self._pubkey = self._privkey.public_key()
             self._privcert = _PrivateKey()
+
+            self._pubkey = self._privkey.public_key()
             self._pubcert = self._privcert.public_key()
-            self._admin_password = None
 
-    def set_admin_password(self, admin_password):
-        """Set the admin password for this service. This returns the
-           provisioning URI for the OTP shared secret"""
-        if self._admin_password:
-            raise ServiceError("The admin password has already been set!")
+            # generate 'dummy' old keys - these will be replaced as
+            # the real keys are updated
+            self._lastkey = _PrivateKey()
+            self._lastcert = self._lastkey.public_key()
 
-        key = _PrivateKey()
-        self._admin_password = key.bytes(admin_password)
-        otp = _OTP()
-        self._otpsecret = otp.encrypt(key.public_key())
-        return otp.provisioning_uri("admin", self.service_url())
+            self._last_key_update = _get_datetime_now()
+            self._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
-    def reset_admin_password(self, password, otpcode, new_password):
-        """Change the admin password for this service. Note that
-           you must pass in a valid password and otpcode to make the change"""
-
-        self.verify_admin_user(password, otpcode)
-
-        if password == new_password:
-            return
-
-        key = _PrivateKey.read_bytes(self._admin_password, password)
-        otp = _OTP.decrypt(self._otpsecret, key)
-        otp.verify(otpcode)
-
-        newkey = _PrivateKey()
-        self._admin_password = newkey.bytes(new_password)
-        self._otpsecret = otp.encrypt(newkey.public_key())
+    def __str__(self):
+        return "%s(url=%s, uid=%s)" % (self.__class__.__name__,
+                                       self.canonical_url(),
+                                       self.uid())
 
     def uuid(self):
-        """Return the uuid of this service"""
-        return self._uuid
+        """Synonym for uid"""
+        return self.uid()
 
     def uid(self):
-        """Synonym for uuid"""
-        return self.uuid()
+        """Return the uuid of this service. This MUST NEVER change, as
+           the UID uniquely identifies this service to all other
+           services
+        """
+        if self._uid is None:
+            self.refresh_keys()
+
+        return self._uid
 
     def service_type(self):
         """Return the type of this service"""
         return self._service_type
+
+    def is_locked(self):
+        """Return whether or not this service object is locked. Locked
+           service objects don't contain copies of any private keys,
+           and can be safely shared as a means of distributing public
+           keys and certificates
+        """
+        return self._skeleton_key is None
+
+    def is_unlocked(self):
+        """Return whether or not this service object is unlocked. Unlocked
+           service objects have access to the skeleton key and other private
+           keys. They should only run on the service. Locked service objects
+           are what are returned by services to provide public keys and
+           public certificates
+        """
+        return self._skeleton_key is not None
+
+    def assert_unlocked(self):
+        """Assert that this service object is unlocked"""
+        if self.is_locked():
+            raise ServiceError(
+                "Cannot complete operation as the service account '%s' "
+                "is locked" % str(self))
+
+    def last_key_update(self):
+        """Return the datetime when the key and certificate of this
+           service were last updated
+        """
+        try:
+            return self._last_key_update
+        except:
+            return None
+
+    def key_update_interval(self):
+        """Return the time delta between server key updates"""
+        try:
+            return _datetime.timedelta(seconds=self._key_update_interval)
+        except:
+            return _datetime.timedelta(seconds=1)
+
+    def should_refresh_keys(self):
+        """Return whether the keys and certificates need to be refreshed
+           - i.e. more than 'key_update_interval' has passed since the last
+           key update
+        """
+        try:
+            return _get_datetime_now() > (self._last_key_update +
+                                          self.key_update_interval())
+        except:
+            return True
+
+    def refresh_keys(self):
+        """Refresh the keys and certificates"""
+        if self.is_unlocked():
+            # actually regenerate keys for the service - first save
+            # the old private key (so we can decrypt data decrypted using
+            # the old public key) and the old public certificate, so we
+            # can verify data signed using the old private certificate
+            self._lastkey = self._privkey
+            self._lastcert = self._pubcert
+
+            # now generate a new key and certificate
+            self._privkey = _PrivateKey()
+            self._privcert = _PrivateKey()
+            self._pubkey = self._privkey.public_key()
+            self._pubcert = self._privcert.public_key()
+
+            # update the refresh time
+            self._last_key_update = _get_datetime_now()
+        else:
+            # if our keys are old then pull the new ones from the server
+            if self._pubcert is None:
+                # we are initialising from scratch - hope this is over https
+                response = _call_function(self._service_url,
+                                          response_key=_PrivateKey())
+            else:
+                # ask for an updated Service, ensuring the service responds
+                # with a signature that we know was (once) valid
+                response = _call_function(self._service_url,
+                                          response_key=_PrivateKey(),
+                                          public_cert=self._pubcert)
+
+            service = Service.from_data(response["service_info"])
+
+            if service.uid() != self.uid():
+                raise ServiceError(
+                    "Cannot update the service as the UID has changed. We "
+                    "cannot move from %s to %s. Contact an administrator." %
+                    (str(self), str(service)))
+
+            # everything should be ok. Update this object with the new
+            # keys and data
+            self.__dict__ = _deepcopy(service.__dict__)
+
+    def can_identify_users(self):
+        """Return whether or not this service can identify users.
+           Most services can, at a minimum, identify their admin
+           users. However, only true Identity Services can register
+           and manage normal users
+        """
+        return True
 
     def is_identity_service(self):
         """Return whether or not this is an identity service"""
@@ -127,20 +229,24 @@ class Service:
         """Update the service url to be 'service_url'"""
         self._service_url = str(service_url)
 
+    def skeleton_key(self):
+        """Return the skeleton key used by this service. This is an
+           unchanging key which is stored internally, should never be
+           shared outside the service, and which is used to encrypt
+           all data. Unlocking the service involves loading and
+           decrypting this skeleton key
+        """
+        self.assert_unlocked()
+        return self._skeleton_key
+
     def private_key(self):
         """Return the private key (if it has been unlocked)"""
-        if self._privkey is None:
-            raise ServiceError("The service '%s' has not been unlocked" %
-                               self._service_url)
-
+        self.assert_unlocked()
         return self._privkey
 
     def private_certificate(self):
         """Return the private signing certificate (if it has been unlocked)"""
-        if self._privcert is None:
-            raise ServiceError("The service '%s' has not been unlocked" %
-                               self._service_url)
-
+        self.assert_unlocked()
         return self._privcert
 
     def public_key(self):
@@ -150,6 +256,23 @@ class Service:
     def public_certificate(self):
         """Return the public signing certificate for this service"""
         return self._pubcert
+
+    def last_key(self):
+        """Return the old private key for this service (if it has
+           been unlocked). This was the key used before the last
+           key update, and we store it in case we have to decrypt
+           data that was recently encrypted using the old public key
+        """
+        self.assert_unlocked()
+        return self._lastkey
+
+    def last_certificate(self):
+        """Return the old public certificate for this service. This was the
+           certificate used before the last key update, and we store it
+           in case we need to verify data signed using the old private
+           certificate
+        """
+        return self._lastcert
 
     def call_function(self, func, args=None):
         """Call the function 'func' on this service, optionally passing
@@ -288,25 +411,57 @@ class Service:
         data = self.decrypt(data)
         return _json.loads(data)
 
-    def verify_admin_user(self, password, otpcode, remember_device=False):
-        """Verify that we are the admin user verifying that
-           the passed password and otpcode are correct. This does
-           nothing if they are correct, but raises an exception
-           if they are wrong. If 'remember_device' this this returns
-           the provisioning_uri for the OTP generator"""
+    def dump_keys(self):
+        """Return a dump of the current key and certificate, so that
+           we can keep a record of all keys that have been used. The
+           returned json-serialisable dictionary contains the keys,
+           their fingerprints, and the datetime when they were
+           generated. If this is run on the service, then the keys
+           are encrypted the password which is encrypted using the
+           master key
+        """
+        dump = {}
+        dump["datetime"] = _datetime_to_string(self._last_key_update)
 
-        try:
-            key = _PrivateKey.read_bytes(self._admin_password, password)
-        except Exception as e:
-            raise ServiceError("Could not log into admin account: %s" % str(e))
+        if self.is_unlocked():
+            ranpas = _PrivateKey.random_passphrase()
+            dump[self._privkey.fingerprint()] = self._privkey.to_data(ranpas)
+            dump[self._privcert.fingerprint()] = self._privcert.to_data(ranpas)
+            ranpas = _bytes_to_string(self._skeleton_key.encrypt(ranpas))
+            dump["encrypted_passphrase"] = ranpas
+        else:
+            dump[self._pubkey.fingerprint()] = self._pubkey.to_data()
+            dump[self._pubcert.fingerprint()] = self._pubcert.to_data()
 
-        try:
-            otp = _OTP.decrypt(self._otpsecret, key)
-            otp.verify(otpcode)
-            if remember_device:
-                return otp.provisioning_uri("admin", self.service_url())
-        except Exception as e:
-            raise ServiceError("Could not log into admin account: %s" % str(e))
+        return dump
+
+    def load_keys(self, data):
+        """Return the keys that were dumped by 'self.dump_keys()'.
+           This returns a dictionary of the keys and datetime that
+           they were created, indexed by their key fingerprints
+        """
+        # get all of the key fingerprints in this dictionary
+        fingerprints = []
+        for key in data.keys():
+            if key not in ["datetime", "encrypted_passphrase"]:
+                fingerprints.append(key)
+
+        # now unpack everything
+        result = {}
+        result["datetime"] = _string_to_datetime(data["datetime"])
+
+        if self.is_unlocked():
+            ranpas = self._skeleton_key.decrypt(
+                            _string_to_bytes(data["encrypted_passphrase"]))
+
+            for fingerprint in fingerprints:
+                result[fingerprint] = _PrivateKey.from_data(data[fingerprint],
+                                                            ranpas)
+        else:
+            for fingerprint in fingerprints:
+                result[fingerprint] = _PublicKey.from_data(data[fingerprint])
+
+        return result
 
     def to_data(self, password=None):
         """Serialise this key to a dictionary, using the supplied
@@ -314,56 +469,81 @@ class Service:
 
         data = {}
 
-        data["uuid"] = self._uuid
+        data["uid"] = self._uid
         data["service_type"] = self._service_type
         data["service_url"] = self._service_url
 
-        # keys are binary and need to be encoded
         data["public_certificate"] = self._pubcert.to_data()
         data["public_key"] = self._pubkey.to_data()
 
-        if password:
+        data["last_certificate"] = self._lastcert.to_data()
+
+        data["last_key_update"] = _datetime_to_string(self._last_key_update)
+        data["key_update_interval"] = self._key_update_interval
+
+        if (self.is_unlocked()) and (password is not None):
             # only serialise private data if a password was provided
-            data["private_certificate"] = self._privcert.to_data(password)
-            data["private_key"] = self._privkey.to_data(password)
-            data["otpsecret"] = _bytes_to_string(self._otpsecret)
-            data["admin_password"] = _bytes_to_string(self._admin_password)
+            secret_passphrase = _PrivateKey.random_passphrase()
+            key_data = self._privkey.to_data(secret_passphrase)
+            lastkey_data = self._lastkey.to_data(secret_passphrase)
+            cert_data = self._privcert.to_data(secret_passphrase)
+
+            secret_data = {"passphrase": secret_passphrase,
+                           "private_key": key_data,
+                           "last_key": lastkey_data,
+                           "private_certificate": cert_data}
+
+            secret_data = self._skeleton_key.encrypt(_json.dumps(secret_data))
+
+            data["secret_data"] = _bytes_to_string(secret_data)
+            data["skeleton_key"] = self._skeleton_key.to_data(password)
 
         return data
 
     @staticmethod
     def from_data(data, password=None):
         """Deserialise this object from the passed data. This will
-           only deserialise the private key, private certificate,
-           and OTP if a valid password and passcode is supplied
+           only deserialise the private key and private certificate
+           if the password is supplied
         """
 
         service = Service()
 
         if password:
             # get the private info...
-            service._privkey = _PrivateKey.from_data(data["private_key"],
-                                                     password)
+            service._skeleton_key = _PrivateKey.from_data(data["skeleton_key"],
+                                                          password)
 
+            secret = service._skeleton_key.decrypt(_string_to_bytes(
+                                                   data["secret_data"]))
+
+            secret = _json.loads(secret)
+
+            passphrase = secret["passphrase"]
+            service._privkey = _PrivateKey.from_data(secret["private_key"],
+                                                     passphrase)
+            service._lastkey = _PrivateKey.from_data(secret["last_key"],
+                                                     passphrase)
             service._privcert = _PrivateKey.from_data(
-                                                data["private_certificate"],
-                                                password)
-
-            service._otpsecret = _string_to_bytes(data["otpsecret"])
-
-            service._admin_password = _string_to_bytes(data["admin_password"])
+                                            secret["private_certificate"],
+                                            passphrase)
         else:
+            service._skeleton_key = None
             service._privkey = None
             service._privcert = None
-            service._otpsecret = None
+            service._lastkey = None
 
-        service._uuid = data["uuid"]
+        service._uid = data["uid"]
         service._service_type = data["service_type"]
         service._service_url = data["service_url"]
         service._canonical_url = service._service_url
 
         service._pubkey = _PublicKey.from_data(data["public_key"])
         service._pubcert = _PublicKey.from_data(data["public_certificate"])
+        service._lastcert = _PublicKey.from_data(data["last_certificate"])
+
+        service._last_key_update = _string_to_datetime(data["last_key_update"])
+        service._key_update_interval = float(data["key_update_interval"])
 
         if service.is_identity_service():
             from Acquire.Identity import IdentityService as _IdentityService

@@ -49,6 +49,7 @@ class Authorisation:
             self._user_uid = user.uid()
             self._session_uid = user.session_uid()
             self._identity_url = user.identity_service().canonical_url()
+            self._identity_uid = user.identity_uid()
             self._auth_timestamp = _datetime.datetime.now().timestamp()
 
             message = self._get_message(resource)
@@ -62,6 +63,7 @@ class Authorisation:
             self._user_uid = "some user uid"
             self._session_uid = "some session uid"
             self._identity_url = "some identity_url"
+            self._identity_uid = "some identity uid"
             self._auth_timestamp = _datetime.datetime.now().timestamp()
             self._is_testing = True
 
@@ -85,10 +87,10 @@ class Authorisation:
         """
         if resource is None:
             return "%s|%s|%s|%s" % (self._user_uid, self._session_uid,
-                                    self._identity_url, self._auth_timestamp)
+                                    self._identity_uid, self._auth_timestamp)
         else:
             return "%s|%s|%s|%s|%s" % (self._user_uid, self._session_uid,
-                                       self._identity_url, str(resource),
+                                       self._identity_uid, str(resource),
                                        self._auth_timestamp)
 
     def __str__(self):
@@ -122,6 +124,13 @@ class Authorisation:
         else:
             return value
 
+    def from_user(self, user_uid, service_uid):
+        """Return whether or not this authorisation comes from the user
+           with passed user_uid registered on the passed service_uid
+        """
+        return (user_uid == self._user_uid) and \
+               (service_uid == self._identity_uid)
+
     def user_uid(self):
         """Return the UID of the user who created this authorisation"""
         if self.is_null():
@@ -144,6 +153,15 @@ class Authorisation:
             return None
         else:
             return self._identity_url
+
+    def identity_uid(self):
+        """Return the UID of the identity service that authenticated
+           the user
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._identity_uid
 
     def signature_time(self):
         """Return the time when the authentication was signed"""
@@ -271,6 +289,14 @@ class Authorisation:
                     "Cannot verify an Authorisation that does not use a valid "
                     "identity service")
 
+            if identity_service.uid() != self._identity_uid:
+                raise PermissionError(
+                    "Cannot verify this Authorisation as the actual UID of "
+                    "the identity service at '%s' (%s) does not match "
+                    "the UID of the service that signed this authorisation "
+                    "(%s)" % (self._identity_url, identity_service.uid(),
+                              self._identity_uid))
+
             response = identity_service.whois(
                                     user_uid=self._user_uid,
                                     session_uid=self._session_uid)
@@ -327,6 +353,7 @@ class Authorisation:
             auth._user_uid = data["user_uid"]
             auth._session_uid = data["session_uid"]
             auth._identity_url = data["identity_url"]
+            auth._identity_uid = data["identity_uid"]
             auth._auth_timestamp = data["auth_timestamp"]
             auth._signature = _string_to_bytes(data["signature"])
             auth._last_validated_time = None
@@ -346,6 +373,7 @@ class Authorisation:
         data["user_uid"] = str(self._user_uid)
         data["session_uid"] = str(self._session_uid)
         data["identity_url"] = str(self._identity_url)
+        data["identity_uid"] = str(self._identity_uid)
         data["auth_timestamp"] = self._auth_timestamp
         data["signature"] = _bytes_to_string(self._signature)
 

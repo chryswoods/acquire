@@ -37,8 +37,6 @@ def test_run_calc(aaai_services, authenticated_user):
     cheque = account.write_cheque(canonical_url="access",
                                   max_spend=50.0)
 
-    print(cheque)
-
     # create a request for the calculation described in 'run.yaml' and
     # authorise it using the authenticated user (who may be different to the
     # user who pays for the job - hence the need for a different

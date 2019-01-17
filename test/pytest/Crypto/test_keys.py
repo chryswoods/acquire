@@ -15,19 +15,19 @@ def test_keys():
 
     message = "Hello World"
 
-    sig = privkey.sign(message.encode("utf-8"))
-    pubkey.verify(sig, message.encode("utf-8"))
+    sig = privkey.sign(message)
+    pubkey.verify(sig, message)
 
-    c = pubkey.encrypt(message.encode("utf-8"))
+    c = pubkey.encrypt(message)
 
-    m = privkey.decrypt(c).decode("utf-8")
+    m = privkey.decrypt(c)
     assert(m == message)
 
     privkey2 = PrivateKey()
-    sig2 = privkey2.sign(message.encode("utf-8"))
+    sig2 = privkey2.sign(message)
 
     with pytest.raises(SignatureVerificationError):
-        pubkey.verify(sig2, message.encode("utf-8"))
+        pubkey.verify(sig2, message)
 
     bytes = privkey.bytes("testPass32")
 
@@ -45,7 +45,7 @@ def test_keys():
     assert(bytes == pubkey2.bytes())
 
     long_message = str([random.getrandbits(8)
-                       for _ in range(4096)]).encode("utf-8")
+                       for _ in range(4096)])
 
     c = pubkey.encrypt(long_message)
 

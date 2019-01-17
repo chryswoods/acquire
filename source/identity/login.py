@@ -7,7 +7,8 @@ from Acquire.Service import create_return_value
 
 from Acquire.Identity import UserAccount, LoginSession
 
-from Acquire.ObjectStore import ObjectStore
+from Acquire.ObjectStore import ObjectStore, get_datetime_now, \
+                                string_to_datetime, datetime_to_string
 
 
 class LoginError(Exception):
@@ -149,19 +150,18 @@ def run(args):
     otproot = "otps/%s" % user_account.sanitised_name()
     sessions = ObjectStore.get_all_strings(bucket, otproot)
 
-    utcnow = datetime.datetime.utcnow()
+    utcnow = get_datetime_now()
 
     for session in sessions:
         otpkey = "%s/%s" % (otproot, session)
         otpstring = ObjectStore.get_string_object(bucket, otpkey)
 
-        (timestamp, code) = otpstring.split("|||")
+        (datestring, code) = otpstring.split("|||")
 
         # remove all codes that are more than 10 minutes old. The
         # otp codes are only valid for 3 minutes, so no need to record
         # codes that have been used that are older than that...
-        timedelta = utcnow - datetime.datetime.fromtimestamp(
-                                                    float(timestamp))
+        timedelta = utcnow - string_to_datetime(datestring)
 
         if timedelta.seconds > 600:
             try:
@@ -198,9 +198,9 @@ def run(args):
                 "try another code. Meanwhile, the other login that used "
                 "this code has been put into a 'suspicious' state.")
 
-    # record the value and timestamp of when this otpcode was used
+    # record the value and datetime of when this otpcode was used
     otpkey = "%s/%s" % (otproot, login_session.uuid())
-    otpstring = "%s|||%s" % (datetime.datetime.utcnow().timestamp(),
+    otpstring = "%s|||%s" % (datetime_to_string(get_datetime_now()),
                              otpcode)
 
     ObjectStore.set_string_object(bucket, otpkey, otpstring)

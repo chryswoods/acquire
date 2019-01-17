@@ -6,6 +6,10 @@ import base64 as _base64
 
 from Acquire.Crypto import PublicKey as _PublicKey
 
+from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+
 from ._errors import LoginSessionError
 
 __all__ = ["LoginSession", "LoginSessionError"]
@@ -41,7 +45,7 @@ class LoginSession:
                 raise TypeError("The public key must be of type PublicKey")
 
             self._uid = str(_uuid.uuid4())
-            self._request_datetime = _datetime.datetime.utcnow()
+            self._request_datetime = _get_datetime_now()
             self._status = "unapproved"
 
         if public_cert:
@@ -180,7 +184,7 @@ class LoginSession:
            1 / 3600th of an hour"""
 
         if self._request_datetime:
-            delta = _datetime.datetime.utcnow() - self._request_datetime
+            delta = _get_datetime_now() - self._request_datetime
             return delta.total_seconds() / 3600.0
         else:
             return 0
@@ -213,7 +217,7 @@ class LoginSession:
                     "that is not in the 'unapproved' state. This login "
                     "session is in the '%s' state." % self.status())
 
-            self._login_datetime = _datetime.datetime.utcnow()
+            self._login_datetime = _get_datetime_now()
             self._status = "approved"
 
     def _clear_keys(self):
@@ -236,7 +240,7 @@ class LoginSession:
            the user has logged out"""
         if self._uid:
             self._status = "logged_out"
-            self._logout_datetime = _datetime.datetime.utcnow()
+            self._logout_datetime = _get_datetime_now()
             self._clear_keys()
 
     def login(self):
@@ -286,15 +290,16 @@ class LoginSession:
 
         data = {}
         data["uid"] = self._uid
-        data["timestamp"] = self._request_datetime.timestamp()
+        data["request_datetime"] = _datetime_to_string(self._request_datetime)
 
         try:
-            data["login_timestamp"] = self._login_datetime.timestamp()
+            data["login_datetime"] = _datetime_to_string(self._login_datetime)
         except:
-            data["login_timestamp"] = None
+            data["login_datetime"] = None
 
         try:
-            data["logout_timestamp"] = self._logout_datetime.timestamp()
+            data["logout_timestamp"] = _datetime_to_string(
+                                            self._logout_datetime)
         except:
             data["logout_timestamp"] = None
 
@@ -327,18 +332,18 @@ class LoginSession:
             except:
                 logses._uid = data["uuid"]  # for backward compatibility
 
-            logses._request_datetime = _datetime.datetime\
-                .fromtimestamp(float(data["timestamp"]))
+            logses._request_datetime = _string_to_datetime(
+                                            data["request_datetime"])
 
             try:
-                logses._login_datetime = _datetime.datetime \
-                                .fromtimestamp(float(data["login_timestamp"]))
+                logses._login_datetime = _string_to_datetime(
+                                            data["login_datetime"])
             except:
                 logses._login_datetime = None
 
             try:
-                logses._logout_datetime = _datetime.datetime \
-                                .fromtimestamp(float(data["logout_timestamp"]))
+                logses._logout_datetime = _string_to_datetime(
+                                            data["logout_datetime"])
             except:
                 logses._logout_datetime = None
 

@@ -1,6 +1,7 @@
 
 import os as _os
 import base64 as _base64
+import uuid as _uuid
 
 import lazy_import as _lazy_import
 
@@ -302,6 +303,20 @@ class PrivateKey:
 
         return PrivateKey.read_bytes(data, passphrase, mangleFunction)
 
+    @staticmethod
+    def random_passphrase():
+        """Randomly generate and return a passphrase that obeys the
+           password rules and could be used to serialise a PrivateKey
+        """
+        import random as _random
+        import string as _string
+        return (''.join(_random.SystemRandom().choice(_string.ascii_uppercase)
+                        for _ in range(12)) +
+                ''.join(_random.SystemRandom().choice(_string.digits)
+                        for _ in range(12)) +
+                ''.join(_random.SystemRandom().choice(_string.ascii_lowercase)
+                        for _ in range(12)))
+
     def bytes(self, passphrase, mangleFunction=None):
         """Return the raw bytes for this key, encoded by the passed
            passphrase that has been optionally mangled by mangleFunction"""
@@ -368,12 +383,17 @@ class PrivateKey:
 
         # try standard decryption
         try:
-            return self._privkey.decrypt(
+            message = self._privkey.decrypt(
                 message,
                 _padding.OAEP(
                     mgf=_padding.MGF1(algorithm=_hashes.SHA256()),
                     algorithm=_hashes.SHA256(),
                     label=None))
+
+            try:
+                return message.decode("utf-8")
+            except:
+                return message
         except:
             pass
 
@@ -399,13 +419,18 @@ class PrivateKey:
 
         try:
             try:
-                return f.decrypt(message[key_size:])
+                message = f.decrypt(message[key_size:])
             except:
-                return f.decrypt(message[key_size:].encode("utf-8"))
+                message = f.decrypt(message[key_size:].encode("utf-8"))
         except Exception as e:
             raise DecryptionError(
                     "Cannot decrypt the long message using the "
                     "symmetric key: %s" % str(e))
+
+        try:
+            return message.decode("utf-8")
+        except:
+            return message
 
     def sign(self, message):
         """Return the signature for the passed message"""

@@ -10,6 +10,10 @@ except:
 
 from io import BytesIO as _BytesIO
 
+from ._encoding import get_datetime_now as _get_datetime_now
+from ._encoding import datetime_to_string as _datetime_to_string
+from ._encoding import string_to_datetime as _string_to_datetime
+
 from ._errors import PARError, PARTimeoutError, PARPermissionsError, \
                      PARReadError, PARWriteError
 
@@ -27,14 +31,14 @@ class PAR:
        the server to the client
     """
     def __init__(self, url=None, key=None,
-                 created_timestamp=0,
-                 expires_timestamp=0,
+                 created_datetime=None,
+                 expires_datetime=None,
                  is_readable=True,
                  is_writeable=False,
                  par_id=None, par_name=None,
                  driver=None):
         """Construct a PAR result by passing in the URL at which the
-           object can be accessed, the UTC timestamp when this expires,
+           object can be accessed, the UTC datetime when this expires,
            whether this is writeable, and (optionally) 'key' for the
            object that is accessed (if this is not supplied then an
            entire bucket is accessed). If 'is_readable', then read-access
@@ -44,13 +48,13 @@ class PAR:
            in the free-form string 'driver'. You can optionally supply
            the ID of the PAR by passing in 'par_id', the user-supplied name,
            of the PAR by passing in 'par_name', and the time it
-           was created using 'created_timestamp' (in the same format
-           as 'expires_timestamp' - should be a UTC timestamp)
+           was created using 'created_datetime' (in the same format
+           as 'expires_datetime' - should be a UTC datetime with UTC tzinfo)
         """
         self._url = url
         self._key = key
-        self._created_timestamp = created_timestamp
-        self._expires_timestamp = expires_timestamp
+        self._created_datetime = created_datetime
+        self._expires_datetime = expires_datetime
         self._driver = driver
         self._par_id = par_id
         self._par_name = par_name
@@ -139,15 +143,14 @@ class PAR:
            validity to provide a buffer against race conditions (function
            says this is valid when it is not)
         """
-        now = _datetime.datetime.utcnow()
-        expires = _datetime.datetime.utcfromtimestamp(self._expires_timestamp)
+        now = _get_datetime_now()
 
         buffer = float(buffer)
 
         if buffer < 0:
             buffer = 0
 
-        delta = (expires - now).total_seconds() - buffer
+        delta = (self._expires_datetime - now).total_seconds() - buffer
 
         if delta < 0:
             return 0
@@ -184,8 +187,8 @@ class PAR:
 
         data["url"] = self._url
         data["key"] = self._key
-        data["created_timestamp"] = self._created_timestamp
-        data["expires_timestamp"] = self._expires_timestamp
+        data["created_datetime"] = _datetime_to_string(self._created_datetime)
+        data["expires_datetime"] = _datetime_to_string(self._expires_datetime)
         data["driver"] = self._driver
         data["par_id"] = self._par_id
         data["par_name"] = self._par_name
@@ -214,8 +217,8 @@ class PAR:
         if par._key is not None:
             par._key = str(par._key)
 
-        par._created_timestamp = data["created_timestamp"]
-        par._expires_timestamp = data["expires_timestamp"]
+        par._created_datetime = _string_to_datetime(data["created_datetime"])
+        par._expires_datetime = _string_to_datetime(data["expires_datetime"])
         par._driver = data["driver"]
         par._par_id = data["par_id"]
         par._par_name = data["par_name"]
