@@ -15,7 +15,7 @@ from ._errors import ServiceAccountError
 # least recently used items from the cache
 _cache = _LRUCache(maxsize=50)
 
-__all__ = ["login_to_service_account",
+__all__ = ["login_to_service_account", "get_service_account_bucket",
            "_push_testing_objstore", "_pop_testing_objstore"]
 
 _current_testing_objstore = None
@@ -42,6 +42,13 @@ def _pop_testing_objstore():
 
     _current_testing_objstore = d
     _clear_service_cache()
+
+
+def get_service_account_bucket(testing_dir=None):
+    """Synonym for 'login_to_service_account', as this is a more
+       descriptive name for what this function is doing
+    """
+    return login_to_service_account(testing_dir)
 
 
 # Cache this function as the result changes very infrequently, as involves

@@ -19,11 +19,11 @@ __all__ = ["call_function", "pack_arguments", "unpack_arguments",
            "create_return_value", "pack_return_value", "unpack_return_value"]
 
 
-def _get_signing_certificate():
+def _get_signing_certificate(fingerprint=None):
     """Return the signing certificate for this service"""
     from ._service_account import get_service_private_certificate \
         as _get_service_private_certificate
-    return _get_service_private_certificate()
+    return _get_service_private_certificate(fingerprint=fingerprint)
 
 
 def _get_key(key):
@@ -106,7 +106,7 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
                                             response_key.bytes())
 
         if public_cert:
-            result["sign_with_service_key"] = True
+            result["sign_with_service_key"] = public_cert.fingerprint()
 
     elif sign_result and (key is None):
         raise PackingError(
@@ -122,7 +122,8 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
 
         if sign_result:
             # sign using the signing certificate for this service
-            signature = _get_signing_certificate().sign(result_data)
+            signature = _get_signing_certificate(
+                            fingerprint=sign_result).sign(result_data)
             response["signature"] = _bytes_to_string(signature)
 
         response["data"] = _bytes_to_string(result_data)
