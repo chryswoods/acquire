@@ -84,12 +84,34 @@ def _get_service_password():
 
 
 def setup_service_account(canonical_url, service_type, username, password):
-    """Call this function exactly once on a service to setup a new
+    """Call this function to setup a new
        service that will servce at 'canonical_url', will be of
        the specified service_type. This will also create an administrating
        user called 'username', which will be secured with the
        passed password. This will return the provisioning_uri that will
-       allow remote login to the service admin user account
+       allow remote login to the service admin user account. Note
+       that this will only do something if the service info or admin
+       account don't already exist. This allows you to;
+
+       (1) Delete the object store value "_service/admin_user" if you
+           have lost the credentials for the admin user, and you need to
+           reset the account. Note that this will also reset the UID
+           of the admin_user, meaning that any authorisations or accounts
+           associated with the old admin_user will not work with the
+           new admin_user (deliberate, as it stops someone retroactively
+           getting admin access on previously-approved requests). If you
+           want to reset credentials only, then you will need to manually
+           edit the object offline
+
+        (2) Delete the object store value "_service" if you want to reset
+            the actual Service. This will assign a new UID for the service
+            which would reset the certificates and keys. This new service
+            will need to be re-introduced to other services that need
+            to trust it
+
+        If the admin_user account is updated, then this will return the
+        provisioning URI for the one-time-code generator. Otherwise,
+        this returns None
     """
     bucket = _get_service_account_bucket()
 
@@ -97,41 +119,102 @@ def setup_service_account(canonical_url, service_type, username, password):
 
     # ensure that this is the only time the service is set up
     mutex = _Mutex(key=_service_key, bucket=bucket)
-    service_info = _ObjectStore.get_string_object(bucket, _service_key)
 
-    if service_info is not None:
-        raise ServiceAccountError(
-            "You cannot setup the service account twice. If you need to "
-            "set the service up again, then manually log into the "
-            "object store and delete the data associated with the key "
-            "%s" % _service_key)
+    try:
+        service_info = _ObjectStore.get_object_from_json(bucket, _service_key)
+    except:
+        service_info = None
 
-    service = _Service(service_url=canonical_url, service_type=service_type)
-
-    # write the service data, encrypted using the service password
+    service = None
     service_password = _get_service_password()
-    service_data = service.to_data(service_password)
+
+    if service_info:
+        try:
+            service = _Service.from_data(service_info, service_password)
+        except Exception as e:
+            raise ServiceAccountError(
+                "Something went write reading the Service data. You should "
+                "either debug the error or delete the data at key '%s' "
+                "to allow the service to be reset and constructed again. "
+                "The error was %s"
+                % (_service_key, str(e)))
+
+        if service.service_type() != service_type or \
+           service.canonical_url() != canonical_url:
+            raise ServiceAccountError(
+               "The existing service has a different type or URL to that "
+               "requested at setup. The request type and URL are %s and %s, "
+               "while the actual service type and URL are %s and %s." %
+               (service_type, canonical_url,
+                service.service_type(), service.canonical_url()))
+
+    if service is None:
+        if (service_type is None) or (canonical_url is None):
+            raise ServiceAccountError(
+                "You need to supply both the service_type and canonical_url "
+                "in order to initialise a new Service")
+
+        # we need to build the service account
+        service = _Service(service_url=canonical_url,
+                           service_type=service_type)
+
+        # write the service data, encrypted using the service password
+        service_data = service.to_data(service_password)
+        # reload the data to check it is ok, and also to set the right class
+        service = _Service.from_data(service_data, service_password)
+        # now it is ok, save this data to the object store
+        _ObjectStore.set_object_from_json(bucket, _service_key, service_data)
 
     # now create the new user account that will be used to administer
     # the service
     from Acquire.Identity import UserAccount as _UserAccount
     from Acquire.Crypto import PrivateKey as _PrivateKey
 
-    admin_user = _UserAccount(username=username)
-    admin_password = _PrivateKey.random_passphrase()
-    otp = admin_user.reset_password(admin_password)
-    admin_secret = otp._secret
+    # see if the admin account exists...
+    admin_key = "%s/admin_user" % _service_key
 
-    admin_data = {"account": admin_user.to_data(),
-                  "password": admin_password,
-                  "otpsecret": admin_secret}
+    try:
+        admin_data = _ObjectStore.get_string_object(bucket, admin_key)
+    except:
+        admin_data = None
 
-    admin_secret = service.skeleton_key().encrypt(_json.dumps(admin_data))
+    admin_user = None
+    admin_otp = None
 
-    # everything is done, so now write this data to the object store
-    _ObjectStore.set_object_from_json(bucket, _service_key, service_data)
-    _ObjectStore.set_string_object(bucket, "%s/admin_user" % _service_key,
-                                   _bytes_to_string(admin_secret))
+    if admin_data:
+        try:
+            admin_data = _string_to_bytes(admin_data)
+            admin_data = service.private_key().decrypt(admin_data)
+            admin_data = _json.loads(admin_data)
+            admin_user = _UserAccount.from_data(admin_data["account"])
+        except Exception as e:
+            raise ServiceAccountError(
+                "Error loading the data for the admin user account. You "
+                "should either debug the error or delete the data "
+                "associated with the key '%s' so that the admin user "
+                "account can be reset. The error was %s" %
+                (admin_key, str(e)))
+
+    if admin_user is None:
+        if (username is None) or (password is None):
+            raise ServiceAccountError(
+                "You must supply a username and password for the admin_user "
+                "account!")
+
+        admin_user = _UserAccount(username=username)
+        admin_password = password
+        admin_otp = admin_user.reset_password(admin_password)
+        admin_secret = admin_otp._secret
+
+        admin_data = {"account": admin_user.to_data(),
+                      "password": admin_password,
+                      "otpsecret": admin_secret}
+
+        admin_secret = service.skeleton_key().encrypt(_json.dumps(admin_data))
+
+        # everything is done, so now write this data to the object store
+        _ObjectStore.set_string_object(bucket, admin_key,
+                                       _bytes_to_string(admin_secret))
 
     # we can (finally!) release the mutex, as everyone else should now
     # be able to see the account
@@ -141,9 +224,12 @@ def setup_service_account(canonical_url, service_type, username, password):
     _cache1.clear()
     _cache2.clear()
 
-    return otp.provisioning_uri(username="%s@%s" % (admin_user.username(),
-                                                    canonical_url),
-                                issuer="Acquire")
+    if admin_otp:
+        return admin_otp.provisioning_uri(
+                username="%s@%s" % (admin_user.username(), canonical_url),
+                issuer="Acquire")
+    else:
+        return None
 
 
 @_cached(_cache2)
@@ -187,7 +273,7 @@ def get_service_info(need_private_access=False):
        the public certificates.
     """
     try:
-        service = _get_service_info_data()
+        service_info = _get_service_info_data()
     except Exception as e:
         raise MissingServiceAccountError(
             "Unable to read the service info from the object store! : %s" %
@@ -200,9 +286,9 @@ def get_service_info(need_private_access=False):
 
     try:
         if service_password:
-            service = _Service.from_data(service, service_password)
+            service = _Service.from_data(service_info, service_password)
         else:
-            service = _Service.from_data(service)
+            service = _Service.from_data(service_info)
 
     except Exception as e:
         raise MissingServiceAccountError(
@@ -236,8 +322,8 @@ def get_admin_user():
 
     from Acquire.Identity import UserAccount as _UserAccount
     admin_user = _UserAccount.from_data(admin_user_data["account"])
-    return admin_user.direct_login(admin_user_data["password"],
-                                   admin_user_data["otpsecret"])
+    return admin_user.direct_login(password=admin_user_data["password"],
+                                   otpsecret=admin_user_data["otpsecret"])
 
 
 def _refresh_service_keys_and_certs(service):

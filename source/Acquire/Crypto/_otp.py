@@ -32,14 +32,14 @@ class OTP:
         """Construct a OTP from the passed encrypted secret
            that will be decrypted with the passed private key"""
         otp = OTP()
-        otp._secret = key.decrypt(secret).decode("utf-8")
+        otp._secret = key.decrypt(secret)
 
         return otp
 
     def encrypt(self, key):
         """This uses the passed public key to encrypt and return the
            secret"""
-        return key.encrypt(self._secret.encode("utf-8"))
+        return key.encrypt(self._secret)
 
     def _totp(self):
         """Return the time-based one-time-password based on this secret"""

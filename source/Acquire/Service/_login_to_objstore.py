@@ -122,7 +122,7 @@ def login_to_service_account(testing_dir=None):
             "environment variable!")
 
     try:
-        config = secret_key.decrypt(_string_to_bytes(config)).decode("utf-8")
+        config = secret_key.decrypt(_string_to_bytes(config))
     except Exception as e:
         raise ServiceAccountError(
             "Cannot decrypt the 'SECRET_CONFIG' with the 'SECRET_KEY'. Are "

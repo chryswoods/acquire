@@ -234,7 +234,7 @@ class Wallet:
                 self._manual_password = False
 
                 # this needs to be decrypted
-                return self._wallet_key.decrypt(password).decode("utf-8")
+                return self._wallet_key.decrypt(password)
         except:
             pass
 
@@ -248,8 +248,7 @@ class Wallet:
             userinfo = self._read_userinfo(username, identity_url)
 
             if userinfo:
-                secret = self._wallet_key.decrypt(
-                                    userinfo["otpsecret"]).decode("utf-8")
+                secret = self._wallet_key.decrypt(userinfo["otpsecret"])
                 device_uid = userinfo["device_uid"]
                 self._manual_otpcode = False
                 self._device_uid = device_uid

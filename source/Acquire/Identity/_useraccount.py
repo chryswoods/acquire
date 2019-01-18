@@ -205,6 +205,19 @@ class UserAccount:
             otpsecret = _bytes_to_string(otp.encrypt(privkey.public_key()))
             return (otpsecret, otp.provisioning_uri(self.username()))
 
+    def direct_login(self, password, otpsecret):
+        """Call this function to directly create and authorise a login
+           for this account. This will return a valid, logged in
+           Acquire.Client.User object. You must supply the real
+           password and the secret underlying 2FA for this account
+           to log in. This is intended to be used by Service admin_user
+           accounts and is not supposed to be called for normal
+           User accounts. This will generate a new full login session,
+           identically to a normal login
+        """
+        from Acquire.Client import User as _User
+        return _User(username="admin")
+
     def to_data(self):
         """Return a data representation of this object (dictionary)"""
         if self._username is None:

@@ -1,7 +1,7 @@
 
 from Acquire.Service import login_to_service_account
 from Acquire.Service import create_return_value
-from Acquire.Service import get_service_info
+from Acquire.Service import Service, get_service_info
 
 from Acquire.ObjectStore import ObjectStore
 
@@ -49,14 +49,19 @@ def run(args):
 
     service_info = get_service_info()
 
+    # BELOW IS VERY BROKEN!!!
+    if isinstance(service_info, dict):
+        service_info = Service.from_data(service_info)
+
     try:
         provisioning_uri = otp.provisioning_uri(username,
                                                 issuer="Acquire@%s" %
                                                 service_info.canonical_url())
     except Exception as e:
         raise RegisterAccountError(
-            "Cannot get the ORI to register an account (%s): %s"
-            % (str(service_info), str(e)))
+            "Cannot generate a provisioning_uri to register "
+            "an account %s on service %s. Error equals %s"
+            % (username, str("HELLO"), str(e)))
 
     try:
         existing_data = ObjectStore.get_object_from_json(bucket,

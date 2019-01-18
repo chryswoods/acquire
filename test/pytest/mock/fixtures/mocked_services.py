@@ -140,22 +140,19 @@ def aaai_services(tmpdir_factory):
     os.environ["SERVICE_PASSWORD"] = "Service_pa33word"
     os.environ["STORAGE_COMPARTMENT"] = str(_services["userdata"])
 
-    args["service_url"] = "identity"
+    args["canonical_url"] = "identity"
     response = call_function("identity", function="setup", args=args)
     responses["identity"] = response
 
-    args["service_url"] = "accounting"
-    args["new_service"] = "identity"
+    args["canonical_url"] = "accounting"
     response = call_function("accounting", function="setup", args=args)
     responses["accounting"] = response
 
-    args["service_url"] = "access"
-    args["new_service"] = "identity"
+    args["canonical_url"] = "access"
     response = call_function("access", function="setup", args=args)
     responses["access"] = response
 
-    args["service_url"] = "storage"
-    args["new_service"] = "identity"
+    args["canonical_url"] = "storage"
     response = call_function("storage", function="setup", args=args)
     responses["storage"] = response
 

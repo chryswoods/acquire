@@ -21,8 +21,15 @@ def run(args):
     except:
         username = "admin"
 
-    password = args["password"]
-    canonical_url = args["canonical_url"]
+    try:
+        password = args["password"]
+    except:
+        password = None
+
+    try:
+        canonical_url = args["canonical_url"]
+    except:
+        canonical_url = None
 
     provisioning_uri = setup_service_account(service_type=service_type,
                                              canonical_url=canonical_url,

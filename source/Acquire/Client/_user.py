@@ -139,6 +139,8 @@ class User:
 
         if identity_uid:
             self._identity_uid = identity_uid
+        else:
+            self._identity_uid = None
 
         self._user_uid = None
 

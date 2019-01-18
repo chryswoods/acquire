@@ -219,7 +219,7 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False):
                     "know! %s" % str(e))
 
         decrypted_data = _get_key(key).decrypt(encrypted_data)
-        return unpack_arguments(decrypted_data.decode("utf-8"))
+        return unpack_arguments(decrypted_data)
     else:
         return data
 
