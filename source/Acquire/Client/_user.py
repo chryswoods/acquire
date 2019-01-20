@@ -58,7 +58,7 @@ def _get_identity_service(identity_url=None):
                          "the identity service at '%s' - got '%s'" %
                          (identity_url, response))
 
-    if not service.is_identity_service():
+    if not service.can_identify_users():
         raise LoginError(
             "You can only use a valid identity service to log in! "
             "The service at '%s' is a '%s'" %
@@ -76,7 +76,7 @@ def uid_to_username(user_uid, identity_url=None):
         identity_url = _get_identity_url()
 
     response = _call_function(identity_url, "whois",
-                              user_uid=str(user_uid))
+                              args={"user_uid": str(user_uid)})
 
     return response["username"]
 
@@ -87,7 +87,7 @@ def username_to_uid(username, identity_url=None):
         identity_url = _get_identity_url()
 
     response = _call_function(identity_url, "whois",
-                              username=str(username))
+                              args={"username": str(username)})
 
     return response["user_uid"]
 
@@ -128,7 +128,8 @@ class User:
        This represents a single client login, and is the
        user-facing part of Acquire
     """
-    def __init__(self, username, identity_url=None, identity_uid=None):
+    def __init__(self, username=None, user_uid=None,
+                 identity_url=None, identity_uid=None):
         """Construct a null user"""
         self._username = username
         self._status = _LoginStatus.EMPTY
@@ -141,6 +142,17 @@ class User:
             self._identity_uid = identity_uid
         else:
             self._identity_uid = None
+
+        if user_uid is not None:
+            username = uid_to_username(user_uid, identity_url)
+
+            if self._username is not None:
+                if username != self._username:
+                    raise LoginError(
+                        "Disagreement of username for account with UID '%s'. "
+                        "%s versus %s" % (user_uid, username, self._username))
+
+            self._username = username
 
         self._user_uid = None
 

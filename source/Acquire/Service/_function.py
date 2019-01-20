@@ -231,6 +231,46 @@ def unpack_return_value(return_value, key=None, public_cert=None):
                             is_return_value=True)
 
 
+def _call_local_function(service, function=None, args_key=None,
+                         response_key=None, public_cert=None, args=None):
+    """This is an internal version of call_function which short-cuts
+       the whole process if the function is being called in the local
+       service
+    """
+    response_key = _get_key(response_key)
+
+    if function is not None:
+        args["function"] = function
+
+    if response_key:
+        args_json = pack_arguments(args, args_key, response_key.public_key(),
+                                   public_cert=public_cert)
+    else:
+        args_json = pack_arguments(args, args_key)
+
+    result = service._call_local_function(function, args_json)
+
+    # Now unpack the results
+    try:
+        result = unpack_return_value(result, response_key, public_cert)
+    except Exception as e:
+        raise RemoteFunctionCallError(
+            "Error calling '%s' at '%s': %s" % (function, service, str(e)))
+
+    if len(result) == 1 and "error" in result:
+        raise RemoteFunctionCallError(
+            "Error calling '%s' at '%s': '%s'" % (function, service,
+                                                  result["error"]))
+    elif "status" in result:
+        if result["status"] != 0:
+            raise RemoteFunctionCallError(
+                "Error calling '%s' at '%s'. Server returned "
+                "error code '%d' with message '%s'" %
+                (function, service, result["status"], result["message"]))
+
+    return result
+
+
 def call_function(service_url, function=None, args_key=None, response_key=None,
                   public_cert=None, args=None, **kwargs):
     """Call the remote function called 'function' at 'service_url' passing
@@ -243,6 +283,24 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
        service signing certificate, and we will validate the
        signature using 'public_cert'
     """
+    if args is None:
+        args = {}
+
+    for key, value in kwargs.items():
+        args[key] = value
+
+    from Acquire.Service import get_service_info as _get_service_info
+
+    try:
+        service = _get_service_info(need_private_access=True)
+    except:
+        service = None
+
+    if service is not None:
+        if service.canonical_url() == service_url:
+            return _call_local_function(service, function, args_key,
+                                        response_key, public_cert, args)
+
     if _pycurl is None:
         raise RemoteFunctionCallError(
             "Cannot call remote functions as "
@@ -251,14 +309,8 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
 
     response_key = _get_key(response_key)
 
-    if args is None:
-        args = {}
-
     if function is not None:
         args["function"] = function
-
-    for key, value in kwargs.items():
-        args[key] = value
 
     if response_key:
         args_json = pack_arguments(args, args_key, response_key.public_key(),

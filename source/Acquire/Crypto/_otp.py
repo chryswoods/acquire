@@ -54,6 +54,18 @@ class OTP:
            for the user called 'username' and is issued by 'issuer'"""
         return self._totp().provisioning_uri(username, issuer_name=issuer)
 
+    @staticmethod
+    def extract_secret(provisioning_uri):
+        """Return the otpsecret extracted from the passed provisioning_url"""
+        import re as _re
+        try:
+            return _re.search(r"secret=([\w\d+]+)&issuer",
+                              provisioning_uri).groups()[0]
+        except Exception as e:
+            raise OTPError(
+                "Cannot extract the otp secret from the provisioning URL "
+                "'%s': %s" % (provisioning_uri, str(e)))
+
     def generate(self):
         """Generate and return the current OTP code"""
         totp = self._totp()

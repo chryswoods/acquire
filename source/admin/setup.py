@@ -1,6 +1,11 @@
 
-from Acquire.Service import setup_service_account
+from Acquire.Service import setup_service_info, add_admin_user
 from Acquire.Service import create_return_value, MissingServiceAccountError
+
+from Acquire.Crypto import OTP
+
+from admin.register import run as register_account
+from admin.whois import run as whois
 
 
 def run(args):
@@ -10,24 +15,45 @@ def run(args):
        to log in as the admin user
     """
 
-    service_type = "identity"
-
     status = 0
     message = None
     provisioning_uri = None
+
+    try:
+        service_type = args["service_type"]
+    except:
+        service_type = None
 
     try:
         username = args["username"]
     except:
         username = "admin"
 
-    password = args["password"]
-    canonical_url = args["canonical_url"]
+    try:
+        password = args["password"]
+    except:
+        password = None
 
-    provisioning_uri = setup_service_account(service_type=service_type,
-                                             canonical_url=canonical_url,
-                                             username=username,
-                                             password=password)
+    try:
+        canonical_url = args["canonical_url"]
+    except:
+        canonical_url = None
+
+    service = setup_service_info(service_type=service_type,
+                                 canonical_url=canonical_url)
+
+    # now register the new user account
+    register_args = {"username": username, "password": password}
+    result = register_account(register_args)
+
+    provisioning_uri = result["provisioning_uri"]
+    otpsecret = OTP.extract_secret(provisioning_uri)
+
+    whois_args = {"username": username}
+    result = whois(whois_args)
+    admin_uid = result["user_uid"]
+
+    add_admin_user(service, admin_uid, password, otpsecret)
 
     status = 0
     message = "Success"

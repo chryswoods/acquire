@@ -25,3 +25,13 @@ class AccountingService(_Service):
                     "a service which is not an accounting service!")
         else:
             _Service.__init__(self)
+
+    def _call_local_function(self, function, args):
+        """Internal function called to short-cut local 'remote'
+           function calls
+        """
+        from accounting.route import accounting_functions \
+            as _accounting_functions
+        from admin.handler import create_handler as _create_handler
+        handler = _create_handler(_accounting_functions)
+        return handler(function, args)

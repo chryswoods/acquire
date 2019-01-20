@@ -19,7 +19,7 @@ def identity_functions(function, args):
         from admin.logout import run as _logout
         return _logout(args)
     elif function == "register":
-        from identity.register import run as _register
+        from admin.register import run as _register
         return _register(args)
     elif function == "request_login":
         from admin.request_login import run as _request_login

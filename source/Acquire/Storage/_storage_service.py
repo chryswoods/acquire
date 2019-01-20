@@ -47,3 +47,12 @@ class StorageService(_Service):
             return self._storage_compartment_id
         except:
             pass
+
+    def _call_local_function(self, function, args):
+        """Internal function called to short-cut local 'remote'
+           function calls
+        """
+        from storage.route import storage_functions as _storage_functions
+        from admin.handler import create_handler as _create_handler
+        handler = _create_handler(_storage_functions)
+        return handler(function, args)

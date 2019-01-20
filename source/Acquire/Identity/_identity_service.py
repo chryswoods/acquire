@@ -113,3 +113,12 @@ class IdentityService(_Service):
             pass
 
         return result
+
+    def _call_local_function(self, function, args):
+        """Internal function called to short-cut local 'remote'
+           function calls
+        """
+        from identity.route import identity_functions as _identity_functions
+        from admin.handler import create_handler as _create_handler
+        handler = _create_handler(_identity_functions)
+        return handler(function, args)

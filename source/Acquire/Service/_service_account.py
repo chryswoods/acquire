@@ -22,11 +22,10 @@ from ._errors import ServiceError, ServiceAccountError, \
 _cache_serviceinfo_data = _LRUCache(maxsize=5)
 _cache_service_info = _LRUCache(maxsize=5)
 _cache_adminuser_data = _LRUCache(maxsize=5)
-_cache_adminuser = _LRUCache(maxsize=5)
 
 
-__all__ = ["setup_service_account",
-           "get_service_info", "get_admin_user",
+__all__ = ["setup_service_info", "add_admin_user",
+           "get_service_info", "get_admin_users_data",
            "get_service_private_key",
            "get_service_private_certificate", "get_service_public_key",
            "get_service_public_certificate",
@@ -41,7 +40,6 @@ def clear_serviceinfo_cache():
     """Clear the caches used to accelerate loading the service info
        and admin user objects
     """
-    _cache_adminuser.clear()
     _cache_adminuser_data.clear()
     _cache_service_info.clear()
     _cache_serviceinfo_data.clear()
@@ -96,35 +94,16 @@ def _get_service_password():
     return service_password
 
 
-def setup_service_account(canonical_url, service_type, username, password):
+def setup_service_info(canonical_url, service_type):
     """Call this function to setup a new
-       service that will servce at 'canonical_url', will be of
-       the specified service_type. This will also create an administrating
-       user called 'username', which will be secured with the
-       passed password. This will return the provisioning_uri that will
-       allow remote login to the service admin user account. Note
-       that this will only do something if the service info or admin
-       account don't already exist. This allows you to;
+       service that will serve at 'canonical_url', will be of
+       the specified service_type.
 
-       (1) Delete the object store value "_service/admin_user" if you
-           have lost the credentials for the admin user, and you need to
-           reset the account. Note that this will also reset the UID
-           of the admin_user, meaning that any authorisations or accounts
-           associated with the old admin_user will not work with the
-           new admin_user (deliberate, as it stops someone retroactively
-           getting admin access on previously-approved requests). If you
-           want to reset credentials only, then you will need to manually
-           edit the object offline
-
-        (2) Delete the object store value "_service" if you want to reset
+        (1) Delete the object store value "_service" if you want to reset
             the actual Service. This will assign a new UID for the service
             which would reset the certificates and keys. This new service
             will need to be re-introduced to other services that need
             to trust it
-
-        If the admin_user account is updated, then this will return the
-        provisioning URI for the one-time-code generator. Otherwise,
-        this returns None
     """
     bucket = _get_service_account_bucket()
 
@@ -178,56 +157,78 @@ def setup_service_account(canonical_url, service_type, username, password):
         # now it is ok, save this data to the object store
         _ObjectStore.set_object_from_json(bucket, _service_key, service_data)
 
-    # now create the new user account that will be used to administer
-    # the service
+    mutex.unlock()
+
+    return service
+
+
+def add_admin_user(service, account_uid, password, otpsecret,
+                   authorisation=None):
+    """Function that is called to add a new user account as a service
+       administrator. This will create a local account on this service.
+       If this is the first account then authorisation is not needed.
+       If this is the second or subsequent admin account, then you need
+       to provide an authorisation signed by one of the existing admin
+       users. If you need to reset the admin users then delete the
+       user accounts from the service.
+    """
     from Acquire.Identity import UserAccount as _UserAccount
     from Acquire.Crypto import PrivateKey as _PrivateKey
 
-    # see if the admin account exists...
-    admin_key = "%s/admin_user" % _service_key
+    bucket = _get_service_account_bucket()
+
+    from Acquire.ObjectStore import Mutex as _Mutex
+
+    # ensure that we have exclusive access to this service
+    mutex = _Mutex(key=_service_key, bucket=bucket)
+
+    # see if the admin account details exists...
+    admin_key = "%s/admin_users" % _service_key
 
     try:
         admin_data = _ObjectStore.get_string_object(bucket, admin_key)
     except:
         admin_data = None
 
-    admin_user = None
-    admin_otp = None
+    admin_users = None
 
     if admin_data:
         try:
             admin_data = _string_to_bytes(admin_data)
             admin_data = service.private_key().decrypt(admin_data)
-            admin_data = _json.loads(admin_data)
-            admin_user = _UserAccount.from_data(admin_data["account"])
+            admin_users = _json.loads(admin_data)
         except Exception as e:
             raise ServiceAccountError(
-                "Error loading the data for the admin user account. You "
+                "Error loading the data for the admin user accounts. You "
                 "should either debug the error or delete the data "
                 "associated with the key '%s' so that the admin user "
-                "account can be reset. The error was %s" %
+                "accounts can be reset. The error was %s" %
                 (admin_key, str(e)))
 
-    if admin_user is None:
-        if (username is None) or (password is None):
+    if admin_users is None:
+        # this is the first admin user - automatically accept
+        admin_users = {}
+    else:
+        # validate that the new user has been authorised by an existing
+        # admin...
+        if authorisation is None:
             raise ServiceAccountError(
-                "You must supply a username and password for the admin_user "
-                "account!")
+                "You must supply a valid authorisation from an existing admin "
+                "user if you want to add a new admin user.")
 
-        admin_user = _UserAccount(username=username)
-        admin_password = password
-        admin_otp = admin_user.reset_password(admin_password)
-        admin_secret = admin_otp._secret
+        raise ServiceAccountError(
+                "We don't yet support multiple admin users...")
 
-        admin_data = {"account": admin_user.to_data(),
-                      "password": admin_password,
-                      "otpsecret": admin_secret}
+    # everything is ok - add this admin user to the admin_users
+    # dictionary
+    admin_users[account_uid] = {"password": password,
+                                "otpsecret": otpsecret}
 
-        admin_secret = service.skeleton_key().encrypt(_json.dumps(admin_data))
+    admin_secret = service.skeleton_key().encrypt(_json.dumps(admin_users))
 
-        # everything is done, so now write this data to the object store
-        _ObjectStore.set_string_object(bucket, admin_key,
-                                       _bytes_to_string(admin_secret))
+    # everything is done, so now write this data to the object store
+    _ObjectStore.set_string_object(bucket, admin_key,
+                                   _bytes_to_string(admin_secret))
 
     # we can (finally!) release the mutex, as everyone else should now
     # be able to see the account
@@ -236,18 +237,14 @@ def setup_service_account(canonical_url, service_type, username, password):
     # clear the caches to ensure they grab the new service and account info
     clear_serviceinfo_cache()
 
-    if admin_otp:
-        return admin_otp.provisioning_uri(
-                username="%s@%s" % (admin_user.username(), canonical_url),
-                issuer="Acquire")
-    else:
-        return None
-
 
 @_cached(_cache_adminuser_data)
-def _get_admin_user_data():
-    """Internal function that loads up the data for the admin
-       user from the object store
+def get_admin_users_data():
+    """This function returns all of the admin_users data, fully
+       decrypted. Note that this can only be called if you can
+       get unlocked access to the underlying service. Obviously
+       be careful with the data returned, as it will provide
+       all of the login credentials of all of the admin accounts
     """
     # get the bucket again - can't pass as an argument as this is a cached
     # function - luckily _get_service_account_bucket is also a cached function
@@ -259,20 +256,27 @@ def _get_admin_user_data():
         raise ServiceAccountError(
             "Cannot log into the service account: %s" % str(e))
 
-    # find the service info from the object store
+    # need private access to the service to decrypt this data
+    service = get_service_info(need_private_access=True)
+
+    # find the admin accounts info from the object store
     try:
-        key = "%s/admin_user" % _service_key
+        key = "%s/admin_users" % _service_key
         admin_data = _ObjectStore.get_string_object(bucket, key)
     except Exception as e:
         raise MissingServiceAccountError(
-            "Unable to load the Admin User for this service. An "
+            "Unable to load the Admin User data for this service. An "
             "error occured while loading the data from the object "
             "store: %s" % str(e))
 
     if not admin_data:
         raise MissingServiceAccountError(
-            "You haven't yet created the Admin User for the service account "
+            "You haven't yet created any Admin Users for the service account "
             "for this service. Please create an Admin User first.")
+
+    admin_data = _string_to_bytes(admin_data)
+    admin_data = service.skeleton_key().decrypt(admin_data)
+    admin_data = _json.loads(admin_data)
 
     return admin_data
 
@@ -307,35 +311,6 @@ def get_service_info(need_private_access=False):
             "Unable to create the ServiceAccount object: %s" % str(e))
 
     return service
-
-
-@_cached(_cache_adminuser)
-def get_admin_user():
-    """Function called to return the admin user account for this service.
-       This account will already be logged into a valid LoginSession. This
-       returns the user account as a Acquire.Client.User object, which can
-       be used to sign authorisations or perform other tasks just like
-       any normal account
-    """
-    try:
-        admin_user_data = _get_admin_user_data()
-    except Exception as e:
-        raise MissingServiceAccountError(
-            "Unable to read the Admin User from the object store! : %s" %
-            str(e))
-
-    # we need to decrypt using the skeleton key and then json-parse this data
-    service = get_service_info(need_private_access=True)
-
-    admin_user_data = service.skeleton_key().decrypt(
-                            _string_to_bytes(admin_user_data))
-
-    admin_user_data = _json.loads(admin_user_data)
-
-    from Acquire.Identity import UserAccount as _UserAccount
-    admin_user = _UserAccount.from_data(admin_user_data["account"])
-    return admin_user.direct_login(password=admin_user_data["password"],
-                                   otpsecret=admin_user_data["otpsecret"])
 
 
 def _refresh_service_keys_and_certs(service):
