@@ -135,8 +135,7 @@ def get_remote_service_info(service_url):
     key = _PrivateKey()
 
     try:
-        response = _call_function(service_url, response_key=key,
-                                  public_cert=public_cert)
+        response = _call_function(service_url, response_key=key)
     except Exception as e:
         raise ServiceError("Cannot get information about '%s': %s" %
                            (service_url, str(e)))
