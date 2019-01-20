@@ -21,11 +21,11 @@ from ._errors import ServiceError, ServiceAccountError, \
 # recently used items first
 _cache_serviceinfo_data = _LRUCache(maxsize=5)
 _cache_service_info = _LRUCache(maxsize=5)
-_cache_adminuser_data = _LRUCache(maxsize=5)
+_cache_adminusers = _LRUCache(maxsize=5)
 
 
 __all__ = ["setup_service_info", "add_admin_user",
-           "get_service_info", "get_admin_users_data",
+           "get_service_info", "get_admin_users",
            "get_service_private_key",
            "get_service_private_certificate", "get_service_public_key",
            "get_service_public_certificate",
@@ -40,7 +40,7 @@ def clear_serviceinfo_cache():
     """Clear the caches used to accelerate loading the service info
        and admin user objects
     """
-    _cache_adminuser_data.clear()
+    _cache_adminusers.clear()
     _cache_service_info.clear()
     _cache_serviceinfo_data.clear()
 
@@ -186,24 +186,9 @@ def add_admin_user(service, account_uid, password, otpsecret,
     admin_key = "%s/admin_users" % _service_key
 
     try:
-        admin_data = _ObjectStore.get_string_object(bucket, admin_key)
+        admin_users = _ObjectStore.get_object_from_json(bucket, admin_key)
     except:
-        admin_data = None
-
-    admin_users = None
-
-    if admin_data:
-        try:
-            admin_data = _string_to_bytes(admin_data)
-            admin_data = service.private_key().decrypt(admin_data)
-            admin_users = _json.loads(admin_data)
-        except Exception as e:
-            raise ServiceAccountError(
-                "Error loading the data for the admin user accounts. You "
-                "should either debug the error or delete the data "
-                "associated with the key '%s' so that the admin user "
-                "accounts can be reset. The error was %s" %
-                (admin_key, str(e)))
+        admin_users = None
 
     if admin_users is None:
         # this is the first admin user - automatically accept
@@ -221,14 +206,15 @@ def add_admin_user(service, account_uid, password, otpsecret,
 
     # everything is ok - add this admin user to the admin_users
     # dictionary
-    admin_users[account_uid] = {"password": password,
-                                "otpsecret": otpsecret}
+    admin_secret = {"password": password,
+                    "otpsecret": otpsecret}
 
     admin_secret = service.skeleton_key().encrypt(_json.dumps(admin_users))
+    admin_users[account_uid] = _bytes_to_string(admin_secret)
 
     # everything is done, so now write this data to the object store
-    _ObjectStore.set_string_object(bucket, admin_key,
-                                   _bytes_to_string(admin_secret))
+    _ObjectStore.set_object_from_json(bucket, admin_key,
+                                      _json.dumps(admin_users))
 
     # we can (finally!) release the mutex, as everyone else should now
     # be able to see the account
@@ -238,8 +224,8 @@ def add_admin_user(service, account_uid, password, otpsecret,
     clear_serviceinfo_cache()
 
 
-@_cached(_cache_adminuser_data)
-def get_admin_users_data():
+@_cached(_cache_adminusers)
+def get_admin_users():
     """This function returns all of the admin_users data, fully
        decrypted. Note that this can only be called if you can
        get unlocked access to the underlying service. Obviously
@@ -262,23 +248,19 @@ def get_admin_users_data():
     # find the admin accounts info from the object store
     try:
         key = "%s/admin_users" % _service_key
-        admin_data = _ObjectStore.get_string_object(bucket, key)
+        admin_users = _ObjectStore.get_object_from_json(bucket, key)
     except Exception as e:
         raise MissingServiceAccountError(
             "Unable to load the Admin User data for this service. An "
             "error occured while loading the data from the object "
             "store: %s" % str(e))
 
-    if not admin_data:
+    if not admin_users:
         raise MissingServiceAccountError(
             "You haven't yet created any Admin Users for the service account "
             "for this service. Please create an Admin User first.")
 
-    admin_data = _string_to_bytes(admin_data)
-    admin_data = service.skeleton_key().decrypt(admin_data)
-    admin_data = _json.loads(admin_data)
-
-    return admin_data
+    return admin_users
 
 
 @_cached(_cache_service_info)

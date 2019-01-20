@@ -10,6 +10,8 @@ from Acquire.Crypto import PrivateKey as _PrivateKey
 from ._service import Service as _Service
 from ._function import call_function as _call_function
 
+from ._service_account import get_service_info as _get_service_info
+
 from ._login_to_objstore import login_to_service_account as \
                                _login_to_service_account
 
@@ -18,8 +20,8 @@ from ._errors import ServiceError, ServiceAccountError
 _cache_local_serviceinfo = _LRUCache(maxsize=5)
 _cache_remote_serviceinfo = _LRUCache(maxsize=20)
 
-__all__ = ["url_to_encoded", "get_trusted_service_info",
-           "set_trusted_service_info", "remove_trusted_service_info",
+__all__ = ["url_to_encoded", "trust_service", "untrust_service",
+           "get_trusted_service_info",
            "get_remote_service_info", "clear_services_cache"]
 
 
@@ -36,36 +38,79 @@ def url_to_encoded(url):
     return _base64.b64encode(url.encode("utf-8")).decode("utf-8")
 
 
-def set_trusted_service_info(service_url, service):
-    """Set the trusted service info for 'service_url' to 'service'"""
+def trust_service(service, authorisation):
+    """Trust the passed service. This will record this service as trusted,
+       e.g. saving the keys and certificates for this service and allowing
+       it to be used for the specified type. You must pass in a valid
+       admin_user authorisation for this service
+    """
+    local_service = _get_service_info(need_private_access=True)
+    local_service.assert_admin_authorised(authorisation,
+                                          "trust %s" % service.uid())
+
     bucket = _login_to_service_account()
-    _ObjectStore.set_object_from_json(
-                                bucket,
-                                "services/%s" % url_to_encoded(service_url),
-                                service.to_data())
+    urlkey = "_trusted/url/%s" % url_to_encoded(service.canonical_url())
+    uidkey = "_trusted/uid/%s" % service.uid()
+    service_data = service.to_data()
+
+    # store the trusted service by both canonical_url and uid
+    _ObjectStore.set_object_from_json(bucket, uidkey, service_data)
+    _ObjectStore.set_string_object(bucket, urlkey, uidkey)
+
+    clear_services_cache()
 
 
-def remove_trusted_service_info(service_url):
-    """Remove the passed 'service_url' from the list of trusted services"""
+def untrust_service(service, authorisation):
+    """Stop trusting the passed service. This will remove the service
+       as being trusted. You must pass in a valid admin_user authorisation
+       for this service
+    """
+    local_service = _get_service_info(need_private_access=True)
+    local_service.assert_admin_authorised(authorisation,
+                                          "trust %s" % service.uid())
+
     bucket = _login_to_service_account()
+    urlkey = "_trusted/url/%s" % url_to_encoded(service.canonical_url())
+    uidkey = "_trusted/uid/%s" % service.uid()
+
+    # delete the trusted service by both canonical_url and uid
     try:
-        _ObjectStore.delete_object(bucket,
-                                   "services/%s" % url_to_encoded(service_url))
+        _ObjectStore.delete_object(bucket, uidkey)
     except:
         pass
+
+    try:
+        _ObjectStore.delete_object(bucket, urlkey)
+    except:
+        pass
+
+    clear_services_cache()
 
 
 # Cached as the remove service information will not change too often
 @_cached(_cache_local_serviceinfo)
-def get_trusted_service_info(service_url):
-    """Return the trusted service info for 'service_url'"""
+def get_trusted_service_info(service_url=None, service_uid=None):
+    """Return the trusted service info for the service with specified
+       service_url or service_uid"""
     bucket = _login_to_service_account()
-    data = _ObjectStore.get_object_from_json(
-                            bucket,
-                            "services/%s" % url_to_encoded(service_url))
+
+    if service_uid is not None:
+        uidkey = "_trusted/uid/%s" % service_uid
+        data = _ObjectStore.get_object_from_json(bucket, uidkey)
+    elif service_url is not None:
+        urlkey = "_trusted/url/%s" % url_to_encoded(service_url)
+        data = _ObjectStore.get_object_from_json(bucket, urlkey)
+    else:
+        data = None
 
     if data is None:
-        raise ServiceAccountError("We do not trust the service at '%s'" %
+        if service_uid is not None:
+            raise ServiceAccountError(
+                "We do not trust the service with UID '%s'" %
+                                  service_uid)
+        else:
+            raise ServiceAccountError(
+                "We do not trust the service at URL '%s'" %
                                   service_url)
 
     return _Service.from_data(data)
@@ -73,15 +118,18 @@ def get_trusted_service_info(service_url):
 
 # Cached to stop us sending too many requests for info to remote services
 @_cached(_cache_remote_serviceinfo)
-def get_remote_service_info(service_url):
+def get_remote_service_info(service_url, public_cert=None):
     """This function returns the service info for the service at
-       'service_url'
+       'service_url'. If 'public_cert' is supplied then this will
+       validate that the service responds using the correct public
+       certificate signing the response
     """
 
     key = _PrivateKey()
 
     try:
-        response = _call_function(service_url, response_key=key)
+        response = _call_function(service_url, response_key=key,
+                                  public_cert=public_cert)
     except Exception as e:
         raise ServiceError("Cannot get information about '%s': %s" %
                            (service_url, str(e)))

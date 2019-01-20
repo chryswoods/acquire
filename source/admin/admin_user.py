@@ -10,6 +10,7 @@ from Acquire.Service import call_function as _call_function
 from Acquire.Identity import LoginSession as _LoginSession
 from Acquire.Crypto import OTP as _OTP
 from Acquire.Client import User as _User
+from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
 from Acquire.Service import ServiceAccountError
 
@@ -28,25 +29,28 @@ def login_admin_user(user_uid=None):
     """Login to the admin user account with passed user_uid. This will
        login to the first admin account if the user_uid is not supplied.
     """
-    admin_data = _get_admin_users_data()
+    admin_users = _get_admin_users()
 
-    if admin_data is None or len(admin_data) == 0:
+    if admin_users is None or len(admin_users) == 0:
         raise ServiceAccountError(
             "An admin account has not been set up for this service. Please "
             "set one up as soon as you can.")
 
     if user_uid is None:
-        user_uid = list(admin_data.keys())[0]
+        user_uid = list(admin_users.keys())[0]
 
-    if user_uid not in admin_data:
+    if user_uid not in admin_users:
         raise ServiceAccountError(
             "There is no admin account with UID=%s on this service."
             % user_uid)
 
-    password = admin_data[user_uid]["password"]
-    otpsecret = admin_data[user_uid]["otpsecret"]
-
     service = _get_service_info(need_private_access=True)
+    admin_secret = _string_to_bytes(admin_users[user_uid])
+    admin_secret = service.skeleton_key().decrypt(admin_secret)
+
+    password = admin_secret["password"]
+    otpsecret = admin_secret["otpsecret"]
+
     user = _User(user_uid=user_uid, identity_url=service.canonical_url())
 
     user.request_login()

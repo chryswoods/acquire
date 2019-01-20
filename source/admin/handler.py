@@ -56,6 +56,9 @@ def _route_function(function, args, additional_functions=None):
     elif function == "admin/setup":
         from admin.setup import run as _setup
         result = _setup(args)
+    elif function == "admin/trust_service":
+        from admin.trust_service import run as _trust_service
+        result = _trust_service(args)
     elif function == "admin/whois":
         from admin.whois import run as _whois
         result = _whois(args)

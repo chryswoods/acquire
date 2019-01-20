@@ -13,6 +13,10 @@ from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
 from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
 from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
 
+from Acquire.Service import get_admin_users as _get_admin_users
+
+from Acquire.Identity import AuthorisationError
+
 from ._function import call_function as _call_function
 
 __all__ = ["Service"]
@@ -107,6 +111,25 @@ class Service:
             raise ServiceError(
                 "Cannot complete operation as the service account '%s' "
                 "is locked" % str(self))
+
+    def assert_admin_authorised(self, authorisation, resource=None):
+        """Validate that the passed authorisation is valid for the
+           (optionally) specified resource, and that this has been
+           authorised by one of the admin accounts of this service
+        """
+        if authorisation.identity_uid() != self.uid():
+            raise AuthorisationError(
+                "The authorisation has not been signed by one of the "
+                "admin accounts on service '%s'" % str(self))
+
+        admin_users = _get_admin_users()
+
+        if authorisation.user_uid() not in admin_users:
+            raise AuthorisationError(
+                "The authorisation has not been signed by one of the "
+                "admin accounts on service '%s'" % str(self))
+
+        authorisation.verify(resource)
 
     def last_key_update(self):
         """Return the datetime when the key and certificate of this
