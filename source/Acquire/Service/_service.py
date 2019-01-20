@@ -13,10 +13,6 @@ from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
 from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
 from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
 
-from Acquire.Service import get_admin_users as _get_admin_users
-
-from Acquire.Identity import AuthorisationError
-
 from ._function import call_function as _call_function
 
 __all__ = ["Service"]
@@ -118,10 +114,12 @@ class Service:
            authorised by one of the admin accounts of this service
         """
         if authorisation.identity_uid() != self.uid():
+            from Acquire.Identity import AuthorisationError
             raise AuthorisationError(
                 "The authorisation has not been signed by one of the "
                 "admin accounts on service '%s'" % str(self))
 
+        from Acquire.Service import get_admin_users as _get_admin_users
         admin_users = _get_admin_users()
 
         if authorisation.user_uid() not in admin_users:
@@ -483,6 +481,97 @@ class Service:
         else:
             for fingerprint in fingerprints:
                 result[fingerprint] = _PublicKey.from_data(data[fingerprint])
+
+        return result
+
+    def whois(self, username=None, user_uid=None, session_uid=None):
+        """Do a whois lookup to map from username to user_uid or
+           vice versa. If 'session_uid' is provided, then also validate
+           that this is a correct login session, and return also
+           the public key and signing certificate for this login session.
+
+           This should return a dictionary with the following keys
+           optionally contained;
+
+           username = name of the user
+           user_uid = uid of the user
+           public_key = public key for the session with uid 'session_uid'
+           public_cert = public certificate for that login session
+        """
+
+        if (username is None) and (user_uid is None):
+            from Acquire.Identity import IdentityServiceError
+            raise IdentityServiceError(
+                    "You must supply either a username "
+                    "or a user's UID for a lookup")
+
+        key = _PrivateKey()
+
+        response = None
+
+        if session_uid is None:
+            args = {}
+        else:
+            args = {"session_uid": str(session_uid)}
+
+        try:
+            if username:
+                args["username"] = str(username)
+                response = _call_function(
+                                self.service_url(), "whois",
+                                public_cert=self.public_certificate(),
+                                response_key=key, args=args)
+                lookup_uid = response["user_uid"]
+            else:
+                lookup_uid = None
+
+            if user_uid:
+                args["user_uid"] = str(user_uid)
+                response = _call_function(
+                    self.service_url(), "whois",
+                    public_cert=self.public_certificate(),
+                    response_key=key, args=args)
+                lookup_username = response["username"]
+            else:
+                lookup_username = None
+
+        except Exception as e:
+            from Acquire.Identity import IdentityServiceError
+            raise IdentityServiceError("Failed whois lookup: %s" % str(e))
+
+        if username is None:
+            username = lookup_username
+
+        elif (lookup_username is not None) and (username != lookup_username):
+            from Acquire.Identity import IdentityServiceError
+            raise IdentityServiceError(
+                "Disagreement of the user who matches "
+                "UID=%s. We think '%s', but the identity service says '%s'" %
+                (user_uid, username, lookup_username))
+
+        if user_uid is None:
+            user_uid = lookup_uid
+
+        elif (lookup_uid is not None) and (user_uid != lookup_uid):
+            from Acquire.Identity import IdentityServiceError
+            raise IdentityServiceError(
+                    "Disagreement of the user's UID for user "
+                    "'%s'. We think %s, but the identity service says %s" %
+                    (username, user_uid, lookup_uid))
+
+        result = response
+
+        try:
+            result["public_key"] = _PublicKey.from_data(
+                                            response["public_key"])
+        except:
+            pass
+
+        try:
+            result["public_cert"] = _PublicKey.from_data(
+                                            response["public_cert"])
+        except:
+            pass
 
         return result
 

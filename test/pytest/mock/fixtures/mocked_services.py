@@ -14,10 +14,12 @@ import Acquire.Service
 
 from Acquire.Service import login_to_service_account
 from Acquire.Service import _push_testing_objstore, _pop_testing_objstore
-from Acquire.Service import call_function
+from Acquire.Service import call_function, Service
+
+from Acquire.Identity import Authorisation, LoginSession
 
 from Acquire.Client import User, uid_to_username
-from Acquire.Crypto import OTP
+from Acquire.Crypto import OTP, PrivateKey
 
 from admin.handler import create_handler
 from identity.route import identity_functions
@@ -125,6 +127,27 @@ Acquire.Service._function._pycurl.Curl = MockedPyCurl
 _services = {}                    # global objstore for each service
 
 
+def _login_admin(service_url, username, password, otp):
+    """Internal function used to get a valid login to the specified
+       service for the passed username, password and otp
+    """
+    user = User(username=username, identity_url=service_url)
+
+    user.request_login()
+    short_uid = LoginSession.to_short_uid(user.session_uid())
+
+    args = {"username": username,
+            "short_uid": short_uid,
+            "password": password,
+            "otpcode": otp.generate()}
+
+    call_function(service_url, "admin/login", args=args)
+
+    user.wait_for_login()
+
+    return user
+
+
 @pytest.fixture(scope="module")
 def aaai_services(tmpdir_factory):
     """This function creates mocked versions of all of the main services
@@ -139,7 +162,8 @@ def aaai_services(tmpdir_factory):
     _services["storage"] = tmpdir_factory.mktemp("storage")
     _services["userdata"] = tmpdir_factory.mktemp("userdata")
 
-    args = {"password": "ABCdef12345"}
+    password = PrivateKey.random_passphrase()
+    args = {"password": password}
 
     responses = {}
 
@@ -149,22 +173,69 @@ def aaai_services(tmpdir_factory):
     args["canonical_url"] = "identity"
     args["service_type"] = "identity"
     response = call_function("identity", function="admin/setup", args=args)
-    responses["identity"] = response
+    identity_service = Service.from_data(response["service"])
+    identity_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
+    identity_user = _login_admin("identity", "admin", password, identity_otp)
+    responses["identity"] = {"service": identity_service,
+                             "user": identity_user,
+                             "response": response}
 
     args["canonical_url"] = "accounting"
     args["service_type"] = 'accounting'
     response = call_function("accounting", function="admin/setup", args=args)
-    responses["accounting"] = response
+    accounting_service = Service.from_data(response["service"])
+    accounting_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
+    accounting_user = _login_admin("accounting", "admin", password,
+                                   accounting_otp)
+    responses["accounting"] = {"service": accounting_service,
+                               "user": accounting_user,
+                               "response": response}
 
     args["canonical_url"] = "access"
     args["service_type"] = "access"
     response = call_function("access", function="admin/setup", args=args)
     responses["access"] = response
+    access_service = Service.from_data(response["service"])
+    access_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
+    access_user = _login_admin("access", "admin", password, access_otp)
+    responses["access"] = {"service": access_service,
+                           "user": access_user,
+                           "response": response}
 
     args["canonical_url"] = "storage"
     args["service_type"] = "storage"
     response = call_function("storage", function="admin/setup", args=args)
-    responses["storage"] = response
+    storage_service = Service.from_data(response["service"])
+    storage_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
+    storage_user = _login_admin("storage", "admin", password, storage_otp)
+    responses["storage"] = {"service": storage_service,
+                            "user": storage_user,
+                            "response": response}
+
+    resource = "trust %s" % identity_service.uid()
+    public_cert = identity_service.public_certificate().to_data()
+    args = {"service_url": identity_service.canonical_url(),
+            "authorisation": Authorisation(user=accounting_user,
+                                           resource=resource).to_data(),
+            "public_certificate": public_cert}
+
+    response = call_function(accounting_service.canonical_url(),
+                             function="admin/trust_service",
+                             args=args, response_key=PrivateKey())
+
+    args["authorisation"] = Authorisation(user=access_user,
+                                          resource=resource).to_data()
+
+    response = call_function(access_service.canonical_url(),
+                             function="admin/trust_service",
+                             args=args, response_key=PrivateKey())
+
+    args["authorisation"] = Authorisation(user=storage_user,
+                                          resource=resource).to_data()
+
+    response = call_function(storage_service.canonical_url(),
+                             function="admin/trust_service",
+                             args=args, response_key=PrivateKey())
 
     responses["_services"] = _services
 
@@ -200,8 +271,6 @@ def authenticated_user(aaai_services):
     args["otpcode"] = user_otp.generate()
 
     result = call_function("identity", "login", args=args)
-
-    print(result)
 
     assert(result["status"] == 0)
 

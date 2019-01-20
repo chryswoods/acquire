@@ -248,8 +248,6 @@ def _read_remote(url):
     if _pycurl is None:
         raise PARError("We need pycurl installed to read remote PARs!")
 
-    print("READING REMOTE %s" % url)
-
     buffer = _BytesIO()
     c = _pycurl.Curl()
     c.setopt(c.URL, url)
@@ -272,8 +270,6 @@ def _read_remote(url):
             "nework issue: %s" % (url, str(e)))
 
     output = buffer.getvalue()
-
-    print("STATUS CODE = %s : OUTPUT = %s" % (status_code, output))
 
     if status_code != 200:
         raise PARReadError(
@@ -351,8 +347,6 @@ def _write_remote(url, data):
         raise PARWriteError(
             "Cannot write data to the remote PAR URL '%s' because of a "
             "possible nework issue: %s" % (url, str(e)))
-
-    print(buffer.getvalue())
 
 
 def _join_bucket_and_prefix(url, prefix):

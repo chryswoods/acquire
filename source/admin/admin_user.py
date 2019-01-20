@@ -4,7 +4,7 @@ import json as _json
 from cachetools import cached as _cached
 from cachetools import LRUCache as _LRUCache
 
-from Acquire.Service import get_admin_users_data as _get_admin_users_data
+from Acquire.Service import get_admin_users as _get_admin_users
 from Acquire.Service import get_service_info as _get_service_info
 from Acquire.Service import call_function as _call_function
 from Acquire.Identity import LoginSession as _LoginSession

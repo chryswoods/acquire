@@ -14,15 +14,11 @@ def test_create_par(aaai_services):
 
     result = call_function("storage", "open", args=args)
 
-    print(result)
-
     assert("par" in result)
 
     par = PAR.from_data(result["par"])
 
     value = par.read().get_string_object()
-
-    print(value)
 
     newval = "HERE IS A NEW VALUE € ∆^∂ ∆"
 

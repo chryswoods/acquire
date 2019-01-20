@@ -284,7 +284,7 @@ class Authorisation:
 
             identity_service = _get_trusted_service_info(self._identity_url)
 
-            if not identity_service.is_identity_service():
+            if not identity_service.can_identify_users():
                 raise PermissionError(
                     "Cannot verify an Authorisation that does not use a valid "
                     "identity service")

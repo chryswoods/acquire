@@ -22,7 +22,8 @@ _cache_remote_serviceinfo = _LRUCache(maxsize=20)
 
 __all__ = ["url_to_encoded", "trust_service", "untrust_service",
            "get_trusted_service_info",
-           "get_remote_service_info", "clear_services_cache"]
+           "get_remote_service_info", "get_checked_remote_service_info",
+           "clear_services_cache"]
 
 
 def clear_services_cache():
@@ -92,6 +93,12 @@ def untrust_service(service, authorisation):
 def get_trusted_service_info(service_url=None, service_uid=None):
     """Return the trusted service info for the service with specified
        service_url or service_uid"""
+    service = _get_service_info()
+
+    if service.canonical_url() == service_url:
+        # we trust ourselves :-)
+        return service
+
     bucket = _login_to_service_account()
 
     if service_uid is not None:
@@ -99,7 +106,9 @@ def get_trusted_service_info(service_url=None, service_uid=None):
         data = _ObjectStore.get_object_from_json(bucket, uidkey)
     elif service_url is not None:
         urlkey = "_trusted/url/%s" % url_to_encoded(service_url)
-        data = _ObjectStore.get_object_from_json(bucket, urlkey)
+        uidkey = _ObjectStore.get_string_object(bucket, urlkey)
+        if uidkey is not None:
+            data = _ObjectStore.get_object_from_json(bucket, uidkey)
     else:
         data = None
 
@@ -107,24 +116,44 @@ def get_trusted_service_info(service_url=None, service_uid=None):
         if service_uid is not None:
             raise ServiceAccountError(
                 "We do not trust the service with UID '%s'" %
-                                  service_uid)
+                service_uid)
         else:
             raise ServiceAccountError(
                 "We do not trust the service at URL '%s'" %
-                                  service_url)
+                service_url)
 
     return _Service.from_data(data)
 
 
 # Cached to stop us sending too many requests for info to remote services
 @_cached(_cache_remote_serviceinfo)
-def get_remote_service_info(service_url, public_cert=None):
+def get_remote_service_info(service_url):
     """This function returns the service info for the service at
-       'service_url'. If 'public_cert' is supplied then this will
-       validate that the service responds using the correct public
-       certificate signing the response
+       'service_url'
     """
 
+    key = _PrivateKey()
+
+    try:
+        response = _call_function(service_url, response_key=key,
+                                  public_cert=public_cert)
+    except Exception as e:
+        raise ServiceError("Cannot get information about '%s': %s" %
+                           (service_url, str(e)))
+
+    try:
+        return _Service.from_data(response["service_info"])
+    except Exception as e:
+        raise ServiceError(
+                "Cannot extract service info for '%s' from '%s': %s" &
+                (service_url, str(response), str(e)))
+
+
+def get_checked_remote_service_info(service_url, public_cert):
+    """This function returns the service info for the service at
+       'service_url'. This checks that the info has been signed
+       correctly by the passed public certificate
+    """
     key = _PrivateKey()
 
     try:

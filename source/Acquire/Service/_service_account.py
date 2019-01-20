@@ -242,9 +242,6 @@ def get_admin_users():
         raise ServiceAccountError(
             "Cannot log into the service account: %s" % str(e))
 
-    # need private access to the service to decrypt this data
-    service = get_service_info(need_private_access=True)
-
     # find the admin accounts info from the object store
     try:
         key = "%s/admin_users" % _service_key

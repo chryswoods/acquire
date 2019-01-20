@@ -58,8 +58,6 @@ def test_login(username, password, aaai_services):
 
     auth = Authorisation(user=user, resource="test")
 
-    print(auth.identity_url())
-
     auth.verify("test")
 
     user.logout()

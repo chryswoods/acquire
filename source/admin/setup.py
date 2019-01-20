@@ -59,6 +59,7 @@ def run(args):
     message = "Success"
 
     return_value = create_return_value(status, message)
+    return_value["service"] = service.to_data()
     return_value["provisioning_uri"] = provisioning_uri
 
     return return_value
