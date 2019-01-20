@@ -91,10 +91,12 @@ ENV PYTHON_EXT=/function/python_modules
 
 RUN mkdir $PYTHON_EXT
 ADD Acquire $PYTHON_EXT/Acquire
+ADD admin $PYTHON_EXT/admin
 
 ENV PYTHONPATH=$PYTHONPATH:$PYTHON_EXT
 
 RUN python3 -m compileall $PYTHON_EXT/Acquire/*
+RUN python3 -m compileall $PYTHON_EXT/admin/*
 
 ENTRYPOINT ["bash"]
 
