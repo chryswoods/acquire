@@ -1,8 +1,4 @@
 
-import fdk
-
-from admin.handler import create_async_handler
-
 
 def access_functions(function, args):
     """These are all of the additional functions for the access service"""
@@ -19,4 +15,6 @@ def access_functions(function, args):
         return None
 
 if __name__ == "__main__":
+    import fdk
+    from admin.handler import create_async_handler
     fdk.handle(create_async_handler(access_functions))

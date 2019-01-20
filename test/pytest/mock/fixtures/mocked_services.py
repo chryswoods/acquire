@@ -19,7 +19,7 @@ from Acquire.Service import call_function
 from Acquire.Client import User, uid_to_username
 from Acquire.Crypto import OTP
 
-from admin.route import create_handler
+from admin.handler import create_handler
 from identity.route import identity_functions
 from accounting.route import accounting_functions
 from access.route import access_functions

@@ -1,8 +1,4 @@
 
-import fdk
-
-from admin.handler import create_async_handler
-
 
 def identity_functions(function, args):
     """This function routes calls to sub-functions, thereby allowing
@@ -35,4 +31,6 @@ def identity_functions(function, args):
         return None
 
 if __name__ == "__main__":
+    import fdk
+    from admin.handler import create_async_handler
     fdk.handle(create_async_handler(identity_functions))
