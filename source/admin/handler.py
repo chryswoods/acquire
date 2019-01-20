@@ -10,8 +10,10 @@ from Acquire.Service import unpack_arguments, get_service_private_key
 from Acquire.Service import create_return_value, pack_return_value, \
                             start_profile, end_profile
 
+__all__ = ["create_handler", "create_async_handler"]
 
-def one_hot_spare():
+
+def _one_hot_spare():
     """This function will (in the background) cause the function service
        to spin up another hot spare ready to process another request.
        This ensures that, if a user makes a request while this
@@ -23,9 +25,13 @@ def one_hot_spare():
                      stderr=subprocess.STDOUT)
 
 
-def handler(ctx, data=None, loop=None):
+def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
-       a single identity function to stay hot for longer"""
+       a single identity function to stay hot for longer. If you want
+       to add additional functions then add them via the
+       'additional_functions' argument. This should accept 'function'
+       and 'args', returning some output if the function is found,
+       or 'None' if the function is not available"""
 
     try:
         pr = start_profile()
@@ -54,44 +60,47 @@ def handler(ctx, data=None, loop=None):
 
     try:
         if function is None:
-            from identity.root import run as _root
+            from admin.root import run as _root
             result = _root(args)
-        elif function == "request_login":
-            from identity.request_login import run as _request_login
+        elif function == "admin/request_login":
+            from admin.request_login import run as _request_login
             result = _request_login(args)
-        elif function == "get_keys":
-            from identity.get_keys import run as _get_keys
+        elif function == "admin/get_keys":
+            from admin.get_keys import run as _get_keys
             result = _get_keys(args)
-        elif function == "get_status":
-            from identity.get_status import run as _get_status
+        elif function == "admin/get_status":
+            from admin.get_status import run as _get_status
             result = _get_status(args)
-        elif function == "login":
-            from identity.login import run as _login
+        elif function == "admin/login":
+            from admin.login import run as _login
             result = _login(args)
-        elif function == "logout":
-            from identity.logout import run as _logout
+        elif function == "admin/logout":
+            from admin.logout import run as _logout
             result = _logout(args)
-        elif function == "register":
-            from identity.register import run as _register
-            result = _register(args)
-        elif function == "request_login":
-            from identity.request_login import run as _request_login
+        elif function == "admin/request_login":
+            from admin.request_login import run as _request_login
             result = _request_login(args)
         elif function == "admin/setup":
-            from identity.setup import run as _setup
+            from admin.setup import run as _setup
             result = _setup(args)
-        elif function == "whois":
-            from identity.whois import run as _whois
+        elif function == "admin/whois":
+            from admin.whois import run as _whois
             result = _whois(args)
-        elif function == "test":
-            from identity.test import run as _test
+        elif function == "admin/test":
+            from admin.test import run as _test
             result = _test(args)
-        elif function == "warm":
-            from identity.warm import run as _warm
+        elif function == "admin/warm":
+            from admin.warm import run as _warm
             result = _warm(args)
         else:
-            result = {"status": -1,
-                      "message": "Unknown function '%s'" % function}
+            if additional_functions is not None:
+                result = additional_functions(function, args)
+            else:
+                result = None
+
+            if result is None:
+                result = {"status": -1,
+                          "message": "Unknown function '%s'" % function}
 
     except Exception as e:
         result = {"status": -1,
@@ -114,9 +123,20 @@ def handler(ctx, data=None, loop=None):
         return json.dumps(message)
 
 
-async def async_handler(ctx, data=None, loop=None):
-    return handler(ctx, data, loop)
+def create_async_handler(additional_functions=None):
+    """Function that creates the handler functions for all standard functions,
+       plus the passed additional_functions
+    """
+    async def async_handler(ctx, data=None, loop=None):
+        return _base_handler(additional_functions=additional_functions,
+                             ctx=ctx, data=data, loop=loop)
+
+    return async_handler
 
 
-if __name__ == "__main__":
-    fdk.handle(async_handler)
+def create_handler(additional_functions=None):
+    def handler(ctx, data=None, loop=None):
+        return _base_handler(additional_functions=additional_functions,
+                             ctx=ctx, data=data, loop=loop)
+
+    return handler

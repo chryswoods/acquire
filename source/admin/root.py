@@ -5,7 +5,6 @@ from Acquire.Service import get_service_info
 
 def run(args):
     """This function return the status and service info"""
-
     status = 0
     message = None
     service = None

@@ -47,7 +47,7 @@ def run(args):
     bucket = login_to_service_account()
 
     # locate the session referred to by this uid
-    base_key = "requests/%s" % short_uid
+    base_key = "identity/requests/%s" % short_uid
     session_keys = ObjectStore.get_all_object_names(bucket, base_key)
 
     # try all of the sessions to find the one that the user
@@ -83,13 +83,14 @@ def run(args):
             "There is no active login request with the "
             "short UID '%s' for user '%s'" % (short_uid, username))
 
-    login_session_key = "sessions/%s/%s" % (user_account.sanitised_name(),
-                                            login_session_key)
+    login_session_key = "identity/sessions/%s/%s" % (
+                            user_account.sanitised_name(),
+                            login_session_key)
 
     # fully load the user account from the object store so that we
     # can validate the username and password
     try:
-        account_key = "accounts/%s" % user_account.sanitised_name()
+        account_key = "identity/accounts/%s" % user_account.sanitised_name()
         user_account = UserAccount.from_data(
             ObjectStore.get_object_from_json(bucket, account_key))
     except:
@@ -98,8 +99,8 @@ def run(args):
 
     if (not remember_device) and device_uid:
         # see if this device has been seen before
-        device_key = "devices/%s/%s" % (user_account.sanitised_name(),
-                                        device_uid)
+        device_key = "identity/devices/%s/%s" % (user_account.sanitised_name(),
+                                                 device_uid)
 
         try:
             device_secret = ObjectStore.get_string_object(bucket,
@@ -127,7 +128,8 @@ def run(args):
                                     remember_device=True)
 
             device_uid = str(uuid.uuid4())
-            device_key = "devices/%s/%s" % (user_account.sanitised_name(),
+            device_key = "identity/devices/%s/%s" % (
+                                            user_account.sanitised_name(),
                                             device_uid)
 
             assigned_device_uid = device_uid
@@ -147,7 +149,7 @@ def run(args):
     # once (e.g. if the password and code have been intercepted).
     # Any sessions validated using the same code should be treated
     # as immediately suspcious
-    otproot = "otps/%s" % user_account.sanitised_name()
+    otproot = "identity/otps/%s" % user_account.sanitised_name()
     sessions = ObjectStore.get_all_strings(bucket, otproot)
 
     utcnow = get_datetime_now()
@@ -173,7 +175,7 @@ def run(args):
             # Low probability there is some recycling,
             # but very suspicious if the code was validated within the last
             # 10 minutes... (as 3 minute timeout of a code)
-            suspect_key = "sessions/%s/%s" % (
+            suspect_key = "identity/sessions/%s/%s" % (
                 user_account.sanitised_name(), session)
 
             suspect_session = None

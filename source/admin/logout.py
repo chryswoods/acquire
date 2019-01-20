@@ -33,10 +33,11 @@ def run(args):
     # the current status of this login session
     bucket = login_to_service_account()
 
-    user_session_key = "sessions/%s/%s" % \
+    user_session_key = "identity/sessions/%s/%s" % \
         (user_account.sanitised_name(), session_uid)
 
-    request_session_key = "requests/%s/%s" % (session_uid[:8], session_uid)
+    request_session_key = "identity/requests/%s/%s" % (session_uid[:8],
+                                                       session_uid)
 
     login_session = LoginSession.from_data(
                         ObjectStore.get_object_from_json(bucket,
@@ -59,7 +60,7 @@ def run(args):
     # only save sessions that were successfully approved
     if login_session:
         if login_session.is_logged_out():
-            expired_session_key = "expired_sessions/%s/%s" % \
+            expired_session_key = "identity/expired_sessions/%s/%s" % \
                                     (user_account.sanitised_name(),
                                      session_uid)
 

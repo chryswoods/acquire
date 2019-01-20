@@ -19,15 +19,21 @@ from Acquire.Service import call_function
 from Acquire.Client import User, uid_to_username
 from Acquire.Crypto import OTP
 
-from identity.route import handler as identity_handler
-from accounting.route import handler as accounting_handler
-from access.route import handler as access_handler
-from storage.route import handler as storage_handler
+from admin.route import create_handler
+from identity.route import identity_functions
+from accounting.route import accounting_functions
+from access.route import access_functions
+from storage.route import storage_functions
 
 try:
     from pycurl import Curl as _original_Curl
 except:
     _original_Curl = None
+
+identity_handler = create_handler(identity_functions)
+accounting_handler = create_handler(accounting_functions)
+access_handler = create_handler(access_functions)
+storage_handler = create_handler(storage_functions)
 
 
 class MockedPyCurl:
@@ -141,19 +147,23 @@ def aaai_services(tmpdir_factory):
     os.environ["STORAGE_COMPARTMENT"] = str(_services["userdata"])
 
     args["canonical_url"] = "identity"
-    response = call_function("identity", function="setup", args=args)
+    args["service_type"] = "identity"
+    response = call_function("identity", function="admin/setup", args=args)
     responses["identity"] = response
 
     args["canonical_url"] = "accounting"
-    response = call_function("accounting", function="setup", args=args)
+    args["service_type"] = 'accounting'
+    response = call_function("accounting", function="admin/setup", args=args)
     responses["accounting"] = response
 
     args["canonical_url"] = "access"
-    response = call_function("access", function="setup", args=args)
+    args["service_type"] = "access"
+    response = call_function("access", function="admin/setup", args=args)
     responses["access"] = response
 
     args["canonical_url"] = "storage"
-    response = call_function("storage", function="setup", args=args)
+    args["service_type"] = "storage"
+    response = call_function("storage", function="admin/setup", args=args)
     responses["storage"] = response
 
     responses["_services"] = _services

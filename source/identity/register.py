@@ -45,7 +45,7 @@ def run(args):
     # now log into the central identity account to either register
     # the user, or to update to a new password
     bucket = login_to_service_account()
-    account_key = "accounts/%s" % user_account.sanitised_name()
+    account_key = "identity/accounts/%s" % user_account.sanitised_name()
 
     service_info = get_service_info()
 
@@ -75,7 +75,8 @@ def run(args):
 
         # need to update the "whois" database with the uuid of this user
         ObjectStore.set_string_object(bucket,
-                                      "whois/%s" % user_account.uuid(),
+                                      "identity/whois/%s" %
+                                      user_account.uuid(),
                                       user_account.username())
     else:
         # The account already exists. See if this is a password change

@@ -31,7 +31,7 @@ def run(args):
     bucket = login_to_service_account()
 
     user_session_key = "sessions/%s/%s" % \
-            (user_account.sanitised_name(), session_uid)
+        (user_account.sanitised_name(), session_uid)
 
     try:
         login_session = LoginSession.from_data(

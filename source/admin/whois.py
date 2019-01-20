@@ -54,7 +54,7 @@ def run(args):
         # look up the user_uid from the username
         user_account = UserAccount(username)
         bucket = login_to_service_account()
-        user_key = "accounts/%s" % user_account.sanitised_name()
+        user_key = "identity/accounts/%s" % user_account.sanitised_name()
 
         try:
             user_account = UserAccount.from_data(
@@ -70,7 +70,7 @@ def run(args):
         # look up the username from the uuid
         bucket = login_to_service_account()
 
-        uid_key = "whois/%s" % user_uid
+        uid_key = "identity/whois/%s" % user_uid
 
         try:
             username = ObjectStore.get_string_object(bucket, uid_key)
@@ -89,7 +89,7 @@ def run(args):
         if user_account is None:
             user_account = UserAccount(username)
 
-        user_session_key = "sessions/%s/%s" % \
+        user_session_key = "identity/sessions/%s/%s" % \
             (user_account.sanitised_name(), session_uid)
 
         try:
@@ -100,7 +100,7 @@ def run(args):
             login_session = None
 
         if login_session is None:
-            user_session_key = "expired_sessions/%s/%s" % \
+            user_session_key = "identity/expired_sessions/%s/%s" % \
                                     (user_account.sanitised_name(),
                                      session_uid)
 

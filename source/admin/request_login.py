@@ -21,7 +21,7 @@ def prune_expired_sessions(bucket, user_account, root, sessions, log=[]):
 
     for name in sessions:
         key = "%s/%s" % (root, name)
-        request_key = "requests/%s/%s" % (name[:8], name)
+        request_key = "identity/requests/%s/%s" % (name[:8], name)
 
         try:
             session = ObjectStore.get_object_from_json(bucket, key)
@@ -56,7 +56,7 @@ def prune_expired_sessions(bucket, user_account, root, sessions, log=[]):
                 # auto-logout expired sessions
                 log.append("Auto-logging out expired session '%s'" % key)
                 session.logout()
-                expire_session_key = "expired_sessions/%s/%s" % \
+                expire_session_key = "identity/expired_sessions/%s/%s" % \
                                      (user_account.sanitised_name(),
                                       session.uuid())
 
@@ -126,7 +126,7 @@ def run(args):
     bucket = login_to_service_account()
 
     # first, make sure that the user exists...
-    account_key = "accounts/%s" % user_account.sanitised_name()
+    account_key = "identity/accounts/%s" % user_account.sanitised_name()
 
     try:
         existing_data = ObjectStore.get_object_from_json(bucket,
@@ -143,7 +143,7 @@ def run(args):
 
     # first, make sure that the user doens't have too many open
     # login sessions at once - this prevents denial of service
-    user_session_root = "sessions/%s" % user_account.sanitised_name()
+    user_session_root = "identity/sessions/%s" % user_account.sanitised_name()
 
     open_sessions = ObjectStore.get_all_object_names(bucket,
                                                      user_session_root)
@@ -163,12 +163,13 @@ def run(args):
     # UUID. This way we can give a simple URL. If there is a clash,
     # then we will use the username provided at login to find the
     # correct request from a much smaller pool (likely < 3)
-    request_key = "requests/%s/%s" % (login_session.short_uuid(),
-                                      login_session.uuid())
+    request_key = "identity/requests/%s/%s" % (login_session.short_uuid(),
+                                               login_session.uuid())
 
     ObjectStore.set_string_object(bucket, request_key, user_account.name())
 
     status = 0
+
     # the login URL is the URL of this identity service plus the
     # short UID of the session
     login_url = "%s/s?id=%s" % (get_service_info().service_url(),

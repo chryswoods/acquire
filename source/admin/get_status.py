@@ -29,7 +29,7 @@ def run(args):
     # the current status of this login session
     bucket = login_to_service_account()
 
-    user_session_key = "sessions/%s/%s" % \
+    user_session_key = "identity/sessions/%s/%s" % \
         (user_account.sanitised_name(), session_uid)
 
     try:
@@ -40,7 +40,7 @@ def run(args):
         login_session = None
 
     if login_session is None:
-        user_session_key = "expired_sessions/%s/%s" % \
+        user_session_key = "identity/expired_sessions/%s/%s" % \
                                 (user_account.sanitised_name(),
                                     session_uid)
 
