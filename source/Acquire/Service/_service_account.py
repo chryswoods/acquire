@@ -17,26 +17,39 @@ from ._login_to_objstore import get_service_account_bucket \
 from ._errors import ServiceError, ServiceAccountError, \
                      MissingServiceAccountError
 
-# The cache can hold a maximum of 10 objects, and will replace the least
+# The cache can hold a maximum of 5 objects, and will replace the least
 # recently used items first
-_cache1 = _LRUCache(maxsize=10)  # used for service_info
-_cache2 = _LRUCache(maxsize=10)  # used for admin_user
+_cache_serviceinfo_data = _LRUCache(maxsize=5)
+_cache_service_info = _LRUCache(maxsize=5)
+_cache_adminuser_data = _LRUCache(maxsize=5)
+_cache_adminuser = _LRUCache(maxsize=5)
 
 
 __all__ = ["setup_service_account",
            "get_service_info", "get_admin_user",
            "get_service_private_key",
            "get_service_private_certificate", "get_service_public_key",
-           "get_service_public_certificate"]
+           "get_service_public_certificate",
+           "clear_serviceinfo_cache"]
 
 
 # The key in the object store for the service object
 _service_key = "_service_key"
 
 
+def clear_serviceinfo_cache():
+    """Clear the caches used to accelerate loading the service info
+       and admin user objects
+    """
+    _cache_adminuser.clear()
+    _cache_adminuser_data.clear()
+    _cache_service_info.clear()
+    _cache_serviceinfo_data.clear()
+
+
 # Cache this function as the data will rarely change, and this
 # will prevent too many runs to the ObjectStore
-@_cached(_cache1)
+@_cached(_cache_serviceinfo_data)
 def _get_service_info_data():
     """Internal function that loads up the service info data from
        the object store.
@@ -221,8 +234,7 @@ def setup_service_account(canonical_url, service_type, username, password):
     mutex.unlock()
 
     # clear the caches to ensure they grab the new service and account info
-    _cache1.clear()
-    _cache2.clear()
+    clear_serviceinfo_cache()
 
     if admin_otp:
         return admin_otp.provisioning_uri(
@@ -232,7 +244,7 @@ def setup_service_account(canonical_url, service_type, username, password):
         return None
 
 
-@_cached(_cache2)
+@_cached(_cache_adminuser_data)
 def _get_admin_user_data():
     """Internal function that loads up the data for the admin
        user from the object store
@@ -265,7 +277,7 @@ def _get_admin_user_data():
     return admin_data
 
 
-@_cached(_cache1)
+@_cached(_cache_service_info)
 def get_service_info(need_private_access=False):
     """Return the service info object for this service. If private
        access is needed then this will decrypt and access the private
@@ -297,7 +309,7 @@ def get_service_info(need_private_access=False):
     return service
 
 
-@_cached(_cache2)
+@_cached(_cache_adminuser)
 def get_admin_user():
     """Function called to return the admin user account for this service.
        This account will already be logged into a valid LoginSession. This
@@ -364,7 +376,7 @@ def _refresh_service_keys_and_certs(service):
         m.unlock()
 
     # clear the cache as we will need to load a new object
-    _cache1.clear()
+    clear_serviceinfo_cache()
 
     return get_service_info(need_private_access=True)
 

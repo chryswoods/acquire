@@ -15,13 +15,18 @@ from ._login_to_objstore import login_to_service_account as \
 
 from ._errors import ServiceError, ServiceAccountError
 
-# The cache can hold a maximum of 50 objects, and will replace the least
-# recently used items first
-_cache = _LRUCache(maxsize=50)
+_cache_local_serviceinfo = _LRUCache(maxsize=5)
+_cache_remote_serviceinfo = _LRUCache(maxsize=20)
 
 __all__ = ["url_to_encoded", "get_trusted_service_info",
            "set_trusted_service_info", "remove_trusted_service_info",
-           "get_remote_service_info"]
+           "get_remote_service_info", "clear_services_cache"]
+
+
+def clear_services_cache():
+    """Clear the caches of loaded services"""
+    _cache_local_serviceinfo.clear()
+    _cache_remote_serviceinfo.clear()
 
 
 def url_to_encoded(url):
@@ -51,7 +56,7 @@ def remove_trusted_service_info(service_url):
 
 
 # Cached as the remove service information will not change too often
-@_cached(_cache)
+@_cached(_cache_local_serviceinfo)
 def get_trusted_service_info(service_url):
     """Return the trusted service info for 'service_url'"""
     bucket = _login_to_service_account()
@@ -67,7 +72,7 @@ def get_trusted_service_info(service_url):
 
 
 # Cached to stop us sending too many requests for info to remote services
-@_cached(_cache)
+@_cached(_cache_remote_serviceinfo)
 def get_remote_service_info(service_url):
     """This function returns the service info for the service at
        'service_url'

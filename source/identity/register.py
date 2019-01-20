@@ -49,10 +49,6 @@ def run(args):
 
     service_info = get_service_info()
 
-    # BELOW IS VERY BROKEN!!!
-    if isinstance(service_info, dict):
-        service_info = Service.from_data(service_info)
-
     try:
         provisioning_uri = otp.provisioning_uri(username,
                                                 issuer="Acquire@%s" %

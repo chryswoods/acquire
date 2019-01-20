@@ -13,13 +13,19 @@ from ._errors import ServiceAccountError
 
 # The cache can hold a maximum of 50 objects, and will remove the
 # least recently used items from the cache
-_cache = _LRUCache(maxsize=50)
+_login_cache = _LRUCache(maxsize=50)
 
 __all__ = ["login_to_service_account", "get_service_account_bucket",
-           "_push_testing_objstore", "_pop_testing_objstore"]
+           "_push_testing_objstore", "_pop_testing_objstore",
+           "clear_login_cache"]
 
 _current_testing_objstore = None
 _testing_objstore_stack = []
+
+
+def clear_login_cache():
+    """Call to clear the login cache"""
+    _login_cache.clear()
 
 
 def _push_testing_objstore(testing_dir):
@@ -54,7 +60,7 @@ def get_service_account_bucket(testing_dir=None):
 # Cache this function as the result changes very infrequently, as involves
 # lots of round trips to the object store, and it will give the same
 # result regardless of which Fn function on the service makes the call
-@_cached(_cache)
+@_cached(_login_cache)
 def login_to_service_account(testing_dir=None):
     """This function logs into the object store account of the service account.
        Accessing the object store means being able to access

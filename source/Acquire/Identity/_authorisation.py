@@ -49,7 +49,7 @@ class Authorisation:
             self._user_uid = user.uid()
             self._session_uid = user.session_uid()
             self._identity_url = user.identity_service().canonical_url()
-            self._identity_uid = user.identity_uid()
+            self._identity_uid = user.identity_service_uid()
             self._auth_timestamp = _datetime.datetime.now().timestamp()
 
             message = self._get_message(resource)
