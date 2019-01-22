@@ -2,10 +2,14 @@
 
 __all__ = ["ObjectStoreError", "MutexTimeoutError", "PARError",
            "PARTimeoutError", "PARPermissionsError",
-           "PARReadError", "PARWriteError"]
+           "PARReadError", "PARWriteError", "EncodingError"]
 
 
 class ObjectStoreError(Exception):
+    pass
+
+
+class EncodingError(ObjectStoreError):
     pass
 
 

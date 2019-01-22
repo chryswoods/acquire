@@ -4,11 +4,16 @@ import base64 as _base64
 import datetime as _datetime
 import uuid as _uuid
 
+from ._errors import EncodingError
+
 __all__ = ["bytes_to_string", "string_to_bytes",
            "string_to_encoded", "encoded_to_string",
            "decimal_to_string", "string_to_decimal",
            "datetime_to_string", "string_to_datetime",
-           "get_datetime_now", "create_uuid"]
+           "date_to_string", "string_to_date",
+           "time_to_string", "string_to_time",
+           "get_datetime_now", "datetime_to_datetime",
+           "create_uuid"]
 
 
 def create_uuid():
@@ -71,7 +76,29 @@ def datetime_to_string(d):
        standard iso-formatted time in the UTC timezone (converting
        to UTC if the passed datetime is for another timezone)
     """
-    return d.astimezone(_datetime.timezone.utc).isoformat()
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=_datetime.timezone.utc)
+    else:
+        d = d.astimezone(_datetime.timezone.utc)
+
+    # the datetime is in UTC, so write out the string without
+    # the unnecessary +00:00
+    return d.replace(tzinfo=None).isoformat()
+
+
+def datetime_to_datetime(d):
+    """Return the passed datetime as a datetime that is clean
+       and usable by Acquire. This will move the datetime to UTC,
+       adding the timezone if this is missing
+    """
+    if not isinstance(d, _datetime.datetime):
+        raise TypeError(
+            "The passed object '%s' is not a valid datetime" % str(d))
+
+    if d.tzinfo is None:
+        return d.replace(tzinfo=_datetime.timezone.utc)
+    else:
+        return d.astimezone(_datetime.timezone.utc)
 
 
 def get_datetime_now():
@@ -87,4 +114,80 @@ def string_to_datetime(s):
        via datetime_to_string. This string must have been created
        via 'datetime_to_string'
     """
-    return _datetime.datetime.fromisoformat(s)
+    d = _datetime.datetime.fromisoformat(s)
+
+    if d.tzinfo is None:
+        # assume UTC
+        d = d.replace(tzinfo=_datetime.timezone.utc)
+    else:
+        d = d.astimezone(_datetime.timezone.utc)
+
+    return d
+
+
+def date_to_string(d):
+    """Return the date that has been encoded to a string. This will
+       write the date as a standard iso-formatted date. IF a datetime
+       is passed then this will be in the
+       UTC timezone (converting to UTC if the passed datetime
+       is for another timezone)
+    """
+    if isinstance(d, _datetime.datetime):
+        return d.astimezone(_datetime.timezone.utc).date().isoformat()
+    else:
+        return d.isoformat()
+
+
+def string_to_date(s):
+    """Return a date from the string that has been encoded using
+       'date_to_string'. This is only guaranteed to work for strings
+       that were created using that function
+    """
+    d = _datetime.date.fromisoformat(s)
+    return d
+
+
+def time_to_string(t):
+    """Return the time that has been encoded to a string. This will
+       write the time as a standard iso-formatted time. If a datetime
+       is passed then this will be in the
+       UTC timezone (converting to UTC if the passed datetime
+       is for another timezone)
+    """
+    if isinstance(t, _datetime.datetime):
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=_datetime.timezone.utc)
+        else:
+            t = t.astimezone(_datetime.timezone.utc)
+
+        # guaranteed to be in the utc timezone, so write the
+        # time without the unnecessary +00:00
+        return t.replace(tzinfo=None).time().isoformat()
+    else:
+        if t.tzinfo is None:
+            # assume UTC
+            t = t.replace(tzinfo=_datetime.timezone.utc)
+        elif t.tzinfo != _datetime.timezone.utc:
+            raise EncodingError(
+                "Cannot encode a time to a string as this time is "
+                "not in the UTC timezone. Please convert to UTC "
+                "before encoding this time to a string '%s'" % t.isoformat())
+
+        # as the time is in UTC, we don't need the unnecessary +00:00
+        return t.replace(tzinfo=None).isoformat()
+
+
+def string_to_time(s):
+    """Return a time from the string that was encoded by 'time_to_string'.
+       This will only be guaranteed to produce valid output for strings
+       produced using that function
+    """
+    t = _datetime.time.fromisoformat(s)
+
+    if t.tzinfo is None:
+        # assume this is a UTC time
+        t = t.replace(tzinfo=_datetime.timezone.utc)
+    else:
+        t = t.astimezone(_datetime.timezone.utc)
+
+    return t

@@ -11,6 +11,11 @@ from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
 from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
 from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
+from Acquire.ObjectStore import date_to_string as _date_to_string
+from Acquire.ObjectStore import string_to_date as _string_to_date
+from Acquire.ObjectStore import time_to_string as _time_to_string
+from Acquire.ObjectStore import string_to_time as _string_to_time
+from Acquire.ObjectStore import datetime_to_datetime as _datetime_to_datetime
 
 from Acquire.Identity import Authorisation as _Authorisation
 
@@ -359,11 +364,11 @@ class Account:
 
         raise NotImplementedError("NOT IMPLEMENTED!")
 
-    def _get_transaction_keys_between(self, start_time, end_time,
+    def _get_transaction_keys_between(self, start_datetime, end_datetime,
                                       bucket=None):
         """Return all of the object store keys for transactions in this
-           account beteen 'start_time' and 'end_time' (inclusive, e.g.
-           start_time <= transaction <= end_time). This will return an
+           account beteen 'start_datetime' and 'end_datetime' (inclusive, e.g.
+           start_datetime <= transaction <= end_datetime). This will return an
            empty list if there were no transactions in this time
         """
         if bucket is None:
@@ -377,30 +382,31 @@ class Account:
             raise TypeError("The end time must be a datetime object, "
                             "not a %s" % end_time.__class__)
 
-        start_day = start_time.toordinal()
-        end_day = end_time.toordinal()
+        # convert both times to UTC
+        start_datetime = _datetime_to_datetime(start_datetime)
+        end_datetime = _datetime_to_datetime(end_datetime)
 
-        start_timestamp = start_time.timestamp()
-        end_timestamp = end_time.timestamp()
+        start_day = start_datetime.toordinal()
+        end_day = end_datetime.toordinal()
+
+        start_time = start_datetime.timetz()
+        end_time = end_datetime.timetz()
 
         keys = []
 
         for day in range(start_day, end_day+1):
             day_date = _datetime.datetime.fromordinal(day)
 
-            prefix = "%s/%4d-%02d-%02d" % (self._key(), day_date.year,
-                                           day_date.month, day_date.day)
+            prefix = "%s/%s" % (self._key(), _date_to_string(day_date))
 
             day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
 
             for day_key in day_keys:
-                try:
-                    timestamp = float(day_key.split("/")[0])
-                except:
-                    timestamp = 0
+                # the key is Ttime/rest_of_key
+                time = _string_to_time(day_key.split("/")[0][1:])
 
-                if timestamp >= start_timestamp and timestamp <= end_timestamp:
-                        keys.append("%s/%s" % (prefix, day_key))
+                if time >= start_time and time <= end_time:
+                    keys.append("%s/%s" % (prefix, day_key))
 
         return keys
 
