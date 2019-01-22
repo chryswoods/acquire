@@ -3,6 +3,9 @@ import datetime as _datetime
 
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
 
 __all__ = ["Authorisation"]
 
@@ -27,7 +30,7 @@ class Authorisation:
             resource = str(resource)
 
         self._signature = None
-        self._last_validated_time = None
+        self._last_validated_datetime = None
 
         if resource is not None:
             if user is None and testing_key is None:
@@ -50,12 +53,12 @@ class Authorisation:
             self._session_uid = user.session_uid()
             self._identity_url = user.identity_service().canonical_url()
             self._identity_uid = user.identity_service_uid()
-            self._auth_timestamp = _datetime.datetime.now().timestamp()
+            self._auth_datetime = _get_datetime_now()
 
             message = self._get_message(resource)
             self._signature = user.signing_key().sign(message)
 
-            self._last_validated_time = _datetime.datetime.now()
+            self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource
             self._last_verified_key = None
 
@@ -64,13 +67,13 @@ class Authorisation:
             self._session_uid = "some session uid"
             self._identity_url = "some identity_url"
             self._identity_uid = "some identity uid"
-            self._auth_timestamp = _datetime.datetime.now().timestamp()
+            self._auth_datetime = _get_datetime_now()
             self._is_testing = True
 
             message = self._get_message(resource)
             self._signature = testing_key.sign(message)
 
-            self._last_validated_time = _datetime.datetime.now()
+            self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource
             self._last_verified_key = testing_key.public_key()
 
@@ -86,12 +89,15 @@ class Authorisation:
            prevent tamporing with the data in this authorisation
         """
         if resource is None:
-            return "%s|%s|%s|%s" % (self._user_uid, self._session_uid,
-                                    self._identity_uid, self._auth_timestamp)
+            return "%s|%s|%s|%s" % (
+                self._user_uid, self._session_uid,
+                self._identity_uid,
+                _datetime_to_string(self._auth_datetime))
         else:
-            return "%s|%s|%s|%s|%s" % (self._user_uid, self._session_uid,
-                                       self._identity_uid, str(resource),
-                                       self._auth_timestamp)
+            return "%s|%s|%s|%s|%s" % (
+                self._user_uid, self._session_uid,
+                self._identity_uid, str(resource),
+                _datetime_to_string(self._auth_datetime))
 
     def __str__(self):
         try:
@@ -168,7 +174,7 @@ class Authorisation:
         if self.is_null():
             return None
         else:
-            return _datetime.datetime.fromtimestamp(self._auth_timestamp)
+            return self._auth_datetime
 
     def last_verification_time(self):
         """Return the last time this authorisation was verified. Note that
@@ -179,7 +185,7 @@ class Authorisation:
         if self.is_null():
             return None
         else:
-            return self._last_validated_time
+            return self._last_validated_datetime
 
     def signature(self):
         """Return the actual signature"""
@@ -196,11 +202,9 @@ class Authorisation:
         """
         stale_time = self._fix_integer(stale_time, 365*24*7200)
 
-        now = _datetime.datetime.now()
+        now = _get_datetime_now()
 
-        return ((now -
-                _datetime.datetime.fromtimestamp(
-                    self._auth_timestamp)).seconds > stale_time)
+        return ((now - self._auth_datetime).seconds > stale_time)
 
     def is_verified(self, refresh_time=3600, stale_time=7200,
                     resource=None, testing_key=None):
@@ -215,16 +219,16 @@ class Authorisation:
         """
         refresh_time = self._fix_integer(refresh_time, 24*3600)
 
-        now = _datetime.datetime.now()
+        now = _get_datetime_now()
 
-        if self._last_validated_time is not None:
+        if self._last_validated_datetime is not None:
             if self._last_verified_resource != resource:
                 return False
 
             if self._last_verified_key != testing_key:
                 return False
 
-            if (now - self._last_validated_time).seconds < refresh_time:
+            if (now - self._last_validated_datetime).seconds < refresh_time:
                 # no need to re-validate
                 return not self.is_stale(stale_time)
 
@@ -272,7 +276,7 @@ class Authorisation:
             except Exception as e:
                 raise PermissionError(str(e))
 
-            self._last_validated_time = _datetime.datetime.now()
+            self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource
             self._last_verified_key = testing_key
             return
@@ -302,17 +306,15 @@ class Authorisation:
                                     session_uid=self._session_uid)
 
             try:
-                logout_timestamp = response["logout_timestamp"]
+                logout_datetime = _string_to_datetime(
+                                        response["logout_datetime"])
             except:
-                logout_timestamp = None
+                logout_datetime = None
 
-            if logout_timestamp:
+            if logout_datetime:
                 # the user has logged out from this session - ensure that
                 # the authorisation was created before the user logged out
-                logout_time = _datetime.datetime.fromtimestamp(
-                                                        logout_timestamp)
-
-                if logout_time < self.signature_time():
+                if logout_datetime < self.signature_time():
                     raise PermissionError(
                         "This authorisation was signed after the user logged "
                         "out. This means that the authorisation is not valid. "
@@ -322,7 +324,7 @@ class Authorisation:
 
             response["public_cert"].verify(self._signature, message)
 
-            self._last_validated_time = _datetime.datetime.now()
+            self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource
             self._last_verified_key = None
         except PermissionError:
@@ -354,9 +356,9 @@ class Authorisation:
             auth._session_uid = data["session_uid"]
             auth._identity_url = data["identity_url"]
             auth._identity_uid = data["identity_uid"]
-            auth._auth_timestamp = data["auth_timestamp"]
+            auth._auth_datetime = _string_to_datetime(data["auth_datetime"])
             auth._signature = _string_to_bytes(data["signature"])
-            auth._last_validated_time = None
+            auth._last_validated_datetime = None
 
             if "is_testing" in data:
                 auth._is_testing = data["is_testing"]
@@ -374,7 +376,7 @@ class Authorisation:
         data["session_uid"] = str(self._session_uid)
         data["identity_url"] = str(self._identity_url)
         data["identity_uid"] = str(self._identity_uid)
-        data["auth_timestamp"] = self._auth_timestamp
+        data["auth_datetime"] = _datetime_to_string(self._auth_datetime)
         data["signature"] = _bytes_to_string(self._signature)
 
         try:
