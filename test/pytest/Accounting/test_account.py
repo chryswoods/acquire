@@ -147,9 +147,9 @@ def test_transactions(random_transaction, bucket):
 
     now = datetime.datetime.now()
 
-    assert(debit_note.timestamp() < now.timestamp())
-    assert(credit_note.timestamp() < now.timestamp())
-    assert(debit_note.timestamp() <= credit_note.timestamp())
+    assert(debit_note.datetime() < now)
+    assert(credit_note.datetime() < now)
+    assert(debit_note.datetime() <= credit_note.datetime())
 
     assert_packable(debit_note)
     assert_packable(credit_note)
@@ -250,9 +250,9 @@ def test_pending_transactions(random_transaction):
 
     now = datetime.datetime.now()
 
-    assert(debit_note.timestamp() < now.timestamp())
-    assert(credit_note.timestamp() < now.timestamp())
-    assert(debit_note.timestamp() <= credit_note.timestamp())
+    assert(debit_note.datetime() < now)
+    assert(credit_note.datetime() < now)
+    assert(debit_note.datetime() <= credit_note.datetime())
 
     assert_packable(debit_note)
     assert_packable(credit_note)

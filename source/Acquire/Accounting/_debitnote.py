@@ -4,6 +4,10 @@ from Acquire.Service import login_to_service_account \
 
 from Acquire.Identity import Authorisation as _Authorisation
 
+from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+
 from ._transaction import Transaction as _Transaction
 
 from ._errors import LedgerError
@@ -19,7 +23,7 @@ class DebitNote:
                  is_provisional=False, receipt=None, refund=None, bucket=None):
         """Create a debit note for the passed transaction will debit value
            from the passed account. The note will create a unique ID (uid)
-           for the debit, plus the timestamp of the time that value was drawn
+           for the debit, plus the datetime of the time that value was drawn
            from the debited account. This debit note will be paired with a
            corresponding credit note from the account that received the value
            from the transaction so that a balanced TransactionRecord can be
@@ -74,12 +78,12 @@ class DebitNote:
         else:
             return self._uid
 
-    def timestamp(self):
-        """Return the timestamp for when value was debited from the account"""
+    def datetime(self):
+        """Return the datetime for when value was debited from the account"""
         if self.is_null():
             return None
         else:
-            return self._timestamp
+            return self._datetime
 
     def account_uid(self):
         """Return the UID of the account that was debited"""
@@ -167,14 +171,14 @@ class DebitNote:
 
             # now move the refund from the credit account back to the
             # debit note
-            (uid, timestamp) = account._debit_refund(refund, bucket)
+            (uid, datetime) = account._debit_refund(refund, bucket)
 
             self._transaction = refund.transaction()
             self._account_uid = refund.credit_account_uid()
             self._authorisation = refund.authorisation()
             self._is_provisional = False
 
-            self._timestamp = float(timestamp)
+            self._datetime = datetime
             self._uid = str(uid)
         except:
             # move the transaction back to its original state...
@@ -232,14 +236,14 @@ class DebitNote:
 
             # now move value from liability to debit, and then into this
             # debit note
-            (uid, timestamp) = account._debit_receipt(receipt, bucket)
+            (uid, datetime) = account._debit_receipt(receipt, bucket)
 
             self._transaction = receipt.transaction()
             self._account_uid = receipt.debit_account_uid()
             self._authorisation = receipt.authorisation()
             self._is_provisional = False
 
-            self._timestamp = float(timestamp)
+            self._datetime = datetime
             self._uid = str(uid)
         except:
             # move the transaction back to its original state...
@@ -280,10 +284,10 @@ class DebitNote:
         self._authorisation = authorisation
         self._is_provisional = is_provisional
 
-        (uid, timestamp) = account._debit(transaction, authorisation,
-                                          is_provisional, bucket=bucket)
+        (uid, datetime) = account._debit(transaction, authorisation,
+                                         is_provisional, bucket=bucket)
 
-        self._timestamp = float(timestamp)
+        self._datetime = datetime
         self._uid = str(uid)
 
     def to_data(self):
@@ -295,7 +299,7 @@ class DebitNote:
             data["account_uid"] = self._account_uid
             data["authorisation"] = self._authorisation.to_data()
             data["is_provisional"] = self._is_provisional
-            data["timestamp"] = self._timestamp
+            data["datetime"] = _datetime_to_string(self._datetime)
             data["uid"] = self._uid
 
         return data
@@ -312,7 +316,7 @@ class DebitNote:
             d._account_uid = data["account_uid"]
             d._authorisation = _Authorisation.from_data(data["authorisation"])
             d._is_provisional = data["is_provisional"]
-            d._timestamp = data["timestamp"]
+            d._datetime = _string_to_datetime(data["datetime"])
             d._uid = data["uid"]
 
         return d

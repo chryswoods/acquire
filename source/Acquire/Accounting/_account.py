@@ -8,6 +8,9 @@ import re as _re
 from Acquire.Service import login_to_service_account \
                         as _login_to_service_account
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
+from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
 
 from Acquire.Identity import Authorisation as _Authorisation
 
@@ -173,7 +176,7 @@ class Account:
             return None
 
         if datetime is None:
-            datetime = _datetime.datetime.now()
+            datetime = _get_datetime_now()
 
         return _get_key_from_day("%s/balance" % self._key(),
                                  datetime)
@@ -190,7 +193,7 @@ class Account:
             return
 
         if datetime is None:
-            datetime = _datetime.datetime.now()
+            datetime = _get_datetime_now()
 
         balance = _create_decimal(balance)
         liability = _create_decimal(liability)
@@ -222,7 +225,7 @@ class Account:
         # work back from today to the first day of the account to calculate
         # all of the daily balances... We need to record every day of the
         # account to support quick lookups
-        today = _datetime.datetime.now().toordinal()
+        today = _get_datetime_now().toordinal()
         day = today
         last_data = None
         num_missing_days = 0
@@ -316,7 +319,7 @@ class Account:
             bucket = _login_to_service_account()
 
         if datetime is None:
-            datetime = _datetime.datetime.now()
+            datetime = _get_datetime_now()
 
         balance_key = self._get_balance_key(datetime)
 

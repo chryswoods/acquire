@@ -2,6 +2,9 @@
 from ._debitnote import DebitNote as _DebitNote
 from ._decimal import create_decimal as _create_decimal
 
+from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+
 __all__ = ["CreditNote"]
 
 
@@ -14,7 +17,7 @@ class CreditNote:
                  refund=None, bucket=None):
         """Create the corresponding credit note for the passed debit_note. This
            will credit value from the note to the passed account. The credit
-           will use the same UID as the credit, and the same timestamp. This
+           will use the same UID as the debit, and the same datetime. This
            will then be paired with the debit note to form a TransactionRecord
            that can be written to the ledger
         """
@@ -37,7 +40,7 @@ class CreditNote:
 
         else:
             self._debit_account_uid = None
-            self._timestamp = None
+            self._datetime = None
             self._uid = None
             self._debit_note_uid = None
             self._value = _create_decimal(0)
@@ -79,9 +82,9 @@ class CreditNote:
         else:
             return self._debit_account_uid
 
-    def timestamp(self):
-        """Return the timestamp for this credit note"""
-        return self._timestamp
+    def datetime(self):
+        """Return the datetime for this credit note"""
+        return self._datetime
 
     def uid(self):
         """Return the UID of this credit note. This will not match the debit
@@ -152,11 +155,11 @@ class CreditNote:
                              "the receipt: %s versus %s" %
                              (account.uid(), refund.debit_account_uid()))
 
-        (uid, timestamp) = account._credit_refund(debit_note, refund, bucket)
+        (uid, datetime) = account._credit_refund(debit_note, refund, bucket)
 
         self._account_uid = account.uid()
         self._debit_account_uid = debit_note.account_uid()
-        self._timestamp = timestamp
+        self._datetime = datetime
         self._uid = uid
         self._debit_note_uid = debit_note.uid()
         self._value = debit_note.value()
@@ -204,11 +207,11 @@ class CreditNote:
                              "the receipt: %s versus %s" %
                              (account.uid(), receipt.credit_account_uid()))
 
-        (uid, timestamp) = account._credit_receipt(debit_note, receipt, bucket)
+        (uid, datetime) = account._credit_receipt(debit_note, receipt, bucket)
 
         self._account_uid = account.uid()
         self._debit_account_uid = debit_note.account_uid()
-        self._timestamp = timestamp
+        self._datetime = datetime
         self._uid = uid
         self._debit_note_uid = debit_note.uid()
         self._value = debit_note.value()
@@ -235,11 +238,11 @@ class CreditNote:
             raise TypeError("You can only create a CreditNote with an "
                             "Account")
 
-        (uid, timestamp) = account._credit(debit_note, bucket=bucket)
+        (uid, datetime) = account._credit(debit_note, bucket=bucket)
 
         self._account_uid = account.uid()
         self._debit_account_uid = debit_note.account_uid()
-        self._timestamp = timestamp
+        self._datetime = datetime
         self._uid = uid
         self._debit_note_uid = debit_note.uid()
         self._value = debit_note.value()
@@ -257,7 +260,7 @@ class CreditNote:
             note._debit_account_uid = data["debit_account_uid"]
             note._uid = data["uid"]
             note._debit_note_uid = data["debit_note_uid"]
-            note._timestamp = data["timestamp"]
+            note._datetime = _string_to_datetime(data["datetime"])
             note._value = _create_decimal(data["value"])
             note._is_provisional = data["is_provisional"]
 
@@ -274,7 +277,7 @@ class CreditNote:
             data["debit_account_uid"] = self._debit_account_uid
             data["uid"] = self._uid
             data["debit_note_uid"] = self._debit_note_uid
-            data["timestamp"] = self._timestamp
+            data["datetime"] = _datetime_to_string(self._datetime)
             data["value"] = str(self._value)
             data["is_provisional"] = self._is_provisional
 

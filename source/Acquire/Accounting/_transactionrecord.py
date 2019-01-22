@@ -9,6 +9,9 @@ from Acquire.Service import login_to_service_account \
 
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from Acquire.ObjectStore import Mutex as _Mutex
+from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
 
 from ._account import Account as _Account
 from ._transaction import Transaction as _Transaction
@@ -38,7 +41,7 @@ class TransactionState(_Enum):
 class TransactionRecord:
     """This class holds a record of a transaction that has already been
        written to the accounting ledger. This records a unique ID, the
-       timestamp of the entry, the value, the two accounts involved in the
+       datetime of the entry, the value, the two accounts involved in the
        transaction (debit account to credit account), a description of what
        the transaction refers to, and who/how the transaction was authorised.
        If 'is_provisional' then this is a provisional transaction that is
@@ -217,12 +220,12 @@ class TransactionRecord:
         else:
             return self.debit_note().account_uid()
 
-    def timestamp(self):
-        """Return the timestamp when this transaction was applied"""
+    def datetime(self):
+        """Return the datetime when this transaction was applied"""
         if self.is_null():
             return None
         else:
-            return self.debit_note().timestamp()
+            return self.debit_note().datetime()
 
     def is_direct(self):
         """Return whether or not this transaction was direct (so was not
