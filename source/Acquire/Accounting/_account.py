@@ -374,38 +374,30 @@ class Account:
         if bucket is None:
             bucket = _login_to_service_account()
 
-        if not isinstance(start_time, _datetime.datetime):
-            raise TypeError("The start time must be a datetime object, "
-                            "not a %s" % start_time.__class__)
-
-        if not isinstance(end_time, _datetime.datetime):
-            raise TypeError("The end time must be a datetime object, "
-                            "not a %s" % end_time.__class__)
-
         # convert both times to UTC
         start_datetime = _datetime_to_datetime(start_datetime)
         end_datetime = _datetime_to_datetime(end_datetime)
 
+        # get the day for each time
         start_day = start_datetime.toordinal()
         end_day = end_datetime.toordinal()
-
-        start_time = start_datetime.timetz()
-        end_time = end_datetime.timetz()
 
         keys = []
 
         for day in range(start_day, end_day+1):
             day_date = _datetime.datetime.fromordinal(day)
+            day_string = _date_to_string(day_date)
 
-            prefix = "%s/%s" % (self._key(), _date_to_string(day_date))
+            prefix = "%s/%s" % (self._key(), day_string)
 
             day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
 
             for day_key in day_keys:
                 # the key is Ttime/rest_of_key
-                time = _string_to_time(day_key.split("/")[0][1:])
+                time = day_key.split("/")[0]
+                datetime = _string_to_datetime("%s%s" % (day_string, time))
 
-                if time >= start_time and time <= end_time:
+                if datetime >= start_datetime and datetime <= end_datetime:
                     keys.append("%s/%s" % (prefix, day_key))
 
         return keys
