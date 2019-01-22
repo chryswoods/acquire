@@ -140,27 +140,9 @@ class ObjectStore:
         _objstore_backend.set_object_from_json(bucket, key, data)
 
     @staticmethod
-    def log(bucket, message, prefix="log"):
-        """Log the the passed message to the object store in
-           the bucket with key "key/timestamp" (defaults
-           to "log/timestamp"
-        """
-        _objstore_backend.log(bucket, message, prefix)
-
-    @staticmethod
     def delete_all_objects(bucket, prefix=None):
         """Deletes all objects..."""
         _objstore_backend.delete_all_objects(bucket, prefix)
-
-    @staticmethod
-    def get_log(bucket, log="log"):
-        """Return the complete log as an xml string"""
-        _objstore_backend.get_log(bucket, log)
-
-    @staticmethod
-    def clear_log(bucket, log="log"):
-        """Clears out the log"""
-        _objstore_backend.clear_log(bucket, log)
 
     @staticmethod
     def delete_object(bucket, key):

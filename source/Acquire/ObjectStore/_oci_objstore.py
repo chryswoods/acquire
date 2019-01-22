@@ -456,17 +456,6 @@ class OCI_ObjectStore:
         OCI_ObjectStore.set_string_object(bucket, key, _json.dumps(data))
 
     @staticmethod
-    def log(bucket, message, prefix="log"):
-        """Log the the passed message to the object store in
-           the bucket with key "key/timestamp" (defaults
-           to "log/timestamp"
-        """
-        OCI_ObjectStore.set_string_object(
-                bucket, "%s/%s" % (prefix,
-                                   _get_datetime_now().timestamp()),
-                str(message))
-
-    @staticmethod
     def delete_all_objects(bucket, prefix=None):
         """Deletes all objects..."""
 
@@ -485,33 +474,6 @@ class OCI_ObjectStore:
                 bucket["client"].delete_object(bucket["namespace"],
                                                bucket["bucket_name"],
                                                obj)
-
-    @staticmethod
-    def get_log(bucket, log="log"):
-        """Return the complete log as an xml string"""
-        objs = OCI_ObjectStore.get_all_strings(bucket, log)
-
-        lines = []
-        lines.append("<log>")
-
-        timestamps = list(objs.keys())
-        timestamps.sort()
-
-        for timestamp in timestamps:
-            lines.append("<logitem>")
-            lines.append("<timestamp>%s</timestamp>" %
-                         _datetime.datetime.fromtimestamp(float(timestamp)))
-            lines.append("<message>%s</message>" % objs[timestamp])
-            lines.append("</logitem>")
-
-        lines.append("</log>")
-
-        return "".join(lines)
-
-    @staticmethod
-    def clear_log(bucket, log="log"):
-        """Clears out the log"""
-        OCI_ObjectStore.delete_all_objects(bucket, log)
 
     @staticmethod
     def delete_object(bucket, key):

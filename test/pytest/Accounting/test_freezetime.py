@@ -10,6 +10,8 @@ from Acquire.Accounting import Account, Transaction, TransactionRecord, \
 
 from Acquire.Identity import Authorisation
 
+from Acquire.ObjectStore import get_datetime_now
+
 from Acquire.Service import login_to_service_account
 
 try:
@@ -21,7 +23,7 @@ except:
 account1_overdraft_limit = 1500000
 account2_overdraft_limit = 2500000
 
-start_time = datetime.datetime.now() - datetime.timedelta(days=365)
+start_time = get_datetime_now() - datetime.timedelta(days=365)
 
 
 @pytest.fixture(scope="module")
@@ -39,8 +41,10 @@ def account1(bucket):
         return None
 
     with freeze_time(start_time) as frozen_datetime:
-        now = datetime.datetime.now()
-        assert(frozen_datetime() == now)
+        now = get_datetime_now()
+        print(start_time)
+        print(frozen_datetime())
+        assert(start_time == now)
         account = Account("Testing Account", "This is the test account")
 
         uid = account.uid()
@@ -60,8 +64,8 @@ def account2(bucket):
         return None
 
     with freeze_time(start_time) as frozen_datetime:
-        now = datetime.datetime.now()
-        assert(frozen_datetime() == now)
+        now = get_datetime_now()
+        assert(start_time == now)
         account = Account("Testing Account", "This is the test account")
 
         uid = account.uid()
@@ -92,7 +96,7 @@ def test_temporal_transactions(account1, account2, bucket):
 
     # generate some random times for the transactions
     random_dates = []
-    now = datetime.datetime.now()
+    now = get_datetime_now()
     for i in range(0, 100):
         random_dates.append(start_time + random.random() * (now - start_time))
 
@@ -103,8 +107,8 @@ def test_temporal_transactions(account1, account2, bucket):
 
     for (i, transaction_time) in enumerate(random_dates):
         with freeze_time(transaction_time) as frozen_datetime:
-            now = datetime.datetime.now()
-            assert(frozen_datetime() == now)
+            now = get_datetime_now()
+            assert(transaction_time == now)
 
             is_provisional = random.randint(0, 5)
 

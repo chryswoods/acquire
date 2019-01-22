@@ -3,8 +3,8 @@ import pytest
 import datetime
 import uuid
 
-from Acquire.ObjectStore import ObjectStore, ObjectStoreError, PAR, PARError, \
-                                PARPermissionsError
+from Acquire.ObjectStore import ObjectStore, ObjectStoreError, PAR, \
+                                PARError, PARPermissionsError
 
 from Acquire.Service import login_to_service_account
 
@@ -93,48 +93,3 @@ def test_par(bucket):
         value = par.read().get_string_object()
 
         assert(keyvals[key] == value)
-
-
-def _test_remote_par():
-    remote_par = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/UtFZPuH8gLbOgR_mfa1lim7nf7DTk5qkLGBuvpPwqMU/n/chryswoods/b/testbucket/o/transactions"
-
-    expires_timestamp = datetime.datetime(2020, 1, 1).replace(
-            tzinfo=datetime.timezone.utc).timestamp()
-
-    par = PAR(url=remote_par, key="test", is_writeable=True,
-              expires_timestamp=expires_timestamp)
-
-    original = par.read().get_string_object()
-
-    value = " ∆∂˚¬´ ƒ€∆® ¬˚∆# ®#®¬∆#˚®∆˚¬#€  #€€€" + str(uuid.uuid4())
-
-    par.write().set_string_object(value)
-
-    val = par.read().get_string_object()
-
-    assert(val != original)
-
-    assert(val == value)
-
-    assert(False)
-
-
-def _test_remote_bucket_par():
-    remote_par = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/YqMRUmCZz6RCJdKlj63zTXQdPj1l7RCJW9bFWy7DxEY/n/chryswoods/b/testbucket/o/"
-
-    expires_timestamp = datetime.datetime(2020, 1, 1).replace(
-            tzinfo=datetime.timezone.utc).timestamp()
-
-    par = PAR(url=remote_par, is_readable=False, is_writeable=True,
-              expires_timestamp=expires_timestamp)
-
-    key = "this/is/a/test"
-    value = "some value " + str(uuid.uuid4())
-
-    par.write().set_string_object(key, value)
-
-    test = par.read().get_string_object(key)
-
-    assert(test == value)
-
-    assert(False)

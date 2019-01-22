@@ -2,7 +2,7 @@
 from Acquire.Service import login_to_service_account
 from Acquire.Service import create_return_value
 
-from Acquire.ObjectStore import ObjectStore
+from Acquire.ObjectStore import ObjectStore, datetime_to_string
 
 from Acquire.Identity import UserAccount, LoginSession
 
@@ -25,7 +25,7 @@ def run(args):
     username = None
     public_key = None
     public_cert = None
-    logout_timestamp = None
+    logout_datetime = None
     login_status = None
 
     try:
@@ -118,7 +118,7 @@ def run(args):
 
         elif login_session.is_logged_out():
             public_cert = login_session.public_certificate()
-            logout_timestamp = login_session.logout_time().timestamp()
+            logout_datetime = login_session.logout_time()
 
         else:
             raise InvalidSessionError(
@@ -144,8 +144,8 @@ def run(args):
     if public_cert:
         return_value["public_cert"] = public_cert.to_data()
 
-    if logout_timestamp:
-        return_value["logout_timestamp"] = logout_timestamp
+    if logout_datetime:
+        return_value["logout_datetime"] = datetime_to_string(logout_datetime)
 
     if login_status:
         return_value["login_status"] = str(login_status)
