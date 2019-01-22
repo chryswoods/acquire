@@ -36,7 +36,8 @@ class Accounts:
 
     def _root(self):
         """Return the root key for this group in the object store"""
-        return "account_groups/%s" % _string_to_encoded(self._group)
+        return "accounting/account_groups/%s/" % \
+            _string_to_encoded(self._group)
 
     def _account_key(self, name):
         """Return the key for the account called 'name' in this group"""

@@ -42,8 +42,6 @@ def account1(bucket):
 
     with freeze_time(start_time) as frozen_datetime:
         now = get_datetime_now()
-        print(start_time)
-        print(frozen_datetime())
         assert(start_time == now)
         account = Account("Testing Account", "This is the test account")
 
@@ -148,7 +146,7 @@ def test_temporal_transactions(account1, account2, bucket):
             if is_provisional:
                 records.append(record)
 
-            assert(record.timestamp() == now.timestamp())
+            assert(record.datetime() == now)
 
     assert(account1.balance() == balance1)
     assert(account2.balance() == balance2)

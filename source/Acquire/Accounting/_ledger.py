@@ -1,6 +1,5 @@
 
 import uuid as _uuid
-import datetime as _datetime
 from copy import copy as _copy
 
 from Acquire.Service import login_to_service_account \
@@ -34,7 +33,7 @@ class Ledger:
         """Return the object store key for the transactionrecord with
            UID=uid
         """
-        return "transactions/%s" % (str(uid))
+        return "accounting/transactions/%s" % (str(uid))
 
     @staticmethod
     def load_transaction(uid, bucket=None):

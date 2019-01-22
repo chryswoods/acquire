@@ -170,9 +170,12 @@ class Testing_ObjectStore:
         """Returns the names of all objects in the passed bucket"""
 
         if prefix:
-            root = "%s/%s/" % (bucket, prefix)
+            parts = prefix.split("/")
+            root = "%s/%s/" % (bucket, "/".join(parts[0:-1]))
+            prefix = parts[-1]
         else:
             root = "%s/" % bucket
+            prefix = None
 
         names = [_os.path.join(dp, f) for dp, dn, filenames in
                  _os.walk(root) for f in filenames
@@ -181,7 +184,11 @@ class Testing_ObjectStore:
         object_names = []
         for name in names:
             try:
-                object_names.append(name[0:-6].split(root)[1])
+                name = name[0:-6].split(root)[1]
+                if prefix is None:
+                    object_names.append(name)
+                elif name.startswith(prefix):
+                    object_names.append(name[len(prefix):])
             except:
                 raise IndexError("Cannot extract from name: Root = %s, "
                                  "name = %s" % (root, name[0:-6]))

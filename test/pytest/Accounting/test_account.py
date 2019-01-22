@@ -11,6 +11,8 @@ from Acquire.Identity import Authorisation
 
 from Acquire.Service import login_to_service_account
 
+from Acquire.ObjectStore import get_datetime_now
+
 account1_overdraft_limit = 1500000
 account2_overdraft_limit = 2500000
 
@@ -145,7 +147,7 @@ def test_transactions(random_transaction, bucket):
     assert(debit_note.value() == transaction.value())
     assert(credit_note.value() == transaction.value())
 
-    now = datetime.datetime.now()
+    now = get_datetime_now()
 
     assert(debit_note.datetime() < now)
     assert(credit_note.datetime() < now)
@@ -248,7 +250,7 @@ def test_pending_transactions(random_transaction):
     assert(debit_note.value() == transaction.value())
     assert(credit_note.value() == transaction.value())
 
-    now = datetime.datetime.now()
+    now = get_datetime_now()
 
     assert(debit_note.datetime() < now)
     assert(credit_note.datetime() < now)

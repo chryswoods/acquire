@@ -16,6 +16,8 @@ from Acquire.ObjectStore import string_to_date as _string_to_date
 from Acquire.ObjectStore import time_to_string as _time_to_string
 from Acquire.ObjectStore import string_to_time as _string_to_time
 from Acquire.ObjectStore import datetime_to_datetime as _datetime_to_datetime
+from Acquire.ObjectStore import date_and_time_to_datetime as \
+                               _date_and_time_to_datetime
 
 from Acquire.Identity import Authorisation as _Authorisation
 
@@ -35,13 +37,12 @@ __all__ = ["Account"]
 
 
 def _account_root():
-    return "accounts"
+    return "accounting/accounts"
 
 
 def _get_key_from_day(start, datetime):
     """Return a key encoding the passed date, starting the key with 'start'"""
-    return "%s/%4d-%02d-%02d" % (start, datetime.year,
-                                 datetime.month, datetime.day)
+    return "%s/%s" % (start, datetime.date().isoformat())
 
 
 def _get_day_from_key(key):
@@ -49,9 +50,10 @@ def _get_day_from_key(key):
     m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)", key)
 
     if m:
-        return _datetime.datetime(year=int(m.groups()[0]),
-                                  month=int(m.groups()[1]),
-                                  day=int(m.groups()[2]))
+        return _date_and_time_to_datetime(
+                    _datetime.date(year=int(m.groups()[0]),
+                                   month=int(m.groups()[1]),
+                                   day=int(m.groups()[2])))
     else:
         raise AccountError("Could not find a date in the key '%s'" % key)
 
@@ -111,7 +113,7 @@ class Account:
             self._uid = str(uid)
             self._name = None
             self._description = None
-            self._last_update_ordinal = None
+            self._last_update_datetime = None
             self._load_account(bucket)
 
             if name:
@@ -131,6 +133,7 @@ class Account:
             self._create_account(name, description)
         else:
             self._uid = None
+            self._last_update_datetime = None
 
     def __str__(self):
         if self._uid is None:
@@ -163,11 +166,12 @@ class Account:
         self._description = str(description)
         self._overdraft_limit = _create_decimal(0)
         self._maximum_daily_limit = 0
-        self._last_update_ordinal = None
+        self._last_update_datetime = None
 
         # initialise the account with a balance of zero
         bucket = _login_to_service_account()
         self._record_daily_balance(0, 0, 0, bucket=bucket)
+
         # make sure that this is saved to the object store
         self._save_account(bucket)
 
@@ -182,6 +186,8 @@ class Account:
 
         if datetime is None:
             datetime = _get_datetime_now()
+        else:
+            datetime = _datetime_to_datetime(datetime)
 
         return _get_key_from_day("%s/balance" % self._key(),
                                  datetime)
@@ -199,6 +205,8 @@ class Account:
 
         if datetime is None:
             datetime = _get_datetime_now()
+        else:
+            datetime = _datetime_to_datetime(datetime)
 
         balance = _create_decimal(balance)
         liability = _create_decimal(liability)
@@ -325,6 +333,8 @@ class Account:
 
         if datetime is None:
             datetime = _get_datetime_now()
+        else:
+            datetime = _datetime_to_datetime(datetime)
 
         balance_key = self._get_balance_key(datetime)
 
@@ -407,33 +417,35 @@ class Account:
            by recalculating the total from today from scratch
         """
         # where were we at the start of today?
-        (balance, liability, receivable) = self._get_daily_balance(bucket, now)
+        now = _datetime_to_datetime(now)
+
+        (balance, liability, receivable) = self._get_daily_balance(bucket,
+                                                                   now)
 
         # now sum up all of the transactions from today
-        transaction_keys = self._get_transaction_keys_between(
-                            _datetime.datetime.fromordinal(now.toordinal()),
-                            now)
+        start_today = _date_and_time_to_datetime(now.date())
+
+        transaction_keys = self._get_transaction_keys_between(start_today, now)
 
         total = _sum_transactions(transaction_keys)
 
         result = (balance+total[0], liability+total[1], receivable+total[2],
                   total[3])
 
-        self._last_update_ordinal = now.toordinal()
-        self._last_update_timestamp = now.timestamp()
+        self._last_update_datetime = now
         self._last_update = result
 
         return result
 
-    def _last_update_datetime(self):
+    def last_update_datetime(self):
         """Return the last time the balance was updated, as a datetime
            object
         """
-        if self._last_update_timestamp is None:
-            return _datetime.datetime.fromtimestamp(0)
+        if self._last_update_datetime is None:
+            # this is the earliest datetime possible
+            return _date_and_time_to_datetime(_datetime.date.fromordinal(1))
         else:
-            return _datetime.datetime.fromtimestamp(
-                                        self._last_update_timestamp)
+            return self._last_update_datetime
 
     def _update_current_balance(self, bucket, now):
         """Internal function that implements _get_current_balance
@@ -442,9 +454,11 @@ class Account:
         """
         (balance, liability, receivable, spent_today) = self._last_update
 
+        now = _datetime_to_datetime(now)
+
         # now sum up all of the transactions since the last update
         transaction_keys = self._get_transaction_keys_between(
-                                            self._last_update_datetime(),
+                                            self.last_update_datetime(),
                                             now)
 
         total = _sum_transactions(transaction_keys)
@@ -452,8 +466,7 @@ class Account:
         result = (balance+total[0], liability+total[1], receivable+total[2],
                   spent_today+total[3])
 
-        self._last_update_ordinal = now.toordinal()
-        self._last_update_timestamp = now.timestamp()
+        self._last_update_datetime = now
         self._last_update = result
 
         return result
@@ -473,15 +486,11 @@ class Account:
         if bucket is None:
             bucket = _login_to_service_account()
 
-        now = _datetime.datetime.now()
-        now_ordinal = now.toordinal()
+        now = _get_datetime_now()
 
-        try:
-            last_update_ordinal = self._last_update_ordinal
-        except:
-            last_update_ordinal = None
+        last_update_datetime = self.last_update_datetime()
 
-        if last_update_ordinal != now_ordinal:
+        if last_update_datetime.date() != now.date():
             # we are on a new day since the last update, so recalculate
             # the balance from scratch
             return self._recalculate_current_balance(bucket, now)
@@ -535,6 +544,7 @@ class Account:
         """Save this account back to the object store"""
         if bucket is None:
             bucket = _login_to_service_account()
+
         _ObjectStore.set_object_from_json(bucket, self._key(), self.to_data())
 
     def to_data(self):
@@ -580,14 +590,14 @@ class Account:
            times (when the system may be updating) by sleeping through
            those times
         """
-        now = _datetime.datetime.now()
+        now = _get_datetime_now()
 
         # don't allow any transactions in the last 30 seconds of the day, as we
         # will sum up the day balance at midnight, and don't want to risk any
         # late transactions from messing up the accounting
         while now.hour == 23 and now.minute == 59 and now.second >= 30:
             _time.sleep(5)
-            now = _datetime.datetime.now()
+            now = _get_datetime_now()
 
         return now
 
@@ -614,9 +624,8 @@ class Account:
 
             # now remove all day-balances from the day before this note
             # to today. Hopefully this will prevent any ledger errors...
-            day0 = _datetime.datetime.fromtimestamp(
-                                    note.timestamp()).toordinal() - 1
-            day1 = _datetime.datetime.now().toordinal()
+            day0 = note.datetime().toordinal() - 1
+            day1 = _get_datetime_now().toordinal()
 
             for day in range(day0, day1+1):
                 balance_key = self._get_balance_key(
@@ -653,17 +662,14 @@ class Account:
                                         _TransactionCode.RECEIVED_REFUND,
                                         refund.value())
 
-        # create a UID and timestamp for this credit and record
+        # create a UID and datetime for this credit and record
         # it in the account
         now = self._get_safe_now()
 
-        # we need to record the exact timestamp of this credit...
-        timestamp = now.timestamp()
-
         # and to create a key to find this credit later. The key is made
-        # up from the date and timestamp of the credit and a random string
-        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
-                                        timestamp)
+        # up from the iso format of the datetime of the credit
+        # and a random string
+        day_key = _datetime_to_string(now)
         uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
@@ -671,7 +677,7 @@ class Account:
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
-        return (uid, timestamp)
+        return (uid, now)
 
     def _debit_refund(self, refund, bucket=None):
         """Debit the value of the passed 'refund' from this account. The
@@ -692,17 +698,13 @@ class Account:
         encoded_value = _TransactionInfo.encode(_TransactionCode.SENT_REFUND,
                                                 refund.value())
 
-        # create a UID and timestamp for this debit and record
+        # create a UID and datetime for this debit and record
         # it in the account
         now = self._get_safe_now()
 
-        # we need to record the exact timestamp of this credit...
-        timestamp = now.timestamp()
-
         # and to create a key to find this debit later. The key is made
-        # up from the date and timestamp of the debit and a random string
-        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
-                                        timestamp)
+        # up from the date and  of the debit and a random string
+        day_key = _datetime_to_string(now)
         uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
@@ -710,7 +712,7 @@ class Account:
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
-        return (uid, timestamp)
+        return (uid, now)
 
     def _credit_receipt(self, debit_note, receipt, bucket=None):
         """Credit the value of the passed 'receipt' to this account. The
@@ -738,17 +740,13 @@ class Account:
                                     _TransactionCode.SENT_RECEIPT,
                                     receipt.value(), receipt.receipted_value())
 
-        # create a UID and timestamp for this credit and record
+        # create a UID and datetime for this credit and record
         # it in the account
         now = self._get_safe_now()
 
-        # we need to record the exact timestamp of this credit...
-        timestamp = now.timestamp()
-
         # and to create a key to find this credit later. The key is made
-        # up from the date and timestamp of the credit and a random string
-        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
-                                        timestamp)
+        # up from the isoformat datetime of the credit and a random string
+        day_key = _datetime_to_string(now)
         uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
@@ -756,7 +754,7 @@ class Account:
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
-        return (uid, timestamp)
+        return (uid, now)
 
     def _debit_receipt(self, receipt, bucket=None):
         """Debit the value of the passed 'receipt' from this account. The
@@ -776,17 +774,13 @@ class Account:
                                     _TransactionCode.RECEIVED_RECEIPT,
                                     receipt.value(), receipt.receipted_value())
 
-        # create a UID and timestamp for this debit and record
+        # create a UID and datetime for this debit and record
         # it in the account
         now = self._get_safe_now()
 
-        # we need to record the exact timestamp of this credit...
-        timestamp = now.timestamp()
-
         # and to create a key to find this debit later. The key is made
-        # up from the date and timestamp of the debit and a random string
-        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
-                                        timestamp)
+        # up from the isoformat datetime of the debit and a random string
+        day_key = _datetime_to_string(now)
         uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
@@ -794,7 +788,7 @@ class Account:
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
-        return (uid, timestamp)
+        return (uid, now)
 
     def _credit(self, debit_note, bucket=None):
         """Credit the value in 'debit_note' to this account. If the debit_note
@@ -821,17 +815,13 @@ class Account:
                                 _TransactionCode.CREDIT,
                                 debit_note.value())
 
-        # create a UID and timestamp for this credit and record
+        # create a UID and datetime for this credit and record
         # it in the account
         now = self._get_safe_now()
 
-        # we need to record the exact timestamp of this credit...
-        timestamp = now.timestamp()
-
         # and to create a key to find this credit later. The key is made
-        # up from the date and timestamp of the credit and a random string
-        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
-                                        timestamp)
+        # up from the isoformat datetime of the credit and a random string
+        day_key = _datetime_to_string(now)
         uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
@@ -843,13 +833,13 @@ class Account:
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
-        return (uid, timestamp)
+        return (uid, now)
 
     def _debit(self, transaction, authorisation, is_provisional, bucket=None):
         """Debit the value of the passed transaction from this account based
            on the authorisation contained
            in 'authorisation'. This will create a unique ID (UID) for
-           this debit and will return this together with the timestamp of the
+           this debit and will return this together with the datetime of the
            debit. If this transaction 'is_provisional' then it will be
            recorded as a liability.
 
@@ -881,17 +871,13 @@ class Account:
                 "are insufficient funds in this account." %
                 (transaction, str(self)))
 
-        # create a UID and timestamp for this debit and record
+        # create a UID and datetime for this debit and record
         # it in the account
         now = self._get_safe_now()
 
-        # we need to record the exact timestamp of this debit...
-        timestamp = now.timestamp()
-
         # and to create a key to find this debit later. The key is made
-        # up from the date and timestamp of the debit and a random string
-        day_key = "%4d-%02d-%02d/%s" % (now.year, now.month, now.day,
-                                        timestamp)
+        # up from the isoformat datetime of the debit and a random string
+        day_key = _datetime_to_string(now)
         uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
 
         # the key in the object store is a combination of the key for this
@@ -926,7 +912,7 @@ class Account:
                 "are insufficient funds in this account." %
                 (transaction, str(self)))
 
-        return (uid, timestamp)
+        return (uid, now)
 
     def available_balance(self, bucket=None):
         """Return the available balance of this account. This is the amount

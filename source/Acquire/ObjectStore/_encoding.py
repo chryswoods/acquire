@@ -13,6 +13,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "date_to_string", "string_to_date",
            "time_to_string", "string_to_time",
            "get_datetime_now", "datetime_to_datetime",
+           "date_and_time_to_datetime",
            "create_uuid"]
 
 
@@ -99,6 +100,13 @@ def datetime_to_datetime(d):
         return d.replace(tzinfo=_datetime.timezone.utc)
     else:
         return d.astimezone(_datetime.timezone.utc)
+
+
+def date_and_time_to_datetime(date, time=_datetime.time(0)):
+    """Return the passed date and time as a UTC datetime. By
+       default the time is midnight (first second of the day)
+    """
+    return datetime_to_datetime(_datetime.datetime.combine(date, time))
 
 
 def get_datetime_now():
