@@ -4,6 +4,9 @@ import datetime as _datetime
 import time as _time
 
 from ._objstore import ObjectStore as _ObjectStore
+from ._encoding import get_datetime_now as _get_datetime_now
+from ._encoding import datetime_to_string as _datetime_to_string
+from ._encoding import string_to_datetime as _string_to_datetime
 
 from ._errors import MutexTimeoutError
 
@@ -76,7 +79,7 @@ class Mutex:
            a race condition
         """
         if self.is_locked():
-            now = _datetime.datetime.now()
+            now = _get_datetime_now()
 
             if self._end_lease > now:
                 return (self._end_lease - now).seconds
@@ -88,7 +91,7 @@ class Mutex:
     def expired(self):
         """Return whether or not this lock has expired"""
         if self._is_locked > 0:
-            return self._end_lease < _datetime.datetime.now()
+            return self._end_lease < _get_datetime_now()
         else:
             return False
 
@@ -117,7 +120,7 @@ class Mutex:
         self._lockstring = None
         self._is_locked = 0
 
-        if self._end_lease < _datetime.datetime.now():
+        if self._end_lease < _get_datetime_now():
             self._end_lease = None
             raise MutexTimeoutError("The lease on this mutex expired before "
                                     "this mutex was unlocked!")
@@ -161,7 +164,7 @@ class Mutex:
         if self.is_locked():
             # renew the lease - if there is less than a second remaining
             # on the lease then unlock and then lock again from scratch
-            now = _datetime.datetime.now()
+            now = _get_datetime_now()
 
             if (now > self._end_lease) or (now - self._end_lease).seconds < 1:
                 self.fully_unlock()
@@ -169,8 +172,8 @@ class Mutex:
             else:
                 self._end_lease = now + _datetime.timedelta(seconds=lease_time)
 
-                self._lockstring = "%s %s" % (self._secret,
-                                              self._end_lease.timestamp())
+                self._lockstring = "%s{}%s" % (
+                    self._secret, _datetime_to_string(self._end_lease))
 
                 _ObjectStore.set_string_object(self._bucket, self._key,
                                                self._lockstring)
@@ -179,7 +182,7 @@ class Mutex:
 
             return
 
-        now = _datetime.datetime.now()
+        now = _get_datetime_now()
         endtime = now + _datetime.timedelta(seconds=timeout)
 
         # This is the first time we are trying to get a lock
@@ -196,8 +199,8 @@ class Mutex:
             if holder is None:
                 is_held = False
             else:
-                end_lease = float(holder.split()[1])
-                if now > _datetime.datetime.fromtimestamp(end_lease):
+                end_lease = _string_to_datetime(holder.split("{}")[-1])
+                if now > end_lease:
                     # the lease from the other holder has expired :-)
                     is_held = False
 
@@ -205,8 +208,8 @@ class Mutex:
                 # no-one holds this mutex - try to hold it now
                 self._end_lease = now + _datetime.timedelta(seconds=lease_time)
 
-                self._lockstring = "%s %s" % (self._secret,
-                                              self._end_lease.timestamp())
+                self._lockstring = "%s{}%s" % (
+                    self._secret, _datetime_to_string(self._end_lease))
 
                 _ObjectStore.set_string_object(self._bucket, self._key,
                                                self._lockstring)
@@ -240,7 +243,7 @@ class Mutex:
             # only try the lock 4 times a second
             _time.sleep(0.25)
 
-            now = _datetime.datetime.now()
+            now = _get_datetime_now()
 
         raise MutexTimeoutError("Cannot acquire a mutex lock on the "
                                 "key '%s'" % self._key)

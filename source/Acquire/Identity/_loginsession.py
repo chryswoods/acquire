@@ -160,10 +160,6 @@ class LoginSession:
         """Synonym for regenerate_uuid"""
         self.regenerate_uuid()
 
-    def timestamp(self):
-        """Return the timestamp of when this was created"""
-        return self._request_datetime.timestamp()
-
     def creation_time(self):
         """Return the date and time when this was created"""
         return self._request_datetime
@@ -298,10 +294,10 @@ class LoginSession:
             data["login_datetime"] = None
 
         try:
-            data["logout_timestamp"] = _datetime_to_string(
+            data["logout_datetime"] = _datetime_to_string(
                                             self._logout_datetime)
         except:
-            data["logout_timestamp"] = None
+            data["logout_datetime"] = None
 
         if self._pubkey:
             data["public_key"] = self._pubkey.to_data()
