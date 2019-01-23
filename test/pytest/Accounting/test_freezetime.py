@@ -95,7 +95,7 @@ def test_temporal_transactions(account1, account2, bucket):
     # generate some random times for the transactions
     random_dates = []
     now = get_datetime_now()
-    for i in range(0, 500):
+    for i in range(0, 50):
         random_dates.append(start_time + random.random() * (now - start_time))
 
     # (which must be applied in time order!)

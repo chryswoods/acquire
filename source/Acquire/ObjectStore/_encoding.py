@@ -157,7 +157,7 @@ def time_to_string(t):
        is for another timezone)
     """
     if isinstance(t, _datetime.datetime):
-        t = datetime_to_datetime(t).time()
+        t = datetime_to_datetime(t)
 
         # guaranteed to be in the utc timezone, so write the
         # time without the unnecessary +00:00
