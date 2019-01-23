@@ -114,7 +114,8 @@ def get_datetime_now():
        object that will be properly stored using datetime_to_string
        and string_to_datetime
     """
-    return _datetime.datetime.now(_datetime.timezone.utc)
+    return datetime_to_datetime(_datetime.datetime.now(
+                                _datetime.timezone.utc))
 
 
 def string_to_datetime(s):
@@ -123,14 +124,7 @@ def string_to_datetime(s):
        via 'datetime_to_string'
     """
     d = _datetime.datetime.fromisoformat(s)
-
-    if d.tzinfo is None:
-        # assume UTC
-        d = d.replace(tzinfo=_datetime.timezone.utc)
-    else:
-        d = d.astimezone(_datetime.timezone.utc)
-
-    return d
+    return datetime_to_datetime(d)
 
 
 def date_to_string(d):
@@ -141,7 +135,7 @@ def date_to_string(d):
        is for another timezone)
     """
     if isinstance(d, _datetime.datetime):
-        return d.astimezone(_datetime.timezone.utc).date().isoformat()
+        return datetime_to_datetime(d).date().isoformat()
     else:
         return d.isoformat()
 
@@ -163,10 +157,7 @@ def time_to_string(t):
        is for another timezone)
     """
     if isinstance(t, _datetime.datetime):
-        if t.tzinfo is None:
-            t = t.replace(tzinfo=_datetime.timezone.utc)
-        else:
-            t = t.astimezone(_datetime.timezone.utc)
+        t = datetime_to_datetime(t).time()
 
         # guaranteed to be in the utc timezone, so write the
         # time without the unnecessary +00:00

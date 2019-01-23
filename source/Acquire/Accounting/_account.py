@@ -40,12 +40,12 @@ def _account_root():
     return "accounting/accounts"
 
 
-def _get_key_from_day(start, datetime):
+def _get_key_from_date(start, datetime):
     """Return a key encoding the passed date, starting the key with 'start'"""
     return "%s/%s" % (start, datetime.date().isoformat())
 
 
-def _get_day_from_key(key):
+def _get_date_from_key(key):
     """Return the date that is encoded in the passed key"""
     m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)", key)
 
@@ -56,6 +56,24 @@ def _get_day_from_key(key):
                                    day=int(m.groups()[2])))
     else:
         raise AccountError("Could not find a date in the key '%s'" % key)
+
+
+def _get_datetime_from_key(key):
+    """Return the datetime that is encoded in the passed key"""
+    m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)\.(\d+)",
+                   key)
+
+    if m:
+        return _datetime_to_datetime(
+                    _datetime.datetime(year=int(m.groups()[0]),
+                                       month=int(m.groups()[1]),
+                                       day=int(m.groups()[2]),
+                                       hour=int(m.groups()[3]),
+                                       minute=int(m.groups()[4]),
+                                       second=int(m.groups()[5]),
+                                       microsecond=int(m.groups()[6])))
+    else:
+        raise AccountError("Could not find a datetime in the key '%s'" % key)
 
 
 def _sum_transactions(keys):
@@ -69,7 +87,10 @@ def _sum_transactions(keys):
     spent_today = _create_decimal(0)
 
     for key in keys:
-        v = _TransactionInfo(key)
+        if isinstance(key, _TransactionInfo):
+            v = key
+        else:
+            v = _TransactionInfo(key)
 
         if v.is_credit():
             balance += v.value()
@@ -189,8 +210,8 @@ class Account:
         else:
             datetime = _datetime_to_datetime(datetime)
 
-        return _get_key_from_day("%s/balance" % self._key(),
-                                 datetime)
+        return _get_key_from_date("%s/balance" % self._key(),
+                                  datetime)
 
     def _record_daily_balance(self, balance, liability, receivable,
                               datetime=None, bucket=None):
@@ -274,7 +295,7 @@ class Account:
 
             last_data = _ObjectStore.get_object_from_json(
                             bucket, "%s%s" % (root, keys[-1]))
-            day = _get_day_from_key(keys[-1]).toordinal()
+            day = _get_date_from_key(keys[-1]).toordinal()
 
             if last_data is None:
                 raise AccountError("How can there be no data for key %s?" %
@@ -392,6 +413,11 @@ class Account:
         start_day = start_datetime.toordinal()
         end_day = end_datetime.toordinal()
 
+        if end_datetime.time() == _datetime.time():
+            # this ends on midnight of the first day - do not
+            # include this last day as nothing will match
+            end_day -= 1
+
         keys = []
 
         for day in range(start_day, end_day+1):
@@ -407,7 +433,7 @@ class Account:
                 time = day_key.split("/")[0]
                 datetime = _string_to_datetime("%s%s" % (day_string, time))
 
-                if datetime >= start_datetime and datetime <= end_datetime:
+                if datetime >= start_datetime and datetime < end_datetime:
                     keys.append("%s/%s" % (prefix, day_key))
 
         return keys
