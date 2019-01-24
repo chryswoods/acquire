@@ -387,7 +387,7 @@ class OCI_ObjectStore:
         for obj in objects.objects:
             if prefix:
                 if obj.name.startswith(prefix):
-                    names.append(obj.name[len(prefix)+1:])
+                    names.append(obj.name)
             else:
                 names.append(obj.name)
 
@@ -399,13 +399,8 @@ class OCI_ObjectStore:
         objects = {}
         names = OCI_ObjectStore.get_all_object_names(bucket, prefix)
 
-        if prefix:
-            for name in names:
-                objects[name] = OCI_ObjectStore.get_object(
-                                        bucket, "%s/%s" % (prefix, name))
-        else:
-            for name in names:
-                objects[name] = OCI_ObjectStore.get_object(bucket, name)
+        for name in names:
+            objects[name] = OCI_ObjectStore.get_object(bucket, name)
 
         return objects
 
@@ -459,21 +454,10 @@ class OCI_ObjectStore:
     def delete_all_objects(bucket, prefix=None):
         """Deletes all objects..."""
 
-        if prefix:
-            for obj in OCI_ObjectStore.get_all_object_names(bucket, prefix):
-                if len(obj) == 0:
-                    bucket["client"].delete_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   prefix)
-                else:
-                    bucket["client"].delete_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   "%s/%s" % (prefix, obj))
-        else:
-            for obj in OCI_ObjectStore.get_all_object_names(bucket):
-                bucket["client"].delete_object(bucket["namespace"],
-                                               bucket["bucket_name"],
-                                               obj)
+        for obj in OCI_ObjectStore.get_all_object_names(bucket):
+            bucket["client"].delete_object(bucket["namespace"],
+                                           bucket["bucket_name"],
+                                           obj)
 
     @staticmethod
     def delete_object(bucket, key):

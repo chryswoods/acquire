@@ -144,9 +144,13 @@ def run(args):
     # first, make sure that the user doens't have too many open
     # login sessions at once - this prevents denial of service
     user_session_root = "identity/sessions/%s" % user_account.sanitised_name()
+    len_user_session_root = len(user_session_root)
 
     open_sessions = ObjectStore.get_all_object_names(bucket,
                                                      user_session_root)
+
+    for i in range(0, len(open_sessions)):
+        open_sessions[i] = open_sessions[i][len_user_session_root:]
 
     # take the opportunity to prune old user login sessions
     prune_expired_sessions(bucket, user_account,

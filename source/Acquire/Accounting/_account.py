@@ -294,7 +294,7 @@ class Account:
             keys.sort()
 
             last_data = _ObjectStore.get_object_from_json(
-                            bucket, "%s%s" % (root, keys[-1]))
+                            bucket, keys[-1])
             day = _get_date_from_key(keys[-1]).toordinal()
 
             if last_data is None:
@@ -425,12 +425,15 @@ class Account:
             day_string = _date_to_string(day_date)
 
             prefix = "%s/%s" % (self._key(), day_string)
+            len_prefix = len(prefix)
 
             day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
 
             for day_key in day_keys:
                 # the key is Ttime/rest_of_key
+                day_key = day_key[len_prefix:]
                 time = day_key.split("/")[0]
+
                 datetime = _string_to_datetime("%s%s" % (day_string, time))
 
                 if datetime >= start_datetime and datetime < end_datetime:

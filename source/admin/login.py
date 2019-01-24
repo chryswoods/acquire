@@ -49,16 +49,16 @@ def run(args):
     # locate the session referred to by this uid
     base_key = "identity/requests/%s" % short_uid
     session_keys = ObjectStore.get_all_object_names(bucket, base_key)
+    len_base_key = len(base_key)
 
     # try all of the sessions to find the one that the user
     # may be referring to...
     login_session_key = None
     request_session_key = None
 
-    for session_key in session_keys:
-        request_session_key = "%s/%s" % (base_key, session_key)
+    for request_session_key in session_keys:
         session_user = ObjectStore.get_string_object(
-            bucket, request_session_key)
+                            bucket, request_session_key)
 
         # did the right user request this session?
         if user_account.name() == session_user:
@@ -76,7 +76,7 @@ def run(args):
                     "create a new login request, which will then have a "
                     "new login request UID")
             else:
-                login_session_key = session_key
+                login_session_key = request_session_key[len_base_key:]
 
     if not login_session_key:
         raise LoginError(

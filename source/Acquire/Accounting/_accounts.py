@@ -54,11 +54,12 @@ class Accounts:
             bucket = _login_to_service_account()
 
         keys = _ObjectStore.get_all_object_names(bucket, self._root())
+        root_len = len(self._root())
 
         accounts = []
 
         for key in keys:
-            accounts.append(_encoded_to_string(key))
+            accounts.append(_encoded_to_string(key[root_len:]))
 
         return accounts
 

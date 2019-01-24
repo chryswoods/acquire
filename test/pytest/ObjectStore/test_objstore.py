@@ -42,6 +42,18 @@ def test_objstore(bucket):
 
     assert(len(names) == len(keys))
 
+    names = ObjectStore.get_all_object_names(bucket, "test")
+
+    assert(len(names) == 3)
+
+    names = ObjectStore.get_all_object_names(bucket, "test/")
+
+    assert(len(names) == 2)
+
+    names = ObjectStore.get_all_object_names(bucket, "test/some")
+
+    assert(len(names) == 1)
+
     for name in names:
         assert(name in keys)
 

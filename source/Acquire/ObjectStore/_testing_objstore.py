@@ -169,29 +169,30 @@ class Testing_ObjectStore:
     def get_all_object_names(bucket, prefix=None):
         """Returns the names of all objects in the passed bucket"""
 
-        if prefix:
-            parts = prefix.split("/")
-            root = "%s/%s/" % (bucket, "/".join(parts[0:-1]))
-            prefix = parts[-1]
-        else:
-            root = "%s/" % bucket
-            prefix = None
+        root = bucket
 
-        names = [_os.path.join(dp, f) for dp, dn, filenames in
-                 _os.walk(root) for f in filenames
-                 if _os.path.splitext(f)[1] == '._data']
+        if prefix is not None:
+            root = "%s/%s" % (bucket, prefix)
+
+        root_len = len(bucket) + 1
+
+        subdir_names = _glob.glob("%s*" % root)
 
         object_names = []
-        for name in names:
-            try:
-                name = name[0:-6].split(root)[1]
-                if prefix is None:
-                    object_names.append(name)
-                elif name.startswith(prefix):
-                    object_names.append(name[len(prefix):])
-            except:
-                raise IndexError("Cannot extract from name: Root = %s, "
-                                 "name = %s" % (root, name[0:-6]))
+
+        while True:
+            names = subdir_names
+            subdir_names = []
+
+            for name in names:
+                if name.endswith("._data"):
+                    # remove the prefix and the ._data at the end
+                    object_names.append(name[root_len:-6])
+                elif _os.path.isdir(name):
+                    subdir_names += _glob.glob("%s/*" % name)
+
+            if len(subdir_names) == 0:
+                break
 
         return object_names
 
@@ -202,13 +203,8 @@ class Testing_ObjectStore:
         objects = {}
         names = Testing_ObjectStore.get_all_object_names(bucket, prefix)
 
-        if prefix:
-            for name in names:
-                objects[name] = Testing_ObjectStore.get_object(
-                                    bucket, "%s/%s" % (prefix, name))
-        else:
-            for name in names:
-                objects[name] = Testing_ObjectStore.get_object(bucket, name)
+        for name in names:
+            objects[name] = Testing_ObjectStore.get_object(bucket, name)
 
         return objects
 
