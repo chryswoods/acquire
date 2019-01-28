@@ -114,3 +114,4 @@ source/base_image/Acquire/*
 user/notebooks/.ipynb_checkpoints/
 *secret_key*
 
+.DS_Store

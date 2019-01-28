@@ -22,7 +22,7 @@ def _get_access_service(access_url=None):
     if access_url is None:
         access_url = _get_access_url()
 
-    privkey = _PrivateKey()
+    privkey = _get_private_key("function")
     response = _call_function(access_url, response_key=privkey)
 
     try:
@@ -123,7 +123,7 @@ class CloudDrive:
 
         args = {"request": request.to_data()}
 
-        privkey = _PrivateKey()
+        privkey = _get_private_key("function")
 
         result = _call_function(
                     self._access_service.service_url(), "request",

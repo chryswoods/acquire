@@ -29,7 +29,7 @@ _fernet = _lazy_import.lazy_module("cryptography.fernet")
 
 _hashlib = _lazy_import.lazy_module("hashlib")
 
-__all__ = ["PrivateKey", "PublicKey"]
+__all__ = ["PrivateKey", "PublicKey", "get_private_key"]
 
 
 def _bytes_to_string(b):
@@ -84,6 +84,26 @@ def _generate_private_key():
     return _rsa.generate_private_key(public_exponent=65537,
                                      key_size=2048,
                                      backend=_default_backend())
+
+
+_key_database = {}
+
+
+def get_private_key(key="default"):
+    """Internal function used to return the key associated with
+       'key'. This allows a single session to re-use a key, rather
+       than continually generating new keys (which is slow). Make
+       sure you know that you can safely re-use a key. Re-using
+       keys for different function calls is completely ok
+    """
+    global _key_database
+
+    if key in _key_database:
+        return _key_database[key]
+    else:
+        privkey = PrivateKey()
+        _key_database[key] = privkey
+        return privkey
 
 
 class PublicKey:
@@ -241,13 +261,14 @@ class PublicKey:
 
 class PrivateKey:
     """This is a holder for an in-memory private key"""
-    def __init__(self, private_key=None):
+    def __init__(self, private_key=None, auto_generate=True):
         """Construct the key either from a passed key, or by generating
            a new key"""
-        if not private_key:
-            self._privkey = _generate_private_key()
-        else:
-            self._privkey = private_key
+        self._privkey = private_key
+
+        if self._privkey is None:
+            if auto_generate:
+                self._privkey = _generate_private_key()
 
     def __str__(self):
         """Return a string representation of this key"""
@@ -473,11 +494,8 @@ class PrivateKey:
         elif isinstance(data, bytes):
             return PrivateKey.read_bytes(data, passphrase, mangleFunction)
 
+        elif (data and len(data) > 0):
+            return PrivateKey.read_bytes(_string_to_bytes(data["bytes"]),
+                                         passphrase, mangleFunction)
         else:
-            key = PrivateKey()
-
-            if (data and len(data) > 0):
-                key = PrivateKey.read_bytes(_string_to_bytes(data["bytes"]),
-                                            passphrase, mangleFunction)
-
-            return key
+            return None

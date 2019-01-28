@@ -6,6 +6,7 @@ import datetime as _datetime
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Crypto import PublicKey as _PublicKey
+from Acquire.Crypto import get_private_key as _get_private_key
 
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
@@ -178,14 +179,16 @@ class Service:
             # if our keys are old then pull the new ones from the server
             if self._pubcert is None:
                 # we are initialising from scratch - hope this is over https
-                response = _call_function(self._service_url,
-                                          response_key=_PrivateKey())
+                response = _call_function(
+                    self._service_url,
+                    response_key=_get_private_key("function"))
             else:
                 # ask for an updated Service, ensuring the service responds
                 # with a signature that we know was (once) valid
-                response = _call_function(self._service_url,
-                                          response_key=_PrivateKey(),
-                                          public_cert=self._pubcert)
+                response = _call_function(
+                    self._service_url,
+                    response_key=_get_private_key("function"),
+                    public_cert=self._pubcert)
 
             service = Service.from_data(response["service_info"])
 
@@ -307,7 +310,7 @@ class Service:
         return _call_function(self.canonical_url(), function=func,
                               args_key=self.public_key(),
                               public_cert=self.public_certificate(),
-                              response_key=_PrivateKey())
+                              response_key=_get_private_key("function"))
 
     def sign(self, message):
         """Sign the specified message"""
@@ -505,8 +508,6 @@ class Service:
                     "You must supply either a username "
                     "or a user's UID for a lookup")
 
-        key = _PrivateKey()
-
         response = None
 
         if session_uid is None:
@@ -520,7 +521,8 @@ class Service:
                 response = _call_function(
                                 self.service_url(), "whois",
                                 public_cert=self.public_certificate(),
-                                response_key=key, args=args)
+                                response_key=_get_private_key("function"),
+                                args=args)
                 lookup_uid = response["user_uid"]
             else:
                 lookup_uid = None
@@ -530,7 +532,8 @@ class Service:
                 response = _call_function(
                     self.service_url(), "whois",
                     public_cert=self.public_certificate(),
-                    response_key=key, args=args)
+                    response_key=_get_private_key("function"),
+                    args=args)
                 lookup_username = response["username"]
             else:
                 lookup_username = None

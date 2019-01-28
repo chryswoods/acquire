@@ -3,6 +3,7 @@ import datetime as _datetime
 import json as _json
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypto import get_private_key as _get_private_key
 
 from Acquire.Service import call_function as _call_function
 from Acquire.Service import Service as _Service
@@ -32,7 +33,7 @@ def _get_accounting_service(accounting_url=None):
     if accounting_url is None:
         accounting_url = _get_accounting_url()
 
-    privkey = _PrivateKey()
+    privkey = _get_private_key("function")
     response = _call_function(accounting_url, response_key=privkey)
 
     try:
@@ -77,7 +78,7 @@ def _get_account_uid(user, account_name, accounting_service=None,
         auth = _Authorisation(user=user)
         args["authorisation"] = auth.to_data()
 
-    privkey = _PrivateKey()
+    privkey = _get_private_key("function")
 
     result = _call_function(
             accounting_service.service_url(), "get_account_uids",
@@ -115,7 +116,7 @@ def _get_account_uids(user, accounting_service=None, accounting_url=None):
     auth = _Authorisation(user=user)
     args = {"authorisation": auth.to_data()}
 
-    privkey = _PrivateKey()
+    privkey = _get_private_key("function")
 
     result = _call_function(
             accounting_service.service_url(), "get_account_uids",
@@ -184,7 +185,7 @@ def create_account(user, account_name, description=None,
     else:
         args["description"] = str(description)
 
-    privkey = _PrivateKey()
+    privkey = _get_private_key("function")
 
     result = _call_function(
                 accounting_service.service_url(), "create_account",
@@ -225,7 +226,7 @@ def deposit(user, value, description=None,
     else:
         args["transaction"] = _Transaction(value, description).to_data()
 
-    privkey = _PrivateKey()
+    privkey = _get_private_key("function")
 
     result = _call_function(
                     accounting_service.service_url(), "deposit",
@@ -371,7 +372,7 @@ class Account:
         args = {"authorisation": auth.to_data(),
                 "account_name": self.name()}
 
-        privkey = _PrivateKey()
+        privkey = _get_private_key("function")
 
         result = _call_function(
                     self._accounting_service.service_url(), "get_info",
@@ -508,7 +509,7 @@ class Account:
                 "is_provisional": is_provisional,
                 "authorisation": auth.to_data()}
 
-        privkey = _PrivateKey()
+        privkey = _get_private_key("function")
 
         result = _call_function(
                     self._accounting_service.service_url(), "perform",
@@ -541,7 +542,7 @@ class Account:
         if receipted_value is not None:
             args["receipted_value"] = str(_create_decimal(receipted_value))
 
-        privkey = _PrivateKey()
+        privkey = _get_private_key("function")
 
         result = _call_function(
                     self._accounting_service.service_url(), "receipt",
@@ -571,7 +572,7 @@ class Account:
         args = {"credit_note": credit_note.to_data(),
                 "authorisation": auth.to_data()}
 
-        privkey = _PrivateKey()
+        privkey = _get_private_key("function")
 
         result = _call_function(
                     self._accounting_service.service_url(), "refund",

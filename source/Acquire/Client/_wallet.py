@@ -17,6 +17,7 @@ from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Crypto import OTP as _OTP
+from Acquire.Crypto import get_private_key as _get_private_key
 
 from ._errors import LoginError
 
@@ -295,7 +296,7 @@ class Wallet:
             pass
 
         try:
-            key = _PrivateKey()
+            key = _get_private_key("function")
             response = _call_function(identity_service, response_key=key)
             service = _Service.from_data(response["service_info"])
         except Exception as e:
@@ -365,7 +366,7 @@ class Wallet:
             return
 
         try:
-            key = _PrivateKey()
+            key = _get_private_key("function")
             response = _call_function(identity_service, "login",
                                       args_key=service_key, response_key=key,
                                       public_cert=service_cert,

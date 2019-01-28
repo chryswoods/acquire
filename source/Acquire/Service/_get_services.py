@@ -6,6 +6,7 @@ from cachetools import LRUCache as _LRUCache
 
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from Acquire.Crypto import PrivateKey as _PrivateKey
+from Acquire.Crypto import get_private_key as _get_private_key
 
 from ._service import Service as _Service
 from ._function import call_function as _call_function
@@ -132,7 +133,7 @@ def get_remote_service_info(service_url):
        'service_url'
     """
 
-    key = _PrivateKey()
+    key = _get_private_key("function")
 
     try:
         response = _call_function(service_url, response_key=key)
@@ -153,7 +154,7 @@ def get_checked_remote_service_info(service_url, public_cert):
        'service_url'. This checks that the info has been signed
        correctly by the passed public certificate
     """
-    key = _PrivateKey()
+    key = _get_private_key("function")
 
     try:
         response = _call_function(service_url, response_key=key,

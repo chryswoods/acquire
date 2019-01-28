@@ -14,6 +14,7 @@ from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Crypto import PublicKey as _PublicKey
+from Acquire.Crypto import get_private_key as _get_private_key
 
 from ._qrcode import create_qrcode as _create_qrcode
 from ._qrcode import has_qrcode as _has_qrcode
@@ -48,7 +49,7 @@ def _get_identity_service(identity_url=None):
     if identity_url is None:
         identity_url = _get_identity_url()
 
-    privkey = _PrivateKey()
+    privkey = _get_private_key("function")
     response = _call_function(identity_url, response_key=privkey)
 
     try:
@@ -360,7 +361,7 @@ class User:
         if identity_url is None:
             identity_url = self.identity_service_url()
 
-        privkey = _PrivateKey()
+        privkey = _get_private_key("function")
 
         result = _call_function(
                     identity_url, "register",
