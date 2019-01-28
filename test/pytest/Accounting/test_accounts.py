@@ -6,7 +6,7 @@ from Acquire.Accounting import Accounts
 from Acquire.Service import login_to_service_account
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     try:
         return login_to_service_account()

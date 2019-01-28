@@ -23,7 +23,7 @@ def assert_packable(obj):
     assert(obj == new_obj)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     try:
         return login_to_service_account()
@@ -32,7 +32,7 @@ def bucket(tmpdir_factory):
         return login_to_service_account(str(d))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def account1(bucket):
     account = Account("Testing Account", "This is the test account",
                       bucket=bucket)
@@ -47,7 +47,7 @@ def account1(bucket):
     return account
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def account2(bucket):
     account = Account("Testing Account", "This is a second testing account",
                       bucket=bucket)

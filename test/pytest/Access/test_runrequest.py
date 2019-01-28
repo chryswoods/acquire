@@ -13,7 +13,7 @@ def _testdata():
         os.path.sep + "testdata"
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def tempdir(tmpdir_factory):
     d = tmpdir_factory.mktemp("")
     return str(d)

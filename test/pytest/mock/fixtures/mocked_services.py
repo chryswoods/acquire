@@ -148,7 +148,7 @@ def _login_admin(service_url, username, password, otp):
     return user
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def aaai_services(tmpdir_factory):
     """This function creates mocked versions of all of the main services
        of the system, returning the json describing each service as
@@ -242,7 +242,7 @@ def aaai_services(tmpdir_factory):
     return responses
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def authenticated_user(aaai_services):
     # register the new user
     username = str(uuid.uuid4())

@@ -26,7 +26,7 @@ account2_overdraft_limit = 2500000
 start_time = get_datetime_now() - datetime.timedelta(days=365)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     try:
         return login_to_service_account()
@@ -35,7 +35,7 @@ def bucket(tmpdir_factory):
         return login_to_service_account(str(d))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def account1(bucket):
     if not have_freezetime:
         return None
@@ -56,7 +56,7 @@ def account1(bucket):
     return account
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def account2(bucket):
     if not have_freezetime:
         return None

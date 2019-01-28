@@ -9,7 +9,7 @@ from Acquire.ObjectStore import ObjectStore, ObjectStoreError, PAR, \
 from Acquire.Service import login_to_service_account
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     d = tmpdir_factory.mktemp("simple_objstore")
     return login_to_service_account(str(d))
