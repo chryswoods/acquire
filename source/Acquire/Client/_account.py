@@ -17,6 +17,8 @@ from Acquire.ObjectStore import decimal_to_string as _decimal_to_string
 from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
 from Acquire.ObjectStore import create_uuid as _create_uuid
 
+from ._cheque import Cheque as _Cheque
+
 from ._errors import LoginError, AccountError
 
 __all__ = ["Account", "get_accounts", "create_account",
@@ -433,10 +435,11 @@ class Account:
         self._refresh(force_update)
         return (self._balance - self._liability) < -(self._overdraft_limit)
 
-    def write_cheque(self, canonical_url=None, max_spend=None,
+    def write_cheque(self, item_signature=None,
+                     recipient_url=None, max_spend=None,
                      expiry_date=None):
         """Create and return a cheque that can be used at any point
-           in the future to authorise a transaction. If 'canonical_url'
+           in the future to authorise a transaction. If 'recipient_url'
            is supplied, then only the service with matching canonical
            url can 'cash' the cheque (it will need to sign the cheque
            before sending it to the accounting service). If 'max_spend'
@@ -444,33 +447,36 @@ class Account:
            maximum spend. Otherwise, it is valid up to the maximum
            daily spend limit (or other limits) of the account. If
            'expiry_date' is supplied then this cheque is valid only
-           before the supplied datetime. Note that
+           before the supplied datetime. If 'item_signature' is
+           supplied then this cheque is only valid to pay for the
+           item whose signature is supplied. Note that
            this cheque is for a future transaction, and so no check
            if made if there is sufficient funds now, and this does
            not affect the account. If there are insufficient funds
            when the cheque is cashed (or it breaks spending limits)
            then the cheque will bounce.
         """
-        if max_spend is not None:
-            max_spend = _decimal_to_string(max_spend)
+        return _Cheque.write(account=self, item_signature=item_signature,
+                             recipient_url=recipient_url,
+                             max_spend=max_spend, expiry_date=expiry_date)
 
-        if expiry_date is not None:
-            expiry_date = _datetime_to_string(expiry_date)
-
-        if canonical_url is not None:
-            canonical_url = str(canonical_url)
-
-        info = _json.dumps({"canonical_url": canonical_url,
-                            "max_spend": max_spend,
-                            "expiry_date": expiry_date,
-                            "uid": _create_uuid(),
-                            "account_uid": self.uid()})
-
-        auth = _Authorisation(user=self._user, resource=info)
-
-        data = {"info": info, "authorisation": auth.to_data()}
-
-        return self._accounting_service.encrypt_data(data)
+    @staticmethod
+    def cash_cheque(cheque, spend, item_signature=None):
+        """Cash the passed cheque, specifying how much to be cashed,
+           and the signature of the item that will be paid for
+           using this cheque. This will send the cheque to the
+           accounting service (if we trust that accounting service).
+           The accounting service will check that the cheque is valid,
+           and the signature of the item is correct. It will then
+           withdraw 'spend' funds from the account that signed the
+           cheque, returning a valid CreditNote that can be trusted
+           to show that the funds exist. This CreditNote is returned.
+           It is your resposibility to receipt the note for
+           the actual valid incurred once the service has been
+           delivered, thereby actually transferring the cheque
+           funds into your account (on that accounting service)
+        """
+        return cheque.cash()
 
     def perform(self, transaction, credit_account, is_provisional=False):
         """Tell this accounting service to apply the transfer described

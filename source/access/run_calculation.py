@@ -11,6 +11,10 @@ from Acquire.Identity import Authorisation, AuthorisationError
 
 from Acquire.Access import Request, RunRequest
 
+from Acquire.Client import Cheque
+
+from Acquire.Accounting import PaymentError
+
 
 class RequestError(Exception):
     pass
@@ -24,12 +28,16 @@ def run(args):
 
     request = None
     authorisation = None
+    cheque = None
 
     if "request" in args:
         request = Request.from_data(args["request"])
 
     if "authorisation" in args:
         authorisation = Authorisation.from_data(args["authorisation"])
+
+    if "cheque" in args:
+        cheque = Cheque.from_data(args["cheque"])
 
     if request is None:
         status = 0
@@ -41,6 +49,11 @@ def run(args):
             "You must provide a valid authorisation to make the request %s"
             % str(request))
 
+    if cheque is None:
+        raise AuthorisationError(
+            "You must provide a valid cheque to pay for the request %s"
+            % str(request))
+
     if not isinstance(request, RunRequest):
         raise TypeError(
             "You must pass in a valid RunRequest to request a calculation "
@@ -48,6 +61,27 @@ def run(args):
 
     # verify that the user has authorised this request
     authorisation.verify(request.signature())
+
+    # now find the cost to run the job - this will be a compute
+    # cost and a storage cost
+    job_cost = 10
+
+    # send the cheque to the accounting service to get a credit note
+    # to show that we will be paid for this job
+    credit_note = cheque.cash(spend=job_cost,
+                              item_signature=request.signature())
+
+    if not credit_note.is_valid():
+        raise PaymentError("Cannot be paid!")
+
+    # the access service will be paid for the job. We need to now
+    # create the Credit/Debit note pairs to transfer funds from
+    # the access service to the selected storage and compute services
+
+    # we will then store these in the object store against the credit
+    # note - only once everything is receipted to us will we then
+    # calculate how much we want to receipt back to the user (we may
+    # take a cut or have other overheads)
 
     # ... check that the user has enough money to perform this calculation
     # ... create a credit note for the storage service and the run service

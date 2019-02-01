@@ -8,6 +8,7 @@ from ._errors import EncodingError
 
 __all__ = ["bytes_to_string", "string_to_bytes",
            "string_to_encoded", "encoded_to_string",
+           "url_to_encoded", "encoded_to_url",
            "decimal_to_string", "string_to_decimal",
            "datetime_to_string", "string_to_datetime",
            "date_to_string", "string_to_date",
@@ -34,6 +35,20 @@ def encoded_to_string(b):
     """Return the passed encoded base64 utf-8 string converted
        back into a unicode string"""
     return string_to_bytes(b).decode("utf-8")
+
+
+def url_to_encoded(url):
+    """Return an encoding of the passed url that is safe to use
+       as a name, filename or key in an object store
+    """
+    return _base64.b64encode(url.encode("utf-8")).decode("utf-8")
+
+
+def encoded_to_url(e):
+    """Decode the passed encoded data back to the URL. This will only
+       produce valid output for inputs created using url_to_encoded
+    """
+    return _base64.b64decode(e.encode("utf-8")).decode("utf-8")
 
 
 def bytes_to_string(b):
