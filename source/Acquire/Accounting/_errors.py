@@ -3,7 +3,7 @@ from Acquire.Service import ServiceError
 
 __all__ = ["AccountingServiceError", "LedgerError", "TransactionError",
            "AccountError", "UnbalancedLedgerError", "InsufficientFundsError",
-           "UnmatchedReceiptError"]
+           "UnmatchedReceiptError", "PaymentError"]
 
 
 class AccountingServiceError(ServiceError):
@@ -26,7 +26,11 @@ class UnbalancedLedgerError(Exception):
     pass
 
 
-class InsufficientFundsError(Exception):
+class PaymentError(Exception):
+    pass
+
+
+class InsufficientFundsError(PaymentError):
     pass
 
 
