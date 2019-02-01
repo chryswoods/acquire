@@ -9,6 +9,8 @@ from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import Mutex as _Mutex
+from Acquire.ObjectStore import get_datetime_now_to_string as \
+                                _get_datetime_now_to_string
 
 from ._service import Service as _Service
 from ._login_to_objstore import get_service_account_bucket \
@@ -22,6 +24,7 @@ from ._errors import ServiceError, ServiceAccountError, \
 _cache_serviceinfo_data = _LRUCache(maxsize=5)
 _cache_service_info = _LRUCache(maxsize=5)
 _cache_adminusers = _LRUCache(maxsize=5)
+_cache_serviceuser = _LRUCache(maxsize=5)
 
 
 __all__ = ["setup_service_info", "add_admin_user",
@@ -43,6 +46,7 @@ def clear_serviceinfo_cache():
     _cache_adminusers.clear()
     _cache_service_info.clear()
     _cache_serviceinfo_data.clear()
+    _cache_serviceuser.clear()
 
 
 # Cache this function as the data will rarely change, and this
@@ -150,6 +154,8 @@ def setup_service_info(canonical_url, service_type):
         service = _Service(service_url=canonical_url,
                            service_type=service_type)
 
+        # now create the service user account
+
         # write the service data, encrypted using the service password
         service_data = service.to_data(service_password)
         # reload the data to check it is ok, and also to set the right class
@@ -162,28 +168,23 @@ def setup_service_info(canonical_url, service_type):
     return service
 
 
-def add_admin_user(service, account_uid, password, otpsecret,
-                   authorisation=None):
+def add_admin_user(service, account_uid, authorisation=None):
     """Function that is called to add a new user account as a service
-       administrator. This will create a local account on this service.
-       If this is the first account then authorisation is not needed.
-       If this is the second or subsequent admin account, then you need
-       to provide an authorisation signed by one of the existing admin
-       users. If you need to reset the admin users then delete the
-       user accounts from the service.
+       administrator. If this is the first account then authorisation
+       is not needed. If this is the second or subsequent admin account,
+       then you need to provide an authorisation signed by one of the
+       existing admin users. If you need to reset the admin users then
+       delete the user accounts from the service.
     """
-    from Acquire.Identity import UserAccount as _UserAccount
-    from Acquire.Crypto import PrivateKey as _PrivateKey
-
     bucket = _get_service_account_bucket()
 
     from Acquire.ObjectStore import Mutex as _Mutex
 
-    # ensure that we have exclusive access to this service
-    mutex = _Mutex(key=_service_key, bucket=bucket)
-
     # see if the admin account details exists...
     admin_key = "%s/admin_users" % _service_key
+
+    # ensure that we have exclusive access to this service
+    mutex = _Mutex(key=admin_key, bucket=bucket)
 
     try:
         admin_users = _ObjectStore.get_object_from_json(bucket, admin_key)
@@ -193,6 +194,7 @@ def add_admin_user(service, account_uid, password, otpsecret,
     if admin_users is None:
         # this is the first admin user - automatically accept
         admin_users = {}
+        authorised_by = "first admin"
     else:
         # validate that the new user has been authorised by an existing
         # admin...
@@ -201,16 +203,21 @@ def add_admin_user(service, account_uid, password, otpsecret,
                 "You must supply a valid authorisation from an existing admin "
                 "user if you want to add a new admin user.")
 
-        raise ServiceAccountError(
-                "We don't yet support multiple admin users...")
+        if authorisation.user_uid() not in admin_users:
+            raise ServiceAccountError(
+                "The authorisation for the new admin account is not valid "
+                "because the user who signed it is not a valid admin on "
+                "this service.")
+
+        authorisation.verify(account_uid)
+        authorised_by = authorisation.user_uid()
 
     # everything is ok - add this admin user to the admin_users
-    # dictionary
-    admin_secret = {"password": password,
-                    "otpsecret": otpsecret}
-
-    admin_secret = service.skeleton_key().encrypt(_json.dumps(admin_users))
-    admin_users[account_uid] = _bytes_to_string(admin_secret)
+    # dictionary - save the date and time they became an admin,
+    # and how they achieved this status (first admin, or whoever
+    # authorised them)
+    admin_users[account_uid] = {"datetime": _get_datetime_now_to_string(),
+                                "authorised_by": authorised_by}
 
     # everything is done, so now write this data to the object store
     _ObjectStore.set_object_from_json(bucket, admin_key,
@@ -220,20 +227,14 @@ def add_admin_user(service, account_uid, password, otpsecret,
     # be able to see the account
     mutex.unlock()
 
-    # clear the caches to ensure they grab the new service and account info
-    clear_serviceinfo_cache()
+    _cache_adminusers.clear()
 
 
 @_cached(_cache_adminusers)
 def get_admin_users():
-    """This function returns all of the admin_users data, fully
-       decrypted. Note that this can only be called if you can
-       get unlocked access to the underlying service. Obviously
-       be careful with the data returned, as it will provide
-       all of the login credentials of all of the admin accounts
+    """This function returns all of the admin_users data. This is a
+       dictionary of the UIDs of all of the admin users
     """
-    # get the bucket again - can't pass as an argument as this is a cached
-    # function - luckily _get_service_account_bucket is also a cached function
     try:
         bucket = _get_service_account_bucket()
     except ServiceAccountError as e:

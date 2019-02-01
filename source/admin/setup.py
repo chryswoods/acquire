@@ -47,13 +47,12 @@ def run(args):
     result = register_account(register_args)
 
     provisioning_uri = result["provisioning_uri"]
-    otpsecret = OTP.extract_secret(provisioning_uri)
 
     whois_args = {"username": username}
     result = whois(whois_args)
     admin_uid = result["user_uid"]
 
-    add_admin_user(service, admin_uid, password, otpsecret)
+    add_admin_user(service, admin_uid)
 
     status = 0
     message = "Success"

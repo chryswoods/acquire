@@ -8,6 +8,8 @@ from ._get_services import clear_services_cache as _clear_services_cache
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from Acquire.ObjectStore import url_to_encoded as _url_to_encoded
 
+__all__ = ["trust_service", "untrust_service"]
+
 
 def trust_service(service, authorisation):
     """Trust the passed service. This will record this service as trusted,

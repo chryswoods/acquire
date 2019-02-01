@@ -23,6 +23,79 @@ class ServiceError(Exception):
     pass
 
 
+def _create_service_user():
+    """This function is called to create the service user account for
+       this service. The service user is the actual user who manages
+       and authorises everything for this service. It it not possible
+       to login as this user from outside the service. Instead, you
+       login as one of the admin accounts, and then instruct the
+       service user to perform the various tasks. There is one, and
+       only one service user account for each service. It is as
+       unchanging as the service UID. If the service user account
+       already exists, then this function will raise an exception.
+
+       If successful, this will return the username, UID and login secrets
+       of the new service account
+    """
+    from Acquire.Identity import UserAccount as _UserAccount
+    from Acquire.Crypto import PrivateKey as _PrivateKey
+    from Acquire.Crypto import OTP as _OTP
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.ObjectStore import Mutex as _Mutex
+    from Acquire.Service import get_service_account_bucket as \
+        _get_service_account_bucket
+    from Acquire.Service import ServiceAccountError
+
+    bucket = _get_service_account_bucket()
+
+    username = "service_user"
+    service_account = _UserAccount(username)
+
+    password = _PrivateKey.random_passphrase()
+
+    # generate the encryption keys and otp secret
+    privkey = _PrivateKey()
+    pubkey = privkey.public_key()
+    otp = _OTP()
+
+    # save the encrypted private key (encrypted using the user's password)
+    # and encrypted OTP secret (encrypted using the public key)
+    service_account.set_keys(privkey.bytes(password), pubkey.bytes(),
+                             otp.encrypt(pubkey))
+
+    # can only do this once
+    account_key = "identity/accounts/%s" % service_account.sanitised_name()
+    mutex = _Mutex(account_key)
+
+    try:
+        service_user = _ObjectStore.get_object_from_json(bucket, account_key)
+    except:
+        service_user = None
+
+    if service_user is not None:
+        raise ServiceAccountError(
+            "The Service User Account can only be created ONCE per service!")
+
+    # save the new account details
+    _ObjectStore.set_object_from_json(bucket, account_key,
+                                      service_account.to_data())
+
+    # need to update the "whois" database with the uuid of this user
+    _ObjectStore.set_string_object(bucket,
+                                   "identity/whois/%s" %
+                                   service_account.uuid(),
+                                   service_account.username())
+
+    mutex.unlock()
+
+    # everything is ok - add this admin user to the admin_users
+    # dictionary
+    user_secret = {"password": password,
+                   "otpsecret": otp._secret}
+
+    return (username, service_account.uid(), user_secret)
+
+
 class Service:
     """This class represents a service in the system. Services
        will either be identity services, access services,
@@ -38,6 +111,9 @@ class Service:
         self._uid = None
         self._pubcert = None
         self._pubkey = None
+        self._service_user_name = None
+        self._service_user_uid = None
+        self._service_user_secrets = None
 
         if self._service_type:
             if self._service_type not in ["identity", "access",
@@ -61,6 +137,13 @@ class Service:
 
             self._last_key_update = _get_datetime_now()
             self._key_update_interval = 3600 * 24 * 7  # update keys weekly
+
+            (username, uid, secrets) = _create_service_user()
+
+            self._service_user_name = username
+            self._service_user_uid = uid
+            self._service_user_secrets = self._skeleton_key.encrypt(
+                                                    _json.dumps(secrets))
 
     def __str__(self):
         return "%s(url=%s, uid=%s)" % (self.__class__.__name__,
@@ -252,6 +335,33 @@ class Service:
     def update_service_url(self, service_url):
         """Update the service url to be 'service_url'"""
         self._service_url = str(service_url)
+
+    def service_user_uid(self):
+        """Return the UID of the service user account for this service"""
+        return self._service_user_uid
+
+    def service_user_name(self):
+        """Return the name of the service user account for this service"""
+        return self._service_user_name
+
+    def service_user_secrets(self):
+        """Return the (encrypted) secrets for the service user account.
+           These will only be returned if you have unlocked this service.
+           You need access to the skeleton key to decrypt these secrets
+        """
+        self.assert_unlocked()
+        return self._service_user_secrets
+
+    def login_service_user(self):
+        """Return a logged in Acquire.Client.User for the service user.
+           This can only be called inside the service, and when you
+           have unlocked this service object
+        """
+        self.assert_unlocked()
+        from admin.service_user import login_service_user as \
+            _login_service_user
+
+        return _login_service_user(self.uid())
 
     def skeleton_key(self):
         """Return the skeleton key used by this service. This is an
@@ -596,6 +706,9 @@ class Service:
         data["last_key_update"] = _datetime_to_string(self._last_key_update)
         data["key_update_interval"] = self._key_update_interval
 
+        data["service_user_name"] = self._service_user_name
+        data["service_user_uid"] = self._service_user_uid
+
         if (self.is_unlocked()) and (password is not None):
             # only serialise private data if a password was provided
             secret_passphrase = _PrivateKey.random_passphrase()
@@ -613,6 +726,10 @@ class Service:
             data["secret_data"] = _bytes_to_string(secret_data)
             data["skeleton_key"] = self._skeleton_key.to_data(password)
 
+            # the service user secrets are already encrypted
+            data["service_user_secrets"] = _bytes_to_string(
+                                            self._service_user_secrets)
+
         return data
 
     @staticmethod
@@ -626,6 +743,9 @@ class Service:
 
         if password:
             # get the private info...
+            service._service_user_secrets = _string_to_bytes(
+                                                data["service_user_secrets"])
+
             service._skeleton_key = _PrivateKey.from_data(data["skeleton_key"],
                                                           password)
 
@@ -647,6 +767,7 @@ class Service:
             service._privkey = None
             service._privcert = None
             service._lastkey = None
+            service._service_user_secrets = None
 
         service._uid = data["uid"]
         service._service_type = data["service_type"]

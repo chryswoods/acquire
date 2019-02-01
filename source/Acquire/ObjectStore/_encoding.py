@@ -14,6 +14,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "date_to_string", "string_to_date",
            "time_to_string", "string_to_time",
            "get_datetime_now", "datetime_to_datetime",
+           "get_datetime_now_to_string",
            "date_and_time_to_datetime",
            "create_uuid"]
 
@@ -131,6 +132,13 @@ def get_datetime_now():
     """
     return datetime_to_datetime(_datetime.datetime.now(
                                 _datetime.timezone.utc))
+
+
+def get_datetime_now_to_string():
+    """Convenience function that returns the result of get_datetime_now
+       as a string converted via datetime_to_string
+    """
+    return datetime_to_string(get_datetime_now())
 
 
 def string_to_datetime(s):
