@@ -21,6 +21,8 @@ from ._function import call_function as _call_function
 
 __all__ = ["Service"]
 
+_cache_service_user = _LRUCache(maxsize=5)
+
 
 class ServiceError(Exception):
     pass
@@ -97,9 +99,6 @@ def _create_service_user():
                    "otpsecret": otp._secret}
 
     return (username, service_account.uid(), user_secret)
-
-
-_cache_service_user = _LRUCache(maxsize=5)
 
 
 @_cached(_cache_service_user)
@@ -232,6 +231,14 @@ class Service:
         """Return the type of this service"""
         return self._service_type
 
+    def bucket(self):
+        """Return the bucket you can use to read/write data to the
+           object store associated with this service account
+        """
+        from Acquire.Service import get_service_account_bucket as \
+            _get_service_account_bucket
+        return _get_service_account_bucket()
+
     def is_locked(self):
         """Return whether or not this service object is locked. Locked
            service objects don't contain copies of any private keys,
@@ -248,6 +255,15 @@ class Service:
            public certificates
         """
         return self._skeleton_key is not None
+
+    def get_trusted_service(self, service_url=None, service_uid=None):
+        """Return the trusted service info for the service with specified
+           service_url or service_uid"""
+        from ._get_services import get_trusted_service_info as \
+            _get_trusted_service_info
+
+        return _get_trusted_service_info(service_url=service_url,
+                                         service_uid=service_uid)
 
     def assert_unlocked(self):
         """Assert that this service object is unlocked"""
@@ -424,6 +440,18 @@ class Service:
         self.assert_unlocked()
         return _login_service_user(self.uid())
 
+    def service_user_account_uid(self, accounting_service_url):
+        """Return the UID of the financial account associated with
+           this service on the passed accounting service
+        """
+        from Acquire.Service import get_service_user_account_uid as \
+            _get_service_user_account_uid
+
+        service_uid = self.get_trusted_service(accounting_service_url).uid()
+
+        return _get_service_user_account_uid(
+                    accounting_service_uid=service_uid)
+
     def skeleton_key(self):
         """Return the skeleton key used by this service. This is an
            unchanging key which is stored internally, should never be
@@ -469,7 +497,7 @@ class Service:
         """
         return self._lastcert
 
-    def call_function(self, func, args=None):
+    def call_function(self, function, args=None):
         """Call the function 'func' on this service, optionally passing
            in the arguments 'args'. This is a simple wrapper around
            Acquire.Service.call_function which automatically
@@ -478,7 +506,8 @@ class Service:
            the response (and automatically then decrypts the
            response)
         """
-        return _call_function(self.canonical_url(), function=func,
+        return _call_function(self.canonical_url(), function=function,
+                              args=args,
                               args_key=self.public_key(),
                               public_cert=self.public_certificate(),
                               response_key=_get_private_key("function"))

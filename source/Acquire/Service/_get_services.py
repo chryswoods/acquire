@@ -15,8 +15,8 @@ from ._function import call_function as _call_function
 
 from ._service_account import get_service_info as _get_service_info
 
-from ._login_to_objstore import login_to_service_account as \
-                               _login_to_service_account
+from ._login_to_objstore import get_service_account_bucket as \
+                               _get_service_account_bucket
 
 from ._errors import ServiceError, ServiceAccountError
 
@@ -45,7 +45,7 @@ def get_trusted_service_info(service_url=None, service_uid=None):
         # we trust ourselves :-)
         return service
 
-    bucket = _login_to_service_account()
+    bucket = _get_service_account_bucket()
 
     if service_uid is not None:
         uidkey = "_trusted/uid/%s" % service_uid

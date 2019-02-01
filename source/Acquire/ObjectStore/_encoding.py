@@ -14,6 +14,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "date_to_string", "string_to_date",
            "time_to_string", "string_to_time",
            "get_datetime_now", "datetime_to_datetime",
+           "get_datetime_future",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
            "create_uuid"]
@@ -139,6 +140,28 @@ def get_datetime_now_to_string():
        as a string converted via datetime_to_string
     """
     return datetime_to_string(get_datetime_now())
+
+
+def get_datetime_future(weeks=0, days=0, hours=0, minutes=0, seconds=0,
+                        timedelta=None):
+    """Return the datetime that is the supplied time in the future.
+       This will raise an exception if the time is not in the future!
+    """
+    delta = _datetime.timedelta(weeks=weeks, days=days, hours=hours,
+                                minutes=minutes, seconds=seconds)
+
+    if timedelta is not None:
+        if not isinstance(timedelta, _datetime.timedelta):
+            raise TypeError("The delta must be a datetime.timedelta object")
+
+        delta += timedelta
+
+    if delta.total_seconds() < 5:
+        raise ValueError(
+            "The requested delta (%s) is not sufficiently far enough "
+            "into the future!" % str(delta))
+
+    return get_datetime_now() + delta
 
 
 def string_to_datetime(s):

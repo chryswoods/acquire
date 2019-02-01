@@ -8,6 +8,7 @@ from cachetools import LRUCache as _LRUCache
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+from Acquire.ObjectStore import url_to_encoded as _url_to_encoded
 from Acquire.ObjectStore import Mutex as _Mutex
 from Acquire.ObjectStore import get_datetime_now_to_string as \
                                 _get_datetime_now_to_string
@@ -25,6 +26,7 @@ _cache_serviceinfo_data = _LRUCache(maxsize=5)
 _cache_service_info = _LRUCache(maxsize=5)
 _cache_adminusers = _LRUCache(maxsize=5)
 _cache_serviceuser = _LRUCache(maxsize=5)
+_cache_service_account_uid = _LRUCache(maxsize=5)
 
 
 __all__ = ["setup_service_info", "add_admin_user",
@@ -32,7 +34,8 @@ __all__ = ["setup_service_info", "add_admin_user",
            "get_service_private_key",
            "get_service_private_certificate", "get_service_public_key",
            "get_service_public_certificate",
-           "clear_serviceinfo_cache"]
+           "clear_serviceinfo_cache",
+           "get_service_user_account_uid", "create_service_user_account"]
 
 
 # The key in the object store for the service object
@@ -47,6 +50,7 @@ def clear_serviceinfo_cache():
     _cache_service_info.clear()
     _cache_serviceinfo_data.clear()
     _cache_serviceuser.clear()
+    _cache_service_account_uid.clear()
 
 
 # Cache this function as the data will rarely change, and this
@@ -291,6 +295,67 @@ def get_service_info(need_private_access=False):
             "Unable to create the ServiceAccount object: %s" % str(e))
 
     return service
+
+
+@_cached(_cache_service_account_uid)
+def get_service_user_account_uid(accounting_service_uid):
+    """Return the UID of the financial Acquire.Accounting.Account
+       that is held on the accounting service with UID
+       'accounting_service_uid' for the service user on this
+       service. This is the account to which payment for this
+       service should be sent
+    """
+    bucket = _get_service_account_bucket()
+
+    key = "%s/account/%s" % (_service_key, accounting_service_uid)
+
+    try:
+        account_uid = _ObjectStore.get_string_object(bucket, key)
+    except:
+        account_uid = None
+
+    if account_uid is None:
+        raise ServiceAccountError(
+            "This service does not have a valid financial account on "
+            "the accounting service at '%s'" % accounting_service_uid)
+
+    return account_uid
+
+
+def create_service_user_account(service, accounting_service_url):
+    """Call this function to create the financial service account
+       for this service on the accounting service at 'accounting_service_url'
+
+       This does nothing if the account already exists
+    """
+    accounting_service = service.get_trusted_service(accounting_service_url)
+    accounting_service_uid = accounting_service.uid()
+
+    key = "%s/account/%s" % (_service_key, accounting_service_uid)
+    bucket = service.bucket()
+
+    try:
+        account_uid = _ObjectStore.get_string_object(bucket, key)
+    except:
+        account_uid = None
+
+    if account_uid:
+        # we already have an account...
+        return
+
+    service_user = service.login_service_user()
+
+    from Acquire.Client import create_account as _create_account
+
+    account = _create_account(
+                service_user, "main",
+                "Main account to receive payment for all use on service "
+                "%s (%s)" % (service.canonical_url(), service.uid()),
+                accounting_service=accounting_service)
+
+    account_uid = account.uid()
+
+    _ObjectStore.set_string_object(bucket, key, account_uid)
 
 
 def _refresh_service_keys_and_certs(service):

@@ -1,7 +1,6 @@
 
 from Acquire.Service import create_return_value
-from Acquire.Service import login_to_service_account
-from Acquire.Service import call_function
+from Acquire.Service import get_service_info
 
 from Acquire.Crypto import PrivateKey
 
@@ -62,17 +61,36 @@ def run(args):
     # verify that the user has authorised this request
     authorisation.verify(request.signature())
 
+    # get the UID of the account in which we will receive payment
+    service = get_service_info()
+    account_uid = service.service_user_account_uid(
+                               cheque.accounting_service_url())
+
     # now find the cost to run the job - this will be a compute
     # cost and a storage cost
-    job_cost = 10
+    total_cost = 10
+
+    # create a record for this job
+    #record = JobRecord(request=request, total_cost=total_cost,
+    #                   payment_account=account_uid)
+    #                    # child services = services....
 
     # send the cheque to the accounting service to get a credit note
     # to show that we will be paid for this job
-    credit_note = cheque.cash(spend=job_cost,
-                              item_signature=request.signature())
+    credit_notes = cheque.cash(spend=total_cost,
+                               item_signature=request.signature())
 
-    if not credit_note.is_valid():
+    if credit_notes is None or len(credit_notes) == 0:
         raise PaymentError("Cannot be paid!")
+
+    # check that the credit notes are valid
+    # loop through notes - validate that the payment goes into our
+    # account and that the sum total equals job_cost
+
+    # save this credit_note so that it is not lost
+    # bucket = _get_service_account_bucket()
+
+
 
     # the access service will be paid for the job. We need to now
     # create the Credit/Debit note pairs to transfer funds from

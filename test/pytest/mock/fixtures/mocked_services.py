@@ -212,30 +212,48 @@ def aaai_services(tmpdir_factory):
                             "user": storage_user,
                             "response": response}
 
-    resource = "trust %s" % identity_service.uid()
+    resource = "trust_service %s" % identity_service.uid()
     public_cert = identity_service.public_certificate().to_data()
     args = {"service_url": identity_service.canonical_url(),
             "authorisation": Authorisation(user=accounting_user,
                                            resource=resource).to_data(),
             "public_certificate": public_cert}
 
-    response = call_function(accounting_service.canonical_url(),
-                             function="admin/trust_service",
-                             args=args, response_key=PrivateKey())
+    response = accounting_service.call_function(
+                    function="admin/trust_service", args=args)
 
     args["authorisation"] = Authorisation(user=access_user,
                                           resource=resource).to_data()
 
-    response = call_function(access_service.canonical_url(),
-                             function="admin/trust_service",
-                             args=args, response_key=PrivateKey())
+    response = access_service.call_function(
+                    function="admin/trust_service", args=args)
 
     args["authorisation"] = Authorisation(user=storage_user,
                                           resource=resource).to_data()
 
-    response = call_function(storage_service.canonical_url(),
-                             function="admin/trust_service",
-                             args=args, response_key=PrivateKey())
+    response = storage_service.call_function(
+                    function="admin/trust_service", args=args)
+
+    args = {"service_url": access_service.canonical_url()}
+    resource = "trust_service %s" % access_service.uid()
+    args["authorisation"] = Authorisation(user=accounting_user,
+                                          resource=resource).to_data()
+    accounting_service.call_function(
+                    function="admin/trust_service", args=args)
+
+    args = {"service_url": accounting_service.canonical_url()}
+
+    resource = "trust_service %s" % accounting_service.uid()
+    args["authorisation"] = Authorisation(user=access_user,
+                                          resource=resource).to_data()
+    access_service.call_function(
+                    function="admin/trust_service", args=args)
+
+    resource = "trust_accounting_service %s" % accounting_service.uid()
+    args["authorisation"] = Authorisation(user=access_user,
+                                          resource=resource).to_data()
+    access_service.call_function(
+                    function="admin/trust_accounting_service", args=args)
 
     responses["_services"] = _services
 

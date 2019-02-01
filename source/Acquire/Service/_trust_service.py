@@ -19,7 +19,7 @@ def trust_service(service, authorisation):
     """
     local_service = _get_service_info(need_private_access=True)
     local_service.assert_admin_authorised(authorisation,
-                                          "trust %s" % service.uid())
+                                          "trust_service %s" % service.uid())
 
     bucket = _login_to_service_account()
     urlkey = "_trusted/url/%s" % _url_to_encoded(service.canonical_url())

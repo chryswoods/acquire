@@ -51,8 +51,8 @@ def test_run_calc(aaai_services, authenticated_user):
     args = {}
     args["request"] = r.to_data()
     args["authorisation"] = Authorisation(user=user,
-                                          resource=r.signature())
-    args["cheque"] = cheque
+                                          resource=r.signature()).to_data()
+    args["cheque"] = cheque.to_data()
 
     access_service = get_remote_service_info("access")
     result = access_service.call_function(func, args)
