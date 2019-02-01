@@ -12,6 +12,7 @@ from ._account import *
 from ._wallet import *
 from ._clouddrive import *
 from ._errors import *
+from ._cheque import *
 
 try:
     if __IPYTHON__:

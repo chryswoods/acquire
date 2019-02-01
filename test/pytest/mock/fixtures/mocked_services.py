@@ -246,7 +246,7 @@ def aaai_services(tmpdir_factory):
 def authenticated_user(aaai_services):
     # register the new user
     username = str(uuid.uuid4())
-    password = "RF%5s123!" % str(uuid.uuid4())[0:5]
+    password = PrivateKey.random_passphrase()
 
     user = User(username, identity_url="identity")
     (provisioning_uri, qrcode) = user.register(password)

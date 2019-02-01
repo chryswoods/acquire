@@ -74,12 +74,13 @@ class Cheque:
 
         auth = _Authorisation(user=account.user(), resource=info)
 
-        data = {"info": info, "authorisation": auth.to_data()}
+        data = _json.dumps({"info": info, "authorisation": auth.to_data()})
 
         cheque = Cheque()
 
         cheque._cheque = account.accounting_service().encrypt(data)
-        cheque._accounting_service_url = account.accounting_service_url()
+        cheque._accounting_service_url = \
+            account.accounting_service().canonical_url()
 
         return cheque
 
