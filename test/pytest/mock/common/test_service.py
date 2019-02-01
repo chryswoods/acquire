@@ -40,3 +40,5 @@ def test_service(service_url, aaai_services):
     dec_ver = service.verify_data(private_service.decrypt_data(enc_sign))
 
     assert(data == dec_ver)
+
+    result = service.call_function("admin/test")

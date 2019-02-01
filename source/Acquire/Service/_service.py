@@ -774,6 +774,9 @@ class Service:
         service._service_url = data["service_url"]
         service._canonical_url = service._service_url
 
+        service._service_user_uid = data["service_user_uid"]
+        service._service_user_name = data["service_user_name"]
+
         service._pubkey = _PublicKey.from_data(data["public_key"])
         service._pubcert = _PublicKey.from_data(data["public_certificate"])
         service._lastcert = _PublicKey.from_data(data["last_certificate"])
