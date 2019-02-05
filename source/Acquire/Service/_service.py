@@ -441,7 +441,7 @@ class Service:
         return _login_service_user(self.uid())
 
     def service_user_account_uid(self, accounting_service_url=None,
-                                       accounting_service=None):
+                                 accounting_service=None):
         """Return the UID of the financial account associated with
            this service on the passed accounting service
         """

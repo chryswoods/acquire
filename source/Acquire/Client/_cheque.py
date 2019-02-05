@@ -39,7 +39,7 @@ class Cheque:
         self._accounting_service_url = None
 
     @staticmethod
-    def write(account=None, item_signature=None,
+    def write(account=None, resource=None,
               recipient_url=None, max_spend=None,
               expiry_date=None):
         """Create and return a cheque that can be used at any point
@@ -51,11 +51,12 @@ class Cheque:
            maximum spend. Otherwise, it is valid up to the maximum
            daily spend limit (or other limits) of the account. If
            'expiry_date' is supplied then this cheque is valid only
-           before the supplied datetime. If 'item_signature' is
+           before the supplied datetime. If 'resource' is
            supplied then this cheque is only valid to pay for the
-           item whose signature is supplied. Note that
-           this cheque is for a future transaction, and so no check
-           if made if there is sufficient funds now, and this does
+           specified resource (this should be a string that everyone
+           agrees represents the resource in question). Note that
+           this cheque is for a future transaction. We do not check
+           to see if there are sufficient funds now, and this does
            not affect the account. If there are insufficient funds
            when the cheque is cashed (or it breaks spending limits)
            then the cheque will bounce.
@@ -79,7 +80,7 @@ class Cheque:
                             "max_spend": max_spend,
                             "expiry_date": expiry_date,
                             "uid": _create_uuid(),
-                            "item_signature": str(item_signature),
+                            "resource": str(resource),
                             "account_uid": account.uid()})
 
         auth = _Authorisation(user=account.user(), resource=info)
@@ -94,27 +95,41 @@ class Cheque:
 
         return cheque
 
-    def read(self, item_signature=None):
+    def read(self, spend, resource, receipt_by):
         """Read the cheque - this will read the cheque to return the
            decrypted contents. This will only work if this function
            is called on the accounting service that will cash the
            cheque, if the signature on the cheque matches the
            service that is authorised to cash the cheque, and
-           if the passed item signature matches the item_signature
+           if the passed resource matches the resource
            encoded in the cheque. If this is all correct, then the
            returned dictionary will contain;
 
            {"recipient_url": The URL of the service which was sent the cheque,
-            "max_spend": The maximum spend authorised by this cheque,
-            "expiry_date": The datetime when this cheque expires,
+            "recipient_key_fingerprint": Verified fingerprint of the service
+                                         key that signed this cheque
+            "spend": The amount authorised by this cheque,
             "uid": The unique ID for this cheque,
-            "item_signature": Signature of the item the cheque pays for,
+            "resource": String that identifies the resource this cheque will
+                        be used to pay for,
             "account_uid": UID of the account from which funds will be drawn
-            "authorisation" : Authorisation from the user for the spend
+            "authorisation" : Verified authorisation from the user who
+                              says they own the account for the spend
+            "receipt_by" : Time when we must receipt the cheque, or
+                           we will lose the money
            }
+
+           You must pass in the spend you want to draw from the cheque,
+           a string representing the resource this cheque will
+           be used to pay for, and the time by which you promise to receipt
+           the cheque after cashing
         """
         if self._cheque is None:
             raise PaymentError("You cannot read a null cheque")
+
+        spend = _string_to_decimal(spend)
+        resource = str(resource)
+        receipt_by = _string_to_datetime(receipt_by)
 
         service = _get_service_info(need_private_access=True)
 
@@ -158,50 +173,73 @@ class Cheque:
             recipient_service = service.get_trusted_service(
                                             service_url=recipient_url)
             recipient_service.verify_data(self._cheque)
+            info["recipient_key_fingerprint"] = self._cheque["fingerprint"]
 
         # validate that the item signature is correct
         try:
-            cheque_item_signature = info["item_signature"]
+            cheque_resource = info["resource"]
         except:
-            cheque_item_signature = None
+            cheque_resource = None
 
-        if item_signature != cheque_item_signature:
-            raise PaymentError(
-                "Disagreement over the signature of the item for which "
-                "this cheque has been signed")
+        if cheque_resource is not None:
+            if resource != resource:
+                raise PaymentError(
+                    "Disagreement over the resource for which "
+                    "this cheque has been signed")
+
+        info["resource"] = resource
 
         try:
             max_spend = info["max_spend"]
+            del info["max_spend"]
         except:
             max_spend = None
 
         if max_spend is not None:
-            info["max_spend"] = _string_to_decimal(info["max_spend"])
+            max_spend = _string_to_decimal(max_spend)
+
+            if max_spend < spend:
+                raise PaymentError(
+                    "The requested spend (%s) exceeds the authorised "
+                    "maximum value of the cheque" % (spend))
+
+        info["spend"] = spend
 
         try:
             expiry_date = info["expiry_date"]
+            del expiry_date["expiry_date"]
         except:
             expiry_date = None
 
         if expiry_date is not None:
-            info["expiry_date"] = _string_to_datetime(expiry_date)
+            expiry_date = _string_to_datetime(expiry_date)
 
-            # validate that the cheque has not expired
+            # validate that the cheque will not have expired
+            # when we receipt it
             now = _get_datetime_now()
 
-            if now > cheque_data["expiry_date"]:
+            if now > receipt_by:
                 raise PaymentError(
-                    "The cheque has expired: %s versus %s" %
-                    (_datetime_to_string(now),
+                    "The time when you promised to receipt the cheque "
+                    "has already passed!")
+
+            if receipt_by > expiry_date:
+                raise PaymentError(
+                    "The cheque will have expired after you plan to "
+                    "receipt it!: %s versus %s" %
+                    (_datetime_to_string(receipt_by),
                      _datetime_to_string(expiry_date)))
+
+        info["receipt_by"] = receipt_by
+
+        print(info)
 
         # everything now checks out - return the read cheque
         return info
 
-    def cash(self, spend, item_signature=None,
-             receipt_within=3600):
+    def cash(self, spend, resource, receipt_within=3600):
         """Cash this cheque, specifying how much to be cashed,
-           and the signature of the item that will be paid for
+           and the resource that will be paid for
            using this cheque. This will send the cheque to the
            accounting service (if we trust that accounting service).
            The accounting service will check that the cheque is valid,
@@ -245,7 +283,7 @@ class Cheque:
             function="cash_cheque",
             args={"cheque": self.to_data(),
                   "spend": _decimal_to_string(spend),
-                  "item_signature": item_signature,
+                  "resource": str(resource),
                   "account_uid": account_uid,
                   "receipt_by": _datetime_to_string(receipt_by)})
 

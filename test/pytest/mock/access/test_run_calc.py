@@ -5,7 +5,7 @@ import os
 from Acquire.Access import RunRequest
 from Acquire.Identity import Authorisation
 from Acquire.Service import call_function, get_remote_service_info
-from Acquire.Client import Account, deposit
+from Acquire.Client import Account, deposit, Cheque
 from Acquire.Crypto import PrivateKey
 
 
@@ -43,9 +43,10 @@ def test_run_calc(aaai_services, authenticated_user):
     # by the service whose canonical URL is supplied, and the access service
     # should check that the requested resource signature matches that
     # authorised by the cheque
-    cheque = account.write_cheque(recipient_url="access",
-                                  item_signature=r.signature(),
-                                  max_spend=50.0)
+    cheque = Cheque.write(account=account,
+                          recipient_url="access",
+                          resource=r.signature(),
+                          max_spend=50.0)
 
     func = "run_calculation"
     args = {}

@@ -61,11 +61,6 @@ def run(args):
     # verify that the user has authorised this request
     authorisation.verify(request.signature())
 
-    # get the UID of the account in which we will receive payment
-    service = get_service_info()
-    account_uid = service.service_user_account_uid(
-                                cheque.accounting_service_url())
-
     # now find the cost to run the job - this will be a compute
     # cost and a storage cost
     total_cost = 10
@@ -79,7 +74,7 @@ def run(args):
     # to show that we will be paid for this job
     try:
         credit_notes = cheque.cash(spend=total_cost,
-                                   item_signature=request.signature())
+                                   resource=request.signature())
     except Exception as e:
         raise PaymentError(
             "Problem cashing the cheque used to pay for the calculation: "
@@ -87,10 +82,6 @@ def run(args):
 
     if credit_notes is None or len(credit_notes) == 0:
         raise PaymentError("Cannot be paid!")
-
-    # check that the credit notes are valid
-    # loop through notes - validate that the payment goes into our
-    # account and that the sum total equals job_cost
 
     # save this credit_note so that it is not lost
     # bucket = _get_service_account_bucket()

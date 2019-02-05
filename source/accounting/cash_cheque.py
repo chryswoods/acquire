@@ -1,11 +1,12 @@
 
-from Acquire.Service import create_return_value
+from Acquire.Service import create_return_value, get_service_account_bucket
 from Acquire.ObjectStore import string_to_decimal, string_to_datetime, \
-    list_to_string
+    list_to_string, ObjectStore, Mutex
 
-from Acquire.Accounting import DebitNote, CreditNote
+from Acquire.Accounting import DebitNote, CreditNote, Account, \
+                               Accounts, Ledger, Transaction
 
-from Acquire.Client import Cheque
+from Acquire.Client import Cheque, PaymentError
 
 
 def run(args):
@@ -45,9 +46,11 @@ def run(args):
                 "Unable to interpret the spend. Error: %s" % str(e))
 
     try:
-        item_signature = str(args["item_signature"])
+        resource = str(args["resource"])
     except:
-        item_signature = None
+        raise ValueError(
+            "You must supply a string representing the resource that will "
+            "be paid for using this cheque")
 
     try:
         account_uid = str(args["account_uid"])
@@ -69,18 +72,94 @@ def run(args):
         raise TypeError(
             "Unable to interpret the receipt_by date. Error: %s" % str(e))
 
-    # now read the cheque
-    cheque_data = cheque.read(item_signature=item_signature)
+    # now read the cheque - this will only succeed if the cheque
+    # is valid, has been signed, has been sent from the right
+    # service, and was authorised by the user, the cheque
+    # has not expired and we are the
+    # service which holds the account from which funds are drawn
+    info = cheque.read(resource=resource, spend=spend,
+                       receipt_by=receipt_by)
 
-    print(cheque_data)
+    try:
+        description = str(args["description"])
+    except:
+        description = info["resource"]
+
+    # the cheque is valid
+    bucket = get_service_account_bucket()
+
+    try:
+        debit_account = Account(uid=info["account_uid"], bucket=bucket)
+    except Exception as e:
+        raise PaymentError(
+            "Cannot find the account associated with the cheque: %s" % str(e))
+
+    try:
+        credit_account = Account(uid=account_uid, bucket=bucket)
+    except Exception as e:
+        raise PaymentError(
+            "Cannot find the account to which funds will be creditted: %s"
+            % str(e))
+
+    user_uid = info["authorisation"].user_uid()
+
+    # validate that this account is in a group that can be authorised
+    # by the user
+    if not Accounts(user_uid).contains(account=debit_account,
+                                       bucket=bucket):
+        raise PermissionError(
+            "The user with UID '%s' cannot authorise transactions from "
+            "the account '%s' as they do not own this account." %
+            (user_uid, str(debit_account)))
+
+    transaction = Transaction(value=info["spend"],
+                              description=description)
+
+    # we have enough information to perform the transaction
+    # - this is provisional as the service must receipt everything
+    transaction_records = Ledger.perform(transactions=transaction,
+                                         debit_account=debit_account,
+                                         credit_account=credit_account,
+                                         authorisation=info["authorisation"],
+                                         is_provisional=True,
+                                         bucket=bucket)
+
+    # extract all of the credit notes to return to the user,
+    # and also to record so that we can check if they have not
+    # been receipted in time...
+    credit_notes = []
+
+    for record in transaction_records:
+        credit_notes.append(record.credit_note())
+
+    credit_notes = list_to_string(credit_notes)
+
+    receipt_key = "accounting/cashed_cheque/%s" % info["uid"]
+    mutex = Mutex(receipt_key, bucket=bucket)
+
+    try:
+        receipted = ObjectStore.get_object_from_json(bucket, receipt_key)
+    except:
+        receipted = None
+
+    if receipted is not None:
+        # we have tried to cash this cheque twice!
+        mutex.unlock()
+        Ledger.refund(transaction_records, bucket=bucket)
+    else:
+        info = {"status": "needs_receipt",
+                "receipt_by": info["receipt_by"],
+                "creditnotes": credit_notes}
+        ObjectStore.set_object_from_json(bucket, receipt_key, info)
+        mutex.unlock()
+
+    RECEIPT_BY SHOULD BE PART OF THE CREDITNOTE
 
     status = 0
     message = "Success"
 
     return_value = create_return_value(status, message)
 
-    credit_notes = [CreditNote()]
-
-    return_value["credit_notes"] = list_to_string(credit_notes)
+    return_value["credit_notes"] = credit_notes
 
     return return_value
