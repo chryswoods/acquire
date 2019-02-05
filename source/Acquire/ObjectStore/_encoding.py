@@ -14,6 +14,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "date_to_string", "string_to_date",
            "time_to_string", "string_to_time",
            "get_datetime_now", "datetime_to_datetime",
+           "string_to_list", "list_to_string",
            "get_datetime_future",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
@@ -236,3 +237,27 @@ def string_to_time(s):
         t = t.astimezone(_datetime.timezone.utc)
 
     return t
+
+
+def list_to_string(l):
+    """Return the passed list of items converted to a json string.
+       All items should have the same type
+    """
+    j = []
+    for item in l:
+        j.append(item.to_data())
+
+    return _json.dumps(j)
+
+
+def string_to_list(s, C):
+    """Convert the string encoded using list_to_string back to a list
+        of objects of type C. Note that all objects must have the
+        same type
+    """
+    items = []
+
+    for val in _json.loads(s):
+        items.append(C.from_data(val))
+
+    return items

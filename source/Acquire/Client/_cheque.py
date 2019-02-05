@@ -10,6 +10,11 @@ from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 from Acquire.ObjectStore import create_uuid as _create_uuid
+from Acquire.ObjectStore import string_to_list as _string_to_list
+from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
+from Acquire.ObjectStore import string_to_decimal as _string_to_decimal
 
 from Acquire.Service import get_service_info as _get_service_info
 
@@ -79,16 +84,119 @@ class Cheque:
 
         auth = _Authorisation(user=account.user(), resource=info)
 
-        data = _json.dumps({"info": info, "authorisation": auth.to_data()})
+        data = {"info": info, "authorisation": auth.to_data()}
 
         cheque = Cheque()
 
-        cheque._cheque = _bytes_to_string(
-                            account.accounting_service().encrypt(data))
+        cheque._cheque = account.accounting_service().encrypt_data(data)
         cheque._accounting_service_url = \
             account.accounting_service().canonical_url()
 
         return cheque
+
+    def read(self, item_signature=None):
+        """Read the cheque - this will read the cheque to return the
+           decrypted contents. This will only work if this function
+           is called on the accounting service that will cash the
+           cheque, if the signature on the cheque matches the
+           service that is authorised to cash the cheque, and
+           if the passed item signature matches the item_signature
+           encoded in the cheque. If this is all correct, then the
+           returned dictionary will contain;
+
+           {"recipient_url": The URL of the service which was sent the cheque,
+            "max_spend": The maximum spend authorised by this cheque,
+            "expiry_date": The datetime when this cheque expires,
+            "uid": The unique ID for this cheque,
+            "item_signature": Signature of the item the cheque pays for,
+            "account_uid": UID of the account from which funds will be drawn
+            "authorisation" : Authorisation from the user for the spend
+           }
+        """
+        if self._cheque is None:
+            raise PaymentError("You cannot read a null cheque")
+
+        service = _get_service_info(need_private_access=True)
+
+        # get the cheque data - this may have been signed
+        try:
+            cheque_data = _json.loads(self._cheque["signed_data"])
+        except:
+            cheque_data = self._cheque
+
+        # decrypt the cheque's data - only possible on the accounting service
+        cheque_data = service.decrypt_data(cheque_data)
+
+        # the date comprises the user-authorisation that acts as a
+        # signature that the user wrote this cheque, and the info
+        # for the cheque to say how it is valid
+        auth = _Authorisation.from_data(cheque_data["authorisation"])
+        info = cheque_data["info"]
+
+        # validate that the user authorised this cheque
+        try:
+            auth.verify(resource=info)
+        except Exception as e:
+            raise PaymentError(
+                "The user's signature/authorisation for this cheque "
+                "is not valid! ERROR: %s" % str(e))
+
+        info = _json.loads(info)
+
+        # the user signed this cheque :-)
+        info["authorisation"] = auth
+
+        # check the signature if one was needed
+        try:
+            recipient_url = info["recipient_url"]
+        except:
+            recipient_url = None
+
+        if recipient_url:
+            # the recipient was specified - verify that we trust
+            # the recipient, and that they have signed the cheque
+            recipient_service = service.get_trusted_service(
+                                            service_url=recipient_url)
+            recipient_service.verify_data(self._cheque)
+
+        # validate that the item signature is correct
+        try:
+            cheque_item_signature = info["item_signature"]
+        except:
+            cheque_item_signature = None
+
+        if item_signature != cheque_item_signature:
+            raise PaymentError(
+                "Disagreement over the signature of the item for which "
+                "this cheque has been signed")
+
+        try:
+            max_spend = info["max_spend"]
+        except:
+            max_spend = None
+
+        if max_spend is not None:
+            info["max_spend"] = _string_to_decimal(info["max_spend"])
+
+        try:
+            expiry_date = info["expiry_date"]
+        except:
+            expiry_date = None
+
+        if expiry_date is not None:
+            info["expiry_date"] = _string_to_datetime(expiry_date)
+
+            # validate that the cheque has not expired
+            now = _get_datetime_now()
+
+            if now > cheque_data["expiry_date"]:
+                raise PaymentError(
+                    "The cheque has expired: %s versus %s" %
+                    (_datetime_to_string(now),
+                     _datetime_to_string(expiry_date)))
+
+        # everything now checks out - return the read cheque
+        return info
 
     def cash(self, spend, item_signature=None,
              receipt_within=3600):
@@ -145,7 +253,8 @@ class Cheque:
 
         try:
             from Acquire.Accounting import CreditNote as _CreditNote
-            credit_notes = _CreditNote.from_data(result["credit_notes"])
+            credit_notes = _string_to_list(result["credit_notes"],
+                                           _CreditNote)
         except Exception as e:
             raise PaymentError(
                 "Attempt to cash the cheque has not resulted in a "

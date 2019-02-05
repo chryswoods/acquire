@@ -4,6 +4,7 @@ from ._decimal import create_decimal as _create_decimal
 
 from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
 from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+from Acquire.ObjectStore import string_to_list as _string_to_list
 
 __all__ = ["CreditNote"]
 

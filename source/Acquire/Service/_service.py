@@ -625,6 +625,9 @@ class Service:
            key used to encrypt the data, enabling the service to
            perform key rotation and management.
         """
+        if isinstance(data, str):
+            data = _json.loads(data)
+
         try:
             service_uid = data["service_uid"]
             fingerprint = data["fingerprint"]

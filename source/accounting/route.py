@@ -3,7 +3,10 @@ def accounting_functions(function, args):
     """This function routes calls to all of the accounting service's
        extra functions
     """
-    if function == "create_account":
+    if function == "cash_cheque":
+        from accounting.cash_cheque import run as _cash_cheque
+        return _cash_cheque(args)
+    elif function == "create_account":
         from accounting.create_account import run as _create_account
         return _create_account(args)
     elif function == "deposit":
