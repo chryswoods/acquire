@@ -64,7 +64,7 @@ def run(args):
     # get the UID of the account in which we will receive payment
     service = get_service_info()
     account_uid = service.service_user_account_uid(
-                               cheque.accounting_service_url())
+                                cheque.accounting_service_url())
 
     # now find the cost to run the job - this will be a compute
     # cost and a storage cost
@@ -77,8 +77,13 @@ def run(args):
 
     # send the cheque to the accounting service to get a credit note
     # to show that we will be paid for this job
-    credit_notes = cheque.cash(spend=total_cost,
-                               item_signature=request.signature())
+    try:
+        credit_notes = cheque.cash(spend=total_cost,
+                                   item_signature=request.signature())
+    except Exception as e:
+        raise PaymentError(
+            "Problem cashing the cheque used to pay for the calculation: "
+            "ERROR = %s" % str(e))
 
     if credit_notes is None or len(credit_notes) == 0:
         raise PaymentError("Cannot be paid!")

@@ -440,17 +440,30 @@ class Service:
         self.assert_unlocked()
         return _login_service_user(self.uid())
 
-    def service_user_account_uid(self, accounting_service_url):
+    def service_user_account_uid(self, accounting_service_url=None,
+                                       accounting_service=None):
         """Return the UID of the financial account associated with
            this service on the passed accounting service
         """
         from Acquire.Service import get_service_user_account_uid as \
             _get_service_user_account_uid
 
-        service_uid = self.get_trusted_service(accounting_service_url).uid()
+        if accounting_service is None:
+            if accounting_service_url is None:
+                raise ValueError(
+                    "You must supply either an accounting service or "
+                    "the URL of a valid accounting service!")
+
+            accounting_service = self.get_trusted_service(
+                                        accounting_service_url)
+
+        if not accounting_service.is_accounting_service():
+            raise TypeError(
+                "The service '%s' is not an accounting service!"
+                % str(accounting_service))
 
         return _get_service_user_account_uid(
-                    accounting_service_uid=service_uid)
+                    accounting_service_uid=accounting_service.uid())
 
     def skeleton_key(self):
         """Return the skeleton key used by this service. This is an

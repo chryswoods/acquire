@@ -128,7 +128,8 @@ class Cheque:
         receipt_by = _get_datetime_future(receipt_within)
 
         # which account should the money be paid into?
-        account_uid = service.service_user_account_uid(accounting_service)
+        account_uid = service.service_user_account_uid(
+                                accounting_service=accounting_service)
 
         # next - send the cheque to the accounting service to
         # show that we know the item_id and want to cash it
