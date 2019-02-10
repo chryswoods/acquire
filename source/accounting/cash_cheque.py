@@ -153,7 +153,7 @@ def run(args):
         ObjectStore.set_object_from_json(bucket, receipt_key, info)
         mutex.unlock()
 
-    RECEIPT_BY SHOULD BE PART OF THE CREDITNOTE
+    #RECEIPT_BY SHOULD BE PART OF THE CREDITNOTE
 
     status = 0
     message = "Success"

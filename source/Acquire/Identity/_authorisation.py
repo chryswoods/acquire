@@ -209,8 +209,8 @@ class Authorisation:
 
         return ((now - self._auth_datetime).seconds > stale_time)
 
-    def is_verified(self, refresh_time=3600, stale_time=7200,
-                    testing_key=None):
+    def is_verified(self, resource=None, refresh_time=3600,
+                    stale_time=7200, testing_key=None):
         """Return whether or not this authorisation has been verified. Note
            that this will cache any verification for 'refresh_time' (in
            seconds)
@@ -223,6 +223,12 @@ class Authorisation:
         refresh_time = self._fix_integer(refresh_time, 24*3600)
 
         now = _get_datetime_now()
+
+        try:
+            if self._last_verified_resource != resource:
+                return False
+        except:
+            pass
 
         if self._last_validated_datetime is not None:
             if self._last_verified_key != testing_key:
@@ -257,7 +263,8 @@ class Authorisation:
             raise PermissionError("Cannot verify a stale Authorisation")
 
         if not force:
-            if self.is_verified(refresh_time=refresh_time,
+            if self.is_verified(resource=resource,
+                                refresh_time=refresh_time,
                                 stale_time=stale_time,
                                 testing_key=testing_key):
                 return

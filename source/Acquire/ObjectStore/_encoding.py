@@ -4,6 +4,9 @@ import base64 as _base64
 import datetime as _datetime
 import uuid as _uuid
 
+from backports.datetime_fromisoformat import MonkeyPatch as _MonkeyPatch
+_MonkeyPatch.patch_fromisoformat()
+
 from ._errors import EncodingError
 
 __all__ = ["bytes_to_string", "string_to_bytes",
@@ -170,8 +173,11 @@ def string_to_datetime(s):
        via datetime_to_string. This string must have been created
        via 'datetime_to_string'
     """
-    d = _datetime.datetime.fromisoformat(s)
-    return datetime_to_datetime(d)
+    if isinstance(s, _datetime.datetime):
+        return s
+    else:
+        d = _datetime.datetime.fromisoformat(s)
+        return datetime_to_datetime(d)
 
 
 def date_to_string(d):
