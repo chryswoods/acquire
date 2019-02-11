@@ -112,9 +112,13 @@ def test_transactions(random_transaction, bucket):
     starting_liability2 = account2.liability()
     starting_receivable2 = account2.receivable()
 
-    record = Ledger.perform(transaction, account1, account2,
-                            Authorisation(), is_provisional=False,
-                            bucket=bucket)
+    records = Ledger.perform(transaction, account1, account2,
+                             Authorisation(), is_provisional=False,
+                             bucket=bucket)
+
+    assert(len(records) == 1)
+
+    record = records[0]
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()
@@ -168,7 +172,10 @@ def test_transactions(random_transaction, bucket):
     assert(refund.credit_note() == credit_note)
     assert_packable(refund)
 
-    rrecord = Ledger.refund(refund)
+    rrecords = Ledger.refund(refund)
+
+    assert(len(rrecords) == 1)
+    rrecord = rrecords[0]
 
     assert(not rrecord.is_null())
     assert_packable(rrecord)
@@ -214,8 +221,11 @@ def test_pending_transactions(random_transaction):
     starting_liability2 = account2.liability()
     starting_receivable2 = account2.receivable()
 
-    record = Ledger.perform(transaction, account1, account2,
-                            Authorisation(), is_provisional=True)
+    records = Ledger.perform(transaction, account1, account2,
+                             Authorisation(), is_provisional=True)
+
+    assert(len(records) == 1)
+    record = records[0]
 
     ending_balance1 = account1.balance()
     ending_liability1 = account1.liability()
@@ -281,7 +291,10 @@ def test_pending_transactions(random_transaction):
     assert(receipt.credit_note() == credit_note)
     assert_packable(receipt)
 
-    rrecord = Ledger.receipt(receipt)
+    rrecords = Ledger.receipt(receipt)
+
+    assert(len(rrecords) == 1)
+    rrecord = rrecords[0]
 
     assert(not rrecord.is_null())
     assert_packable(rrecord)

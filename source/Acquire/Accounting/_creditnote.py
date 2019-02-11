@@ -14,8 +14,8 @@ class CreditNote:
        is combined with a debit note of equal value to form a transaction
        record
     """
-    def __init__(self, debit_note=None, account=None, receipt=None,
-                 refund=None, bucket=None):
+    def __init__(self, debit_note=None, account=None,
+                 receipt=None, refund=None, bucket=None):
         """Create the corresponding credit note for the passed debit_note. This
            will credit value from the note to the passed account. The credit
            will use the same UID as the debit, and the same datetime. This
@@ -65,6 +65,24 @@ class CreditNote:
         """Return whether or not this note is null"""
         return self._uid is None
 
+    def needs_receipting(self):
+        """Return whether or not this CreditNote needs to be receipted.
+           If so, then the funds are only held provisionally, and must
+           be receipted by CreditNote.receipt_by() else they will
+           be returned to the DebitNote account
+        """
+        return self.is_provisional()
+
+    def receipt_by(self):
+        """Return the datetime by which this credit note must be
+           receipted, or else the funds will be returned. This will
+           return None if the CreditNote does not need receipting
+        """
+        if self.is_provisional():
+            return self._receipt_by
+        else:
+            return None
+
     def account_uid(self):
         """Return the UID of the account to which the value was credited"""
         if self.is_null():
@@ -112,7 +130,9 @@ class CreditNote:
     def is_provisional(self):
         """Return whether or not this credit note is provisional
            (i.e. the value will only be transferred on completion
-           of work and provision of a receipt)
+           of work and provision of a receipt. Note that the value
+           will only be transferred if this CreditNote is receipted
+           before CreditNote.receipt_by())
         """
         if self.is_null():
             return False
@@ -166,6 +186,9 @@ class CreditNote:
         self._value = debit_note.value()
         self._is_provisional = debit_note.is_provisional()
 
+        if self._is_provisional:
+            self._receipt_by = debit_note.receipt_by()
+
         # finally(!) move the transaction into the refunded state
         _TransactionRecord.load_test_and_set(
                             refund.transaction_uid(),
@@ -218,6 +241,9 @@ class CreditNote:
         self._value = debit_note.value()
         self._is_provisional = debit_note.is_provisional()
 
+        if debit_note.is_provisional():
+            self._receipt_by = debit_note.receipt_by()
+
         # finally(!) move the transaction into the receipted state
         _TransactionRecord.load_test_and_set(
                             receipt.transaction_uid(),
@@ -249,6 +275,9 @@ class CreditNote:
         self._value = debit_note.value()
         self._is_provisional = debit_note.is_provisional()
 
+        if self._is_provisional:
+            self._receipt_by = debit_note.receipt_by()
+
     @staticmethod
     def from_data(data):
         """Construct and return a new CreditNote from the passed json-decoded
@@ -264,6 +293,9 @@ class CreditNote:
             note._datetime = _string_to_datetime(data["datetime"])
             note._value = _create_decimal(data["value"])
             note._is_provisional = data["is_provisional"]
+
+            if note._is_provisional:
+                note._receipt_by = _string_to_datetime(data["receipt_by"])
 
         return note
 
@@ -281,5 +313,8 @@ class CreditNote:
             data["datetime"] = _datetime_to_string(self._datetime)
             data["value"] = str(self._value)
             data["is_provisional"] = self._is_provisional
+
+            if self._is_provisional:
+                data["receipt_by"] = _datetime_to_string(self._receipt_by)
 
         return data

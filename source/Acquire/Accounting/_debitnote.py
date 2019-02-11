@@ -6,6 +6,7 @@ from Acquire.Identity import Authorisation as _Authorisation
 
 from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
 from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
+from Acquire.ObjectStore import datetime_to_datetime as _datetime_to_datetime
 from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
 
 from ._transaction import Transaction as _Transaction
@@ -20,14 +21,19 @@ class DebitNote:
        is combined with credit note of equal value to form a transaction record
     """
     def __init__(self, transaction=None, account=None, authorisation=None,
-                 is_provisional=False, receipt=None, refund=None, bucket=None):
+                 is_provisional=False, receipt_by=None,
+                 receipt=None, refund=None, bucket=None):
         """Create a debit note for the passed transaction will debit value
            from the passed account. The note will create a unique ID (uid)
            for the debit, plus the datetime of the time that value was drawn
            from the debited account. This debit note will be paired with a
            corresponding credit note from the account that received the value
            from the transaction so that a balanced TransactionRecord can be
-           written to the ledger
+           written to the ledger. If the note is provisional, then the value
+           of the transaction will be held until the corresponding CreditNote
+           has been receipted. This must be receipted before 'receipt_by',
+           else the value will be returned to the DebitNote account
+           (it will be automatically refunded)
         """
         self._transaction = None
 
@@ -48,7 +54,7 @@ class DebitNote:
                                  "which the transaction will be taken")
 
             self._create_from_transaction(transaction, account, authorisation,
-                                          is_provisional, bucket)
+                                          is_provisional, receipt_by, bucket)
 
     def __str__(self):
         if self.is_null():
@@ -123,6 +129,26 @@ class DebitNote:
             return False
         else:
             return self._is_provisional
+
+    def needs_receipting(self):
+        """Return whether or not this DebitNote transaction needs
+           receipting - if it does, then it must be receipted
+           by the CreditNote before DebitNote.receipt_by().
+           If this does
+        """
+        return self.is_provisional()
+
+    def receipt_by(self):
+        """Return the datetime by which this DebitNote must be
+           receipted via the CreditNote, else the transaction
+           will be automatically refunded. This will return
+           'None' if the transaction has already been receipted
+           or it wasn't provisional
+        """
+        if self.is_provisional():
+            return self._receipt_by
+        else:
+            return None
 
     def _create_from_refund(self, refund, account, bucket):
         """Function used to construct a debit note by extracting
@@ -254,7 +280,7 @@ class DebitNote:
             raise
 
     def _create_from_transaction(self, transaction, account, authorisation,
-                                 is_provisional, bucket):
+                                 is_provisional, receipt_by, bucket):
         """Function used to construct a debit note by extracting the
            specified transaction value from the passed account. This
            is authorised using the passed authorisation, and can be
@@ -284,11 +310,19 @@ class DebitNote:
         self._authorisation = authorisation
         self._is_provisional = is_provisional
 
-        (uid, datetime) = account._debit(transaction, authorisation,
-                                         is_provisional, bucket=bucket)
+        (uid, datetime, receipt_by) = account._debit(
+                                        transaction, authorisation,
+                                        is_provisional, receipt_by,
+                                        bucket=bucket)
 
-        self._datetime = datetime
+        self._datetime = _datetime_to_datetime(datetime)
         self._uid = str(uid)
+
+        if is_provisional:
+            assert(receipt_by is not None)
+            self._receipt_by = receipt_by
+        else:
+            assert(receipt_by is None)
 
     def to_data(self):
         """Return this DebitNote as a dictionary that can be encoded as json"""
@@ -301,6 +335,9 @@ class DebitNote:
             data["is_provisional"] = self._is_provisional
             data["datetime"] = _datetime_to_string(self._datetime)
             data["uid"] = self._uid
+
+            if self._is_provisional:
+                data["receipt_by"] = _datetime_to_string(self._receipt_by)
 
         return data
 
@@ -318,5 +355,8 @@ class DebitNote:
             d._is_provisional = data["is_provisional"]
             d._datetime = _string_to_datetime(data["datetime"])
             d._uid = data["uid"]
+
+            if d._is_provisional:
+                d._receipt_by = _string_to_datetime(data["receipt_by"])
 
         return d

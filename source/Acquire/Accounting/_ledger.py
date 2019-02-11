@@ -417,10 +417,7 @@ class Ledger:
 
                 records.append(record)
 
-            if len(records) == 1:
-                return records[0]
-            else:
-                return records
+            return records
 
         except:
             # an error occuring here will break the system, which will

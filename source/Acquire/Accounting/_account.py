@@ -18,6 +18,7 @@ from Acquire.ObjectStore import string_to_time as _string_to_time
 from Acquire.ObjectStore import datetime_to_datetime as _datetime_to_datetime
 from Acquire.ObjectStore import date_and_time_to_datetime as \
                                _date_and_time_to_datetime
+from Acquire.ObjectStore import get_datetime_future as _get_datetime_future
 
 from Acquire.Identity import Authorisation as _Authorisation
 
@@ -864,13 +865,16 @@ class Account:
 
         return (uid, now)
 
-    def _debit(self, transaction, authorisation, is_provisional, bucket=None):
+    def _debit(self, transaction, authorisation,
+               is_provisional, receipt_by, bucket=None):
         """Debit the value of the passed transaction from this account based
            on the authorisation contained
            in 'authorisation'. This will create a unique ID (UID) for
            this debit and will return this together with the datetime of the
            debit. If this transaction 'is_provisional' then it will be
-           recorded as a liability.
+           recorded as a liability, which must be receipted before
+           'receipt_by'. If 'receipt_by' is None, then this will
+           automatically be 1 week in the future
 
            The UID will encode both the date of the debit and provide a random
            ID that together can be used to identify the transaction associated
@@ -903,6 +907,23 @@ class Account:
         # create a UID and datetime for this debit and record
         # it in the account
         now = self._get_safe_now()
+
+        if is_provisional:
+            if receipt_by is None:
+                receipt_by = _get_datetime_future(days=7)
+            else:
+                receipt_by = _datetime_to_datetime(receipt_by)
+
+            delta = (receipt_by - now).total_seconds()
+            if delta < 3600:
+                raise AccountError(
+                    "You cannot request a receipt to be provided less "
+                    "than 1 hour into the future! %s versus %s is only "
+                    "%s second(s) in the future!" %
+                    (_datetime_to_string(receipt_by),
+                     _datetime_to_string(now), delta))
+        else:
+            receipt_by = None
 
         # and to create a key to find this debit later. The key is made
         # up from the isoformat datetime of the debit and a random string
@@ -941,7 +962,7 @@ class Account:
                 "are insufficient funds in this account." %
                 (transaction, str(self)))
 
-        return (uid, now)
+        return (uid, now, receipt_by)
 
     def available_balance(self, bucket=None):
         """Return the available balance of this account. This is the amount

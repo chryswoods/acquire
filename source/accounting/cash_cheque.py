@@ -1,7 +1,7 @@
 
 from Acquire.Service import create_return_value, get_service_account_bucket
 from Acquire.ObjectStore import string_to_decimal, string_to_datetime, \
-    list_to_string, ObjectStore, Mutex
+    list_to_string, ObjectStore, Mutex, datetime_to_string
 
 from Acquire.Accounting import DebitNote, CreditNote, Account, \
                                Accounts, Ledger, Transaction
@@ -148,12 +148,12 @@ def run(args):
         Ledger.refund(transaction_records, bucket=bucket)
     else:
         info = {"status": "needs_receipt",
-                "receipt_by": info["receipt_by"],
+                "receipt_by": datetime_to_string(info["receipt_by"]),
                 "creditnotes": credit_notes}
         ObjectStore.set_object_from_json(bucket, receipt_key, info)
         mutex.unlock()
 
-    #RECEIPT_BY SHOULD BE PART OF THE CREDITNOTE
+    # RECEIPT_BY SHOULD BE PART OF THE CREDITNOTE
 
     status = 0
     message = "Success"
