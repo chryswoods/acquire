@@ -144,6 +144,10 @@ def run(args):
                         ObjectStore.get_object_from_json(bucket,
                                                          login_session_key))
 
+    if login_session is None:
+        raise LoginError("How can we have a null login session at "
+                         "key '%s' ???" % login_session_key)
+
     # we must record the session against which this otpcode has
     # been validated. This is to stop us validating an otpcode more than
     # once (e.g. if the password and code have been intercepted).
