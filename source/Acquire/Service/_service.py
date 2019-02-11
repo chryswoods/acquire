@@ -28,7 +28,7 @@ class ServiceError(Exception):
     pass
 
 
-def _create_service_user():
+def _create_service_user(service_type=None):
     """This function is called to create the service user account for
        this service. The service user is the actual user who manages
        and authorises everything for this service. It it not possible
@@ -53,7 +53,11 @@ def _create_service_user():
 
     bucket = _get_service_account_bucket()
 
-    username = "service_user"
+    if service_type is None:
+        username = "service_principal"
+    else:
+        username = "%s_principal"
+
     service_account = _UserAccount(username)
 
     password = _PrivateKey.random_passphrase()
@@ -201,7 +205,7 @@ class Service:
             self._last_key_update = _get_datetime_now()
             self._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
-            (username, uid, secrets) = _create_service_user()
+            (username, uid, secrets) = _create_service_user(self._service_type)
 
             self._service_user_name = username
             self._service_user_uid = uid
@@ -411,6 +415,20 @@ class Service:
            with all other services)
         """
         return self._canonical_url
+
+    def hostname(self):
+        """Return the hostname of the canonical URL that provides
+           this service
+        """
+        from urllib.parse import urlparse as _urlparse
+        return _urlparse(self.canonical_url()).hostname
+
+    def uses_https(self):
+        """Return whether or not the canonical URL of this service
+           is connected to via https
+        """
+        from urllib.parse import urlparse as _urlparse
+        return _urlparse(self.canonical_url()).scheme == "https"
 
     def update_service_url(self, service_url):
         """Update the service url to be 'service_url'"""

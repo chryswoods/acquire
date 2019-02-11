@@ -50,9 +50,9 @@ def run(args):
     service_info = get_service_info()
 
     try:
-        provisioning_uri = otp.provisioning_uri(username,
-                                                issuer="Acquire@%s" %
-                                                service_info.canonical_url())
+        provisioning_uri = otp.provisioning_uri(
+                username, issuer="%s@%s" %
+                (service_info.service_type(), service_info.hostname()))
     except Exception as e:
         raise RegisterAccountError(
             "Cannot generate a provisioning_uri to register "
