@@ -1,8 +1,10 @@
 
 import os
 
-from Acquire.Service import get_service_info
+from Acquire.Service import get_service_info, get_service_account_bucket
 from Acquire.Service import create_return_value
+
+from Acquire.ObjectStore import ObjectStore
 
 
 def run(args):
@@ -13,5 +15,9 @@ def run(args):
 
     status = 0
     message = "Resetting service..."
+
+    bucket = get_service_account_bucket()
+
+    ObjectStore.delete_all_objects(bucket)
 
     return {"status": status, "message": message}
