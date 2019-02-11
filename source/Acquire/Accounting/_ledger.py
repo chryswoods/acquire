@@ -235,14 +235,17 @@ class Ledger:
 
     @staticmethod
     def perform(transactions, debit_account, credit_account, authorisation,
-                is_provisional=False, bucket=None):
+                is_provisional=False, receipt_by=None, bucket=None):
         """Perform the passed transaction(s) between 'debit_account' and
            'credit_account', recording the 'authorisation' for this
            transaction. If 'is_provisional' then record this as a provisional
            transaction (liability for the debit_account, future unspendable
            income for the 'credit_account'). Payment won't actually be taken
            until the transaction is 'receipted' (which may be for less than
-           (but not more than) then provisional value. Returns the (already
+           (but not more than) then provisional value, and which must take
+           place before 'receipt_by' (which will default to one week in
+           the future if not supplied - the actual time is encoded
+           in the returned TransactionRecords). Returns the (already
            recorded) TransactionRecord.
 
            Note that if several transactions are passed, then they must all
@@ -290,7 +293,12 @@ class Ledger:
             for transaction in transactions:
                 debit_notes.append(_DebitNote(transaction, debit_account,
                                               authorisation, is_provisional,
-                                              bucket=bucket))
+                                              receipt_by, bucket=bucket))
+
+                # ensure the receipt_by date for all notes is the same
+                if is_provisional and (receipt_by is None):
+                    receipt_by = debit_notes[0].receipt_by()
+
         except Exception as e:
             # refund all of the completed debits
             credit_notes = []

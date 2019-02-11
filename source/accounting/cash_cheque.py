@@ -122,6 +122,7 @@ def run(args):
                                          credit_account=credit_account,
                                          authorisation=info["authorisation"],
                                          is_provisional=True,
+                                         receipt_by=receipt_by,
                                          bucket=bucket)
 
     # extract all of the credit notes to return to the user,
@@ -148,12 +149,9 @@ def run(args):
         Ledger.refund(transaction_records, bucket=bucket)
     else:
         info = {"status": "needs_receipt",
-                "receipt_by": datetime_to_string(info["receipt_by"]),
                 "creditnotes": credit_notes}
         ObjectStore.set_object_from_json(bucket, receipt_key, info)
         mutex.unlock()
-
-    # RECEIPT_BY SHOULD BE PART OF THE CREDITNOTE
 
     status = 0
     message = "Success"
