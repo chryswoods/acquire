@@ -165,7 +165,7 @@ def run(args):
     utcnow = get_datetime_now()
 
     for session in sessions:
-        otpkey = "%s/%s" % (otproot, session)
+        otpkey = session
         otpstring = ObjectStore.get_string_object(bucket, otpkey)
 
         (datestring, code) = otpstring.split("|||")
