@@ -387,9 +387,15 @@ class OCI_ObjectStore:
         for obj in objects.objects:
             if prefix:
                 if obj.name.startswith(prefix):
-                    names.append(obj.name)
+                    name = obj.name
             else:
-                names.append(obj.name)
+                name = obj.name
+
+            while name.endswith("/"):
+                name = name[0:-1]
+
+            if len(name) > 0:
+                names.append(name)
 
         return names
 
