@@ -394,6 +394,9 @@ class OCI_ObjectStore:
             while name.endswith("/"):
                 name = name[0:-1]
 
+            while name.startswith("/"):
+                name = name[1:]
+
             if len(name) > 0:
                 names.append(name)
 
