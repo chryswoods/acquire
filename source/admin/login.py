@@ -77,6 +77,8 @@ def run(args):
                     "new login request UID")
             else:
                 login_session_key = request_session_key[len_base_key:]
+                while login_session_key.startswith("/"):
+                    login_session_key = login_session_key[1:]
 
     if not login_session_key:
         raise LoginError(
