@@ -14,9 +14,6 @@ def run(args):
     status = 0
     message = "Resetting service..."
 
-    service = get_service_info(need_private_access=False)
-
     return_value = create_return_value(status, message)
-    return_value["service"] = service.to_data()
 
     return return_value
