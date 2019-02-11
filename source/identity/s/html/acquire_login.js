@@ -5,13 +5,13 @@
  */
 
 /** Hard code the URL of the identity service */
-var identity_service_url = "http://130.61.60.88:8080/t/identity"
+var identity_service_url = "http://fn.acquire-aaai.com:8080/t/identity"
 
 /** Also hard code the data for the service's public key
  *
  *  This data is encoded using the PublicKey.to_data() function...
 */
-var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFzR0cycjJXWXljR0t0MXEzc1hZdAprbkZaVjVSa1Z5TUV2M2VZS2o0VDExMG41b241bzBBNms1NU13cTZPVFZpUVhLVVd3enQ0K09oWDY4cXNjM2ZPCnZ2aFFZdGZpT2prcXJvNFI0djhXaXdxbjlwdmdocW04b1FmTlhqRWw1ODBvV0w4SFMzTFgvQk9TQVFyMHNpQkYKN0hMWW9QVlVrcVovdmFuUWlwWlJhNXZmTlZoNXVBcGs0b2xRRzJzL3kyZnVSZzQydEhpbldObk1YdE0wWTVGbgprV1lUK00xL3BrUDRpSVB0akg0VUg0OTQyaG5SSkRwZXArWWpJQ1g5eVZQcHRSbFhIdWYrbVVtTThNZGpHcFp1Cks3cHppTGh6L2tNNzcwejhlMEluYzEzcFNBV2VLRmRKbjFMa3F2a24vVU9XN1pMVVV6Q1VKdGZ2VjlJb0hkbVcKZ1FJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUEwdjUxdFdBb2J4MHNVeWxyZ092RAp1a0dYYkxHNjAyN3Jqa1hhdS9VMjArbno4VlJ1NWlrYy9XQUJFM3NSZWFxMGZoTUJqYXlqcFFHcGdHS0RjVkpsCnNlU0cyWXY0bzVja1l2WjAwWDNEVGY4WTY1YllZNzljSEZEWlhyb01PcTFBNElBdVp0Z1dNZFFBNWkwc1NaNnUKK0FXR3FEakQxVmg4MktSd0JZcEh0M0MzOEI1UWpqL21ZZmtVSUdmeWtUS0pBQUhla2Y2NU5KUVVwTGlpdXFhLwovRC9zUm91SFU2Y1VJNk43RHd6eXVQNkNEUnZVaXNoRXlPOUxiMjNMbmQ1eFhFenlCUkxrcmoxU1NlUWcyVW5sCkZTR2ZEMG1FbjFITkY0T2ptQThtTnlsVEdBbTNYT3Z4TmFZcHNCUzV3UWkwTGhDNEJ4c2NxU0VzZmwyUmZMVm4KSXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
 
 /** Hard code the key size (in bytes) as javascript web crypto doesn't
  *  seem to have a way to query this programatically. 256 bytes (2048 bit)
