@@ -53,6 +53,9 @@ def _route_function(function, args, additional_functions=None):
     elif function == "admin/request_login":
         from admin.request_login import run as _request_login
         result = _request_login(args)
+    elif function == "admin/reset":
+        from admin.reset import run as _reset
+
     elif function == "admin/setup":
         from admin.setup import run as _setup
         result = _setup(args)
