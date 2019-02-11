@@ -83,6 +83,7 @@ def run(args):
             "There is no active login request with the "
             "short UID '%s' for user '%s'" % (short_uid, username))
 
+    _base_login_session_key = login_session_key
     login_session_key = "identity/sessions/%s/%s" % (
                             user_account.sanitised_name(),
                             login_session_key)
@@ -146,7 +147,10 @@ def run(args):
 
     if login_session is None:
         raise LoginError("How can we have a null login session at "
-                         "key '%s' ???" % login_session_key)
+                         "key '%s'\n"
+                         "identity + / sessions + / %s + / %s"
+                         % (login_session_key, _base_login_session_key,
+                            user_account.sanitised_name()))
 
     # we must record the session against which this otpcode has
     # been validated. This is to stop us validating an otpcode more than
