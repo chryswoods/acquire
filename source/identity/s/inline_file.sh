@@ -1,4 +1,4 @@
 #!/bin/bash
 
-inliner password.html > index.html
+cd html && inliner password.html > ../index.html && cd -
 touch index.html
