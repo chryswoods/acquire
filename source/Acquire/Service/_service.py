@@ -56,7 +56,7 @@ def _create_service_user(service_type=None):
     if service_type is None:
         username = "service_principal"
     else:
-        username = "%s_principal"
+        username = "%s_principal" % service_type
 
     service_account = _UserAccount(username)
 
