@@ -41,7 +41,7 @@ class _LoginStatus(_Enum):
 
 def _get_identity_url():
     """Function to discover and return the default identity url"""
-    return "http://130.61.60.88:8080/t/identity"
+    return "http://fn.acquire-aaai.com:8080/t/identity"
 
 
 def _get_identity_service(identity_url=None):

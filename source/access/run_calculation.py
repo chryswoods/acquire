@@ -68,7 +68,7 @@ def run(args):
     # create a record for this job
     #record = JobRecord(request=request, total_cost=total_cost,
     #                   payment_account=account_uid)
-    #                    # child services = services....
+    #                   # child services = services....
 
     # send the cheque to the accounting service to get a credit note
     # to show that we will be paid for this job
@@ -85,8 +85,6 @@ def run(args):
 
     # save this credit_note so that it is not lost
     # bucket = _get_service_account_bucket()
-
-
 
     # the access service will be paid for the job. We need to now
     # create the Credit/Debit note pairs to transfer funds from

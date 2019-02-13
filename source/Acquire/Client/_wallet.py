@@ -304,7 +304,7 @@ class Wallet:
                 "Error connecting to the login service %s: Error = %s" %
                 (identity_service, str(e)))
 
-        if not service.is_identity_service():
+        if not service.can_identify_users():
             raise LoginError(
                 "You cannot log into something that is not "
                 "a valid identity service!")

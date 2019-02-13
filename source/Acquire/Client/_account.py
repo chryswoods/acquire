@@ -27,7 +27,7 @@ __all__ = ["Account", "get_accounts", "create_account",
 
 def _get_accounting_url():
     """Function to discover and return the default accounting url"""
-    return "http://130.61.60.88:8080/t/accounting"
+    return "http://fn.acquire-aaai.com:8080/t/accounting"
 
 
 def _get_accounting_service(accounting_url=None):
