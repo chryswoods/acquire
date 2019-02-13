@@ -4,6 +4,8 @@ from Acquire.Service import call_function as _call_function
 
 from Acquire.Crypto import get_private_key as _get_private_key
 
+from Acquire.Service import ServiceError
+
 __all__ = ["Service"]
 
 
@@ -24,3 +26,10 @@ class Service:
             from copy import copy as _copy
             self.__dict__ = _copy(service.__dict__)
             self.__class__ = service.__class__
+
+    def call_function(self, function=None, args=None):
+        """Call the function 'function' using the passed arguments
+           'args' on this service
+        """
+        raise ServiceError(
+            "Cannot call function '%s' on a null service" % function)

@@ -1,16 +1,12 @@
 
-import pytest
-import os
-
 from Acquire.Access import RunRequest
 from Acquire.Identity import Authorisation
-from Acquire.Service import call_function, get_remote_service_info
-from Acquire.Client import Account, deposit, Cheque
-from Acquire.Crypto import PrivateKey
+from Acquire.Client import Account, deposit, Cheque, Service
 
 
 def _testdata():
     """Return the path to the directory containing test data"""
+    import os
     return os.path.dirname(os.path.abspath(__file__)) + \
         os.path.sep + "example_sim"
 
@@ -55,7 +51,7 @@ def test_run_calc(aaai_services, authenticated_user):
                                           resource=r.signature()).to_data()
     args["cheque"] = cheque.to_data()
 
-    access_service = get_remote_service_info("access")
+    access_service = Service("access")
     result = access_service.call_function(func, args)
 
     assert(result["status"] == 0)
