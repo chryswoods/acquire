@@ -345,17 +345,23 @@ def create_service_user_account(service, accounting_service_url):
 
     service_user = service.login_service_user()
 
-    from Acquire.Client import create_account as _create_account
+    try:
+        from Acquire.Client import create_account as _create_account
 
-    account = _create_account(
-                service_user, "main",
-                "Main account to receive payment for all use on service "
-                "%s (%s)" % (service.canonical_url(), service.uid()),
-                accounting_service=accounting_service)
+        account = _create_account(
+                    service_user, "main",
+                    "Main account to receive payment for all use on service "
+                    "%s (%s)" % (service.canonical_url(), service.uid()),
+                    accounting_service=accounting_service)
 
-    account_uid = account.uid()
+        account_uid = account.uid()
 
-    _ObjectStore.set_string_object(bucket, key, account_uid)
+        _ObjectStore.set_string_object(bucket, key, account_uid)
+    except Exception as e:
+        raise ServiceAccountError(
+            "Unable to create a financial account for the service "
+            "principal for '%s' on accounting service '%s': %s" %
+            (str(service), str(accounting_service), str(e)))
 
 
 def _refresh_service_keys_and_certs(service):
