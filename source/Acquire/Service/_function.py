@@ -231,6 +231,37 @@ def unpack_return_value(return_value, key=None, public_cert=None):
                             is_return_value=True)
 
 
+def _unpack_and_raise(function, service, exdata):
+    """This function unpacks the exception whose data is in 'exdata',
+       and raises it in the current thread. Additional information
+       is added to the error message to include the remote function
+       that was called (function) and the service on which it
+       was called.
+
+       The exdata should be a dictionary containing:
+
+       class: class name of the exception
+       module: module containing the exception
+       traceback: json-serialised traceback (dumped using tbblib)
+       error: error message of the exception
+    """
+    try:
+        import importlib as _importlib
+        import tblib as _tblib
+        mod = _importlib.import_module(exdata["module"])
+        exclass = getattr(mod, exdata["class"])
+        ex = exclass("Error calling '%s' on '%s': %s" %
+                     (function, service, exdata["error"]))
+        ex.__traceback__ = _tblib.Traceback.from_dict(
+                                    exdata["traceback"]).as_traceback()
+    except:
+        raise RemoteFunctionCallError(
+            "An exception occurred while calling '%s' on '%s': %s" %
+            (function, service, exdata))
+
+    raise ex
+
+
 def _call_local_function(service, function=None, args_key=None,
                          response_key=None, public_cert=None, args=None):
     """This is an internal version of call_function which short-cuts
@@ -263,10 +294,13 @@ def _call_local_function(service, function=None, args_key=None,
                                                   result["error"]))
     elif "status" in result:
         if result["status"] != 0:
-            raise RemoteFunctionCallError(
-                "Error calling '%s' at '%s'. Server returned "
-                "error code '%d' with message '%s'" %
-                (function, service, result["status"], result["message"]))
+            if "exception" in result:
+                _unpack_and_raise(function, service, result["exception"])
+            else:
+                raise RemoteFunctionCallError(
+                    "Error calling '%s' at '%s'. Server returned "
+                    "error code '%d' with message '%s'" %
+                    (function, service, result["status"], result["message"]))
 
     return result
 
@@ -357,9 +391,13 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
                                                   result["error"]))
     elif "status" in result:
         if result["status"] != 0:
-            raise RemoteFunctionCallError(
-                "Error calling '%s' at '%s'. Server returned "
-                "error code '%d' with message '%s'" %
-                (function, service_url, result["status"], result["message"]))
+            if "exception" in result:
+                _unpack_and_raise(function, service, result["exception"])
+            else:
+                raise RemoteFunctionCallError(
+                    "Error calling '%s' at '%s'. Server returned "
+                    "error code '%d' with message '%s'" %
+                    (function, service_url, result["status"],
+                     result["message"]))
 
     return result

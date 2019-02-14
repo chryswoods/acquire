@@ -42,3 +42,6 @@ def test_service(service_url, aaai_services):
     assert(data == dec_ver)
 
     result = service.call_function("admin/test")
+
+    result = service.call_function("admin/failure")
+

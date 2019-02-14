@@ -83,8 +83,7 @@ def _route_function(function, args, additional_functions=None):
 
         if result is None:
             if function.startswith("admin/"):
-                result = {"status": -1,
-                          "message": "Unknown function '%s'" % function}
+                raise LookupError("No function called '%s'" % function)
             else:
                 return _route_function("admin/%s" % function, args)
 
@@ -127,8 +126,15 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
     try:
         result = _route_function(function, args, additional_functions)
     except Exception as e:
+        import tblib as _tblib
+        tb = _tblib.Traceback(e.__traceback__)
+        err_json = {"class": str(e.__class__.__name__),
+                    "module": str(e.__class__.__module__),
+                    "error": str(e),
+                    "traceback": tb.to_dict()}
         result = {"status": -1,
-                  "message": "Error %s: %s" % (e.__class__, str(e))}
+                  "message": "EXCEPTION",
+                  "exception": err_json}
 
     try:
         end_profile(pr, result)

@@ -5,4 +5,5 @@ pyotp
 pycurl
 qrcode[pil]
 cachetools
+tblib
 backports-datetime-fromisoformat
