@@ -13,6 +13,13 @@ from ._errors import *
 from ._cheque import *
 from ._service import *
 
+# The below objects are useful for the client, so are pulled into
+# this module to discourage people using the other Acquire modules
+# directly...
+from Acquire.Crypto import PublicKey, PrivateKey
+from Acquire.ObjectStore import PAR
+from Acquire.Identity import Authorisation
+
 try:
     if __IPYTHON__:
         def _set_printer(C):

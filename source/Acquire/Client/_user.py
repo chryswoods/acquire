@@ -16,8 +16,6 @@ from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Crypto import PublicKey as _PublicKey
 from Acquire.Crypto import get_private_key as _get_private_key
 
-from Acquire.Identity import Authorisation
-
 from ._qrcode import create_qrcode as _create_qrcode
 from ._qrcode import has_qrcode as _has_qrcode
 
@@ -30,7 +28,7 @@ try:
 except:
     _has_socket = False
 
-__all__ = ["User", "Authorisation", "username_to_uid",
+__all__ = ["User", "username_to_uid",
            "uid_to_username", "get_session_keys"]
 
 

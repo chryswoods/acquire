@@ -55,7 +55,7 @@ def run(args):
 
     if check_service.uid() != accounting_service.uid():
         raise ServiceAccountError(
-            "Somethign strange is happening - the accounting service "
+            "Something strange is happening - the accounting service "
             "appears to have changed since it was trusted? "
             "%s versus %s" % (str(check_service), str(accounting_service)))
 
