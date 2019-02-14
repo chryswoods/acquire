@@ -138,7 +138,7 @@ def _login_service_user(service_uid):
     user = _User(user_uid=service.service_user_uid(),
                  identity_url=service.canonical_url())
 
-    user.request_login()
+    user.request_login(_is_local=True)
     short_uid = _LoginSession.to_short_uid(user.session_uid())
 
     login_args = {"short_uid": short_uid,

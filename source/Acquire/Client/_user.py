@@ -384,7 +384,7 @@ class User:
         # return a QR code for the provisioning URI
         return (provisioning_uri, _create_qrcode(provisioning_uri))
 
-    def request_login(self, login_message=None):
+    def request_login(self, login_message=None, _is_local=False):
         """Request to authenticate as this user. This returns a login URL that
            you must connect to to supply your login credentials
 
@@ -415,16 +415,16 @@ class User:
         # get information from the local machine to help
         # the user validate that the login details are correct
         if _has_socket:
-            try:
+            if _is_local:
+                args["ipaddr"] = "local"
+                args["hostname"] = "local"
+            else:
                 hostname = _socket.gethostname()
                 ipaddr = _socket.gethostbyname(hostname)
                 args["ipaddr"] = ipaddr
                 args["hostname"] = hostname
-            except:
-                args["ipaddr"] = None
-                args["hostname"] = None
 
-        if login_message is None:
+        if (login_message is None) and not (_is_local):
             login_message = "User '%s' in process '%s' wants to log in..." % \
                               (_os.getlogin(), _os.getpid())
 
@@ -491,7 +491,7 @@ class User:
 
         qrcode = None
 
-        if _has_qrcode():
+        if _has_qrcode() and not _is_local:
             try:
                 self._login_qrcode = _create_qrcode(self._login_url)
                 qrcode = self._login_qrcode
