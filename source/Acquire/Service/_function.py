@@ -392,7 +392,7 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
     elif "status" in result:
         if result["status"] != 0:
             if "exception" in result:
-                _unpack_and_raise(function, service, result["exception"])
+                _unpack_and_raise(function, service_url, result["exception"])
             else:
                 raise RemoteFunctionCallError(
                     "Error calling '%s' at '%s'. Server returned "

@@ -415,10 +415,14 @@ class User:
         # get information from the local machine to help
         # the user validate that the login details are correct
         if _has_socket:
-            hostname = _socket.gethostname()
-            ipaddr = _socket.gethostbyname(hostname)
-            args["ipaddr"] = ipaddr
-            args["hostname"] = hostname
+            try:
+                hostname = _socket.gethostname()
+                ipaddr = _socket.gethostbyname(hostname)
+                args["ipaddr"] = ipaddr
+                args["hostname"] = hostname
+            except:
+                args["ipaddr"] = None
+                args["hostname"] = None
 
         if login_message is None:
             login_message = "User '%s' in process '%s' wants to log in..." % \
