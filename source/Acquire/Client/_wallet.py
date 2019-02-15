@@ -263,12 +263,114 @@ class Wallet:
                     prompt="Please enter the one-time-password code: ")
 
     @staticmethod
-    def remove_service_info(identity_service):
-        """Remove the cached service info for the passed service"""
+    def add_service(service):
+        """Add a cached service info for the passed service. If it
+           already exists, then this verifies that the added service
+           is the same as the previously-seen service
+        """
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
             _base64.b64encode(
-                identity_service.encode("utf-8")).decode("utf-8"))
+                service.canonical_url().encode("utf-8")).decode("utf-8"))
+
+        existing_service = None
+
+        try:
+            with open(service_file, "rb") as FILE:
+                existing_service = _Service.from_data(
+                                    _unpack_arguments(FILE.read()))
+        except:
+            pass
+
+        if existing_service is not None:
+            print("MUST VALIDATE THAT SERVICE IS CORRECT!")
+            return
+
+        reply = input(
+                    "This is a new service that you have not seen before.\n"
+                    "%s\n Public Certificate = %s\n"
+                    "\nDo you trust this service? y/n" %
+                    (str(service), service.public_key().bytes())
+                )
+
+        if reply[0].lower() == 'y':
+            print("Trusting this service...")
+        else:
+            print("Not trusting this service!")
+            raise PermissionError(
+                "We do not trust the service '%s'" % str(service))
+
+        # We trust the service, so save this for future reference
+        with open(service_file, "wb") as FILE:
+            FILE.write(_pack_arguments(service.to_data()))
+
+        return service
+
+    @staticmethod
+    def get_services():
+        """Return all of the trusted services known to this wallet"""
+        service_files = _glob.glob("%s/service_*" % Wallet._wallet_dir())
+
+        services = []
+
+        for service_file in service_files:
+            with open(service_file, "rb") as FILE:
+                service = _Service.from_data(
+                                    _unpack_arguments(FILE.read()))
+                services.append(service)
+
+        return services
+
+    @staticmethod
+    def get_service(service_url):
+        """Return the service at 'service_url'. This will return the
+           cached service if it exists, or will add a new service if
+           the user so wishes
+        """
+        service_file = "%s/service_%s" % (
+            Wallet._wallet_dir(),
+            _base64.b64encode(
+                service_url.encode("utf-8")).decode("utf-8"))
+
+        existing_service = None
+
+        try:
+            with open(service_file, "rb") as FILE:
+                existing_service = _Service.from_data(
+                                    _unpack_arguments(FILE.read()))
+        except:
+            pass
+
+        if existing_service is not None:
+            return existing_service
+        else:
+            from Acquire.Service import get_remote_service_info as \
+                _get_remote_service_info
+
+            service = _get_remote_service_info(service_url)
+            return Wallet.add_service(service)
+
+    @staticmethod
+    def remove_all_services():
+        """Remove all trusted services from this Wallet"""
+        service_files = _glob.glob("%s/service_*" % Wallet._wallet_dir())
+
+        for service_file in service_files:
+            if _os.path.exists(service_file):
+                _os.unlink(service_file)
+
+    @staticmethod
+    def remove_service(service):
+        """Remove the cached service info for the passed service"""
+        if isinstance(service, str):
+            service_url = service
+        else:
+            service_url = service.canonical_url()
+
+        service_file = "%s/service_%s" % (
+            Wallet._wallet_dir(),
+            _base64.b64encode(
+                service_url.encode("utf-8")).decode("utf-8"))
 
         if _os.path.exists(service_file):
             _os.unlink(service_file)

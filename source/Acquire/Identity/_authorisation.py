@@ -292,7 +292,13 @@ class Authorisation:
             from Acquire.Service import get_trusted_service_info as \
                 _get_trusted_service_info
 
-            identity_service = _get_trusted_service_info(self._identity_url)
+            try:
+                identity_service = _get_trusted_service_info(
+                                                    self._identity_url)
+            except:
+                raise PermissionError(
+                    "Unable to verify the authorisation as we do not trust "
+                    "the identity service at %s" % self._identity_url)
 
             if not identity_service.can_identify_users():
                 raise PermissionError(

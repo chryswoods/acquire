@@ -50,15 +50,14 @@ def _get_identity_service(identity_url=None):
     if identity_url is None:
         identity_url = _get_identity_url()
 
-    privkey = _get_private_key("function")
-    response = _call_function(identity_url, response_key=privkey)
+    from Acquire.Client import Service as _Service
 
     try:
-        service = _Service.from_data(response["service_info"])
-    except:
+        service = _Service(identity_url)
+    except Exception as e:
         raise LoginError("Have not received the identity service info from "
-                         "the identity service at '%s' - got '%s'" %
-                         (identity_url, response))
+                         "the identity service at '%s': Error = %s" %
+                         (identity_url, str(e)))
 
     if not service.can_identify_users():
         raise LoginError(
@@ -428,16 +427,16 @@ class User:
 
         args["message"] = login_message
 
-        result = _call_function(
-            self.identity_service_url(), "request_login",
-            args_key=self.identity_service().public_key(),
-            response_key=session_key,
-            public_cert=self.identity_service().public_certificate(),
-            username=self._username,
-            public_key=session_key.public_key().to_data(),
-            public_certificate=signing_key.public_key().to_data(),
-            ipaddr=None,
-            message=login_message)
+        identity_service = self.identity_service()
+
+        args = {"username": self._username,
+                "public_key": session_key.public_key().to_data(),
+                "public_certificate": signing_key.public_key().to_data(),
+                "ipaddr": None,
+                "message": login_message}
+
+        result = identity_service.call_function(
+                        function="request_login", args=args)
 
         # look for status = 0
         try:
