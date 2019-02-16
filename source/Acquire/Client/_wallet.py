@@ -4,16 +4,16 @@ import sys as _sys
 import getpass as _getpass
 import glob as _glob
 import re as _re
-import base64 as _base64
+import json as _json
 import lazy_import as _lazy_import
 
 from Acquire.Service import call_function as _call_function
-from Acquire.Service import pack_arguments as _pack_arguments
-from Acquire.Service import unpack_arguments as _unpack_arguments
 from Acquire.Service import Service as _Service
 
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+from Acquire.ObjectStore import string_to_safestring as _string_to_safestring
+from Acquire.ObjectStore import safetring_to_string as _safestring_to_string
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Crypto import OTP as _OTP
@@ -24,6 +24,30 @@ from ._errors import LoginError
 _pyotp = _lazy_import.lazy_module("pyotp")
 
 __all__ = ["Wallet"]
+
+
+def _read_json(filename):
+    """Return a json-decoded dictionary from the data written
+       to 'filename'
+    """
+    with open(filename, "rb") as FILE:
+        return _json.load(FILE)
+
+
+def _write_json(data, filename):
+    """Write the passed json-encodable dictionary to 'filename'"""
+    with open(filename, "wb") as FILE:
+        _json.dump(data)
+
+
+def _read_service(filename):
+    """Read and return the service written to 'filename'"""
+    return _Service.from_data(_read_json(filename))
+
+
+def _write_service(service, filename):
+    """Write the passed service to 'filename'"""
+    _write_json(service.to_data(), filename)
 
 
 class Wallet:
@@ -117,8 +141,8 @@ class Wallet:
            passed identity url"""
         return "%s/user_%s_%s_encrypted" % (
             Wallet._wallet_dir(),
-            _base64.b64encode(username.encode("utf-8")).decode("utf-8"),
-            _base64.b64encode(identity_url.encode("utf-8")).decode("utf-8"))
+            _string_to_safestring(username),
+            _string_to_safestring(identity_url))
 
     @staticmethod
     def remove_user_info(username):
@@ -147,21 +171,20 @@ class Wallet:
         if not _os.path.exists(filename):
             return
 
-        with open(filename, "rb") as FILE:
-            data = _unpack_arguments(FILE.read())
+        data = _read_json(filename)
 
-            try:
-                data["password"] = _string_to_bytes(data["password"])
-            except:
-                pass
+        try:
+            data["password"] = _string_to_bytes(data["password"])
+        except:
+            pass
 
-            try:
-                data["otpsecret"] = _string_to_bytes(data["otpsecret"])
-            except:
-                pass
+        try:
+            data["otpsecret"] = _string_to_bytes(data["otpsecret"])
+        except:
+            pass
 
-            self._cache[filename] = data
-            return data
+        self._cache[filename] = data
+        return data
 
     def _read_userinfo(self, username, identity_url):
         """Read all info for the passed user at the identity service
@@ -182,7 +205,8 @@ class Wallet:
         for userfile in userfiles:
             try:
                 userinfo = self._read_userfile(userfile)
-                userinfos[userinfo["username"]] = userinfo
+                username = _safestring_to_string(userinfo["username"])
+                userinfos[username] = userinfo
             except:
                 pass
 
@@ -193,6 +217,7 @@ class Wallet:
             return usernames[0]
 
         if len(usernames) == 0:
+
             print("Please type your username: ", end="")
             _sys.stdout.flush()
             return _sys.stdin.readline()[0:-1]
@@ -207,18 +232,21 @@ class Wallet:
 
         while not username:
             print("Make your selection: ", end="")
-            _sys.stdout.flush()
 
-            input = _sys.stdin.readline()[0:-1]
+            reply = input(
+                    "Make your selection (1 to %d) " %
+                    (len(usernames))
+                )
 
             try:
-                input = int(input) - 1
-                if input < 0 or input >= len(usernames):
+                idx = int(reply) - 1
+
+                if idx < 0 or idx >= len(usernames):
                     print("Invalid account. Try again...")
                 else:
                     username = usernames[input]
             except:
-                username = input
+                username = None
 
         return username
 
@@ -270,15 +298,12 @@ class Wallet:
         """
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
-            _base64.b64encode(
-                service.canonical_url().encode("utf-8")).decode("utf-8"))
+            _string_to_safestring(service.canonical_url()))
 
         existing_service = None
 
         try:
-            with open(service_file, "rb") as FILE:
-                existing_service = _Service.from_data(
-                                    _unpack_arguments(FILE.read()))
+            existing_service = _read_service(service_file)
         except:
             pass
 
@@ -289,20 +314,19 @@ class Wallet:
         reply = input(
                     "This is a new service that you have not seen before.\n"
                     "%s\n Public Certificate = %s\n"
-                    "\nDo you trust this service? y/n" %
+                    "\nDo you trust this service? y/n " %
                     (str(service), service.public_key().bytes())
                 )
 
         if reply[0].lower() == 'y':
-            print("Trusting this service...")
+            print("Now trusting %s" % str(service))
         else:
             print("Not trusting this service!")
             raise PermissionError(
                 "We do not trust the service '%s'" % str(service))
 
         # We trust the service, so save this for future reference
-        with open(service_file, "wb") as FILE:
-            FILE.write(_pack_arguments(service.to_data()))
+        _write_service(service, service_file)
 
         return service
 
@@ -314,10 +338,7 @@ class Wallet:
         services = []
 
         for service_file in service_files:
-            with open(service_file, "rb") as FILE:
-                service = _Service.from_data(
-                                    _unpack_arguments(FILE.read()))
-                services.append(service)
+            services.append(_read_service(service_file))
 
         return services
 
@@ -329,19 +350,20 @@ class Wallet:
         """
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
-            _base64.b64encode(
-                service_url.encode("utf-8")).decode("utf-8"))
+            _string_to_safestring(service_url))
 
         existing_service = None
 
         try:
-            with open(service_file, "rb") as FILE:
-                existing_service = _Service.from_data(
-                                    _unpack_arguments(FILE.read()))
+            existing_service = _read_service(service_file)
         except:
             pass
 
         if existing_service is not None:
+            # check if the keys need rotating - if they do, load up
+            # the new keys and save them to the service file...
+            print("MUST CHECK FOR ROTATED KEYS")
+
             return existing_service
         else:
             from Acquire.Service import get_remote_service_info as \
@@ -369,65 +391,10 @@ class Wallet:
 
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
-            _base64.b64encode(
-                service_url.encode("utf-8")).decode("utf-8"))
+            _string_to_safestring(service_url))
 
         if _os.path.exists(service_file):
             _os.unlink(service_file)
-
-    def _get_service_info(self, identity_service):
-        """Return the service info for the passed identity service"""
-        try:
-            return self._service_info[identity_service]
-        except:
-            pass
-
-        # can we read this from a file?
-        service_file = "%s/service_%s" % (
-            Wallet._wallet_dir(),
-            _base64.b64encode(
-                identity_service.encode("utf-8")).decode("utf-8"))
-
-        try:
-            with open(service_file, "rb") as FILE:
-                service_info = _Service.from_data(
-                                    _unpack_arguments(FILE.read()))
-                self._service_info[identity_service] = service_info
-                return service_info
-        except:
-            pass
-
-        try:
-            key = _get_private_key("function")
-            response = _call_function(identity_service, response_key=key)
-            service = _Service.from_data(response["service_info"])
-        except Exception as e:
-            raise LoginError(
-                "Error connecting to the login service %s: Error = %s" %
-                (identity_service, str(e)))
-
-        if not service.can_identify_users():
-            raise LoginError(
-                "You cannot log into something that is not "
-                "a valid identity service!")
-
-        self._service_info[identity_service] = service
-
-        # save this for future reference
-        with open(service_file, "wb") as FILE:
-            FILE.write(_pack_arguments(service.to_data()))
-
-        return service
-
-    def _get_service_key(self, identity_service):
-        """Return the public encryption key for the passed identity service"""
-        return self._get_service_info(identity_service).public_key()
-
-    def _get_service_cert(self, identity_service):
-        """Return the public signing certificaet for
-           the passed identity service
-        """
-        return self._get_service_info(identity_service).public_certificate()
 
     def send_password(self, url, username=None, remember_password=True,
                       remember_device=None, dryrun=None):
@@ -444,45 +411,50 @@ class Wallet:
         identity_service = "/".join(words[0:-1])
         short_uid = words[-1].split("=")[-1]
 
-        # get the public key of this identity service
-        service_key = self._get_service_key(identity_service)
-        service_cert = self._get_service_cert(identity_service)
+        # now get the service
+        service = Wallet.get_service(identity_service)
+
+        if not service.can_identify_users():
+            raise LoginError(
+                "Service '%s' is unable to identify users! "
+                "You cannot log into something that is not "
+                "a valid identity service!" % (service))
 
         if not username:
             # choose a username from any existing files...
             username = self._get_username()
 
         print("Logging in using username '%s'" % username)
-        password = self._get_user_password(username, identity_service)
-        otpcode = self._get_otpcode(username, identity_service)
+        password = self._get_user_password(username, service.canonical_url())
+        otpcode = self._get_otpcode(username, service.canonical_url())
 
         print("\nLogging in to '%s', session '%s'..." % (
-              identity_service, short_uid), end="")
+              service.canonical_url(), short_uid), end="")
         _sys.stdout.flush()
 
         if dryrun:
             print("Calling %s with username=%s, password=%s, otpcode=%s, "
                   "remember_device=%s, device_uid=%s, short_uid=%s" %
-                  (identity_service, username, password, otpcode,
+                  (service.canonical_url(), username, password, otpcode,
                    remember_device, self._device_uid, short_uid))
             return
 
         try:
-            key = _get_private_key("function")
-            response = _call_function(identity_service, "login",
-                                      args_key=service_key, response_key=key,
-                                      public_cert=service_cert,
-                                      username=username, password=password,
-                                      otpcode=otpcode,
-                                      remember_device=remember_device,
-                                      device_uid=self._device_uid,
-                                      short_uid=short_uid)
+            function = "login"
+            args = {"username": username,
+                    "password": password,
+                    "otpcode": otpcode,
+                    "remember_device": remember_device,
+                    "device_uid": self._device_uid,
+                    "short_uid": short_uid}
+
+            response = service.call_function(function=function, args=args)
             print("SUCCEEDED!")
             _sys.stdout.flush()
         except Exception as e:
             print("FAILED!")
             _sys.stdout.flush()
-            raise LoginError("Failed to log in: %s" % str(e))
+            raise LoginError("Failed to log in.\nError: %s" % str(e))
 
         if remember_password:
             try:
@@ -505,7 +477,8 @@ class Wallet:
                     pass
 
             try:
-                user_info = self._read_userinfo(username, identity_service)
+                user_info = self._read_userinfo(username,
+                                                service.canonical_url())
             except:
                 user_info = {}
 
@@ -521,8 +494,7 @@ class Wallet:
                     must_write = True
 
             if must_write:
-                user_info["username"] = username.encode(
-                                            "utf-8").decode("utf-8")
+                user_info["username"] = _string_to_safestring(username)
                 user_info["password"] = _bytes_to_string(
                                               pubkey.encrypt(
                                                   password.encode("utf-8")))
@@ -533,11 +505,9 @@ class Wallet:
                                                    otpsecret.encode("utf-8")))
                     user_info["device_uid"] = device_uid
 
-                packed_data = _pack_arguments(user_info)
-
-                with open(Wallet._get_userfile(
-                          username, identity_service), "wb") as FILE:
-                    FILE.write(packed_data)
+                _write_json(Wallet._get_userfile(username,
+                                                 service.canonical_url()),
+                            user_info)
 
         self._manual_password = False
         self._manual_otpcode = False

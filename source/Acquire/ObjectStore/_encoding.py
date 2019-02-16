@@ -17,6 +17,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "date_to_string", "string_to_date",
            "time_to_string", "string_to_time",
            "get_datetime_now", "datetime_to_datetime",
+           "string_to_safestring", "safestring_to_string",
            "string_to_list", "list_to_string",
            "get_datetime_future",
            "get_datetime_now_to_string",
@@ -243,6 +244,16 @@ def string_to_time(s):
         t = t.astimezone(_datetime.timezone.utc)
 
     return t
+
+
+def string_to_safestring(s):
+    """Return a safe (base64) encoded version of 's'"""
+    return _base64.b64encode(s.encode("utf-8")).decode("utf-8")
+
+
+def safestring_to_string(s):
+    """Return the original string encoded by string_to_safestring"""
+    return _base64.b64decode(s.encode("utf-8")).decode("utf-8")
 
 
 def list_to_string(l):
