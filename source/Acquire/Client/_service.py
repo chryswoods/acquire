@@ -1,5 +1,4 @@
 
-from Acquire.Service import get_remote_service_info as _get_remote_service_info
 from Acquire.Service import ServiceError
 
 from cachetools import LRUCache as _LRUCache
@@ -32,7 +31,7 @@ class Service:
        i.e. during construction it will transform into the class
        of the type of service, e.g. Acquire.Identity.IdentityService
     """
-    def __init__(self, service_url):
+    def __init__(self, service_url=None, service_uid=None):
         """Construct the service that is accessed at the remote
            URL 'service_url'. This will fetch and return the
            details of the remote service. This wrapper is a

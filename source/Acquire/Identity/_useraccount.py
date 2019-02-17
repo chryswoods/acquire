@@ -2,14 +2,6 @@
 import base64 as _base64
 import uuid as _uuid
 
-from Acquire.Crypto import PrivateKey as _PrivateKey
-from Acquire.Crypto import OTP as _OTP
-
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-
-from Acquire.Service import get_service_info as _get_service_info
-
 from ._errors import UsernameError, ExistingAccountError, UserValidationError
 
 __all__ = ["UserAccount"]
@@ -80,7 +72,8 @@ class UserAccount:
 
     def login_root_url(self):
         """Return the root URL used to log into this account"""
-        return _get_service_info().service_url()
+        from Acquire.Service import get_this_service as _get_this_service
+        return _get_this_service().canonical_url()
 
     def is_valid(self):
         """Return whether or not this is a valid account"""
@@ -146,6 +139,9 @@ class UserAccount:
            Note that this will reset the password, returning the
            new OTP used to generate the 2FA one-time-codes
         """
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        from Acquire.Crypto import OTP as _OTP
+
         privkey = _PrivateKey()
         pubkey = privkey.public_key()
         otp = _OTP()
@@ -185,12 +181,16 @@ class UserAccount:
             raise UserValidationError(
                 "Cannot validate against an inactive account")
 
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        from Acquire.Crypto import OTP as _OTP
+
         # see if we can decrypt the private key using the password
         privkey = _PrivateKey.read_bytes(self._privkey, password)
 
         if device_secret:
             # decrypt the passed device secret and check the supplied
             # otpcode for that...
+            from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
             otp = _OTP.decrypt(_string_to_bytes(device_secret), privkey)
             otp.verify(otpcode)
         else:
@@ -201,6 +201,7 @@ class UserAccount:
         if remember_device:
             # create a new OTP that is unique for this device and return
             # this together with the provisioning code
+            from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
             otp = _OTP()
             otpsecret = _bytes_to_string(otp.encrypt(privkey.public_key()))
             return (otpsecret, otp.provisioning_uri(self.username()))
@@ -230,6 +231,7 @@ class UserAccount:
 
         # the keys and secret are arbitrary binary data.
         # These need to be base64 encoded and then turned into strings
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         data["private_key"] = _bytes_to_string(self._privkey)
         data["public_key"] = _bytes_to_string(self._pubkey)
         data["otp_secret"] = _bytes_to_string(self._otp_secret)
@@ -244,6 +246,8 @@ class UserAccount:
 
         if data is None:
             return None
+
+        from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
         user_account = UserAccount(data["username"])
         user_account._privkey = _string_to_bytes(data["private_key"])

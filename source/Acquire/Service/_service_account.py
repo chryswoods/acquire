@@ -5,18 +5,6 @@ import json as _json
 from cachetools import cached as _cached
 from cachetools import LRUCache as _LRUCache
 
-from Acquire.ObjectStore import ObjectStore as _ObjectStore
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-from Acquire.ObjectStore import url_to_encoded as _url_to_encoded
-from Acquire.ObjectStore import Mutex as _Mutex
-from Acquire.ObjectStore import get_datetime_now_to_string as \
-                                _get_datetime_now_to_string
-
-from ._service import Service as _Service
-from ._login_to_objstore import get_service_account_bucket \
-                            as _get_service_account_bucket
-
 from ._errors import ServiceError, ServiceAccountError, \
                      MissingServiceAccountError
 
@@ -96,6 +84,8 @@ def _get_this_service_data():
     # get the bucket again - can't pass as an argument as this is a cached
     # function - luckily _get_service_account_bucket is also a cached function
     try:
+        from Acquire.Service import get_service_account_bucket as \
+            _get_service_account_bucket
         bucket = _get_service_account_bucket()
     except ServiceAccountError as e:
         raise e
@@ -105,6 +95,7 @@ def _get_this_service_data():
 
     # find the service info from the object store
     try:
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
         service = _ObjectStore.get_object_from_json(bucket, _service_key)
     except Exception as e:
         raise MissingServiceAccountError(
@@ -147,9 +138,14 @@ def setup_this_service(canonical_url, service_type):
     """
     assert_running_service()
 
-    bucket = _get_service_account_bucket()
+    from Acquire.Service import get_service_account_bucket as \
+        _get_service_account_bucket
 
     from Acquire.ObjectStore import Mutex as _Mutex
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.Service import Service as _Service
+
+    bucket = _get_service_account_bucket()
 
     # ensure that this is the only time the service is set up
     mutex = _Mutex(key=_service_key, bucket=bucket)
@@ -216,9 +212,14 @@ def add_admin_user(service, account_uid, authorisation=None):
     """
     assert_running_service()
 
-    bucket = _get_service_account_bucket()
-
+    from Acquire.Service import get_service_account_bucket as \
+        _get_service_account_bucket
     from Acquire.ObjectStore import Mutex as _Mutex
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.ObjectStore import get_datetime_now_to_string as \
+        _get_datetime_now_to_string
+
+    bucket = _get_service_account_bucket()
 
     # see if the admin account details exists...
     admin_key = "%s/admin_users" % _service_key
@@ -278,6 +279,8 @@ def get_admin_users():
     assert_running_service()
 
     try:
+        from Acquire.Service import get_service_account_bucket as \
+            _get_service_account_bucket
         bucket = _get_service_account_bucket()
     except ServiceAccountError as e:
         raise e
@@ -288,6 +291,7 @@ def get_admin_users():
     # find the admin accounts info from the object store
     try:
         key = "%s/admin_users" % _service_key
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
         admin_users = _ObjectStore.get_object_from_json(bucket, key)
     except Exception as e:
         raise MissingServiceAccountError(
@@ -325,6 +329,7 @@ def get_this_service(need_private_access=False):
         service_password = _get_service_password()
 
     try:
+        from Acquire.Service import Service as _Service
         if service_password:
             service = _Service.from_data(service_info, service_password)
         else:
@@ -346,6 +351,10 @@ def get_service_user_account_uid(accounting_service_uid):
        service should be sent
     """
     assert_running_service()
+
+    from Acquire.Service import get_service_account_bucket as \
+        _get_service_account_bucket
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
     bucket = _get_service_account_bucket()
 
@@ -377,6 +386,8 @@ def create_service_user_account(service, accounting_service_url):
 
     key = "%s/account/%s" % (_service_key, accounting_service_uid)
     bucket = service.bucket()
+
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
     try:
         account_uid = _ObjectStore.get_string_object(bucket, key)
@@ -428,6 +439,12 @@ def _refresh_service_keys_and_certs(service):
 
     # now lock the object store so that we are the only function
     # that can write the new keys to global state
+    from Acquire.Service import get_service_account_bucket as \
+        _get_service_account_bucket
+    from Acquire.Service import Service as _Service
+    from Acquire.ObjectStore import Mutex as _Mutex
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+
     bucket = _get_service_account_bucket()
     m = _Mutex(key=service.uid(), bucket=bucket)
 
@@ -450,7 +467,7 @@ def _refresh_service_keys_and_certs(service):
     # clear the cache as we will need to load a new object
     clear_serviceinfo_cache()
 
-    return get_service_info(need_private_access=True)
+    return get_this_service(need_private_access=True)
 
 
 def get_service_private_key(fingerprint=None):

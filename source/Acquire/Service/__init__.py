@@ -6,9 +6,9 @@ the services used in the system. It is not likely to be user-facing
 """
 
 from ._function import *
-from ._get_public_certs import *
+from ._get_users_public_certs import *
 from ._get_services import *
-from ._login_to_objstore import *
+from ._get_service_account_bucket import *
 from ._service_account import *
 from ._service import *
 from ._profile import *

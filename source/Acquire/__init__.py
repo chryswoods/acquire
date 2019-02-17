@@ -15,13 +15,21 @@ three services:
 
 import lazy_import as _lazy_import
 
-Access = _lazy_import.lazy_module("Acquire.Access")
-Accounting = _lazy_import.lazy_module("Acquire.Accounting")
-Crypto = _lazy_import.lazy_module("Acquire.Crypto")
-Identity = _lazy_import.lazy_module("Acquire.Identity")
-ObjectStore = _lazy_import.lazy_module("Acquire.ObjectStore")
-Service = _lazy_import.lazy_module("Acquire.Service")
-Client = _lazy_import.lazy_module("Acquire.Client")
+#Access = _lazy_import.lazy_module("Acquire.Access")
+#Accounting = _lazy_import.lazy_module("Acquire.Accounting")
+#Crypto = _lazy_import.lazy_module("Acquire.Crypto")
+#Identity = _lazy_import.lazy_module("Acquire.Identity")
+#ObjectStore = _lazy_import.lazy_module("Acquire.ObjectStore")
+#Service = _lazy_import.lazy_module("Acquire.Service")
+#Client = _lazy_import.lazy_module("Acquire.Client")
+
+import Acquire.Access
+import Acquire.Accounting
+import Acquire.Crypto
+import Acquire.Identity
+import Acquire.ObjectStore
+import Acquire.Service
+import Acquire.Client
 
 __all__ = ["Access", "Accounting", "Client", "Crypto",
            "Identity", "ObjectStore", "Service"]

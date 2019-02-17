@@ -255,11 +255,11 @@ class Service:
     def get_trusted_service(self, service_url=None, service_uid=None):
         """Return the trusted service info for the service with specified
            service_url or service_uid"""
-        from ._get_services import get_trusted_service_info as \
-            _get_trusted_service_info
+        from ._get_services import get_trusted_service as \
+            _get_trusted_service
 
-        return _get_trusted_service_info(service_url=service_url,
-                                         service_uid=service_uid)
+        return _get_trusted_service(service_url=service_url,
+                                    service_uid=service_uid)
 
     def assert_unlocked(self):
         """Assert that this service object is unlocked"""

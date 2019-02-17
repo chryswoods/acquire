@@ -5,9 +5,6 @@ import json as _json
 from cachetools import cached as _cached
 from cachetools import LRUCache as _LRUCache
 
-from Acquire.Crypto import PrivateKey as _PrivateKey
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-
 from ._cache_management import clear_service_cache as _clear_service_cache
 from ._errors import ServiceAccountError
 
@@ -15,7 +12,7 @@ from ._errors import ServiceAccountError
 # least recently used items from the cache
 _login_cache = _LRUCache(maxsize=50)
 
-__all__ = ["login_to_service_account", "get_service_account_bucket",
+__all__ = ["get_service_account_bucket",
            "_push_testing_objstore", "_pop_testing_objstore",
            "clear_login_cache"]
 
@@ -50,18 +47,11 @@ def _pop_testing_objstore():
     _clear_service_cache()
 
 
-def get_service_account_bucket(testing_dir=None):
-    """Synonym for 'login_to_service_account', as this is a more
-       descriptive name for what this function is doing
-    """
-    return login_to_service_account(testing_dir)
-
-
 # Cache this function as the result changes very infrequently, as involves
 # lots of round trips to the object store, and it will give the same
 # result regardless of which Fn function on the service makes the call
 @_cached(_login_cache)
-def login_to_service_account(testing_dir=None):
+def get_service_account_bucket(testing_dir=None):
     """This function logs into the object store account of the service account.
        Accessing the object store means being able to access
        all resources and which can authorise the creation
@@ -73,6 +63,10 @@ def login_to_service_account(testing_dir=None):
        the login information is held in an environment variable
        (which should be encrypted or hidden in some way...)
     """
+    from Acquire.Service import assert_running_service as \
+        _assert_running_service
+
+    _assert_running_service()
 
     # read the password for the secret key from the filesystem
     try:
@@ -114,6 +108,7 @@ def login_to_service_account(testing_dir=None):
 
     # use the password to decrypt the SECRET_KEY in the config
     try:
+        from Acquire.Crypto import PrivateKey as _PrivateKey
         secret_key = _PrivateKey.from_data(secret_key, password)
     except Exception as e:
         raise ServiceAccountError(
@@ -128,6 +123,7 @@ def login_to_service_account(testing_dir=None):
             "environment variable!")
 
     try:
+        from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
         config = secret_key.decrypt(_string_to_bytes(config))
     except Exception as e:
         raise ServiceAccountError(

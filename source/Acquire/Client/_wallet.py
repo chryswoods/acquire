@@ -409,10 +409,10 @@ class Wallet:
 
             return existing_service
         else:
-            from Acquire.Service import get_remote_service_info as \
-                _get_remote_service_info
+            from Acquire.Service import get_remote_service as \
+                _get_remote_service
 
-            service = _get_remote_service_info(service_url)
+            service = _get_remote_service(service_url)
             return Wallet.add_service(service)
 
     @staticmethod

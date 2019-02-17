@@ -1,17 +1,6 @@
 
 import json as _json
-
-try:
-    import pycurl as _pycurl
-except:
-    _pycurl = None
-
 from io import BytesIO as _BytesIO
-
-from Acquire.Crypto import PublicKey as _PublicKey
-from Acquire.Crypto import PrivateKey as _PrivateKey
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
 from ._errors import PackingError, UnpackingError, RemoteFunctionCallError
 
@@ -32,6 +21,9 @@ def _get_key(key):
        Or it could be a dictionary that has the key stored under
        "encryption_public_key"
     """
+    from Acquire.Crypto import PublicKey as _PublicKey
+    from Acquire.Crypto import PrivateKey as _PrivateKey
+
     if key is None:
         return None
     elif isinstance(key, _PublicKey) or isinstance(key, _PrivateKey):
@@ -42,6 +34,7 @@ def _get_key(key):
         except:
             return None
 
+        from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
         key = _PublicKey.read_bytes(_string_to_bytes(key))
         return key
     else:
@@ -98,8 +91,9 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         sign_result = False
 
     key = _get_key(key)
-
     response_key = _get_key(response_key)
+
+    from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
     if response_key:
         result["encryption_public_key"] = _bytes_to_string(
@@ -188,6 +182,8 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False):
         is_encrypted = data["encrypted"]
     except:
         is_encrypted = False
+
+    from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
     if public_cert:
         if not is_encrypted:
@@ -335,7 +331,9 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
             return _call_local_function(service, function, args_key,
                                         response_key, public_cert, args)
 
-    if _pycurl is None:
+    try:
+        import pycurl as _pycurl
+    except:
         raise RemoteFunctionCallError(
             "Cannot call remote functions as "
             "the pycurl module cannot be imported! It needs "

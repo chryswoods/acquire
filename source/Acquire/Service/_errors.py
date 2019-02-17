@@ -21,7 +21,7 @@ class RemoteFunctionCallError(Exception):
 
 
 class ServiceError(Exception):
-   pass
+    pass
 
 
 class ServiceAccountError(Exception):
