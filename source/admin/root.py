@@ -9,7 +9,8 @@ def run(args):
     message = None
     service = None
 
-    service = get_service_info()
+    # need private access as we will sign the returned data
+    service = get_service_info(need_private_access=True)
 
     status = 0
     message = "Success"

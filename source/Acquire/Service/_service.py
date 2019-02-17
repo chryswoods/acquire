@@ -813,14 +813,15 @@ class Service:
 
         return result
 
-    def _validation_string(self):
+    def validation_string(self):
         """Return a string created from this object that can be signed
            to verify that all information was transmitted correctly
         """
-        return "%s:%s:%s:%s:%s:%s" % (
+        return "%s:%s:%s:%s:%s:%s:%s:%s:%s" % (
             self._uid, self.canonical_url(), self._service_type,
             self._pubcert.fingerprint(), self._pubkey.fingerprint(),
-            self._lastcert.fingerprint())
+            self._lastcert.fingerprint(), self._service_user_uid,
+            self._last_key_update.isoformat(), self._key_update_interval)
 
     def to_data(self, password=None):
         """Serialise this key to a dictionary, using the supplied
@@ -869,7 +870,8 @@ class Service:
         elif self.is_unlocked():
             # sign a validation string so that people can
             # check it has not been tampered with in transit
-            v = self._validation_string()
+            v = self.validation_string()
+            data["validation_string"] = v
             data["public_signature"] = _bytes_to_string(
                 self._privcert.sign(message=v))
             data["last_signature"] = _bytes_to_string(
@@ -959,8 +961,11 @@ class Service:
             # This stops someone changing the certificates, keys or
             # any other data about the service while in transit
             try:
+                vr = data["validation_string"]
+                v = service.validation_string()
+                assert(v == vr)
+
                 sig = _string_to_bytes(data["public_signature"])
-                v = service._validation_string()
                 service._pubcert.verify(signature=sig, message=v)
                 sig = _string_to_bytes(data["last_signature"])
                 service._lastcert.verify(signature=sig, message=v)
