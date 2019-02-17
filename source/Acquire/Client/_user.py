@@ -242,6 +242,7 @@ class User:
                                 self.identity_service_url())
 
         # if the user supplied the UID then validate this is correct
+        # pylint: disable=assignment-from-none
         if self._identity_uid:
             if identity_service.uid() != self._identity_uid:
                 raise LoginError(
@@ -253,6 +254,7 @@ class User:
                      self._identity_uid))
         else:
             self._identity_uid = identity_service.uid()
+        # pylint: enable=assignment-from-none
 
         self._identity_service = identity_service
 

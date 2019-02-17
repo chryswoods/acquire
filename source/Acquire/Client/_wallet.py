@@ -7,21 +7,15 @@ import re as _re
 import json as _json
 import lazy_import as _lazy_import
 
-from Acquire.Service import call_function as _call_function
-from Acquire.Service import Service as _Service
-
 from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 from Acquire.ObjectStore import string_to_safestring as _string_to_safestring
-from Acquire.ObjectStore import safetring_to_string as _safestring_to_string
+from Acquire.ObjectStore import safestring_to_string as _safestring_to_string
 
 from Acquire.Crypto import PrivateKey as _PrivateKey
 from Acquire.Crypto import OTP as _OTP
-from Acquire.Crypto import get_private_key as _get_private_key
 
 from ._errors import LoginError
-
-_pyotp = _lazy_import.lazy_module("pyotp")
 
 __all__ = ["Wallet"]
 
@@ -31,17 +25,20 @@ def _read_json(filename):
        to 'filename'
     """
     with open(filename, "rb") as FILE:
-        return _json.load(FILE)
+        s = FILE.read().decode("utf-8")
+        return _json.loads(s)
 
 
 def _write_json(data, filename):
     """Write the passed json-encodable dictionary to 'filename'"""
+    s = _json.dumps(data)
     with open(filename, "wb") as FILE:
-        _json.dump(data)
+        FILE.write(s.encode("utf-8"))
 
 
 def _read_service(filename):
     """Read and return the service written to 'filename'"""
+    from Acquire.Client import Service as _Service
     return _Service.from_data(_read_json(filename))
 
 
@@ -244,7 +241,7 @@ class Wallet:
                 if idx < 0 or idx >= len(usernames):
                     print("Invalid account. Try again...")
                 else:
-                    username = usernames[input]
+                    username = usernames[idx]
             except:
                 username = None
 
@@ -281,7 +278,7 @@ class Wallet:
                 device_uid = userinfo["device_uid"]
                 self._manual_otpcode = False
                 self._device_uid = device_uid
-                return _pyotp.totp.TOTP(secret).now()
+                return _OTP(secret=secret).generate()
         except:
             pass
 
@@ -381,6 +378,10 @@ class Wallet:
             if _os.path.exists(service_file):
                 _os.unlink(service_file)
 
+        # clear cache to force a new lookup
+        from ._service import _cache_service_lookup
+        _cache_service_lookup.clear()
+
     @staticmethod
     def remove_service(service):
         """Remove the cached service info for the passed service"""
@@ -395,6 +396,10 @@ class Wallet:
 
         if _os.path.exists(service_file):
             _os.unlink(service_file)
+
+        # clear cache to force a new lookup
+        from ._service import _cache_service_lookup
+        _cache_service_lookup.clear()
 
     def send_password(self, url, username=None, remember_password=True,
                       remember_device=None, dryrun=None):

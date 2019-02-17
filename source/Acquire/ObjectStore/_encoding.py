@@ -4,10 +4,10 @@ import base64 as _base64
 import datetime as _datetime
 import uuid as _uuid
 
+from ._errors import EncodingError
+
 from backports.datetime_fromisoformat import MonkeyPatch as _MonkeyPatch
 _MonkeyPatch.patch_fromisoformat()
-
-from ._errors import EncodingError
 
 __all__ = ["bytes_to_string", "string_to_bytes",
            "string_to_encoded", "encoded_to_string",
@@ -247,7 +247,10 @@ def string_to_time(s):
 
 
 def string_to_safestring(s):
-    """Return a safe (base64) encoded version of 's'"""
+    """Return a safe (base64) encoded version of 's'. This string
+       has no special characters or spaces, thereby making it safe
+       for use, e.g. as a filename or to save in a database
+    """
     return _base64.b64encode(s.encode("utf-8")).decode("utf-8")
 
 
