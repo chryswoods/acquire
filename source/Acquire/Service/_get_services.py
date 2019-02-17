@@ -87,7 +87,8 @@ def get_remote_service_info(service_url):
                            (service_url, str(e)))
 
     try:
-        return _Service.from_data(response["service_info"])
+        return _Service.from_data(response["service_info"],
+                                  verify_data=True)
     except Exception as e:
         raise ServiceError(
                 "Cannot extract service info for '%s' from '%s': %s" &

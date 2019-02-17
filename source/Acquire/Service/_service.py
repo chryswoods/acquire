@@ -200,7 +200,7 @@ class Service:
             # generate 'dummy' old keys - these will be replaced as
             # the real keys are updated
             self._lastkey = _PrivateKey()
-            self._lastcert = self._lastkey.public_key()
+            self._lastcert = self._lastkey
 
             self._last_key_update = _get_datetime_now()
             self._key_update_interval = 3600 * 24 * 7  # update keys weekly
@@ -332,7 +332,7 @@ class Service:
             # the old public key) and the old public certificate, so we
             # can verify data signed using the old private certificate
             self._lastkey = self._privkey
-            self._lastcert = self._pubcert
+            self._lastcert = self._privcert
 
             # now generate a new key and certificate
             self._privkey = _PrivateKey()
@@ -357,7 +357,8 @@ class Service:
                     response_key=_get_private_key("function"),
                     public_cert=self._pubcert)
 
-            service = Service.from_data(response["service_info"])
+            service = Service.from_data(response["service_info"],
+                                        verify_data=True)
 
             if service.uid() != self.uid():
                 raise ServiceError(
@@ -812,6 +813,15 @@ class Service:
 
         return result
 
+    def _validation_string(self):
+        """Return a string created from this object that can be signed
+           to verify that all information was transmitted correctly
+        """
+        return "%s:%s:%s:%s:%s:%s" % (
+            self._uid, self.canonical_url(), self._service_type,
+            self._pubcert.fingerprint(), self._pubkey.fingerprint(),
+            self._lastcert.fingerprint())
+
     def to_data(self, password=None):
         """Serialise this key to a dictionary, using the supplied
            password to encrypt the private key and certificate"""
@@ -825,7 +835,10 @@ class Service:
         data["public_certificate"] = self._pubcert.to_data()
         data["public_key"] = self._pubkey.to_data()
 
-        data["last_certificate"] = self._lastcert.to_data()
+        if isinstance(self._lastcert, _PublicKey):
+            data["last_certificate"] = self._lastcert.to_data()
+        else:
+            data["last_certificate"] = self._lastcert.public_key().to_data()
 
         data["last_key_update"] = _datetime_to_string(self._last_key_update)
         data["key_update_interval"] = self._key_update_interval
@@ -853,16 +866,27 @@ class Service:
             # the service user secrets are already encrypted
             data["service_user_secrets"] = _bytes_to_string(
                                             self._service_user_secrets)
+        elif self.is_unlocked():
+            # sign a validation string so that people can
+            # check it has not been tampered with in transit
+            v = self._validation_string()
+            data["public_signature"] = _bytes_to_string(
+                self._privcert.sign(message=v))
+            data["last_signature"] = _bytes_to_string(
+                self._lastcert.sign(message=v))
 
         return data
 
     @staticmethod
-    def from_data(data, password=None):
+    def from_data(data, password=None, verify_data=False):
         """Deserialise this object from the passed data. This will
            only deserialise the private key and private certificate
-           if the password is supplied
-        """
+           if the password is supplied.
 
+           If 'verify_data' is True, then extract the signature of the
+           data and verify that that signature is correct. You should
+           always verify data that has been transmitted over a network.
+        """
         service = Service()
 
         if password:
@@ -886,11 +910,19 @@ class Service:
             service._privcert = _PrivateKey.from_data(
                                             secret["private_certificate"],
                                             passphrase)
+
+            try:
+                service._lastcert = _PrivateKey.from_data(
+                                                secret["last_certificate"],
+                                                passphrase)
+            except:
+                service._lastcert = service._privcert
         else:
             service._skeleton_key = None
             service._privkey = None
             service._privcert = None
             service._lastkey = None
+            service._lastcert = _PublicKey.from_data(data["last_certificate"])
             service._service_user_secrets = None
 
         service._uid = data["uid"]
@@ -903,23 +935,35 @@ class Service:
 
         service._pubkey = _PublicKey.from_data(data["public_key"])
         service._pubcert = _PublicKey.from_data(data["public_certificate"])
-        service._lastcert = _PublicKey.from_data(data["last_certificate"])
 
         service._last_key_update = _string_to_datetime(data["last_key_update"])
         service._key_update_interval = float(data["key_update_interval"])
 
         if service.is_identity_service():
             from Acquire.Identity import IdentityService as _IdentityService
-            return _IdentityService(service)
+            service = _IdentityService(service)
         elif service.is_access_service():
             from Acquire.Access import AccessService as _AccessService
-            return _AccessService(service)
+            service = _AccessService(service)
         elif service.is_storage_service():
             from Acquire.Storage import StorageService as _StorageService
-            return _StorageService(service)
+            service = _StorageService(service)
         elif service.is_accounting_service():
             from Acquire.Accounting import AccountingService \
                                         as _AccountingService
-            return _AccountingService(service)
-        else:
-            return service
+            service = _AccountingService(service)
+
+        if verify_data:
+            # the service was transmitted with a signature from both
+            # certificates - make sure that the signature was correct.
+            # This stops someone changing the certificates, keys or
+            # any other data about the service while in transit
+            sig = _string_to_bytes(data["public_signature"])
+            v = service._validation_string()
+            service._pubcert.verify(signature=sig, message=v)
+            sig = _string_to_bytes(data["last_signature"])
+            service._lastcert.verify(signature=sig, message=v)
+
+            service._verified_data = True
+
+        return service
