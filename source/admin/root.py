@@ -11,6 +11,7 @@ def run(args):
 
     # need private access as we will sign the returned data
     service = get_service_info(need_private_access=True)
+    service.assert_unlocked()
 
     status = 0
     message = "Success"

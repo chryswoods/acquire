@@ -310,9 +310,17 @@ class Wallet:
 
         reply = input(
                     "This is a new service that you have not seen before.\n"
-                    "%s\n Public Certificate = %s\n"
+                    "URL = %s\n"
+                    "UID = %s\n"
+                    "public_key fingerprint = %s\n"
+                    "public_certificate fingerprint = %s\n"
+                    "verification string = %s\n\n"
                     "\nDo you trust this service? y/n " %
-                    (str(service), service.public_key().bytes())
+                    (service.canonical_url(),
+                     service.uid(),
+                     service.public_key().fingerprint(),
+                     service.public_certificate().fingerprint(),
+                     service.verification_string())
                 )
 
         if reply[0].lower() == 'y':
