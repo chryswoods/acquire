@@ -19,6 +19,7 @@ from ._login_to_objstore import get_service_account_bucket as \
                                _get_service_account_bucket
 
 from ._errors import ServiceError, ServiceAccountError
+from Acquire.Crypto import SignatureVerificationError
 
 _cache_local_serviceinfo = _LRUCache(maxsize=5)
 _cache_remote_serviceinfo = _LRUCache(maxsize=20)
@@ -89,9 +90,11 @@ def get_remote_service_info(service_url):
     try:
         return _Service.from_data(response["service_info"],
                                   verify_data=True)
+    except SignatureVerificationError:
+        raise
     except Exception as e:
         raise ServiceError(
-                "Cannot extract service info for '%s' from '%s': %s" &
+                "Cannot extract service info for '%s' from '%s': %s" %
                 (service_url, str(response), str(e)))
 
 

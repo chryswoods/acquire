@@ -958,11 +958,19 @@ class Service:
             # certificates - make sure that the signature was correct.
             # This stops someone changing the certificates, keys or
             # any other data about the service while in transit
-            sig = _string_to_bytes(data["public_signature"])
-            v = service._validation_string()
-            service._pubcert.verify(signature=sig, message=v)
-            sig = _string_to_bytes(data["last_signature"])
-            service._lastcert.verify(signature=sig, message=v)
+            try:
+                sig = _string_to_bytes(data["public_signature"])
+                v = service._validation_string()
+                service._pubcert.verify(signature=sig, message=v)
+                sig = _string_to_bytes(data["last_signature"])
+                service._lastcert.verify(signature=sig, message=v)
+            except Exception as e:
+                from Acquire.Crypto import SignatureVerificationError
+                raise SignatureVerificationError(
+                    "Cannot verify that the returned data for service '%s' "
+                    "has not been tampered with - the signature is "
+                    "incorrect: Error = %s" %
+                    (service.canonical_url(), str(e)))
 
             service._verified_data = True
 
