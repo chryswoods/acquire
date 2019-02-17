@@ -1,6 +1,6 @@
 
 from Acquire.Service import create_return_value
-from Acquire.Service import get_checked_remote_service_info, trust_service
+from Acquire.Service import get_checked_remote_service, trust_service
 from Acquire.Crypto import PublicKey
 from Acquire.Identity import Authorisation
 
@@ -26,7 +26,7 @@ def run(args):
         authorisation = None
 
     if service_url is not None:
-        service = get_checked_remote_service_info(service_url, public_cert)
+        service = get_checked_remote_service(service_url, public_cert)
     else:
         service = None
 

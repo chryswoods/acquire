@@ -1,7 +1,7 @@
 
 from Acquire.Service import create_return_value
 from Acquire.Service import get_service_account_bucket
-from Acquire.Service import get_service_info
+from Acquire.Service import get_this_service
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
 
@@ -35,7 +35,7 @@ def run(args):
     object_name = args['object_name']
     md5sum = args["md5sum"]
 
-    service = get_service_info()
+    service = get_this_service()
 
     if not service.is_storage_service():
         raise ServiceAccountError(

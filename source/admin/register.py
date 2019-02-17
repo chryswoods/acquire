@@ -1,7 +1,7 @@
 
 from Acquire.Service import get_service_account_bucket
 from Acquire.Service import create_return_value
-from Acquire.Service import Service, get_service_info
+from Acquire.Service import Service, get_this_service
 
 from Acquire.ObjectStore import ObjectStore
 
@@ -47,7 +47,7 @@ def run(args):
     bucket = get_service_account_bucket()
     account_key = "identity/accounts/%s" % user_account.sanitised_name()
 
-    service_info = get_service_info()
+    service_info = get_this_service()
 
     try:
         provisioning_uri = otp.provisioning_uri(

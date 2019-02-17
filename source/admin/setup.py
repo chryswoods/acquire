@@ -1,5 +1,5 @@
 
-from Acquire.Service import setup_service_info, add_admin_user
+from Acquire.Service import setup_this_service, add_admin_user
 from Acquire.Service import create_return_value, MissingServiceAccountError
 
 from Acquire.Crypto import OTP
@@ -39,7 +39,7 @@ def run(args):
     except:
         canonical_url = None
 
-    service = setup_service_info(service_type=service_type,
+    service = setup_this_service(service_type=service_type,
                                  canonical_url=canonical_url)
 
     # now register the new user account

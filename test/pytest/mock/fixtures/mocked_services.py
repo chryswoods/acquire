@@ -123,8 +123,15 @@ class MockedPyCurl:
             pass
 
 
+def mocked_input(s):
+    return "y"
+
+
 # monkey-patch _pycurl.Curl so that we can mock calls
 Acquire.Service._function._pycurl.Curl = MockedPyCurl
+
+# monkey-patch input so that we can say "y"
+Acquire.Client._wallet._input = mocked_input
 
 _services = {}                    # global objstore for each service
 

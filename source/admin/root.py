@@ -1,6 +1,6 @@
 
 from Acquire.Service import create_return_value
-from Acquire.Service import get_service_info
+from Acquire.Service import get_this_service
 
 
 def run(args):
@@ -10,7 +10,7 @@ def run(args):
     service = None
 
     # need private access as we will sign the returned data
-    service = get_service_info(need_private_access=True)
+    service = get_this_service(need_private_access=True)
     service.assert_unlocked()
 
     status = 0

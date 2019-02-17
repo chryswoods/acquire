@@ -1,7 +1,7 @@
 
 import os
 
-from Acquire.Service import get_service_info, get_service_account_bucket
+from Acquire.Service import get_this_service, get_service_account_bucket
 from Acquire.Service import create_return_value
 
 from Acquire.ObjectStore import ObjectStore

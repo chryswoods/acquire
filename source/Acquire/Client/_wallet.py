@@ -17,6 +17,9 @@ from Acquire.Crypto import OTP as _OTP
 
 from ._errors import LoginError
 
+# use a variable so we can monkey-patch while testing
+_input = input
+
 __all__ = ["Wallet"]
 
 
@@ -230,7 +233,7 @@ class Wallet:
         while not username:
             print("Make your selection: ", end="")
 
-            reply = input(
+            reply = _input(
                     "Make your selection (1 to %d) " %
                     (len(usernames))
                 )
@@ -313,7 +316,7 @@ class Wallet:
                 _write_service(service, service_file)
                 return service
             else:
-                reply = input(
+                reply = _input(
                     "This is a service you have seen before, but "
                     "it has changed?\n\n"
                     "URL = %s (%s)\n"
@@ -344,7 +347,7 @@ class Wallet:
                 _write_service(service, service_file)
                 return service
 
-        reply = input(
+        reply = _input(
                     "This is a new service that you have not seen before.\n\n"
                     "URL = %s\n"
                     "UID = %s\n"

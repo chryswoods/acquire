@@ -179,9 +179,12 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False):
 
         if "status" in data:
             if data["status"] != 0:
-                raise RemoteFunctionCallError(
-                    "Function exited with status %d: %s" % (data["status"],
-                                                            data["message"]))
+                if "exception" in data:
+                    _unpack_and_raise("unknown", "unknown", data["exception"])
+                else:
+                    raise RemoteFunctionCallError(
+                        "Function exited with status %d: %s" %
+                        (data["status"], data["message"]))
 
     try:
         is_encrypted = data["encrypted"]
@@ -327,7 +330,7 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
     from Acquire.Service import get_this_service as _get_this_service
 
     try:
-        service = _get_service_info(need_private_access=True)
+        service = _get_this_service(need_private_access=True)
     except:
         service = None
 

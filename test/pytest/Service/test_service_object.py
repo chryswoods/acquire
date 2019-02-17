@@ -1,10 +1,10 @@
 
 from Acquire.Identity import IdentityService
-from Acquire.Service import Service
+from Acquire.Service import Service, set_is_running_service
 from Acquire.Crypto import PrivateKey
 
 
-def test_service_object():
+def test_service_object(aaai_services):
     service = IdentityService(Service(service_type="identity",
                                       service_url="identity"))
 
@@ -38,5 +38,6 @@ def test_service_object():
     service.refresh_keys()
 
     assert(service.last_key_update() > service2.last_key_update())
-    assert(service.last_certificate() == service2.public_certificate())
+    assert(service.last_certificate().public_key()
+           == service2.public_certificate())
     assert(service.last_key() == service2.private_key())

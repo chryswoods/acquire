@@ -4,7 +4,7 @@ import glob
 import json
 import re
 
-from Acquire.Service import get_service_account_bucket, get_service_info
+from Acquire.Service import get_service_account_bucket, get_this_service
 from Acquire.Accounting import Account, Transaction, TransactionInfo, Ledger
 from Acquire.ObjectStore import string_to_date, string_to_datetime, \
                                 string_to_decimal
@@ -13,7 +13,8 @@ from Acquire.Accounting._account import _get_date_from_key, \
                                         _get_datetime_from_key, \
                                         _sum_transactions
 
-test_dir = "/private/var/folders/hw/snr3wkg97sjf6cmv12jgj0040000gq/T/pytest-of-chris/pytest-255/objstore0/testing_objstore"
+test_dir = "/private/var/folders/hw/snr3wkg97sjf6cmv12jgj0040000gq/T" \
+    "/pytest-of-chris/pytest-255/objstore0/testing_objstore"
 
 bucket = get_service_account_bucket(test_dir)
 
@@ -22,7 +23,7 @@ accounts_data = glob.glob("%s/accounting/accounts/*._data" % test_dir)
 accounts = {}
 
 for account_data in accounts_data:
-    line = open(account_data,"r").read()
+    line = open(account_data, "r").read()
     account = Account.from_data(json.loads(line))
     print("Reading account '%s'" % account)
 
@@ -88,8 +89,9 @@ def verify_balances(account, balances, transactions):
                     b = ending_balance[typ]
                     c = last_balance[typ]
                     if a != b:
-                        failures.append((day,a,b,c))
-                        print("FAILED (%s - %s): %s | %s | %s" % (day, typ, a, b, c))
+                        failures.append((day, a, b, c))
+                        print("FAILED (%s - %s): %s | %s | %s" %
+                            (day, typ, a, b, c))
 
                 for t in last_transactions:
                     print(t, end=" ")

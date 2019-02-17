@@ -1,5 +1,5 @@
 
-from Acquire.Service import get_service_account_bucket, get_service_info
+from Acquire.Service import get_service_account_bucket, get_this_service
 from Acquire.Service import create_return_value
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
@@ -176,7 +176,7 @@ def run(args):
 
     # the login URL is the URL of this identity service plus the
     # short UID of the session
-    login_url = "%s/s?id=%s" % (get_service_info().service_url(),
+    login_url = "%s/s?id=%s" % (get_this_service().service_url(),
                                 login_session.short_uuid())
 
     login_uid = login_session.uuid()

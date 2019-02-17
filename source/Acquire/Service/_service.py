@@ -102,12 +102,12 @@ def _login_service_user(service_uid):
        login as the service user from outside the service. It is an
        account that is internal to the service.
     """
-    from Acquire.Service import get_service_info as _get_service_info
+    from Acquire.Service import get_this_service as _get_this_service
     from Acquire.Client import User as _User
     from Acquire.Crypto import OTP as _OTP
     from Acquire.Identity import LoginSession as _LoginSession
 
-    service = _get_service_info(need_private_access=True)
+    service = _get_this_service(need_private_access=True)
 
     if service.uid() != service_uid:
         from Acquire.Service import ServiceAccountError

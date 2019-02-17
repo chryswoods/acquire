@@ -1,7 +1,7 @@
 
 from Acquire.Service import create_return_value
-from Acquire.Service import get_checked_remote_service_info, trust_service
-from Acquire.Service import get_service_info, create_service_user_account
+from Acquire.Service import get_checked_remote_service, trust_service
+from Acquire.Service import get_this_service, create_service_user_account
 
 from Acquire.Crypto import PublicKey
 from Acquire.Identity import Authorisation
@@ -31,15 +31,15 @@ def run(args):
 
     authorisation = Authorisation.from_data(args["authorisation"])
 
-    accounting_service = get_checked_remote_service_info(service_url,
-                                                         public_cert)
+    accounting_service = get_checked_remote_service(service_url,
+                                                    public_cert)
 
     if not accounting_service.is_accounting_service():
         raise ServiceAccountError(
             "%s is not an accounting service, so should not be "
             "trusted as one" % str(accounting_service))
 
-    service = get_service_info(need_private_access=True)
+    service = get_this_service(need_private_access=True)
     service.assert_admin_authorised(
         authorisation,
         "trust_accounting_service %s" % accounting_service.uid())
