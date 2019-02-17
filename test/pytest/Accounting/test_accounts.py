@@ -3,16 +3,16 @@ import pytest
 
 from Acquire.Accounting import Accounts
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 
 
 @pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     try:
-        return login_to_service_account()
+        return get_service_account_bucket()
     except:
         d = tmpdir_factory.mktemp("objstore")
-        return login_to_service_account(str(d))
+        return get_service_account_bucket(str(d))
 
 
 def test_accounts(bucket):

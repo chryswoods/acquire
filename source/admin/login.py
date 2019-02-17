@@ -2,7 +2,7 @@
 import datetime
 import uuid
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 from Acquire.Service import create_return_value
 
 from Acquire.Identity import UserAccount, LoginSession
@@ -44,7 +44,7 @@ def run(args):
 
     # log into the central identity account to query
     # the current status of this login session
-    bucket = login_to_service_account()
+    bucket = get_service_account_bucket()
 
     # locate the session referred to by this uid
     base_key = "identity/requests/%s" % short_uid

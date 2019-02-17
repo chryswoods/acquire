@@ -37,10 +37,10 @@ class Mutex:
             key = "mutexes/%s" % str(key).replace(" ", "_")
 
         if bucket is None:
-            from Acquire.Service import login_to_service_account as \
-                                       _login_to_service_account
+            from Acquire.Service import get_service_account_bucket as \
+                                       _get_service_account_bucket
 
-            bucket = _login_to_service_account()
+            bucket = _get_service_account_bucket()
 
         self._bucket = bucket
         self._key = key

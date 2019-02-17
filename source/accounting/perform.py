@@ -1,5 +1,5 @@
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Account, Accounts, Transaction, Ledger
@@ -76,7 +76,7 @@ def run(args):
     user_uid = authorisation.user_uid()
 
     # load the account from which the transaction will be performed
-    bucket = login_to_service_account()
+    bucket = get_service_account_bucket()
     debit_account = Account(uid=debit_account_uid, bucket=bucket)
 
     # validate that this account is in a group that can be authorised

@@ -12,7 +12,7 @@ from Acquire.Identity import Authorisation
 
 from Acquire.ObjectStore import get_datetime_now
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 
 try:
     from freezegun import freeze_time
@@ -29,10 +29,10 @@ start_time = get_datetime_now() - datetime.timedelta(days=365)
 @pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     try:
-        return login_to_service_account()
+        return get_service_account_bucket()
     except:
         d = tmpdir_factory.mktemp("objstore")
-        return login_to_service_account(str(d))
+        return get_service_account_bucket(str(d))
 
 
 @pytest.fixture(scope="session")

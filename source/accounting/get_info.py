@@ -1,5 +1,5 @@
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Accounts
@@ -39,7 +39,7 @@ def run(args):
         raise AccountError("You must supply a valid authorisation")
 
     # load the account
-    bucket = login_to_service_account()
+    bucket = get_service_account_bucket()
     account = Accounts(authorisation.user_uid()).get_account(account_name,
                                                              bucket=bucket)
 

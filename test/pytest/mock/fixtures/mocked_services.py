@@ -269,7 +269,7 @@ def authenticated_user(aaai_services):
     password = PrivateKey.random_passphrase()
 
     user = User(username, identity_url="identity")
-    (provisioning_uri, qrcode) = user.register(password)
+    (provisioning_uri, _) = user.register(password)
 
     otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
                           provisioning_uri).groups()[0]
@@ -277,7 +277,7 @@ def authenticated_user(aaai_services):
     user_otp = OTP(otpsecret)
 
     # now log the user in
-    (login_url, qrcode) = user.request_login()
+    (login_url, _) = user.request_login()
 
     assert(type(login_url) is str)
 

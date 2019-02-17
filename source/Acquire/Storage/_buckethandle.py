@@ -2,8 +2,8 @@
 import uuid as _uuid
 
 from Acquire.ObjectStore import ObjectStore as _ObjectStore
-from Acquire.Service import login_to_service_account as \
-                           _login_to_service_account
+from Acquire.Service import get_service_account_bucket as \
+                           _get_service_account_bucket
 
 __all__ = ["BucketHandle"]
 
@@ -25,7 +25,7 @@ class BucketHandle:
            service bucket. If you want to specify a different
            compartment then pass this in as 'compartment'
         """
-        bucket = _login_to_service_account()
+        bucket = _get_service_account_bucket()
 
         if uid is None:
             # try to create a new bucket - attempt to create it three times.

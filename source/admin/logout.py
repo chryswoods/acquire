@@ -1,6 +1,6 @@
 
 from Acquire.Service import create_return_value
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 
 from Acquire.Identity import UserAccount, LoginSession
 
@@ -31,7 +31,7 @@ def run(args):
 
     # now log into the central identity account to query
     # the current status of this login session
-    bucket = login_to_service_account()
+    bucket = get_service_account_bucket()
 
     user_session_key = "identity/sessions/%s/%s" % \
         (user_account.sanitised_name(), session_uid)

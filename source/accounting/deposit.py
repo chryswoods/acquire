@@ -1,7 +1,7 @@
 
 import datetime
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Account, Accounts, Transaction, Ledger
@@ -53,7 +53,7 @@ def run(args):
         user_uid = authorisation.user_uid()
 
         # load the account from which the transaction will be performed
-        bucket = login_to_service_account()
+        bucket = get_service_account_bucket()
         accounts = Accounts(user_uid)
 
         # deposits are made by transferring funds from the user's

@@ -2,8 +2,8 @@
 import pytest
 
 from Acquire.Crypto import PrivateKey
-from Acquire.Service import call_function, Service, get_service_info, \
-                _push_testing_objstore, _pop_testing_objstore
+from Acquire.Service import call_function, Service, get_this_service, \
+                push_testing_objstore, pop_testing_objstore
 
 
 @pytest.mark.parametrize("service_url",
@@ -18,9 +18,9 @@ def test_service(service_url, aaai_services):
     service = Service.from_data(response["service_info"])
 
     # also read the service from the object store directly
-    _push_testing_objstore(aaai_services["_services"][service_url])
-    private_service = get_service_info(need_private_access=True)
-    _pop_testing_objstore()
+    push_testing_objstore(aaai_services["_services"][service_url])
+    private_service = get_this_service(need_private_access=True)
+    pop_testing_objstore()
 
     # create some test data that contain unicode characters for
     # testing encryption, signing and both encryption and signing
@@ -43,3 +43,4 @@ def test_service(service_url, aaai_services):
 
     result = service.call_function("admin/test")
 
+    assert(result["status"] == 0)

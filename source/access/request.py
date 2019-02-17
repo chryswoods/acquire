@@ -1,6 +1,6 @@
 
 from Acquire.Service import create_return_value
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 from Acquire.Service import call_function
 
 from Acquire.Crypto import PrivateKey

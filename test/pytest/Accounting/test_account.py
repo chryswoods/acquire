@@ -9,7 +9,7 @@ from Acquire.Accounting import Account, Transaction, TransactionRecord, \
 
 from Acquire.Identity import Authorisation
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 
 from Acquire.ObjectStore import get_datetime_now
 
@@ -26,10 +26,10 @@ def assert_packable(obj):
 @pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     try:
-        return login_to_service_account()
+        return get_service_account_bucket()
     except:
         d = tmpdir_factory.mktemp("objstore")
-        return login_to_service_account(str(d))
+        return get_service_account_bucket(str(d))
 
 
 @pytest.fixture(scope="session")

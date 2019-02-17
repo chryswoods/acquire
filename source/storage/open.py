@@ -1,6 +1,6 @@
 
 from Acquire.Service import create_return_value
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 from Acquire.Service import get_service_info
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
@@ -41,7 +41,7 @@ def run(args):
         raise ServiceAccountError(
             "We can only perform storage functions using a StorageService...")
 
-    bucket = login_to_service_account()
+    bucket = get_service_account_bucket()
 
     # get the bucket used for user data
 

@@ -1,6 +1,6 @@
 
 from Acquire.Service import create_return_value
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 from Acquire.Service import call_function
 from Acquire.Service import Service
 
@@ -29,7 +29,7 @@ def run(args):
     identity_service_url = args["identity_service"]
 
     # log into the central access account
-    bucket = login_to_service_account()
+    bucket = get_service_account_bucket()
 
     # is the identity service supplied by the user one that we trust?
     identity_service = Service.from_data(

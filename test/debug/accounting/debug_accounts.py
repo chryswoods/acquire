@@ -4,7 +4,7 @@ import glob
 import json
 import re
 
-from Acquire.Service import login_to_service_account, get_service_info
+from Acquire.Service import get_service_account_bucket, get_service_info
 from Acquire.Accounting import Account, Transaction, TransactionInfo, Ledger
 from Acquire.ObjectStore import string_to_date, string_to_datetime, \
                                 string_to_decimal
@@ -15,7 +15,7 @@ from Acquire.Accounting._account import _get_date_from_key, \
 
 test_dir = "/private/var/folders/hw/snr3wkg97sjf6cmv12jgj0040000gq/T/pytest-of-chris/pytest-255/objstore0/testing_objstore"
 
-bucket = login_to_service_account(test_dir)
+bucket = get_service_account_bucket(test_dir)
 
 accounts_data = glob.glob("%s/accounting/accounts/*._data" % test_dir)
 

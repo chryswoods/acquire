@@ -1,5 +1,5 @@
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 from Acquire.Service import create_return_value
 
 from Acquire.ObjectStore import ObjectStore, datetime_to_string
@@ -53,7 +53,7 @@ def run(args):
     elif user_uid is None:
         # look up the user_uid from the username
         user_account = UserAccount(username)
-        bucket = login_to_service_account()
+        bucket = get_service_account_bucket()
         user_key = "identity/accounts/%s" % user_account.sanitised_name()
 
         try:
@@ -68,7 +68,7 @@ def run(args):
 
     elif username is None:
         # look up the username from the uuid
-        bucket = login_to_service_account()
+        bucket = get_service_account_bucket()
 
         uid_key = "identity/whois/%s" % user_uid
 

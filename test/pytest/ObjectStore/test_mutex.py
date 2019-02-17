@@ -1,6 +1,6 @@
 
 from Acquire.ObjectStore import Mutex, MutexTimeoutError
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 
 import datetime
 import pytest
@@ -10,7 +10,7 @@ import time
 @pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     d = tmpdir_factory.mktemp("objstore")
-    return login_to_service_account(str(d))
+    return get_service_account_bucket(str(d))
 
 
 def test_mutex(bucket):

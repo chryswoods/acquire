@@ -2,7 +2,7 @@
 from Acquire.ObjectStore import ObjectStore, bytes_to_string
 from Acquire.ObjectStore import datetime_to_string
 
-from Acquire.Service import create_return_value, login_to_service_account
+from Acquire.Service import create_return_value, get_service_account_bucket
 
 from Acquire.Identity import UserAccount, LoginSession
 
@@ -29,7 +29,7 @@ def run(args):
 
     # now log into the central identity account to query
     # the current status of this login session
-    bucket = login_to_service_account()
+    bucket = get_service_account_bucket()
 
     user_session_key = "sessions/%s/%s" % \
         (user_account.sanitised_name(), session_uid)

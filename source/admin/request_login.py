@@ -1,5 +1,5 @@
 
-from Acquire.Service import login_to_service_account, get_service_info
+from Acquire.Service import get_service_account_bucket, get_service_info
 from Acquire.Service import create_return_value
 
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
@@ -123,7 +123,7 @@ def run(args):
 
     # now log into the central identity account to record
     # that a request to open a login session has been opened
-    bucket = login_to_service_account()
+    bucket = get_service_account_bucket()
 
     # first, make sure that the user exists...
     account_key = "identity/accounts/%s" % user_account.sanitised_name()

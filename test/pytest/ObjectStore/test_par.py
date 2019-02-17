@@ -6,13 +6,13 @@ import uuid
 from Acquire.ObjectStore import ObjectStore, ObjectStoreError, PAR, \
                                 PARError, PARPermissionsError
 
-from Acquire.Service import login_to_service_account
+from Acquire.Service import get_service_account_bucket
 
 
 @pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     d = tmpdir_factory.mktemp("simple_objstore")
-    return login_to_service_account(str(d))
+    return get_service_account_bucket(str(d))
 
 
 def test_par(bucket):
