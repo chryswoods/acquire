@@ -813,6 +813,20 @@ class Service:
 
         return result
 
+    def is_evolution_of(self, other):
+        """Return whether or not this service is an evolution of 'other'.
+           Evolving means that this service is the same service as 'other',
+           but at a later point in time with newer keys
+        """
+        if self.validation_string() == other.validation_string():
+            return True
+        elif self.canonical_url() != other.canonical_url():
+            return False
+        elif self.uid() != other.uid():
+            return False
+
+        return False
+
     def validation_string(self):
         """Return a string created from this object that can be signed
            to verify that all information was transmitted correctly

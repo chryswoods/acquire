@@ -305,22 +305,58 @@ class Wallet:
             pass
 
         if existing_service is not None:
-            print("MUST VALIDATE THAT SERVICE IS CORRECT!")
-            return
+            if service.validation_string() == \
+               existing_service.validation_string():
+                return service
+            elif service.is_evolution_of(existing_service):
+                # the service has evolved - this is ok
+                _write_service(service, service_file)
+                return service
+            else:
+                reply = input(
+                    "This is a service you have seen before, but "
+                    "it has changed?\n\n"
+                    "URL = %s (%s)\n"
+                    "UID = %s (%s)\n"
+                    "public_key fingerprint = %s (%s)\n"
+                    "public_certificate fingerprint = %s (%s)\n\n"
+                    "verification string = %s (%s)\n\n"
+                    "\nDo you trust this updated service? y/n " %
+                    (service.canonical_url(),
+                     existing_service.canonical_url(),
+                     service.uid(), existing_service.uid(),
+                     service.public_key().fingerprint(),
+                     existing_service.public_key().fingerprint(),
+                     service.public_certificate().fingerprint(),
+                     existing_service.public_certificate().fingerprint(),
+                     service.validation_string(),
+                     existing_service.validation_string())
+                )
+
+                if reply[0].lower() == 'y':
+                    print("Now trusting %s" % str(service))
+                else:
+                    print("Not trusting this service!")
+                    raise PermissionError(
+                        "We do not trust the service '%s'" % str(service))
+
+                # We trust the service, so save this for future reference
+                _write_service(service, service_file)
+                return service
 
         reply = input(
-                    "This is a new service that you have not seen before.\n"
+                    "This is a new service that you have not seen before.\n\n"
                     "URL = %s\n"
                     "UID = %s\n"
                     "public_key fingerprint = %s\n"
-                    "public_certificate fingerprint = %s\n"
+                    "public_certificate fingerprint = %s\n\n"
                     "verification string = %s\n\n"
                     "\nDo you trust this service? y/n " %
                     (service.canonical_url(),
                      service.uid(),
                      service.public_key().fingerprint(),
                      service.public_certificate().fingerprint(),
-                     service.verification_string())
+                     service.validation_string())
                 )
 
         if reply[0].lower() == 'y':
@@ -367,7 +403,9 @@ class Wallet:
         if existing_service is not None:
             # check if the keys need rotating - if they do, load up
             # the new keys and save them to the service file...
-            print("MUST CHECK FOR ROTATED KEYS")
+            if existing_service.should_refresh_keys():
+                existing_service.refresh_keys()
+                Wallet.add_service(existing_service)
 
             return existing_service
         else:
