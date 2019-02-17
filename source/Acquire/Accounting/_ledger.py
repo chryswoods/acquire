@@ -2,23 +2,6 @@
 import uuid as _uuid
 from copy import copy as _copy
 
-from Acquire.Service import login_to_service_account \
-                    as _login_to_service_account
-
-from Acquire.ObjectStore import ObjectStore as _ObjectStore
-
-from Acquire.Identity import Authorisation as _Authorisation
-
-from ._account import Account as _Account
-from ._transaction import Transaction as _Transaction
-from ._transactionrecord import TransactionRecord as _TransactionRecord
-from ._transactionrecord import TransactionState as _TransactionState
-from ._debitnote import DebitNote as _DebitNote
-from ._creditnote import CreditNote as _CreditNote
-from ._pairednote import PairedNote as _PairedNote
-from ._receipt import Receipt as _Receipt
-from ._refund import Refund as _Refund
-
 from ._errors import TransactionError, LedgerError, UnbalancedLedgerError
 
 __all__ = ["Ledger"]
@@ -39,7 +22,12 @@ class Ledger:
     def load_transaction(uid, bucket=None):
         """Load the transactionrecord with UID=uid from the ledger"""
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
+
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
         data = _ObjectStore.get_object_from_json(bucket, Ledger.get_key(uid))
 
@@ -53,13 +41,19 @@ class Ledger:
     @staticmethod
     def save_transaction(record, bucket=None):
         """Save the passed transactionrecord to the object store"""
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+
         if not isinstance(record, _TransactionRecord):
             raise TypeError("You can only write TransactionRecord objects "
                             "to the ledger!")
 
         if not record.is_null():
             if bucket is None:
-                bucket = _login_to_service_account()
+                from Acquire.Service import get_service_account_bucket \
+                    as _get_service_account_bucket
+                bucket = _get_service_account_bucket()
+
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
             _ObjectStore.set_object_from_json(bucket,
                                               Ledger.get_key(record.uid()),
@@ -74,6 +68,13 @@ class Ledger:
            This returns the (already recorded) TransactionRecord for the
            refund
         """
+        from Acquire.Accounting import Refund as _Refund
+        from Acquire.Accounting import Account as _Account
+        from Acquire.Accounting import DebitNote as _DebitNote
+        from Acquire.Accounting import CreditNote as _CreditNote
+        from Acquire.Accounting import PairedNote as _PairedNote
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+
         if not isinstance(refund, _Refund):
             raise TypeError("The Refund must be of type Refund")
 
@@ -81,7 +82,9 @@ class Ledger:
             return _TransactionRecord()
 
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
 
         # return value from the credit to debit accounts
         debit_account = _Account(uid=refund.debit_account_uid(),
@@ -159,6 +162,13 @@ class Ledger:
            This returns the (already recorded) TransactionRecord for the
            receipt
         """
+        from Acquire.Accounting import Receipt as _Receipt
+        from Acquire.Accounting import Account as _Account
+        from Acquire.Accounting import DebitNote as _DebitNote
+        from Acquire.Accounting import CreditNote as _CreditNote
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+        from Acquire.Accounting import PairedNote as _PairedNote
+
         if not isinstance(receipt, _Receipt):
             raise TypeError("The Receipt must be of type Receipt")
 
@@ -166,7 +176,9 @@ class Ledger:
             return _TransactionRecord()
 
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
 
         # extract value into the debit note
         debit_account = _Account(uid=receipt.debit_account_uid(),
@@ -251,6 +263,12 @@ class Ledger:
            Note that if several transactions are passed, then they must all
            succeed. If one of them fails then they are immediately refunded.
         """
+        from Acquire.Accounting import Account as _Account
+        from Acquire.Identity import Authorisation as _Authorisation
+        from Acquire.Accounting import DebitNote as _DebitNote
+        from Acquire.Accounting import CreditNote as _CreditNote
+        from Acquire.Accounting import Transaction as _Transaction
+        from Acquire.Accounting import PairedNote as _PairedNote
 
         if not isinstance(debit_account, _Account):
             raise TypeError("The Debit Account must be of type Account")
@@ -283,7 +301,9 @@ class Ledger:
         transactions = t
 
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
 
         # first, try to debit all of the transactions. If any fail (e.g.
         # because there is insufficient balance) then they are all
@@ -391,6 +411,11 @@ class Ledger:
            the transaction record(s) to the object store, and will also return
            the record(s).
         """
+        from Acquire.Accounting import Receipt as _Receipt
+        from Acquire.Accounting import Refund as _Refund
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+        from Acquire.Accounting import TransactionState as _TransactionState
+
         if receipt is not None:
             if not isinstance(receipt, _Receipt):
                 raise TypeError("Receipts must be of type 'Receipt'")
@@ -403,7 +428,9 @@ class Ledger:
             records = []
 
             if bucket is None:
-                bucket = _login_to_service_account()
+                from Acquire.Service import get_service_account_bucket \
+                    as _get_service_account_bucket
+                bucket = _get_service_account_bucket()
 
             for paired_note in paired_notes:
                 record = _TransactionRecord()

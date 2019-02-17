@@ -2,24 +2,7 @@
 import datetime as _datetime
 import json as _json
 
-from Acquire.Identity import Authorisation as _Authorisation
-
-from Acquire.ObjectStore import decimal_to_string as _decimal_to_string
-from Acquire.ObjectStore import get_datetime_future as _get_datetime_future
-from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-from Acquire.ObjectStore import create_uuid as _create_uuid
-from Acquire.ObjectStore import string_to_list as _string_to_list
-from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
-from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
-from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
-from Acquire.ObjectStore import string_to_decimal as _string_to_decimal
-
-from Acquire.Service import get_service_info as _get_service_info
-
 from ._errors import PaymentError
-
 
 __all__ = ["Cheque"]
 
@@ -61,20 +44,27 @@ class Cheque:
            when the cheque is cashed (or it breaks spending limits)
            then the cheque will bounce.
         """
-        from ._account import Account as _Account
+        from Acquire.Client import Account as _Account
 
         if not isinstance(account, _Account):
             raise TypeError("You must pass a valid Acquire.Client.Account "
                             "object to write a cheque...")
 
         if max_spend is not None:
+            from Acquire.ObjectStore import decimal_to_string \
+                as _decimal_to_string
             max_spend = _decimal_to_string(max_spend)
 
         if expiry_date is not None:
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
             expiry_date = _datetime_to_string(expiry_date)
 
         if recipient_url is not None:
             recipient_url = str(recipient_url)
+
+        from Acquire.ObjectStore import create_uuid as _create_uuid
+        from Acquire.Identity import Authorisation as _Authorisation
 
         info = _json.dumps({"recipient_url": recipient_url,
                             "max_spend": max_spend,
@@ -127,11 +117,19 @@ class Cheque:
         if self._cheque is None:
             raise PaymentError("You cannot read a null cheque")
 
+        from Acquire.ObjectStore import string_to_decimal \
+            as _string_to_decimal
+        from Acquire.ObjectStore import string_to_datetime \
+            as _string_to_datetime
+        from Acquire.ObjectStore import datetime_to_string \
+            as _datetime_to_string
+        from Acquire.Service import get_this_service as _get_this_service
+
         spend = _string_to_decimal(spend)
         resource = str(resource)
         receipt_by = _string_to_datetime(receipt_by)
 
-        service = _get_service_info(need_private_access=True)
+        service = _get_this_service(need_private_access=True)
 
         # get the cheque data - this may have been signed
         try:
@@ -145,6 +143,7 @@ class Cheque:
         # the date comprises the user-authorisation that acts as a
         # signature that the user wrote this cheque, and the info
         # for the cheque to say how it is valid
+        from Acquire.Identity import Authorisation as _Authorisation
         auth = _Authorisation.from_data(cheque_data["authorisation"])
         info = cheque_data["info"]
 
@@ -216,6 +215,8 @@ class Cheque:
 
             # validate that the cheque will not have expired
             # when we receipt it
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
             now = _get_datetime_now()
 
             if now > receipt_by:
@@ -264,13 +265,16 @@ class Cheque:
             raise PaymentError("You cannot cash a null cheque!")
 
         # sign the cheque to show we have seen it
-        service = _get_service_info(need_private_access=True)
+        from Acquire.Service import get_this_service as _get_this_service
+        service = _get_this_service(need_private_access=True)
         self._cheque = service.sign_data(self._cheque)
 
         # get the trusted accounting service that will honour the cheque
         accounting_service = self.accounting_service()
 
         # when do we guarantee to receipt the credit notes by?
+        from Acquire.ObjectStore import get_datetime_future \
+            as _get_datetime_future
         receipt_by = _get_datetime_future(receipt_within)
 
         # which account should the money be paid into?
@@ -279,6 +283,13 @@ class Cheque:
 
         # next - send the cheque to the accounting service to
         # show that we know the item_id and want to cash it
+        from Acquire.ObjectStore import decimal_to_string \
+            as _decimal_to_string
+        from Acquire.ObjectStore import datetime_to_string \
+            as _datetime_to_string
+        from Acquire.ObjectStore import string_to_list \
+            as _string_to_list
+
         result = accounting_service.call_function(
             function="cash_cheque",
             args={"cheque": self.to_data(),
@@ -326,7 +337,8 @@ class Cheque:
            Note that this will only return the service if it is trusted
            by the service on which this function is called
         """
-        service = _get_service_info()
+        from Acquire.Service import get_this_service as _get_this_service
+        service = _get_this_service()
         accounting_service = service.get_trusted_service(
                                             self.accounting_service_url())
 

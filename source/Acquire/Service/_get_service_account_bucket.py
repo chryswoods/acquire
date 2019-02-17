@@ -13,7 +13,7 @@ from ._errors import ServiceAccountError
 _login_cache = _LRUCache(maxsize=50)
 
 __all__ = ["get_service_account_bucket",
-           "_push_testing_objstore", "_pop_testing_objstore",
+           "push_testing_objstore", "pop_testing_objstore",
            "clear_login_cache"]
 
 _current_testing_objstore = None
@@ -25,7 +25,7 @@ def clear_login_cache():
     _login_cache.clear()
 
 
-def _push_testing_objstore(testing_dir):
+def push_testing_objstore(testing_dir):
     """Function used in testing to push a new object store onto the stack"""
     global _current_testing_objstore
     _testing_objstore_stack.append(_current_testing_objstore)
@@ -33,7 +33,7 @@ def _push_testing_objstore(testing_dir):
     _clear_service_cache()
 
 
-def _pop_testing_objstore():
+def pop_testing_objstore():
     """Function used in testing to pop an object store from the stack"""
     global _current_testing_objstore
     global _testing_objstore_stack

@@ -1,14 +1,4 @@
 
-from ._account import Account as _Account
-
-from Acquire.ObjectStore import ObjectStore as _ObjectStore
-from Acquire.ObjectStore import Mutex as _Mutex
-from Acquire.ObjectStore import string_to_encoded as _string_to_encoded
-from Acquire.ObjectStore import encoded_to_string as _encoded_to_string
-
-from Acquire.Service import login_to_service_account as \
-                            _login_to_service_account
-
 from ._errors import AccountError
 
 __all__ = ["Accounts"]
@@ -36,11 +26,15 @@ class Accounts:
 
     def _root(self):
         """Return the root key for this group in the object store"""
+        from Acquire.ObjectStore import string_to_encoded \
+            as _string_to_encoded
         return "accounting/account_groups/%s/" % \
             _string_to_encoded(self._group)
 
     def _account_key(self, name):
         """Return the key for the account called 'name' in this group"""
+        from Acquire.ObjectStore import string_to_encoded \
+            as _string_to_encoded
         return "%s/%s" % (self._root(),
                           _string_to_encoded(str(name)))
 
@@ -51,7 +45,13 @@ class Accounts:
     def list_accounts(self, bucket=None):
         """Return the names of all of the accounts in this group"""
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import encoded_to_string \
+            as _encoded_to_string
 
         keys = _ObjectStore.get_all_object_names(bucket, self._root())
         root_len = len(self._root())
@@ -66,9 +66,12 @@ class Accounts:
     def get_account(self, name, bucket=None):
         """Return the account called 'name' from this group"""
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
 
         try:
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
             account_uid = _ObjectStore.get_string_object(
                             bucket, self._account_key(name))
         except:
@@ -83,19 +86,24 @@ class Accounts:
             raise AccountError("There is no account called '%s' in the "
                                "group '%s'" % (name, self.group()))
 
+        from Acquire.Accounting import Account as _Account
         return _Account(uid=account_uid, bucket=bucket)
 
     def contains(self, account, bucket=None):
         """Return whether or not this group contains the passed account"""
+        from Acquire.Accounting import Account as _Account
         if not isinstance(account, _Account):
             raise TypeError("The passed account must be of type Account")
 
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
 
         # read the UID of the account in this group that matches the
         # passed account's name
         try:
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
             account_uid = _ObjectStore.get_string_object(
                             bucket, self._account_key(account.name()))
         except:
@@ -114,7 +122,12 @@ class Accounts:
         account_key = self._account_key(name)
 
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Accounting import Account as _Account
 
         try:
             account_uid = _ObjectStore.get_string_object(bucket, account_key)
@@ -131,6 +144,7 @@ class Accounts:
             return account
 
         # make sure that no-one has created this account before
+        from Acquire.ObjectStore import Mutex as _Mutex
         m = _Mutex(account_key, timeout=600, lease_time=600, bucket=bucket)
 
         try:

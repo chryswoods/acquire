@@ -1,16 +1,4 @@
 
-from Acquire.Service import login_to_service_account \
-                    as _login_to_service_account
-
-from Acquire.Identity import Authorisation as _Authorisation
-
-from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
-from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
-from Acquire.ObjectStore import datetime_to_datetime as _datetime_to_datetime
-from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
-
-from ._transaction import Transaction as _Transaction
-
 from ._errors import LedgerError
 
 __all__ = ["DebitNote"]
@@ -161,7 +149,7 @@ class DebitNote:
            value residing in this debit note until it is credited to
            another account
         """
-        from ._refund import Refund as _Refund
+        from Acquire.Accounting import Refund as _Refund
 
         if not isinstance(refund, _Refund):
             raise TypeError("You can only create a DebitNote with a "
@@ -171,11 +159,13 @@ class DebitNote:
             return
 
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
 
-        from ._transactionrecord import TransactionRecord as _TransactionRecord
-        from ._transactionrecord import TransactionState as _TransactionState
-        from ._account import Account as _Account
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+        from Acquire.Accounting import TransactionState as _TransactionState
+        from Acquire.Accounting import Account as _Account
 
         # get the transaction behind this refund and move it into
         # the "refunding" state
@@ -226,7 +216,7 @@ class DebitNote:
            value residing in this debit note until it is credited to
            another account
         """
-        from ._receipt import Receipt as _Receipt
+        from Acquire.Accounting import Receipt as _Receipt
 
         if not isinstance(receipt, _Receipt):
             raise TypeError("You can only create a DebitNote with a "
@@ -236,11 +226,13 @@ class DebitNote:
             return
 
         if bucket is None:
-            bucket = _login_to_service_account()
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            bucket = _get_service_account_bucket()
 
-        from ._transactionrecord import TransactionRecord as _TransactionRecord
-        from ._transactionrecord import TransactionState as _TransactionState
-        from ._account import Account as _Account
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+        from Acquire.Accounting import TransactionState as _TransactionState
+        from Acquire.Accounting import Account as _Account
 
         # get the transaction behind this receipt and move it into
         # the "receipting" state
@@ -289,11 +281,12 @@ class DebitNote:
            value residing in this debit note until it is credited
            to another account
         """
+        from Acquire.Accounting import Transaction as _Transaction
+        from Acquire.Accounting import Account as _Account
+
         if not isinstance(transaction, _Transaction):
             raise TypeError("You can only create a DebitNote with a "
                             "Transaction")
-
-        from ._account import Account as _Account
 
         if not isinstance(account, _Account):
             raise TypeError("You can only create a DebitNote with a valid "
@@ -315,6 +308,8 @@ class DebitNote:
                                         is_provisional, receipt_by,
                                         bucket=bucket)
 
+        from Acquire.ObjectStore import datetime_to_datetime \
+            as _datetime_to_datetime
         self._datetime = _datetime_to_datetime(datetime)
         self._uid = str(uid)
 
@@ -329,6 +324,8 @@ class DebitNote:
         data = {}
 
         if not self.is_null():
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
             data["transaction"] = self._transaction.to_data()
             data["account_uid"] = self._account_uid
             data["authorisation"] = self._authorisation.to_data()
@@ -349,6 +346,11 @@ class DebitNote:
         d = DebitNote()
 
         if (data and len(data) > 0):
+            from Acquire.Accounting import Transaction as _Transaction
+            from Acquire.Identity import Authorisation as _Authorisation
+            from Acquire.ObjectStore import string_to_datetime \
+                as _string_to_datetime
+
             d._transaction = _Transaction.from_data(data["transaction"])
             d._account_uid = data["account_uid"]
             d._authorisation = _Authorisation.from_data(data["authorisation"])

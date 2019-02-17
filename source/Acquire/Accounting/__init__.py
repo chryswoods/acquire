@@ -13,6 +13,7 @@ from ._transactionrecord import *
 from ._accounting_service import *
 from ._creditnote import *
 from ._debitnote import *
+from ._pairednote import *
 from ._lineitem import *
 from ._receipt import *
 from ._decimal import *

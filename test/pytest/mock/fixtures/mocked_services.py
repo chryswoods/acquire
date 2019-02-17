@@ -12,9 +12,9 @@ import uuid
 
 import Acquire.Service
 
-from Acquire.Service import login_to_service_account
-from Acquire.Service import _push_testing_objstore, _pop_testing_objstore
-from Acquire.Service import call_function, Service
+from Acquire.Service import get_service_account_bucket
+from Acquire.Service import push_testing_objstore, pop_testing_objstore
+from Acquire.Service import call_function, Service, set_is_running_service
 
 from Acquire.Identity import Authorisation, LoginSession
 
@@ -83,23 +83,25 @@ class MockedPyCurl:
         global _services
 
         if url.startswith("identity"):
-            _push_testing_objstore(_services["identity"])
+            push_testing_objstore(_services["identity"])
             func = identity_handler
         elif url.startswith("access"):
-            _push_testing_objstore(_services["access"])
+            push_testing_objstore(_services["access"])
             func = access_handler
         elif url.startswith("accounting"):
-            _push_testing_objstore(_services["accounting"])
+            push_testing_objstore(_services["accounting"])
             func = accounting_handler
         elif url.startswith("storage"):
-            _push_testing_objstore(_services["storage"])
+            push_testing_objstore(_services["storage"])
             func = storage_handler
         else:
             raise ValueError("Cannot recognise service from '%s'" % url)
 
+        set_is_running_service(True)
         result = func(None, self._data["POSTFIELDS"])
+        set_is_running_service(False)
 
-        _pop_testing_objstore()
+        pop_testing_objstore()
 
         if type(result) is str:
             result = result.encode("utf-8")

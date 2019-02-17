@@ -1,11 +1,4 @@
 
-from ._debitnote import DebitNote as _DebitNote
-from ._decimal import create_decimal as _create_decimal
-
-from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
-from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
-from Acquire.ObjectStore import string_to_list as _string_to_list
-
 __all__ = ["CreditNote"]
 
 
@@ -44,6 +37,8 @@ class CreditNote:
             self._datetime = None
             self._uid = None
             self._debit_note_uid = None
+
+            from Acquire.Accounting import create_decimal as _create_decimal
             self._value = _create_decimal(0)
 
     def __str__(self):
@@ -145,19 +140,19 @@ class CreditNote:
            debit note to the credited account (which was the original
            debited account)
         """
+        from Acquire.Accounting import DebitNote as _DebitNote
+        from Acquire.Accounting import Refund as _Refund
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+        from Acquire.Accounting import TransactionState as _TransactionState
+        from Acquire.Accounting import Account as _Account
+
         if not isinstance(debit_note, _DebitNote):
             raise TypeError("You can only create a CreditNote "
                             "with a DebitNote")
 
-        from ._refund import Refund as _Refund
-
         if not isinstance(refund, _Refund):
             raise TypeError("You can only refund a Refund object: %s"
                             % str(refund.__class__))
-
-        from ._transactionrecord import TransactionRecord as _TransactionRecord
-        from ._transactionrecord import TransactionState as _TransactionState
-        from ._account import Account as _Account
 
         # get the transaction behind this refund and ensure it is in the
         # refunding state...
@@ -200,19 +195,20 @@ class CreditNote:
            the passed receipt. This will actually transfer value from the
            debit note to the credited account
         """
+        from Acquire.Accounting import DebitNote as _DebitNote
+        from Acquire.Accounting import Refund as _Refund
+        from Acquire.Accounting import TransactionRecord as _TransactionRecord
+        from Acquire.Accounting import TransactionState as _TransactionState
+        from Acquire.Accounting import Account as _Account
+        from Acquire.Accounting import Receipt as _Receipt
+
         if not isinstance(debit_note, _DebitNote):
             raise TypeError("You can only create a CreditNote "
                             "with a DebitNote")
 
-        from ._receipt import Receipt as _Receipt
-
         if not isinstance(receipt, _Receipt):
             raise TypeError("You can only receipt a Receipt object: %s"
                             % str(receipt.__class__))
-
-        from ._transactionrecord import TransactionRecord as _TransactionRecord
-        from ._transactionrecord import TransactionState as _TransactionState
-        from ._account import Account as _Account
 
         # get the transaction behind this receipt and ensure it is in the
         # receipting state...
@@ -255,11 +251,12 @@ class CreditNote:
            the passed debit note. This will actually transfer value from
            the debit note to the passed account
         """
+        from Acquire.Accounting import DebitNote as _DebitNote
+        from Acquire.Accounting import Account as _Account
+
         if not isinstance(debit_note, _DebitNote):
             raise TypeError("You can only create a CreditNote "
                             "with a DebitNote")
-
-        from ._account import Account as _Account
 
         if not isinstance(account, _Account):
             raise TypeError("You can only create a CreditNote with an "
@@ -286,6 +283,10 @@ class CreditNote:
         note = CreditNote()
 
         if (data and len(data) > 0):
+            from Acquire.ObjectStore import string_to_datetime \
+                as _string_to_datetime
+            from Acquire.Accounting import create_decimal as _create_decimal
+
             note._account_uid = data["account_uid"]
             note._debit_account_uid = data["debit_account_uid"]
             note._uid = data["uid"]
@@ -306,6 +307,9 @@ class CreditNote:
         data = {}
 
         if not self.is_null():
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+
             data["account_uid"] = self._account_uid
             data["debit_account_uid"] = self._debit_account_uid
             data["uid"] = self._uid

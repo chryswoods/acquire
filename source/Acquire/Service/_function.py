@@ -2,6 +2,11 @@
 import json as _json
 from io import BytesIO as _BytesIO
 
+try:
+    import pycurl as _pycurl
+except:
+    _pycurl = None
+
 from ._errors import PackingError, UnpackingError, RemoteFunctionCallError
 
 __all__ = ["call_function", "pack_arguments", "unpack_arguments",
@@ -319,7 +324,7 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
     for key, value in kwargs.items():
         args[key] = value
 
-    from Acquire.Service import get_service_info as _get_service_info
+    from Acquire.Service import get_this_service as _get_this_service
 
     try:
         service = _get_service_info(need_private_access=True)
@@ -331,9 +336,7 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
             return _call_local_function(service, function, args_key,
                                         response_key, public_cert, args)
 
-    try:
-        import pycurl as _pycurl
-    except:
+    if _pycurl is None:
         raise RemoteFunctionCallError(
             "Cannot call remote functions as "
             "the pycurl module cannot be imported! It needs "

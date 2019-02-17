@@ -1,8 +1,4 @@
 
-
-from ._debitnote import DebitNote as _DebitNote
-from ._creditnote import CreditNote as _CreditNote
-
 from ._errors import UnbalancedLedgerError
 
 __all__ = ["PairedNote"]
@@ -14,6 +10,15 @@ class PairedNote:
     """
     def __init__(self, debit_note, credit_note):
         """Construct from the matching pair of notes"""
+        from Acquire.Accounting import CreditNote as _CreditNote
+        from Acquire.Accounting import DebitNote as _DebitNote
+
+        if not isinstance(debit_note, _DebitNote):
+            raise TypeError("The debit_note must be of type DebitNote!")
+
+        if not isinstance(credit_note, _CreditNote):
+            raise TypeError("The credit_note must be of type CreditNote!")
+
         if credit_note.debit_note_uid() != debit_note.uid():
             raise ValueError("You must pair up DebitNote (%s) with a "
                              "matching CreditNote (%s)" %
