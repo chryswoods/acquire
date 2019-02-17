@@ -90,7 +90,7 @@ def _route_function(function, args, additional_functions=None):
     return result
 
 
-def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
+def _handle(additional_functions=None, args={}):
     """This function routes calls to sub-functions, thereby allowing
        a single identity function to stay hot for longer. If you want
        to add additional functions then add them via the
@@ -104,22 +104,7 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
         as _set_is_running_service
     _set_is_running_service(True)
 
-    try:
-        pr = start_profile()
-    except:
-        pass
-
-    try:
-        args = unpack_arguments(data, get_service_private_key)
-    except Exception as e:
-        result = {"status": -1,
-                  "message": "Cannot unpack arguments (%s): %s"
-                  % (data, str(e))}
-        return json.dumps(result)
-    except:
-        result = {"status": -1,
-                  "message": "Cannot unpack arguments: Unknown error!"}
-        return json.dumps(result)
+    pr = start_profile()
 
     try:
         function = str(args["function"])
@@ -129,8 +114,23 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
     # if function != "warm":
     #     one_hot_spare()
 
+    result = _route_function(function, args, additional_functions)
+
+    end_profile(pr, result)
+
+    return (result, args)
+
+
+def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
+    """This function routes calls to sub-functions, thereby allowing
+       a single identity function to stay hot for longer. If you want
+       to add additional functions then add them via the
+       'additional_functions' argument. This should accept 'function'
+       and 'args', returning some output if the function is found,
+       or 'None' if the function is not available"""
     try:
-        result = _route_function(function, args, additional_functions)
+        args = unpack_arguments(data, get_service_private_key)
+        is_error = False
     except Exception as e:
         import tblib as _tblib
         tb = _tblib.Traceback(e.__traceback__)
@@ -141,11 +141,22 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
         result = {"status": -1,
                   "message": "EXCEPTION",
                   "exception": err_json}
+        args = {}
+        is_error = True
 
-    try:
-        end_profile(pr, result)
-    except:
-        pass
+    if not is_error:
+        try:
+            result = _handle(args)
+        except Exception as e:
+            import tblib as _tblib
+            tb = _tblib.Traceback(e.__traceback__)
+            err_json = {"class": str(e.__class__.__name__),
+                        "module": str(e.__class__.__module__),
+                        "error": str(e),
+                        "traceback": tb.to_dict()}
+            result = {"status": -1,
+                    "message": "EXCEPTION",
+                    "exception": err_json}
 
     try:
         return pack_return_value(result, args)

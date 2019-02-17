@@ -20,6 +20,9 @@ from ._errors import LoginError
 # use a variable so we can monkey-patch while testing
 _input = input
 
+# whether or not we are in testing mode
+_is_testing = False
+
 __all__ = ["Wallet"]
 
 
@@ -27,6 +30,10 @@ def _read_json(filename):
     """Return a json-decoded dictionary from the data written
        to 'filename'
     """
+    global _is_testing
+    if _is_testing:
+        return {}
+
     with open(filename, "rb") as FILE:
         s = FILE.read().decode("utf-8")
         return _json.loads(s)
@@ -34,6 +41,10 @@ def _read_json(filename):
 
 def _write_json(data, filename):
     """Write the passed json-encodable dictionary to 'filename'"""
+    global _is_testing
+    if _is_testing:
+        return
+
     s = _json.dumps(data)
     with open(filename, "wb") as FILE:
         FILE.write(s.encode("utf-8"))
@@ -296,6 +307,10 @@ class Wallet:
            already exists, then this verifies that the added service
            is the same as the previously-seen service
         """
+        global _is_testing
+        if _is_testing:
+            return service
+
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
             _string_to_safestring(service.canonical_url()))
@@ -377,6 +392,10 @@ class Wallet:
     @staticmethod
     def get_services():
         """Return all of the trusted services known to this wallet"""
+        global _is_testing
+        if _is_testing:
+            return []
+
         service_files = _glob.glob("%s/service_*" % Wallet._wallet_dir())
 
         services = []
@@ -392,6 +411,10 @@ class Wallet:
            cached service if it exists, or will add a new service if
            the user so wishes
         """
+        global _is_testing
+        if _is_testing:
+            return _get_remote_service(service_url)
+
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
             _string_to_safestring(service_url))
@@ -421,6 +444,10 @@ class Wallet:
     @staticmethod
     def remove_all_services():
         """Remove all trusted services from this Wallet"""
+        global _is_testing
+        if _is_testing:
+            return
+
         service_files = _glob.glob("%s/service_*" % Wallet._wallet_dir())
 
         for service_file in service_files:
@@ -434,6 +461,10 @@ class Wallet:
     @staticmethod
     def remove_service(service):
         """Remove the cached service info for the passed service"""
+        global _is_testing
+        if _is_testing:
+            return
+
         if isinstance(service, str):
             service_url = service
         else:

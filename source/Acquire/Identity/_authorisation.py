@@ -334,7 +334,9 @@ class Authorisation:
 
             message = self._get_message(resource)
 
-            response["public_cert"].verify(self._signature, message)
+            from Acquire.Crypto import PublicKey as _PublicKey
+            pubcert = _PublicKey.from_data(response["public_cert"])
+            pubcert.verify(self._signature, message)
 
             self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource

@@ -97,9 +97,7 @@ class MockedPyCurl:
         else:
             raise ValueError("Cannot recognise service from '%s'" % url)
 
-        set_is_running_service(True)
         result = func(None, self._data["POSTFIELDS"])
-        set_is_running_service(False)
 
         pop_testing_objstore()
 
@@ -132,6 +130,7 @@ Acquire.Service._function._pycurl.Curl = MockedPyCurl
 
 # monkey-patch input so that we can say "y"
 Acquire.Client._wallet._input = mocked_input
+Acquire.Client._wallet._is_testing = True
 
 _services = {}                    # global objstore for each service
 
@@ -181,7 +180,11 @@ def aaai_services(tmpdir_factory):
 
     args["canonical_url"] = "identity"
     args["service_type"] = "identity"
-    response = call_function("identity", function="admin/setup", args=args)
+    try:
+        response = call_function("identity", function="admin/setup", args=args)
+    except Exception as e:
+        raise ValueError("NO SETUP! %s" % str(e))
+
     identity_service = Service.from_data(response["service"])
     identity_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
     identity_user = _login_admin("identity", "admin", password, identity_otp)

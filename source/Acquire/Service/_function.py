@@ -286,11 +286,7 @@ def _call_local_function(service, function=None, args_key=None,
     result = service._call_local_function(function, args_json)
 
     # Now unpack the results
-    try:
-        result = unpack_return_value(result, response_key, public_cert)
-    except Exception as e:
-        raise RemoteFunctionCallError(
-            "Error calling '%s' at '%s': %s" % (function, service, str(e)))
+    result = unpack_return_value(result, response_key, public_cert)
 
     if len(result) == 1 and "error" in result:
         raise RemoteFunctionCallError(
@@ -323,6 +319,8 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
     """
     if args is None:
         args = {}
+
+    # BREAKING IN TESTING SOMEWHERE AROUND HERE!!!
 
     for key, value in kwargs.items():
         args[key] = value
