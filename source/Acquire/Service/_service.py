@@ -1,23 +1,10 @@
 
 import uuid as _uuid
 import json as _json
-from copy import deepcopy as _deepcopy
 import datetime as _datetime
 
 from cachetools import LRUCache as _LRUCache
 from cachetools import cached as _cached
-
-from Acquire.Crypto import PrivateKey as _PrivateKey
-from Acquire.Crypto import PublicKey as _PublicKey
-from Acquire.Crypto import get_private_key as _get_private_key
-
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
-from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
-from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
-
-from ._function import call_function as _call_function
 
 __all__ = ["Service"]
 
@@ -148,6 +135,7 @@ def _login_service_user(service_uid):
 
     secrets = None
 
+    from ._function import call_function as _call_function
     result = _call_function(service.canonical_url(), function="login",
                             args=login_args)
 
@@ -188,6 +176,8 @@ class Service:
                 raise ServiceError("Services of type '%s' are not allowed!" %
                                    self._service_type)
 
+            from Acquire.Crypto import PrivateKey as _PrivateKey
+
             self._uid = str(_uuid.uuid4())
             self._skeleton_key = _PrivateKey()
 
@@ -202,6 +192,8 @@ class Service:
             self._lastkey = _PrivateKey()
             self._lastcert = self._lastkey
 
+            from Acquire.ObjectStore import get_datetime_now as \
+                _get_datetime_now
             self._last_key_update = _get_datetime_now()
             self._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
@@ -319,6 +311,9 @@ class Service:
            key update
         """
         try:
+            from Acquire.ObjectStore import get_datetime_now as \
+                _get_datetime_now
+
             return _get_datetime_now() > (self._last_key_update +
                                           self.key_update_interval())
         except:
@@ -335,14 +330,21 @@ class Service:
             self._lastcert = self._privcert
 
             # now generate a new key and certificate
+            from Acquire.Crypto import PrivateKey as _PrivateKey
             self._privkey = _PrivateKey()
             self._privcert = _PrivateKey()
             self._pubkey = self._privkey.public_key()
             self._pubcert = self._privcert.public_key()
 
             # update the refresh time
+            from Acquire.ObjectStore import get_datetime_now as \
+                _get_datetime_now
+
             self._last_key_update = _get_datetime_now()
         else:
+            from Acquire.Crypto import get_private_key as _get_private_key
+            from ._function import call_function as _call_function
+
             # if our keys are old then pull the new ones from the server
             if self._pubcert is None:
                 # we are initialising from scratch - hope this is over https
@@ -368,7 +370,8 @@ class Service:
 
             # everything should be ok. Update this object with the new
             # keys and data
-            self.__dict__ = _deepcopy(service.__dict__)
+            from copy import copy as _copy
+            self.__dict__ = _copy(service.__dict__)
 
     def can_identify_users(self):
         """Return whether or not this service can identify users.
@@ -538,6 +541,9 @@ class Service:
            the response (and automatically then decrypts the
            response)
         """
+        from Acquire.Crypto import get_private_key as _get_private_key
+        from ._function import call_function as _call_function
+
         return _call_function(self.canonical_url(), function=function,
                               args=args,
                               args_key=self.public_key(),
@@ -571,6 +577,8 @@ class Service:
                    "signed_data" : "JSON_ENCODED_DATA",
                    "signature" : "SIG OF JSON_ENCODED_DATA"}
         """
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+
         data = _json.dumps(data)
 
         return {"service_uid": str(self.uid()),
@@ -591,6 +599,8 @@ class Service:
            perform key rotation and management.
         """
         try:
+            from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+
             service_uid = data["service_uid"]
             fingerprint = data["fingerprint"]
             signature = _string_to_bytes(data["signature"])
@@ -628,6 +638,7 @@ class Service:
                    "fingerprint" : "KEY_FINGERPRINT",
                    "encrypted_data" : "ENCRYPTED_DATA"}
         """
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         return {"service_uid": str(self.uid()),
                 "canonical_url": str(self.canonical_url()),
                 "fingerprint": str(self.public_key().fingerprint()),
@@ -648,6 +659,7 @@ class Service:
             data = _json.loads(data)
 
         try:
+            from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
             service_uid = data["service_uid"]
             fingerprint = data["fingerprint"]
             data = _string_to_bytes(data["encrypted_data"])
@@ -680,9 +692,14 @@ class Service:
            master key
         """
         dump = {}
+
+        from Acquire.ObjectStore import datetime_to_string \
+            as _datetime_to_string
         dump["datetime"] = _datetime_to_string(self._last_key_update)
 
         if self.is_unlocked():
+            from Acquire.Crypto import PrivateKey as _PrivateKey
+            from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
             ranpas = _PrivateKey.random_passphrase()
             dump[self._privkey.fingerprint()] = self._privkey.to_data(ranpas)
             dump[self._privcert.fingerprint()] = self._privcert.to_data(ranpas)
@@ -707,9 +724,14 @@ class Service:
 
         # now unpack everything
         result = {}
+
+        from Acquire.ObjectStore import string_to_datetime as \
+            _string_to_datetime
         result["datetime"] = _string_to_datetime(data["datetime"])
 
         if self.is_unlocked():
+            from Acquire.Crypto import PrivateKey as _PrivateKey
+            from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
             ranpas = self._skeleton_key.decrypt(
                             _string_to_bytes(data["encrypted_passphrase"]))
 
@@ -717,6 +739,7 @@ class Service:
                 result[fingerprint] = _PrivateKey.from_data(data[fingerprint],
                                                             ranpas)
         else:
+            from Acquire.Crypto import PublicKey as _PublicKey
             for fingerprint in fingerprints:
                 result[fingerprint] = _PublicKey.from_data(data[fingerprint])
 
@@ -751,6 +774,9 @@ class Service:
             args = {"session_uid": str(session_uid)}
 
         try:
+            from Acquire.Crypto import get_private_key as _get_private_key
+            from ._function import call_function as _call_function
+
             if username:
                 args["username"] = str(username)
                 response = _call_function(
@@ -850,6 +876,10 @@ class Service:
         data["public_certificate"] = self._pubcert.to_data()
         data["public_key"] = self._pubkey.to_data()
 
+        from Acquire.Crypto import PublicKey as _PublicKey
+        from Acquire.ObjectStore import datetime_to_string as \
+            _datetime_to_string
+
         if isinstance(self._lastcert, _PublicKey):
             data["last_certificate"] = self._lastcert.to_data()
         else:
@@ -861,8 +891,12 @@ class Service:
         data["service_user_name"] = self._service_user_name
         data["service_user_uid"] = self._service_user_uid
 
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+
         if (self.is_unlocked()) and (password is not None):
             # only serialise private data if a password was provided
+            from Acquire.Crypto import PrivateKey as _PrivateKey
+
             secret_passphrase = _PrivateKey.random_passphrase()
             key_data = self._privkey.to_data(secret_passphrase)
             lastkey_data = self._lastkey.to_data(secret_passphrase)
@@ -905,7 +939,14 @@ class Service:
         """
         service = Service()
 
+        from Acquire.Crypto import PublicKey as _PublicKey
+        from Acquire.ObjectStore import string_to_datetime as \
+            _string_to_datetime
+
         if password:
+            from Acquire.Crypto import PrivateKey as _PrivateKey
+            from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+
             # get the private info...
             service._service_user_secrets = _string_to_bytes(
                                                 data["service_user_secrets"])
@@ -975,6 +1016,9 @@ class Service:
             # This stops someone changing the certificates, keys or
             # any other data about the service while in transit
             try:
+                from Acquire.ObjectStore import string_to_bytes \
+                    as _string_to_bytes
+
                 vr = data["validation_string"]
                 v = service.validation_string()
                 assert(v == vr)

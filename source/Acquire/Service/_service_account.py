@@ -29,8 +29,10 @@ _cache_serviceuser = _LRUCache(maxsize=5)
 _cache_service_account_uid = _LRUCache(maxsize=5)
 
 
-__all__ = ["setup_service_info", "add_admin_user",
-           "get_service_info", "get_admin_users",
+__all__ = ["set_is_running_service", "is_running_service",
+           "assert_running_service",
+           "setup_this_service", "add_admin_user",
+           "get_this_service", "get_admin_users",
            "get_service_private_key",
            "get_service_private_certificate", "get_service_public_key",
            "get_service_public_certificate",
@@ -40,6 +42,35 @@ __all__ = ["setup_service_info", "add_admin_user",
 
 # The key in the object store for the service object
 _service_key = "_service_key"
+
+_is_running_service = False
+
+
+def set_is_running_service(is_service=True):
+    """From now on, we know that all code is running as part of a
+       live service
+    """
+    global _is_running_service
+
+    if is_service:
+        _is_running_service = True
+    else:
+        _is_running_service = False
+
+
+def is_running_service():
+    """Return whether or not this code is running as part of a service"""
+    global _is_running_service
+    return _is_running_service
+
+
+def assert_running_service():
+    """Assert that this code is running as part of a valid service"""
+    if not is_running_service():
+        from ._errors import ServiceError
+        raise ServiceError(
+            "You can only call this function from within a valid "
+            "running service. A client cannot call this function.")
 
 
 def clear_serviceinfo_cache():
@@ -56,10 +87,11 @@ def clear_serviceinfo_cache():
 # Cache this function as the data will rarely change, and this
 # will prevent too many runs to the ObjectStore
 @_cached(_cache_serviceinfo_data)
-def _get_service_info_data():
+def _get_this_service_data():
     """Internal function that loads up the service info data from
        the object store.
     """
+    assert_running_service()
 
     # get the bucket again - can't pass as an argument as this is a cached
     # function - luckily _get_service_account_bucket is also a cached function
@@ -102,7 +134,7 @@ def _get_service_password():
     return service_password
 
 
-def setup_service_info(canonical_url, service_type):
+def setup_this_service(canonical_url, service_type):
     """Call this function to setup a new
        service that will serve at 'canonical_url', will be of
        the specified service_type.
@@ -113,6 +145,8 @@ def setup_service_info(canonical_url, service_type):
             will need to be re-introduced to other services that need
             to trust it
     """
+    assert_running_service()
+
     bucket = _get_service_account_bucket()
 
     from Acquire.ObjectStore import Mutex as _Mutex
@@ -180,6 +214,8 @@ def add_admin_user(service, account_uid, authorisation=None):
        existing admin users. If you need to reset the admin users then
        delete the user accounts from the service.
     """
+    assert_running_service()
+
     bucket = _get_service_account_bucket()
 
     from Acquire.ObjectStore import Mutex as _Mutex
@@ -239,6 +275,8 @@ def get_admin_users():
     """This function returns all of the admin_users data. This is a
        dictionary of the UIDs of all of the admin users
     """
+    assert_running_service()
+
     try:
         bucket = _get_service_account_bucket()
     except ServiceAccountError as e:
@@ -266,14 +304,16 @@ def get_admin_users():
 
 
 @_cached(_cache_service_info)
-def get_service_info(need_private_access=False):
+def get_this_service(need_private_access=False):
     """Return the service info object for this service. If private
        access is needed then this will decrypt and access the private
        keys and signing certificates, which is slow if you just need
        the public certificates.
     """
+    assert_running_service()
+
     try:
-        service_info = _get_service_info_data()
+        service_info = _get_this_service_data()
     except Exception as e:
         raise MissingServiceAccountError(
             "Unable to read the service info from the object store! : %s" %
@@ -305,6 +345,8 @@ def get_service_user_account_uid(accounting_service_uid):
        service. This is the account to which payment for this
        service should be sent
     """
+    assert_running_service()
+
     bucket = _get_service_account_bucket()
 
     key = "%s/account/%s" % (_service_key, accounting_service_uid)
@@ -328,6 +370,8 @@ def create_service_user_account(service, accounting_service_url):
 
        This does nothing if the account already exists
     """
+    assert_running_service()
+
     accounting_service = service.get_trusted_service(accounting_service_url)
     accounting_service_uid = accounting_service.uid()
 
@@ -370,6 +414,8 @@ def _refresh_service_keys_and_certs(service):
        The old keys and certificates will be stored in a database of
        old keys and certificates
     """
+    assert_running_service()
+
     if not service.should_refresh_keys():
         return service
 
@@ -409,7 +455,7 @@ def _refresh_service_keys_and_certs(service):
 
 def get_service_private_key(fingerprint=None):
     """This function returns the private key for this service"""
-    s = get_service_info(need_private_access=True)
+    s = get_this_service(need_private_access=True)
     s = _refresh_service_keys_and_certs(s)
     key = s.private_key()
 
@@ -429,7 +475,7 @@ def get_service_private_certificate(fingerprint=None):
     """This function returns the private signing certificate
        for this service
     """
-    s = get_service_info(need_private_access=True)
+    s = get_this_service(need_private_access=True)
     s = _refresh_service_keys_and_certs(s)
     cert = s.private_certificate()
 
@@ -444,7 +490,7 @@ def get_service_private_certificate(fingerprint=None):
 
 def get_service_public_key(fingerprint=None):
     """This function returns the public key for this service"""
-    s = get_service_info(need_private_access=False)
+    s = get_this_service(need_private_access=False)
     key = s.public_key()
 
     if fingerprint:
@@ -458,7 +504,7 @@ def get_service_public_key(fingerprint=None):
 
 def get_service_public_certificate(fingerprint=None):
     """This function returns the public certificate for this service"""
-    s = get_service_info(need_private_access=False)
+    s = get_this_service(need_private_access=False)
     cert = s.public_certificate()
 
     if fingerprint:

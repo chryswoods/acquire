@@ -13,7 +13,7 @@ from Acquire.Crypto import get_private_key as _get_private_key
 from ._service import Service as _Service
 from ._function import call_function as _call_function
 
-from ._service_account import get_service_info as _get_service_info
+from ._service_account import get_this_service as _get_this_service
 
 from ._login_to_objstore import get_service_account_bucket as \
                                _get_service_account_bucket
@@ -24,8 +24,8 @@ from Acquire.Crypto import SignatureVerificationError
 _cache_local_serviceinfo = _LRUCache(maxsize=5)
 _cache_remote_serviceinfo = _LRUCache(maxsize=20)
 
-__all__ = ["get_trusted_service_info",
-           "get_remote_service_info", "get_checked_remote_service_info",
+__all__ = ["get_trusted_service",
+           "get_remote_service", "get_checked_remote_service",
            "clear_services_cache"]
 
 
@@ -37,10 +37,10 @@ def clear_services_cache():
 
 # Cached as the remove service information will not change too often
 @_cached(_cache_local_serviceinfo)
-def get_trusted_service_info(service_url=None, service_uid=None):
+def get_trusted_service(service_url=None, service_uid=None):
     """Return the trusted service info for the service with specified
        service_url or service_uid"""
-    service = _get_service_info()
+    service = _get_service()
 
     if service.canonical_url() == service_url:
         # we trust ourselves :-)

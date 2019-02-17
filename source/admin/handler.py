@@ -98,6 +98,11 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
        and 'args', returning some output if the function is found,
        or 'None' if the function is not available"""
 
+    # make sure we set the flag to say that this code is running
+    # as part of a service
+    from Acquire.Service import set_is_service as _set_is_running_service
+    _set_is_running_service(True)
+
     try:
         pr = start_profile()
     except:

@@ -289,11 +289,11 @@ class Authorisation:
 
         try:
             # we need to get the public signing key for this session
-            from Acquire.Service import get_trusted_service_info as \
-                _get_trusted_service_info
+            from Acquire.Service import get_trusted_service as \
+                _get_trusted_service
 
             try:
-                identity_service = _get_trusted_service_info(
+                identity_service = _get_trusted_service(
                                                     self._identity_url)
             except:
                 raise PermissionError(
