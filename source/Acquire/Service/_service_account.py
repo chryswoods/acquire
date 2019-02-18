@@ -430,6 +430,41 @@ def create_service_user_account(service, accounting_service_url):
             (str(service), str(accounting_service), str(e)))
 
 
+def _reload_key(fingerprint):
+    """This function will see if we have an old key with the requested
+       fingerprint, and if so, we will try to load and return that
+       key from the object store
+    """
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.Service import get_service_account_bucket \
+        as _get_service_account_bucket
+    from Acquire.Crypto import KeyManipulationError
+
+    try:
+        key = "%s/oldkeys/fingerprints/%s" % (_service_key, fingerprint)
+        keyfile = _ObjectStore.get_string_object(bucket, key)
+    except:
+        keyfile = None
+
+    if keyfile is None:
+        raise KeyManipulationError(
+            "Cannot find a key or certificate with fingerprint '%s'"
+            % fingerprint)
+
+    try:
+        keydata = _ObjectStore.get_object_from_json(bucket, keyfile)
+    except:
+        keydata = None
+
+    if keydata is None:
+        raise KeyManipulationError(
+            "Unable to load the key or certificate with fingerprint '%s'"
+            % fingerprint)
+
+    service = get_this_service(need_private_access=True)
+    return service.load_keys(keydata)[fingerprint]
+
+
 def _refresh_service_keys_and_certs(service):
     """This function will check if any key rotation is needed, and
        if so, it will automatically refresh the keys and certificates.
@@ -443,6 +478,8 @@ def _refresh_service_keys_and_certs(service):
 
     # save the old keys
     oldkeys = service.dump_keys()
+    key_fingerprint = service.private_key().fingerprint()
+    cert_fingerprint = service.private_certificate().fingerprint()
 
     # generate new keys
     last_update = service.last_key_update()
@@ -472,6 +509,12 @@ def _refresh_service_keys_and_certs(service):
         # now write the old keys to storage
         key = "%s/oldkeys/%s" % (_service_key, oldkeys["datetime"])
         _ObjectStore.set_object_from_json(bucket, key, oldkeys)
+        _ObjectStore.set_string_object(
+            bucket, "%s/oldkeys/fingerprints/%s" %
+            (_service_key, key_fingerprint), key)
+        _ObjectStore.set_string_object(
+            bucket, "%s/oldkeys/fingerprints/%s" %
+            (_service_key, cert_fingerprint), key)
     else:
         m.unlock()
 
@@ -492,9 +535,16 @@ def get_service_private_key(fingerprint=None):
             key = s.last_key()
 
         if key.fingerprint() != fingerprint:
-            raise ServiceAccountError(
-                "Cannot find a private key for '%s' that matches "
-                "the fingerprint %s" % (str(s), fingerprint))
+            try:
+                return _reload_key(fingerprint)
+            except Exception as e:
+                raise ServiceAccountError(
+                    "Cannot find a private key for '%s' that matches "
+                    "the fingerprint %s. This is either because you are "
+                    "using a key that is too old or "
+                    "you are requesting a wrong key. Please call "
+                    "refresh_keys on your Service object and try again: %s"
+                    % (str(s), fingerprint, str(e)))
 
     return key
 
@@ -509,9 +559,19 @@ def get_service_private_certificate(fingerprint=None):
 
     if fingerprint:
         if cert.fingerprint() != fingerprint:
-            raise ServiceAccountError(
-                "Cannot find a private certificate for '%s' that matches "
-                "the fingerprint %s" % (str(s), fingerprint))
+            cert = s.last_certificate()
+
+        if cert.fingerprint() != fingerprint:
+            try:
+                return _reload_key(fingerprint)
+            except Exception as e:
+                raise ServiceAccountError(
+                    "Cannot find a private certificate for '%s' that matches "
+                    "the fingerprint %s. This is either because you are "
+                    "using a certificate that is too old or "
+                    "you are requesting a wrong certificate. Please call "
+                    "refresh_keys on your Service object and try again: %s"
+                    % (str(s), fingerprint, str(e)))
 
     return cert
 
