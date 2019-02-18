@@ -33,18 +33,32 @@ def _get_key(key, fingerprint=None):
     if key is None:
         return None
     elif isinstance(key, _PublicKey) or isinstance(key, _PrivateKey):
-        return key
+        key = key
     elif isinstance(key, dict):
         try:
             key = key["encryption_public_key"]
         except:
-            return None
+            key = None
 
-        from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-        key = _PublicKey.read_bytes(_string_to_bytes(key))
-        return key
+        if key is not None:
+            from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+            key = _PublicKey.read_bytes(_string_to_bytes(key))
     else:
-        return key()
+        key = key(fingerprint=fingerprint)
+
+    if fingerprint is not None:
+        if key is None:
+            from Acquire.Crypto import KeyManipulationError
+            raise KeyManipulationError(
+                "Cannot find the key with fingerprint %s!" % fingerprint)
+        elif key.fingerprint() != fingerprint:
+            from Acquire.Crypto import KeyManipulationError
+            raise KeyManipulationError(
+                "Cannot find a key with the required fingerprint (%s). "
+                "The only key has fingerprint %s" %
+                (fingerprint, key.fingerprint()))
+
+    return key
 
 
 def create_return_value(status, message, log=None, error=None):
