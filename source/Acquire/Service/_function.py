@@ -100,6 +100,8 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
     response_key = _get_key(response_key)
 
     from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+    from Acquire.ObjectStore import get_datetime_now_to_string \
+        as _get_datetime_now_to_string
 
     if response_key:
         result["encryption_public_key"] = _bytes_to_string(
@@ -112,6 +114,9 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         raise PackingError(
             "You cannot ask the service to sign the response "
             "without also providing a key to encrypt it with too")
+
+    if key is None:
+        result["synctime"] = _get_datetime_now_to_string()
 
     result = _json.dumps(result).encode("utf-8")
 
@@ -129,6 +134,7 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         response["data"] = _bytes_to_string(result_data)
         response["encrypted"] = True
         response["fingerprint"] = key.fingerprint()
+        response["synctime"] = _get_datetime_now_to_string()
         result = _json.dumps(response).encode("utf-8")
 
     elif sign_result:
@@ -339,6 +345,8 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
         args[key] = value
 
     from Acquire.Service import is_running_service as _is_running_service
+    from Acquire.ObjectStore import get_datetime_now_to_string \
+        as _get_datetime_now_to_string
 
     service = None
 
