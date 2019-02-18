@@ -1,6 +1,6 @@
 
 from Acquire.Identity import IdentityService
-from Acquire.Service import Service, set_is_running_service
+from Acquire.Service import Service
 from Acquire.Crypto import PrivateKey
 
 

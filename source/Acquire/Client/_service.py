@@ -42,6 +42,8 @@ class Service:
             service.__class__ == Acquire.Identity.IdentityService
         """
         try:
+            from Acquire.Service import get_remote_service \
+                as _get_remote_service
             service = _get_remote_service(service_url)
 
             from copy import copy as _copy

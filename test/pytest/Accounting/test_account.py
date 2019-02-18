@@ -10,7 +10,7 @@ from Acquire.Accounting import Account, Transaction, TransactionRecord, \
 from Acquire.Identity import Authorisation
 
 from Acquire.Service import get_service_account_bucket, \
-    set_is_running_service
+    push_is_running_service, pop_is_running_service
 
 from Acquire.ObjectStore import get_datetime_now
 
@@ -30,7 +30,7 @@ def bucket(tmpdir_factory):
         return get_service_account_bucket()
     except:
         d = tmpdir_factory.mktemp("objstore")
-        set_is_running_service(True)
+        push_is_running_service()
 
         return get_service_account_bucket(str(d))
 

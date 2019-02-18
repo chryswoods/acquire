@@ -10,9 +10,7 @@ from Acquire.Identity import UserAccount, LoginSession
 from Acquire.ObjectStore import ObjectStore, get_datetime_now, \
                                 string_to_datetime, datetime_to_string
 
-
-class LoginError(Exception):
-    pass
+from Acquire.Client import LoginError
 
 
 def run(args):

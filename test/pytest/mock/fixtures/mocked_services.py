@@ -10,16 +10,7 @@ import sys
 import re
 import uuid
 
-import Acquire.Service
-
-from Acquire.Service import get_service_account_bucket
-from Acquire.Service import push_testing_objstore, pop_testing_objstore
-from Acquire.Service import call_function, Service, set_is_running_service
-
-from Acquire.Identity import Authorisation, LoginSession
-
-from Acquire.Client import User, uid_to_username
-from Acquire.Crypto import OTP, PrivateKey
+import Acquire
 
 from admin.handler import create_handler
 from identity.route import identity_functions
@@ -82,6 +73,9 @@ class MockedPyCurl:
 
         global _services
 
+        from Acquire.Service import push_testing_objstore, \
+            pop_testing_objstore
+
         if url.startswith("identity"):
             push_testing_objstore(_services["identity"])
             func = identity_handler
@@ -139,6 +133,9 @@ def _login_admin(service_url, username, password, otp):
     """Internal function used to get a valid login to the specified
        service for the passed username, password and otp
     """
+    from Acquire.Client import User, Service
+    from Acquire.Identity import LoginSession
+
     user = User(username=username, identity_url=service_url)
 
     user.request_login()
@@ -149,7 +146,8 @@ def _login_admin(service_url, username, password, otp):
             "password": password,
             "otpcode": otp.generate()}
 
-    call_function(service_url, "admin/login", args=args)
+    service = Service(service_url)
+    service.call_function(function="admin/login", args=args)
 
     user.wait_for_login()
 
@@ -163,6 +161,10 @@ def aaai_services(tmpdir_factory):
        a dictionary (which is passed to the test functions as the
        fixture)
     """
+    from Acquire.Identity import Authorisation
+    from Acquire.Crypto import PrivateKey, OTP
+    from Acquire.Service import call_function, Service
+
     global _services
     _services["identity"] = tmpdir_factory.mktemp("identity")
     _services["accounting"] = tmpdir_factory.mktemp("accounting")
@@ -180,21 +182,20 @@ def aaai_services(tmpdir_factory):
 
     args["canonical_url"] = "identity"
     args["service_type"] = "identity"
-    try:
-        response = call_function("identity", function="admin/setup", args=args)
-    except Exception as e:
-        raise ValueError("NO SETUP! %s" % str(e))
+    response = call_function("identity", function="admin/setup", args=args)
 
     identity_service = Service.from_data(response["service"])
     identity_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
-    identity_user = _login_admin("identity", "admin", password, identity_otp)
+    identity_user = _login_admin("identity", "admin",
+                                 password, identity_otp)
     responses["identity"] = {"service": identity_service,
                              "user": identity_user,
                              "response": response}
 
     args["canonical_url"] = "accounting"
     args["service_type"] = 'accounting'
-    response = call_function("accounting", function="admin/setup", args=args)
+    response = call_function("accounting",
+                             function="admin/setup", args=args)
     accounting_service = Service.from_data(response["service"])
     accounting_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
     accounting_user = _login_admin("accounting", "admin", password,
@@ -211,8 +212,8 @@ def aaai_services(tmpdir_factory):
     access_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
     access_user = _login_admin("access", "admin", password, access_otp)
     responses["access"] = {"service": access_service,
-                           "user": access_user,
-                           "response": response}
+                        "user": access_user,
+                        "response": response}
 
     args["canonical_url"] = "storage"
     args["service_type"] = "storage"
@@ -271,10 +272,11 @@ def aaai_services(tmpdir_factory):
 
     return responses
 
-
 @pytest.fixture(scope="session")
 def authenticated_user(aaai_services):
-    # register the new user
+    from Acquire.Crypto import PrivateKey, OTP
+    from Acquire.Client import User, Service
+
     username = str(uuid.uuid4())
     password = PrivateKey.random_passphrase()
 
@@ -300,7 +302,8 @@ def authenticated_user(aaai_services):
     args["password"] = password
     args["otpcode"] = user_otp.generate()
 
-    result = call_function("identity", "login", args=args)
+    service = Service("identity")
+    result = service.call_function(function="login", args=args)
 
     assert(result["status"] == 0)
 

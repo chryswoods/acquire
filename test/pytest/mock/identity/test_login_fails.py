@@ -4,9 +4,10 @@ import os
 import sys
 import re
 
-from Acquire.Service import call_function, RemoteFunctionCallError
+from Acquire.Service import call_function
 from Acquire.Client import User
 from Acquire.Crypto import OTP
+from Acquire.Client import LoginError
 
 
 def test_login_fails(aaai_services):
@@ -55,7 +56,7 @@ def test_login_fails(aaai_services):
     args["password"] = password2
     args["otpcode"] = user_otp2.generate()
 
-    with pytest.raises(RemoteFunctionCallError):
+    with pytest.raises(LoginError):
         call_function("identity", "login", args=args)
 
     args = {}
@@ -64,7 +65,7 @@ def test_login_fails(aaai_services):
     args["password"] = password1
     args["otpcode"] = user_otp1.generate()
 
-    with pytest.raises(RemoteFunctionCallError):
+    with pytest.raises(LoginError):
         call_function("identity", "login", args=args)
 
     # now use the right user by the wrong otpcode
@@ -74,7 +75,7 @@ def test_login_fails(aaai_services):
     args["password"] = password1
     args["otpcode"] = user_otp2.generate()
 
-    with pytest.raises(RemoteFunctionCallError):
+    with pytest.raises(LoginError):
         call_function("identity", "login", args=args)
 
     args = {}
@@ -83,7 +84,7 @@ def test_login_fails(aaai_services):
     args["password"] = password2
     args["otpcode"] = user_otp1.generate()
 
-    with pytest.raises(RemoteFunctionCallError):
+    with pytest.raises(LoginError):
         call_function("identity", "login", args=args)
 
     # now use the right user by the wrong password
@@ -93,7 +94,7 @@ def test_login_fails(aaai_services):
     args["password"] = password2
     args["otpcode"] = user_otp1.generate()
 
-    with pytest.raises(RemoteFunctionCallError):
+    with pytest.raises(LoginError):
         call_function("identity", "login", args=args)
 
     args = {}
@@ -102,7 +103,7 @@ def test_login_fails(aaai_services):
     args["password"] = password1
     args["otpcode"] = user_otp2.generate()
 
-    with pytest.raises(RemoteFunctionCallError):
+    with pytest.raises(LoginError):
         call_function("identity", "login", args=args)
 
     user1.logout()

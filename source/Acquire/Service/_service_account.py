@@ -17,8 +17,8 @@ _cache_serviceuser = _LRUCache(maxsize=5)
 _cache_service_account_uid = _LRUCache(maxsize=5)
 
 
-__all__ = ["set_is_running_service", "is_running_service",
-           "assert_running_service",
+__all__ = ["push_is_running_service", "pop_is_running_service",
+           "is_running_service", "assert_running_service",
            "setup_this_service", "add_admin_user",
            "get_this_service", "get_admin_users",
            "get_service_private_key",
@@ -31,25 +31,34 @@ __all__ = ["set_is_running_service", "is_running_service",
 # The key in the object store for the service object
 _service_key = "_service_key"
 
-_is_running_service = False
+_is_running_service = 0
 
 
-def set_is_running_service(is_service=True):
-    """From now on, we know that all code is running as part of a
-       live service
+def push_is_running_service():
+    """Internal function used to push into the 'running_service' state.
+       While we are in this state then we view that all code is running
+       as part of a running service
     """
     global _is_running_service
+    _is_running_service += 1
 
-    if is_service:
-        _is_running_service = True
-    else:
-        _is_running_service = False
+
+def pop_is_running_service():
+    """Internal function used to pop out from the 'running_service' state.
+       While we are in this state then we view that all code is running
+       as part of a running service
+    """
+    global _is_running_service
+    _is_running_service -= 1
+
+    if _is_running_service < 0:
+        _is_running_service = 0
 
 
 def is_running_service():
     """Return whether or not this code is running as part of a service"""
     global _is_running_service
-    return _is_running_service
+    return _is_running_service > 0
 
 
 def assert_running_service():
@@ -318,6 +327,8 @@ def get_this_service(need_private_access=False):
 
     try:
         service_info = _get_this_service_data()
+    except MissingServiceAccountError:
+        raise
     except Exception as e:
         raise MissingServiceAccountError(
             "Unable to read the service info from the object store! : %s" %
