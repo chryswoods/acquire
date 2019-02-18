@@ -544,6 +544,9 @@ class Service:
         from Acquire.Crypto import get_private_key as _get_private_key
         from ._function import call_function as _call_function
 
+        if self.should_refresh_keys():
+            self.refresh_keys()
+
         return _call_function(self.canonical_url(), function=function,
                               args=args,
                               args_key=self.public_key(),
