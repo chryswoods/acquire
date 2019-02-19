@@ -11,7 +11,10 @@ var identity_service_url = "http://fn.acquire-aaai.com:8080/t/accounting"
  *
  *  This data is encoded using the PublicKey.to_data() function...
 */
-var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF4QkpHT0JxTkZBTFZMK1daaHJlMwp3V1dZT0JXSFhTcGM3d2ZrWngvejlicDJKQTE2cVQ2Z2RoRkFmYkxQZE5EaDZKUWFqeWpsT296NDlRcldJZERRCnVZODZ2bHdkNTNnblltb1FqKzFxS1FzTUFFbmozZ1lGUXQ5MVJ4YWxvek1DcVB1NG8weWNWZVZNUXFudEdjaXMKN1pESDVqY3M2UVRlM2xRWmhjbCtrZVlRVnd5TTJmQlpnYWRzajNDVnVZSGdwZ0QyRGlQWWgranVITEFrd0dZYQp0NFhxSnhnTURVSXpkV1N5SVF6VHpVUUl4Y3ZTMTVYL0MwUnduV01nVGlzWUoxNUJkbmFpZSs0VEVScFA0SjE5Ck5xTTRHWi90M2hFUWVaTWJCcTRqZDlNNUJBYzF4VHV4YVJyYW5lYWU0ZU1VR2FFdm43dmwrWUpYQk1BdHBCc2wKYVFJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUE3TTV6MVJ6emJHNHM4U3ArbU1NaAoxMDh0RUVHUlF6Wlgyb2JrdjJvVmdjL0N2MldQeGltY0lUeWFjdm1DbXRJR0NOZm5zMjU4Zy91S3h5VnpuRlRuCkRtNnNmZWZyamVWZStwZk1pYWZOYUdHZEhyYmtRWUhGZ0dteE9mOTBDWlJ6eUI3RHJ6WUVMQ1Y4VWx6bFdPUVcKYlBjSkp3ZG4vOFVpMlBiVGhvWldXRmVWVzUrMExBcFlydkVDdkJTSHBNcDlvTG5yRUc4MXZ3WkpzZm9ZZHZGYQoxZ1RCckxCZGQ5d3h5OXFpdXB5akRpdG5uRkE1Q3RkNktWelI5M2laME91OGFBVmNOeFV4STZHVUs0cjFwSEw0ClJ6emQzeUtTWGdDWUJrZEhWTXVBTDVGQUZLbHgxUXlDRkt5ZHhudjZxOG5GM0hRTEUxSmFDVXVmVGxpWFd1b2MKR3dJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+
+/** Also hard code the fingerprint for the service's public key */
+var identity_fingerprint = "10:d8:4e:e7:2e:13:ec:f3:81:00:4a:57:5b:af:3c:11";
 
 /** Hard code the key size (in bytes) as javascript web crypto doesn't
  *  seem to have a way to query this programatically. 256 bytes (2048 bit)
@@ -125,9 +128,18 @@ function bytes_to_string(b){
     return base64js.fromByteArray(b);
 }
 
-/** Function to import a public key from the passed json data */
+/** Function to import and return the public key of the identity service
+ *  to which we will connect
+ */
 function getIdentityPublicPem(){
     return utf8_bytes_to_string(base64js.toByteArray(identity_public_pem));
+}
+
+/** Function to return the fingerprint of the public key of the identity
+ *  service to which we will connect
+ */
+function getIdentityFingerprint(){
+    return identity_fingerprint;
 }
 
 /** Function to load the public key of the identity service */

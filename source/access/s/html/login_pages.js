@@ -42,6 +42,7 @@ async function show_page(new_page){
 /** Shortcut function to switch back to the login page */
 function reset_login_page(){
     json_login_data["otpcode"] = null;
+    document.getElementById("close_page_button").style.display = "none";
     show_page("login-page");
 }
 
@@ -107,8 +108,13 @@ function render_progress_page(){
           </div>\
           <button id="login_submit_button", class="contact-form__button" \
                   type="submit">Cancel</button>\
+          <button id="close_page_button", class="contact-form__button" \
+                  type="input" onclick="window.close()">Close page</button>\
           </form>'
     );
+
+    /** Hide the close-window button */
+    document.getElementById("close_page_button").style.display = "none";
 
     /**
      * A handler function to prevent default submission and run our custom script.
@@ -210,6 +216,8 @@ function login_failure(message){
 
     var button = document.getElementById("login_submit_button");
     button.textContent = "TRY AGAIN";
+    button = document.getElementById("close_page_button");
+    button.style.display = "inline";
 }
 
 /** Function that is called when the user has successfully logged in */
@@ -223,7 +231,10 @@ function login_success(message){
     para.textContent = message;
 
     var button = document.getElementById("login_submit_button");
-    button.textContent = "CLOSE WINDOW";
+    button.style.display = "none";
+
+    var button = document.getElementById("close_page_button");
+    button.style.display = "inline";
 }
 
 /** This function is used to submit the login data to the server,
@@ -271,6 +282,7 @@ function perform_login_submit(){
         var data = {};
         data["data"] = bytes_to_string(encrypted_data);
         data["encrypted"] = true;
+        data["fingerprint"] = getIdentityFingerprint();
 
         var response = null;
 
@@ -342,6 +354,11 @@ function perform_login_submit(){
             if (!message){
                 console.log(`CANNOT UNDERSTAND RESPONSE\n${result_json}`);
                 message = `Cannot interpret the server's response`;
+            }
+
+            if ("exception" in response){
+                var e = response["exception"];
+                message = `${e.class}: ${e.error}`;
             }
 
             //as the login failed, it means that the otpcode was likely

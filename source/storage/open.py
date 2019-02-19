@@ -31,9 +31,9 @@ def run(args):
     # need creating and the UID of the user who made the request
     # (so that they can put their files in their own bucket)
 
-    user_uid = args["user_uid"]
-    object_name = args['object_name']
-    md5sum = args["md5sum"]
+    # user_uid = args["user_uid"]
+    # object_name = args['object_name']
+    # md5sum = args["md5sum"]
 
     service = get_this_service()
 

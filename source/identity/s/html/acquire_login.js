@@ -11,10 +11,10 @@ var identity_service_url = "http://fn.acquire-aaai.com:8080/t/identity"
  *
  *  This data is encoded using the PublicKey.to_data() function...
 */
-var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUEwdjUxdFdBb2J4MHNVeWxyZ092RAp1a0dYYkxHNjAyN3Jqa1hhdS9VMjArbno4VlJ1NWlrYy9XQUJFM3NSZWFxMGZoTUJqYXlqcFFHcGdHS0RjVkpsCnNlU0cyWXY0bzVja1l2WjAwWDNEVGY4WTY1YllZNzljSEZEWlhyb01PcTFBNElBdVp0Z1dNZFFBNWkwc1NaNnUKK0FXR3FEakQxVmg4MktSd0JZcEh0M0MzOEI1UWpqL21ZZmtVSUdmeWtUS0pBQUhla2Y2NU5KUVVwTGlpdXFhLwovRC9zUm91SFU2Y1VJNk43RHd6eXVQNkNEUnZVaXNoRXlPOUxiMjNMbmQ1eFhFenlCUkxrcmoxU1NlUWcyVW5sCkZTR2ZEMG1FbjFITkY0T2ptQThtTnlsVEdBbTNYT3Z4TmFZcHNCUzV3UWkwTGhDNEJ4c2NxU0VzZmwyUmZMVm4KSXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF3WEM3YVhtclFGR2NhdVIza3FkYQphQkNhaEdYL25SdUdOZXgrUjBBNXpaMTd5MFlibFhjOFl3RnlETXg0QWtIT3lwRXMrQmlURW5pbSt3aTZpTFljCkZoaFZ3OFNiZFRSRGlSNHAvZ3lRNVV3MVdDSks3czFMUnhQQlZ4QkZBOEJPYVZ4NlFwVG85dkV0SGZKRHN0cjQKVXcvQ0hWQm1uZ3d1ZWczWWhUOU5hT1FxRGFvLzZLb0RjQnExdmlQVjBhbDE4RzZEZFU5S3JySnQrSlEwRm5DWgpnYTZlalNzbENPNW9tVHU3TllmK2dveW5GUGY3SmlSZ3VEMmRwcmVoQ2RMTWliWnNIWkZzMmhWT1lIYU1tNUN1Clk2SHpVQnBzbnFzMzN1QnRCYVhIUGZVeEhEczRwS0lnR1R3OUl6VlJOUk42WlA0NkNDMitLQWoxVGE5ZTU0Y1YKQ3dJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
 
 /** Also hard code the fingerprint for the service's public key */
-var identity_fingerprint = "b3:0b:31:0e:76:53:70:03:5f:a6:cb:f1:e7:b8:c9:64";
+var identity_fingerprint = "70:3d:6d:f9:39:e5:17:6d:c9:01:cf:67:0b:d4:97:cf";
 
 /** Hard code the key size (in bytes) as javascript web crypto doesn't
  *  seem to have a way to query this programatically. 256 bytes (2048 bit)
