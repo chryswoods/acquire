@@ -271,7 +271,9 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
                     "know! %s" % (function, service, str(e)))
 
         decrypted_data = _get_key(key, fingerprint).decrypt(encrypted_data)
-        return unpack_arguments(decrypted_data)
+        return unpack_arguments(decrypted_data,
+                                is_return_value=is_return_value,
+                                function=function, service=service)
     else:
         return data
 

@@ -13,6 +13,9 @@ var identity_service_url = "http://fn.acquire-aaai.com:8080/t/identity"
 */
 var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUEwdjUxdFdBb2J4MHNVeWxyZ092RAp1a0dYYkxHNjAyN3Jqa1hhdS9VMjArbno4VlJ1NWlrYy9XQUJFM3NSZWFxMGZoTUJqYXlqcFFHcGdHS0RjVkpsCnNlU0cyWXY0bzVja1l2WjAwWDNEVGY4WTY1YllZNzljSEZEWlhyb01PcTFBNElBdVp0Z1dNZFFBNWkwc1NaNnUKK0FXR3FEakQxVmg4MktSd0JZcEh0M0MzOEI1UWpqL21ZZmtVSUdmeWtUS0pBQUhla2Y2NU5KUVVwTGlpdXFhLwovRC9zUm91SFU2Y1VJNk43RHd6eXVQNkNEUnZVaXNoRXlPOUxiMjNMbmQ1eFhFenlCUkxrcmoxU1NlUWcyVW5sCkZTR2ZEMG1FbjFITkY0T2ptQThtTnlsVEdBbTNYT3Z4TmFZcHNCUzV3UWkwTGhDNEJ4c2NxU0VzZmwyUmZMVm4KSXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
 
+/** Also hard code the fingerprint for the service's public key */
+var identity_fingerprint = "b3:0b:31:0e:76:53:70:03:5f:a6:cb:f1:e7:b8:c9:64";
+
 /** Hard code the key size (in bytes) as javascript web crypto doesn't
  *  seem to have a way to query this programatically. 256 bytes (2048 bit)
  *  is used on the server in all of the python functions
@@ -125,9 +128,18 @@ function bytes_to_string(b){
     return base64js.fromByteArray(b);
 }
 
-/** Function to import a public key from the passed json data */
+/** Function to import and return the public key of the identity service
+ *  to which we will connect
+ */
 function getIdentityPublicPem(){
     return utf8_bytes_to_string(base64js.toByteArray(identity_public_pem));
+}
+
+/** Function to return the fingerprint of the public key of the identity
+ *  service to which we will connect
+ */
+function getIdentityFingerprint(){
+    return identity_fingerprint;
 }
 
 /** Function to load the public key of the identity service */

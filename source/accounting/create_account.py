@@ -1,5 +1,4 @@
 
-from Acquire.Service import get_trusted_service_info
 from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Accounts

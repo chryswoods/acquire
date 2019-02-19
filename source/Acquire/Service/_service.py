@@ -189,8 +189,8 @@ class Service:
 
             # generate 'dummy' old keys - these will be replaced as
             # the real keys are updated
-            self._lastkey = _PrivateKey()
-            self._lastcert = self._lastkey
+            self._lastkey = self._privkey
+            self._lastcert = self._privcert
 
             from Acquire.ObjectStore import get_datetime_now as \
                 _get_datetime_now
@@ -685,7 +685,7 @@ class Service:
         data = self.decrypt(data)
         return _json.loads(data)
 
-    def dump_keys(self):
+    def dump_keys(self, include_old_keys=False):
         """Return a dump of the current key and certificate, so that
            we can keep a record of all keys that have been used. The
            returned json-serialisable dictionary contains the keys,
@@ -704,13 +704,31 @@ class Service:
             from Acquire.Crypto import PrivateKey as _PrivateKey
             from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
             ranpas = _PrivateKey.random_passphrase()
-            dump[self._privkey.fingerprint()] = self._privkey.to_data(ranpas)
-            dump[self._privcert.fingerprint()] = self._privcert.to_data(ranpas)
+
+            key = self.private_key()
+            cert = self.private_certificate()
+
+            dump[key.fingerprint()] = key.to_data(ranpas)
+            dump[cert.fingerprint()] = cert.to_data(ranpas)
+
+            if include_old_keys:
+                key = self.last_key()
+                cert = self.last_certificate()
+                dump[key.fingerprint()] = key.to_data(ranpas)
+                dump[cert.fingerprint()] = cert.to_data(ranpas)
+
             ranpas = _bytes_to_string(self._skeleton_key.encrypt(ranpas))
             dump["encrypted_passphrase"] = ranpas
         else:
-            dump[self._pubkey.fingerprint()] = self._pubkey.to_data()
-            dump[self._pubcert.fingerprint()] = self._pubcert.to_data()
+            key = self.public_key()
+            cert = self.public_certificate()
+
+            dump[key.fingerprint()] = key.to_data()
+            dump[cert.fingerprint()] = cert.to_data()
+
+            if include_old_keys:
+                cert = self.last_certificate()
+                dump[cert.fingerprint()] = cert.to_data()
 
         return dump
 

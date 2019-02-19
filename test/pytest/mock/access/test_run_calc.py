@@ -55,4 +55,4 @@ def test_run_calc(aaai_services, authenticated_user):
     result = access_service.call_function(func, args)
 
     # function doesn't work yet...
-    assert(result["status"] == -1)
+    assert(result["status"] == 0)

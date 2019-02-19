@@ -21,7 +21,7 @@ __all__ = ["push_is_running_service", "pop_is_running_service",
            "is_running_service", "assert_running_service",
            "setup_this_service", "add_admin_user",
            "get_this_service", "get_admin_users",
-           "get_service_private_key",
+           "get_service_private_key", "save_service_keys_to_objstore",
            "get_service_private_certificate", "get_service_public_key",
            "get_service_public_certificate",
            "clear_serviceinfo_cache",
@@ -465,6 +465,32 @@ def _reload_key(fingerprint):
     return service.load_keys(keydata)[fingerprint]
 
 
+def save_service_keys_to_objstore(include_old_keys=False):
+    """Call this function to ensure that the current set of keys
+       used for this service are saved to object store
+    """
+    service = get_this_service(need_private_access=True)
+
+    oldkeys = service.dump_keys(include_old_keys=include_old_keys)
+
+    # now write the old keys to storage
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.Service import get_service_account_bucket \
+        as _get_service_account_bucket
+
+    bucket = _get_service_account_bucket()
+
+    key = "%s/oldkeys/%s" % (_service_key, oldkeys["datetime"])
+    _ObjectStore.set_object_from_json(bucket, key, oldkeys)
+
+    # now write the pointers from fingerprint to file...
+    for fingerprint in oldkeys.keys():
+        if fingerprint not in ["datetime", "encrypted_passphrase"]:
+            _ObjectStore.set_string_object(
+                bucket, "%s/oldkeys/fingerprints/%s" %
+                (_service_key, fingerprint), key)
+
+
 def _refresh_service_keys_and_certs(service):
     """This function will check if any key rotation is needed, and
        if so, it will automatically refresh the keys and certificates.
@@ -476,10 +502,8 @@ def _refresh_service_keys_and_certs(service):
     if not service.should_refresh_keys():
         return service
 
-    # save the old keys
-    oldkeys = service.dump_keys()
-    key_fingerprint = service.private_key().fingerprint()
-    cert_fingerprint = service.private_certificate().fingerprint()
+    # ensure that the current keys are saved to the object store
+    save_service_keys_to_objstore()
 
     # generate new keys
     last_update = service.last_key_update()
@@ -504,19 +528,8 @@ def _refresh_service_keys_and_certs(service):
         _ObjectStore.set_object_from_json(bucket, _service_key,
                                           service.to_data(
                                               _get_service_password()))
-        m.unlock()
 
-        # now write the old keys to storage
-        key = "%s/oldkeys/%s" % (_service_key, oldkeys["datetime"])
-        _ObjectStore.set_object_from_json(bucket, key, oldkeys)
-        _ObjectStore.set_string_object(
-            bucket, "%s/oldkeys/fingerprints/%s" %
-            (_service_key, key_fingerprint), key)
-        _ObjectStore.set_string_object(
-            bucket, "%s/oldkeys/fingerprints/%s" %
-            (_service_key, cert_fingerprint), key)
-    else:
-        m.unlock()
+    m.unlock()
 
     # clear the cache as we will need to load a new object
     clear_serviceinfo_cache()

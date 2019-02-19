@@ -31,6 +31,9 @@ def _route_function(function, args, additional_functions=None):
     if function is None:
         from admin.root import run as _root
         result = _root(args)
+    elif function == "admin/dump_keys":
+        from admin.dump_keys import run as _dump_keys
+        result = _dump_keys(args)
     elif function == "admin/request_login":
         from admin.request_login import run as _request_login
         result = _request_login(args)

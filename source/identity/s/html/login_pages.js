@@ -224,6 +224,8 @@ function login_success(message){
 
     var button = document.getElementById("login_submit_button");
     button.textContent = "CLOSE WINDOW";
+
+    //ADD CLOSE WINDOW ACTION HERE
 }
 
 /** This function is used to submit the login data to the server,
@@ -271,6 +273,7 @@ function perform_login_submit(){
         var data = {};
         data["data"] = bytes_to_string(encrypted_data);
         data["encrypted"] = true;
+        data["fingerprint"] = getIdentityFingerprint();
 
         var response = null;
 
@@ -342,6 +345,11 @@ function perform_login_submit(){
             if (!message){
                 console.log(`CANNOT UNDERSTAND RESPONSE\n${result_json}`);
                 message = `Cannot interpret the server's response`;
+            }
+
+            if ("exception" in response){
+                var e = response["exception"];
+                message = `${e.class}: ${e.error}`;
             }
 
             //as the login failed, it means that the otpcode was likely

@@ -39,7 +39,8 @@ def trust_service(service, authorisation=None):
         _ObjectStore.set_object_from_json(bucket, uidkey, service_data)
         _ObjectStore.set_string_object(bucket, urlkey, uidkey)
 
-        from Acquire.Service import _clear_services_cache
+        from Acquire.Service import clear_services_cache \
+            as _clear_services_cache
         _clear_services_cache()
     else:
         from Acquire.Client import Wallet as _Wallet
@@ -86,7 +87,8 @@ def untrust_service(service, authorisation=None):
         except:
             pass
 
-        from Acquire.Service import _clear_services_cache
+        from Acquire.Service import clear_services_cache \
+            as _clear_services_cache
         _clear_services_cache()
     else:
         from Acquire.Client import Wallet as _Wallet
