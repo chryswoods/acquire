@@ -361,13 +361,16 @@ TOTP = function() {
  */
 
 /** Hard code the URL of the identity service */
-var identity_service_url = "http://fn.acquire-aaai.com:8080/t/storage"
+var identity_service_url = "http://fn.acquire-aaai.com:8080/t/identity"
 
 /** Also hard code the data for the service's public key
  *
  *  This data is encoded using the PublicKey.to_data() function...
 */
-var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF3MGFzWkdlWXFQRmVHT1JEdVhWdQpBeDdaN01jdjBXL3VrbC9zQVRGOW5hSUVYR2RWUWNtR3dVaERWUUdCYVJmRUxwNU16eUYycDE5ZmVYSDV4K3FtCnhQL3VhSVdURTNKckZ6dHJ0TDZNMWxTUDN1TUhjMFYvWEEvOUZsakQ4VHIraE1INzNvVzZsNFI2K2tlYVlHM3UKMTNYRjROTmphdFQzWDYxcW5zWlZHYkdoMlZDbmhkUmp2QmZuYk0wa3VEeUFVQU5adzl6cVcrMnlQeFBzQmdsUwo3ZFhTejRreU9FYVdrckhmeFZBa011aUFNbi9JU3ZFR2lUeDc5Uk94SVhZa1c1dkxZWFE4UEdpNVJBZEErZG16CjdUcTNFZjB2N2NGRVF2NWhMTWRteDdXa212WGhWV1Ria204WnR2a2FaaHl0UmpzazB4cFNjSlRDb3psNXhwc1cKSXdJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+var identity_public_pem = "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUF3bHR5cEtSeFJZcDAwUVJyaVdZbgpZcEZkZS94M0liODh5MGZCY0F0MmRRbVBkZnkrODArdkZMQkxLS3pVSjhrNE90cGVSTVRDYlAxSHVmT2NqK3YwCjZ6TEtiMGNMbnBDd01tZHdiVlRJOXNrczVmaGd1dXhYaVF0cGE0VzRYeU1SWTV5OVZJeTJPcmlVUTRCMHBON1AKZERrSTlYclRaTGtBNHlxbHNBZHZlbHBDc2FMb3RhdGFGRUxxYnJGQWtPRXM1MmNWNnZ2aUNJNERLdUZlZ0FBRAo5dzdBVmNkRHBRQk1LWnBRM0FBMlF5OVpEOFRHVjVncHBVWXV4QVMwNi9hQkdFcU5wbDNrWU5rRWwxQy9mU3UxCnpjWHpaMzNCSXFYTithc0I1akNGNTErYWQza25YR25UOUlZVFFNT3dyamRzVU9lSVhWK3B2N1V2Q2tBK1JsZ3EKY1FJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==";
+
+/** Also hard code the fingerprint for the service's public key */
+var identity_fingerprint = "e7:12:dc:0f:2b:34:18:97:41:53:4b:6d:08:ff:c9:45";
 
 /** Hard code the key size (in bytes) as javascript web crypto doesn't
  *  seem to have a way to query this programatically. 256 bytes (2048 bit)
@@ -481,9 +484,18 @@ function bytes_to_string(b){
     return base64js.fromByteArray(b);
 }
 
-/** Function to import a public key from the passed json data */
+/** Function to import and return the public key of the identity service
+ *  to which we will connect
+ */
 function getIdentityPublicPem(){
     return utf8_bytes_to_string(base64js.toByteArray(identity_public_pem));
+}
+
+/** Function to return the fingerprint of the public key of the identity
+ *  service to which we will connect
+ */
+function getIdentityFingerprint(){
+    return identity_fingerprint;
 }
 
 /** Function to load the public key of the identity service */
@@ -620,6 +632,7 @@ async function show_page(new_page){
 /** Shortcut function to switch back to the login page */
 function reset_login_page(){
     json_login_data["otpcode"] = null;
+    document.getElementById("close_page_button").style.display = "none";
     show_page("login-page");
 }
 
@@ -685,8 +698,13 @@ function render_progress_page(){
           </div>\
           <button id="login_submit_button", class="contact-form__button" \
                   type="submit">Cancel</button>\
+          <button id="close_page_button", class="contact-form__button" \
+                  type="input" onclick="window.close()">Close page</button>\
           </form>'
     );
+
+    /** Hide the close-window button */
+    document.getElementById("close_page_button").style.display = "none";
 
     /**
      * A handler function to prevent default submission and run our custom script.
@@ -788,6 +806,8 @@ function login_failure(message){
 
     var button = document.getElementById("login_submit_button");
     button.textContent = "TRY AGAIN";
+    button = document.getElementById("close_page_button");
+    button.style.display = "inline";
 }
 
 /** Function that is called when the user has successfully logged in */
@@ -801,7 +821,10 @@ function login_success(message){
     para.textContent = message;
 
     var button = document.getElementById("login_submit_button");
-    button.textContent = "CLOSE WINDOW";
+    button.style.display = "none";
+
+    var button = document.getElementById("close_page_button");
+    button.style.display = "inline";
 }
 
 /** This function is used to submit the login data to the server,
@@ -849,6 +872,7 @@ function perform_login_submit(){
         var data = {};
         data["data"] = bytes_to_string(encrypted_data);
         data["encrypted"] = true;
+        data["fingerprint"] = getIdentityFingerprint();
 
         var response = null;
 
@@ -920,6 +944,11 @@ function perform_login_submit(){
             if (!message){
                 console.log(`CANNOT UNDERSTAND RESPONSE\n${result_json}`);
                 message = `Cannot interpret the server's response`;
+            }
+
+            if ("exception" in response){
+                var e = response["exception"];
+                message = `${e.class}: ${e.error}`;
             }
 
             //as the login failed, it means that the otpcode was likely
