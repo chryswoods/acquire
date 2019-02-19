@@ -28,6 +28,4 @@ def run(args):
 
     return_value = create_return_value(status, message)
 
-    return_value["args"] = args
-
     return return_value
