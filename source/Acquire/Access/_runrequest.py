@@ -2,10 +2,7 @@
 import os as _os
 import uuid as _uuid
 
-from ._request import Request as _Request
-from ._checksum import get_filesize_and_checksum as _get_filesize_and_checksum
-
-from ._errors import RunRequestError
+from Acquire.Access import Request as _Request
 
 __all__ = ["RunRequest"]
 
@@ -28,10 +25,14 @@ def _get_abspath_size_md5(basedir, key, filename, max_size=None):
         FILE.close()
     except Exception as e:
         from Acquire.Service import exception_to_string
+        from Acquire.Access import RunRequestError
         raise RunRequestError(
             "Cannot complete the run request because the file '%s' is not "
             "readable: filename=%s.\n\nCAUSE: %s" %
-                (key, filename, exception_to_string(e)))
+            (key, filename, exception_to_string(e)))
+
+    from Acquire.Access import get_filesize_and_checksum \
+        as _get_filesize_and_checksum
 
     (filesize, md5) = _get_filesize_and_checksum(filename)
 
@@ -146,6 +147,7 @@ class RunRequest(_Request):
             try:
                 items = runinfo["input"].items()
             except:
+                from Acquire.Access import RunRequestError
                 raise RunRequestError(
                     "Cannot execute the request because the input files "
                     "are specified with the wrong format. They should be "
@@ -172,6 +174,7 @@ class RunRequest(_Request):
            runinfo with the paths for the input files in the zipfile
         """
         if self._tarfile is not None:
+            from Acquire.Access import RunRequestError
             raise RunRequestError("You cannot create the tarfile twice...")
 
         if "input" not in self._runinfo:
@@ -217,6 +220,8 @@ class RunRequest(_Request):
         self._tarfile = tempfile
         self._tarfilename = tempfile.name
 
+        from Acquire.Access import get_filesize_and_checksum \
+            as _get_filesize_and_checksum
         (filesize, md5) = _get_filesize_and_checksum(tempfile.name)
 
         self._tarsize = filesize
@@ -229,6 +234,7 @@ class RunRequest(_Request):
            named
         """
         if self._runinfo:
+            from Acquire.Access import RunRequestError
             raise RunRequestError(
                 "You cannot change runfile of this RunRequest")
 
@@ -242,6 +248,7 @@ class RunRequest(_Request):
                 runlines = FILE.read()
         except Exception as e:
             from Acquire.Service import exception_to_string
+            from Acquire.Access import RunRequestError
             raise RunRequestError(
                 "Cannot read '%s'. You must supply a readable input file "
                 "that describes the calculation to be performed and supplies "
@@ -268,6 +275,7 @@ class RunRequest(_Request):
                 pass
 
         if runinfo is None:
+            from Acquire.Access import RunRequestError
             raise RunRequestError(
                 "Cannot interpret valid input read from the file '%s'. "
                 "This should be in json or yaml format, and this parser "

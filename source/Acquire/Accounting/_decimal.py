@@ -1,9 +1,4 @@
 
-from decimal import Decimal as _Decimal
-from decimal import Context as _Context
-
-from ._errors import AccountError
-
 __all__ = ["create_decimal", "get_decimal_context"]
 
 
@@ -14,6 +9,7 @@ def get_decimal_context():
        (i.e. everything up to just under one quadrillion - I doubt we will
         ever have an account that has more than a trillion units in it!)
     """
+    from decimal import Context as _Context
     return _Context(prec=24)
 
 
@@ -22,6 +18,8 @@ def create_decimal(value):
        has 6 decimal places and is clamped between
        -1 quadrillion < value < 1 quadrillion
     """
+    from decimal import Decimal as _Decimal
+
     try:
         d = _Decimal("%.6f" % value, get_decimal_context())
     except:
@@ -29,11 +27,13 @@ def create_decimal(value):
         d = _Decimal("%.6f" % value, get_decimal_context())
 
     if d <= -1000000000000:
+        from Acquire.Accounting import AccountError
         raise AccountError(
                 "You cannot create a balance with a value less than "
                 "-1 quadrillion! (%s)" % (value))
 
     elif d >= 1000000000000000:
+        from Acquire.Accounting import AccountError
         raise AccountError(
                 "You cannot create a balance with a value greater than "
                 "1 quadrillion! (%s)" % (value))

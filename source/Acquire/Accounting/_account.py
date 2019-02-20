@@ -5,9 +5,6 @@ import datetime as _datetime
 import time as _time
 import re as _re
 
-
-from ._errors import AccountError, InsufficientFundsError
-
 __all__ = ["Account"]
 
 
@@ -36,6 +33,7 @@ def _get_date_from_key(key):
                                    month=int(m.groups()[1]),
                                    day=int(m.groups()[2])))
     else:
+        from Acquire.Accounting import AccountError
         raise AccountError("Could not find a date in the key '%s'" % key)
 
 
@@ -57,6 +55,7 @@ def _get_datetime_from_key(key):
                                        second=int(m.groups()[5]),
                                        microsecond=int(m.groups()[6])))
     else:
+        from Acquire.Accounting import AccountError
         raise AccountError("Could not find a datetime in the key '%s'" % key)
 
 
@@ -126,12 +125,14 @@ class Account:
 
             if name:
                 if name != self.name():
+                    from Acquire.Accounting import AccountError
                     raise AccountError(
                         "This account name '%s' does not match what you "
                         "expect! '%s'" % (self.name(), name))
 
             if description:
                 if description != self.description():
+                    from Acquire.Accounting import AccountError
                     raise AccountError(
                         "This account description '%s' does not match what "
                         "you expect! '%s'" % (self.description(), description))
@@ -162,11 +163,13 @@ class Account:
     def _create_account(self, name, description):
         """Create the account from scratch"""
         if name is None or description is None:
+            from Acquire.Accounting import AccountError
             raise AccountError(
                 "You must pass both a name and description to create a new "
                 "account")
 
         if self._uid is not None:
+            from Acquire.Accounting import AccountError
             raise AccountError("You cannot create an account twice!")
 
         from Acquire.Accounting import create_decimal as _create_decimal
@@ -295,6 +298,7 @@ class Account:
                         bucket, root)
 
             if keys is None or len(keys) == 0:
+                from Acquire.Accounting import AccountError
                 raise AccountError(
                     "There is no daily balance recorded for "
                     "the account with UID %s" % self.uid())
@@ -388,6 +392,7 @@ class Account:
             data = _ObjectStore.get_object_from_json(bucket, balance_key)
 
             if data is None:
+                from Acquire.Accounting import AccountError
                 raise AccountError("The daily balance for account at date %s "
                                    "is not available" % str(datetime))
 
@@ -1027,6 +1032,7 @@ class Account:
             bucket = _get_service_account_bucket()
 
         if self.available_balance(bucket) < transaction.value():
+            from Acquire.Accounting import InsufficientFundsError
             raise InsufficientFundsError(
                 "You cannot debit '%s' from account %s as there "
                 "are insufficient funds in this account." %
@@ -1056,6 +1062,7 @@ class Account:
 
             delta = (receipt_by - now).total_seconds()
             if delta < 3600:
+                from Acquire.Accounting import AccountError
                 raise AccountError(
                     "You cannot request a receipt to be provided less "
                     "than 1 hour into the future! %s versus %s is only "
@@ -1181,6 +1188,7 @@ class Account:
             if self.is_beyond_overdraft_limit():
                 # restore the old limit
                 self._overdraft_limit = old_limit
+                from Acquire.Accounting import AccountError
                 raise AccountError("You cannot change the overdraft limit to "
                                    "%s as this is greater than the current "
                                    "balance!" % (limit))

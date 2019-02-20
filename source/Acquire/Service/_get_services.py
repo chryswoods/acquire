@@ -4,9 +4,6 @@ import base64 as _base64
 from cachetools import cached as _cached
 from cachetools import LRUCache as _LRUCache
 
-from ._errors import ServiceError, ServiceAccountError
-from Acquire.Crypto import SignatureVerificationError
-
 _cache_local_serviceinfo = _LRUCache(maxsize=5)
 _cache_remote_serviceinfo = _LRUCache(maxsize=20)
 
@@ -59,6 +56,7 @@ def get_trusted_service(service_url=None, service_uid=None):
             data = None
 
         if data is None:
+            from Acquire.Service import ServiceAccountError
             if service_uid is not None:
                 raise ServiceAccountError(
                     "We do not trust the service with UID '%s'" %
@@ -100,15 +98,20 @@ def get_remote_service(service_url):
     try:
         response = _call_function(service_url, response_key=key)
     except Exception as e:
+        from Acquire.Service import ServiceError
         raise ServiceError("Cannot get information about '%s': %s" %
                            (service_url, str(e)))
+
+    from Acquire.Crypto import SignatureVerificationError \
+        as _SignatureVerificationError
 
     try:
         return _Service.from_data(response["service_info"],
                                   verify_data=True)
-    except SignatureVerificationError:
+    except _SignatureVerificationError:
         raise
     except Exception as e:
+        from Acquire.Service import ServiceError
         raise ServiceError(
                 "Cannot extract service info for '%s' from '%s': %s" %
                 (service_url, str(response), str(e)))
@@ -129,15 +132,20 @@ def get_checked_remote_service(service_url, public_cert):
         response = _call_function(service_url, response_key=key,
                                   public_cert=public_cert)
     except Exception as e:
+        from Acquire.Service import ServiceError
         raise ServiceError("Cannot get information about '%s': %s" %
                            (service_url, str(e)))
+
+    from Acquire.Crypto import SignatureVerificationError \
+        as _SignatureVerificationError
 
     try:
         return _Service.from_data(response["service_info"],
                                   verify_data=True)
-    except SignatureVerificationError:
+    except _SignatureVerificationError:
         raise
     except Exception as e:
+        from Acquire.Service import ServiceError
         raise ServiceError(
                 "Cannot extract service info for '%s' from '%s': %s" &
                 (service_url, str(response), str(e)))

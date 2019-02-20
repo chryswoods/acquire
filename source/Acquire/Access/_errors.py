@@ -1,10 +1,10 @@
 
-from Acquire.Service import ServiceError
+from Acquire.Service import ServiceError as _ServiceError
 
 __all__ = ["AccessServiceError", "RunRequestError"]
 
 
-class AccessServiceError(ServiceError):
+class AccessServiceError(_ServiceError):
     pass
 
 

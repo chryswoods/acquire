@@ -3,17 +3,17 @@ import os as _os
 
 if _os.getenv("PROFILE") == "1":
     profiling_code = True
-    import cProfile as _cProfile
-    import tempfile as _tempfile
-    from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
     def start_profile():
+        import cProfile as _cProfile
         pr = _cProfile.Profile()
         pr.enable()
         return pr
 
     def end_profile(pr, results):
         pr.disable()
+        import tempfile as _tempfile
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         t = _tempfile.mktemp()
         pr.dump_stats(t)
         with open(t, "rb") as FILE:

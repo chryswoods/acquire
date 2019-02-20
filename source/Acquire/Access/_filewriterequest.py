@@ -2,12 +2,8 @@
 from uuid import uuid4 as _uuid4
 import copy as _copy
 import os as _os
-import hashlib as _hashlib
-import glob as _glob
 
-from ._request import Request as _Request
-
-from Acquire.Identity import Authorisation as _Authorisation
+from Acquire.Access import Request as _Request
 
 __all__ = ["FileWriteRequest"]
 
@@ -36,7 +32,8 @@ def _get_filesize_and_checksum(filename):
     """Return a tuple of the size in bytes of the passed file and the
        file's md5 checksum
     """
-    md5 = _hashlib.md5()
+    from hashlib import md5 as _md5
+    md5 = _md5()
     size = 0
 
     with open(filename, "rb") as f:
@@ -57,7 +54,7 @@ def _list_all_files(directory, ignore_hidden=True):
 
     all_files = []
 
-    for (root, dirs, filenames) in _os.walk(directory):
+    for (root, _, filenames) in _os.walk(directory):
         root = root[len(directory)+1:]
 
         if ignore_hidden and root.startswith("."):
@@ -117,8 +114,10 @@ def _expand_source_destination(source, destination=None,
     source_filenames = []
     rel_filenames = []
 
+    from glob import glob as _glob
+
     for s in source:
-        for f in _glob.glob(str(s)):
+        for f in _glob(str(s)):
             abspath = _os.path.abspath(f)
             if not _os.path.exists(abspath):
                 raise FileExistsError("The file '%s' does not exist!"
@@ -207,6 +206,8 @@ class FileWriteRequest(_Request):
             raise ValueError("You must pass a valid account to write files!")
 
         self._uid = str(_uuid4())
+
+        from Acquire.Identity import Authorisation as _Authorisation
 
         if self._is_testing:
             self._account_uid = "something"
@@ -336,6 +337,7 @@ class FileWriteRequest(_Request):
     @staticmethod
     def from_data(data):
         if (data and len(data) > 0):
+            from Acquire.Identity import Authorisation as _Authorisation
             f = FileWriteRequest()
 
             f._uid = data["uid"]

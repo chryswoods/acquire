@@ -1,6 +1,4 @@
 
-from Acquire.Identity import Authorisation as _Authorisation
-
 __all__ = ["Request"]
 
 

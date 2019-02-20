@@ -2,8 +2,6 @@
 import os as _os
 import uuid as _uuid
 
-from ._errors import AccountError
-
 __all__ = ["OCIAccount"]
 
 
@@ -18,9 +16,11 @@ class OCIAccount:
            contains all of the keys needed to login"""
 
         if login is None:
+            from Acquire.Service import AccountError
             raise AccountError("You need to supply login credentials!")
 
         if not isinstance(login, dict):
+            from Acquire.Service import AccountError
             raise AccountError(
                 "You need to supply a valid login credential dictionary!")
 
@@ -34,6 +34,7 @@ class OCIAccount:
                 missing_keys.append(key)
 
         if len(missing_keys) > 0:
+            from Acquire.Service import AccountError
             raise AccountError(
                 "Cannot log in as the login dictionary "
                 "is missing the following data: %s" % str(missing_keys))
@@ -130,6 +131,7 @@ class OCIAccount:
                     bucket["bucket"] = client.get_bucket(namespace,
                                                          bucket_name).data
                 except Exception as e:
+                    from Acquire.Service import AccountError
                     raise AccountError(
                         "Cannot access the bucket '%s' : %s (originally %s)" %
                         (bucket_name, str(e), str(e1)))

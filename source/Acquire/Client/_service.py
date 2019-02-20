@@ -1,6 +1,4 @@
 
-from Acquire.Service import ServiceError
-
 from cachetools import LRUCache as _LRUCache
 from cachetools import cached as _cached
 
@@ -58,6 +56,7 @@ class Service:
            has failed to be initialised
         """
         if self._failed:
+            from Acquire.Service import ServiceError
             raise ServiceError(
                 "Cannot do anything with a null service")
 

@@ -1,5 +1,4 @@
 
-
 __all__ = ["QRCodeError", "LoginError", "AccountError",
            "PaymentError", "UserError"]
 

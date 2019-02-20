@@ -5,9 +5,6 @@ import json as _json
 from cachetools import cached as _cached
 from cachetools import LRUCache as _LRUCache
 
-from ._cache_management import clear_service_cache as _clear_service_cache
-from ._errors import ServiceAccountError
-
 # The cache can hold a maximum of 50 objects, and will remove the
 # least recently used items from the cache
 _login_cache = _LRUCache(maxsize=50)
@@ -27,7 +24,11 @@ def clear_login_cache():
 
 def push_testing_objstore(testing_dir):
     """Function used in testing to push a new object store onto the stack"""
+    from Acquire.Service import clear_service_cache as _clear_service_cache
+
     global _current_testing_objstore
+    global _testing_objstore_stack
+
     _testing_objstore_stack.append(_current_testing_objstore)
     _current_testing_objstore = testing_dir
     _clear_service_cache()
@@ -35,6 +36,8 @@ def push_testing_objstore(testing_dir):
 
 def pop_testing_objstore():
     """Function used in testing to pop an object store from the stack"""
+    from Acquire.Service import clear_service_cache as _clear_service_cache
+
     global _current_testing_objstore
     global _testing_objstore_stack
 
@@ -88,6 +91,7 @@ def get_service_account_bucket(testing_dir=None):
             return _use_testing_object_store_backend(_current_testing_objstore)
 
     if password is None:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "You need to supply login credentials via the 'secret_key' "
             "file, and 'SECRET_KEY' and 'SECRET_CONFIG' environment "
@@ -96,6 +100,7 @@ def get_service_account_bucket(testing_dir=None):
     secret_key = _os.getenv("SECRET_KEY")
 
     if secret_key is None:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "You must supply the password used to unlock the configuration "
             "key in the 'SECRET_KEY' environment variable")
@@ -103,6 +108,7 @@ def get_service_account_bucket(testing_dir=None):
     try:
         secret_key = _json.loads(secret_key)
     except Exception as e:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "Unable to decode valid JSON from the secret key: %s" % str(e))
 
@@ -111,6 +117,7 @@ def get_service_account_bucket(testing_dir=None):
         from Acquire.Crypto import PrivateKey as _PrivateKey
         secret_key = _PrivateKey.from_data(secret_key, password)
     except Exception as e:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "Unable to open the private SECRET_KEY using the password "
             "supplied in the 'secret_key' file: %s" % str(e))
@@ -118,6 +125,7 @@ def get_service_account_bucket(testing_dir=None):
     config = _os.getenv("SECRET_CONFIG")
 
     if config is None:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "You must supply the encrypted config in teh 'SECRET_CONFIG' "
             "environment variable!")
@@ -126,6 +134,7 @@ def get_service_account_bucket(testing_dir=None):
         from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
         config = secret_key.decrypt(_string_to_bytes(config))
     except Exception as e:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "Cannot decrypt the 'SECRET_CONFIG' with the 'SECRET_KEY'. Are "
             "you sure that the configuration has been set up correctly? %s "
@@ -135,6 +144,7 @@ def get_service_account_bucket(testing_dir=None):
     try:
         config = _json.loads(config)
     except Exception as e:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "Unable to decode valid JSON from the config: %s" % str(e))
 
@@ -166,6 +176,7 @@ def get_service_account_bucket(testing_dir=None):
                                     bucket_data["compartment"],
                                     bucket_data["bucket"])
     except Exception as e:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
              "Error connecting to the service account: %s" % str(e))
 

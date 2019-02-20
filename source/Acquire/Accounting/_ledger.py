@@ -2,8 +2,6 @@
 import uuid as _uuid
 from copy import copy as _copy
 
-from ._errors import TransactionError, LedgerError, UnbalancedLedgerError
-
 __all__ = ["Ledger"]
 
 
@@ -32,6 +30,7 @@ class Ledger:
         data = _ObjectStore.get_object_from_json(bucket, Ledger.get_key(uid))
 
         if data is None:
+            from Acquire.Accounting import LedgerError
             raise LedgerError("There is no transaction recorded in the "
                               "ledger with UID=%s (at key %s)" %
                               (uid, Ledger.get_key(uid)))
@@ -327,6 +326,7 @@ class Ledger:
                 for debit_note in debit_notes:
                     debit_account._delete_note(debit_note, bucket=bucket)
             except Exception as e:
+                from Acquire.Accounting import UnbalancedLedgerError
                 raise UnbalancedLedgerError(
                     "We have an unbalanced ledger as it was not "
                     "possible to refund a multi-part refused credit (%s): "
@@ -361,6 +361,7 @@ class Ledger:
                 for credit_note in credit_notes.values():
                     credit_account._delete_note(credit_note, bucket=bucket)
             except Exception as e:
+                from Acquire.Accounting import UnbalancedLedgerError
                 raise UnbalancedLedgerError(
                     "We have an unbalanced ledger as it was not "
                     "possible to credit a multi-part debit (%s): Credit "
@@ -372,6 +373,7 @@ class Ledger:
                 for debit_note in debit_notes:
                     debit_account._delete_note(debit_note, bucket=bucket)
             except Exception as e:
+                from Acquire.Accounting import UnbalancedLedgerError
                 raise UnbalancedLedgerError(
                     "We have an unbalanced ledger as it was not "
                     "possible to credit a multi-part debit (%s): Credit "

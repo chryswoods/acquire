@@ -7,8 +7,6 @@ try:
 except:
     _pycurl = None
 
-from ._errors import PackingError, UnpackingError, RemoteFunctionCallError
-
 __all__ = ["call_function", "pack_arguments", "unpack_arguments",
            "create_return_value", "pack_return_value", "unpack_return_value",
            "exception_to_safe_exception", "exception_to_string"]
@@ -125,6 +123,7 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
             result["sign_with_service_key"] = public_cert.fingerprint()
 
     elif sign_result and (key is None):
+        from Acquire.Service import PackingError
         raise PackingError(
             "You cannot ask the service to sign the response "
             "without also providing a key to encrypt it with too")
@@ -152,6 +151,7 @@ def pack_return_value(result, key=None, response_key=None, public_cert=None):
         result = _json.dumps(response).encode("utf-8")
 
     elif sign_result:
+        from Acquire.Service import PackingError
         raise PackingError(
             "The service must encrypt the response before it "
             "can be signed.")
@@ -196,6 +196,7 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
     try:
         data = _json.loads(args)
     except Exception as e:
+        from Acquire.Service import UnpackingError
         raise UnpackingError("Cannot decode json from '%s' : %s" %
                              (data, str(e)))
 
@@ -206,6 +207,7 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
         try:
             data = _json.loads(data)
         except Exception as e:
+            from Acquire.Service import UnpackingError
             raise UnpackingError(
                 "Cannot decode a json dictionary from '%s' : %s" %
                 (data, str(e)))
@@ -214,6 +216,7 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
         # extra checks if this is a return value of a function rather
         # than the arguments
         if len(data) == 1 and "error" in data:
+            from Acquire.Service import RemoteFunctionCallError
             raise RemoteFunctionCallError(
                 "Calling %s on %s resulted in error: '%s'" %
                 (function, service, data["error"]))
@@ -311,6 +314,7 @@ def _unpack_and_raise(function, service, exdata):
         ex.__traceback__ = _tblib.Traceback.from_dict(
                                     exdata["traceback"]).as_traceback()
     except Exception as e:
+        from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
             "An exception occurred while calling '%s' on '%s'" %
             (function, service), e)
@@ -390,6 +394,7 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
                                             response_key, public_cert, args)
 
     if _pycurl is None:
+        from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
             "Cannot call remote functions as "
             "the pycurl module cannot be imported! It needs "
@@ -421,11 +426,13 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
         c.perform()
         c.close()
     except _pycurl.error as e:
+        from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
             "Cannot call remote function '%s' at  '%s' because of a possible "
             "network issue: curl errorcode %s, message '%s'" %
             (function, service_url, e.args[0], e.args[1]))
     except Exception as e:
+        from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
             "Cannot call remote function '%s' at '%s'" %
             (function, service_url), e)

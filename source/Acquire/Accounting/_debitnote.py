@@ -1,6 +1,4 @@
 
-from ._errors import LedgerError
-
 __all__ = ["DebitNote"]
 
 

@@ -1,6 +1,4 @@
 
-from ._errors import AccountError
-
 __all__ = ["Accounts"]
 
 
@@ -83,6 +81,7 @@ class Accounts:
                 return self.create_account("main", "primary user account",
                                            overdraft_limit=0, bucket=bucket)
 
+            from Acquire.Accounting import AccountError
             raise AccountError("There is no account called '%s' in the "
                                "group '%s'" % (name, self.group()))
 
