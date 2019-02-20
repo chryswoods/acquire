@@ -76,9 +76,10 @@ def run(args):
         credit_notes = cheque.cash(spend=total_cost,
                                    resource=request.signature())
     except Exception as e:
+        from Acquire.Service import exception_to_string
         raise PaymentError(
             "Problem cashing the cheque used to pay for the calculation: "
-            "ERROR = %s" % str(e))
+            "\n\nCAUSE: %s" % exception_to_string(e))
 
     if credit_notes is None or len(credit_notes) == 0:
         raise PaymentError("Cannot be paid!")

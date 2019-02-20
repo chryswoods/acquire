@@ -1,21 +1,12 @@
 
+import lazy_import as _lazy_import
 import os as _os
 import sys as _sys
-import getpass as _getpass
-import glob as _glob
-import re as _re
 import json as _json
-import lazy_import as _lazy_import
 
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-from Acquire.ObjectStore import string_to_safestring as _string_to_safestring
-from Acquire.ObjectStore import safestring_to_string as _safestring_to_string
-
-from Acquire.Crypto import PrivateKey as _PrivateKey
-from Acquire.Crypto import OTP as _OTP
-
-from ._errors import LoginError
+_getpass = _lazy_import.lazy_module("getpass")
+_glob = _lazy_import.lazy_module("glob")
+_re = _lazy_import.lazy_module("re")
 
 # use a variable so we can monkey-patch while testing
 _input = input
@@ -96,6 +87,7 @@ class Wallet:
         password = _getpass.getpass(
                      prompt="Please enter a password to encrypt your wallet: ")
 
+        from Acquire.Client import PrivateKey as _PrivateKey
         key = _PrivateKey()
 
         bytes = key.bytes(password)
@@ -139,6 +131,7 @@ class Wallet:
                             prompt="Please enter your wallet password: ")
 
             try:
+                from Acquire.Client import PrivateKey as _PrivateKey
                 wallet_key = _PrivateKey.read_bytes(bytes, password)
             except:
                 print("Invalid password. Please try again.")
@@ -150,6 +143,8 @@ class Wallet:
     def _get_userfile(username, identity_url):
         """Return the userfile for the passed username logging into the
            passed identity url"""
+        from Acquire.ObjectStore import string_to_safestring \
+            as _string_to_safestring
         return "%s/user_%s_%s_encrypted" % (
             Wallet._wallet_dir(),
             _string_to_safestring(username),
@@ -184,6 +179,9 @@ class Wallet:
 
         data = _read_json(filename)
 
+        from Acquire.ObjectStore import string_to_bytes \
+            as _string_to_bytes
+
         try:
             data["password"] = _string_to_bytes(data["password"])
         except:
@@ -213,6 +211,9 @@ class Wallet:
 
         userinfos = {}
 
+        from Acquire.ObjectStore import safestring_to_string \
+            as _safestring_to_string
+
         for userfile in userfiles:
             try:
                 userinfo = self._read_userfile(userfile)
@@ -228,10 +229,7 @@ class Wallet:
             return usernames[0]
 
         if len(usernames) == 0:
-
-            print("Please type your username: ", end="")
-            _sys.stdout.flush()
-            return _sys.stdin.readline()[0:-1]
+            return _input("Please type your username: ")
 
         print("Please choose the account by typing in its number, "
               "or type a new username if you want a different account.")
@@ -288,6 +286,7 @@ class Wallet:
             userinfo = self._read_userinfo(username, identity_url)
 
             if userinfo:
+                from Acquire.Client import OTP as _OTP
                 secret = self._wallet_key.decrypt(userinfo["otpsecret"])
                 device_uid = userinfo["device_uid"]
                 self._manual_otpcode = False
@@ -310,6 +309,9 @@ class Wallet:
         global _is_testing
         if _is_testing:
             return service
+
+        from Acquire.ObjectStore import string_to_safestring \
+            as _string_to_safestring
 
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
@@ -413,7 +415,12 @@ class Wallet:
         """
         global _is_testing
         if _is_testing:
+            from Acquire.Service import get_remote_service as \
+                _get_remote_service
             return _get_remote_service(service_url)
+
+        from Acquire.ObjectStore import string_to_safestring \
+            as _string_to_safestring
 
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
@@ -470,6 +477,9 @@ class Wallet:
         else:
             service_url = service.canonical_url()
 
+        from Acquire.ObjectStore import string_to_safestring \
+            as _string_to_safestring
+
         service_file = "%s/service_%s" % (
             Wallet._wallet_dir(),
             _string_to_safestring(service_url))
@@ -500,6 +510,7 @@ class Wallet:
         service = Wallet.get_service(identity_service)
 
         if not service.can_identify_users():
+            from Acquire.Client import LoginError
             raise LoginError(
                 "Service '%s' is unable to identify users! "
                 "You cannot log into something that is not "
@@ -539,7 +550,8 @@ class Wallet:
         except Exception as e:
             print("FAILED!")
             _sys.stdout.flush()
-            raise LoginError("Failed to log in.\nError: %s" % str(e))
+            from Acquire.Client import LoginError
+            raise LoginError("Failed to log in. %s" % e.args)
 
         if remember_password:
             try:
@@ -579,6 +591,11 @@ class Wallet:
                     must_write = True
 
             if must_write:
+                from Acquire.ObjectStore import string_to_safestring \
+                    as _string_to_safestring
+                from Acquire.ObjectStore import bytes_to_string \
+                    as _bytes_to_string
+
                 user_info["username"] = _string_to_safestring(username)
                 user_info["password"] = _bytes_to_string(
                                               pubkey.encrypt(
@@ -590,8 +607,8 @@ class Wallet:
                                                    otpsecret.encode("utf-8")))
                     user_info["device_uid"] = device_uid
 
-                _write_json(Wallet._get_userfile(username,
-                                                 service.canonical_url()),
+                _write_json(Wallet._get_userfile(
+                            username, service.canonical_url()),
                             user_info)
 
         self._manual_password = False

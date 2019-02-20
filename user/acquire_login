@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from Acquire.Client import Wallet
+from Acquire.Client import Wallet, LoginError
 
 parser = argparse.ArgumentParser(
                 description="Log into an Acquire-based identity "
@@ -99,9 +99,8 @@ for url in args.url:
         response = wallet.send_password(url, args.username,
                                         remember_password, remember_device,
                                         dryrun)
-
+    except LoginError as e:
+        print("\n%s" % e.args)
     except Exception as e:
-        try:
-            print(e.args[0])
-        except:
-            print(str(e))
+        from Acquire.Service import exception_to_string
+        print(exception_to_string(e))

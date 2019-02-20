@@ -5,6 +5,8 @@ This module implements all of the classes and functions necessary to build the
 client (user-facing) interfaces for Acquire
 """
 
+import lazy_import as _lazy_import
+
 from ._qrcode import *
 from ._user import *
 from ._account import *
@@ -16,9 +18,11 @@ from ._service import *
 # The below objects are useful for the client, so are pulled into
 # this module to discourage people using the other Acquire modules
 # directly...
-from Acquire.Crypto import PublicKey, PrivateKey
-from Acquire.ObjectStore import PAR
-from Acquire.Identity import Authorisation
+PublicKey = _lazy_import.lazy_class("Acquire.Crypto.PublicKey")
+PrivateKey = _lazy_import.lazy_class("Acquire.Crypto.PrivateKey")
+OTP = _lazy_import.lazy_class("Acquire.Crypto.OTP")
+PAR = _lazy_import.lazy_class("Acquire.ObjectStore.PAR")
+Authorisation = _lazy_import.lazy_class("Acquire.Identity.Authorisation")
 
 try:
     if __IPYTHON__:

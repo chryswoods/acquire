@@ -363,6 +363,7 @@ class LoginSession:
             return logses
 
         except Exception as e:
+            from Acquire.Service import exception_to_string
             raise LoginSessionError(
                 "Cannot load the LoginSession from "
-                "the object store? error = %s" % (str(e)))
+                "the object store?\n\nCAUSE: %s" % (exception_to_string(e)))

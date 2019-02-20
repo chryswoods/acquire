@@ -38,6 +38,6 @@ def test_service_object(aaai_services):
     service.refresh_keys()
 
     assert(service.last_key_update() > service2.last_key_update())
-    assert(service.last_certificate().public_key()
-           == service2.public_certificate())
+    assert(service.last_certificate().public_key() ==
+           service2.public_certificate())
     assert(service.last_key() == service2.private_key())

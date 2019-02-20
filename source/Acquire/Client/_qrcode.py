@@ -1,6 +1,4 @@
 
-from ._errors import QRCodeError
-
 __all__ = ["create_qrcode", "has_qrcode"]
 
 
@@ -18,6 +16,7 @@ def create_qrcode(uri):
     try:
         import qrcode as _qrcode
     except:
+        from Acquire.Client import QRCodeError
         raise QRCodeError("Cannot find the qrcode library needed to generate "
                           "QR codes. Please install and try again.")
 

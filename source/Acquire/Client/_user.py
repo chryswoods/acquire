@@ -6,21 +6,6 @@ from enum import Enum as _Enum
 from datetime import datetime as _datetime
 import time as _time
 
-from Acquire.Service import call_function as _call_function
-from Acquire.Service import Service as _Service
-
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-
-from Acquire.Crypto import PrivateKey as _PrivateKey
-from Acquire.Crypto import PublicKey as _PublicKey
-from Acquire.Crypto import get_private_key as _get_private_key
-
-from ._qrcode import create_qrcode as _create_qrcode
-from ._qrcode import has_qrcode as _has_qrcode
-
-from ._errors import UserError, LoginError
-
 # If we can, import socket to get the hostname and IP address
 try:
     import socket as _socket
@@ -50,14 +35,16 @@ def _get_identity_service(identity_url=None):
     if identity_url is None:
         identity_url = _get_identity_url()
 
-    from Acquire.Client import Service as _Service
+    from Acquire.Client import LoginError
 
     try:
-        service = _Service(identity_url)
+        from Acquire.Client import Wallet as _Wallet
+        service = _Wallet.get_service(service_url=identity_url)
     except Exception as e:
+        from Acquire.Service import exception_to_string
         raise LoginError("Have not received the identity service info from "
-                         "the identity service at '%s': Error = %s" %
-                         (identity_url, str(e)))
+                         "the identity service at '%s'\n\nCAUSE: %s" %
+                         (identity_url, exception_to_string(e)))
 
     if not service.can_identify_users():
         raise LoginError(
@@ -73,22 +60,22 @@ def _get_identity_service(identity_url=None):
 
 def uid_to_username(user_uid, identity_url=None):
     """Function to return the username for the passed uid"""
-    if identity_url is None:
-        identity_url = _get_identity_url()
+    from Acquire.Client import Service as _Service
+    service = _get_identity_service(identity_url=identity_url)
 
-    response = _call_function(identity_url, "whois",
-                              args={"user_uid": str(user_uid)})
+    response = service.call_function(
+                function="whois", args={"user_uid": str(user_uid)})
 
     return response["username"]
 
 
 def username_to_uid(username, identity_url=None):
     """Function to return the uid for the passed username"""
-    if identity_url is None:
-        identity_url = _get_identity_url()
+    from Acquire.Client import Service as _Service
+    service = _get_identity_service(identity_url=identity_url)
 
-    response = _call_function(identity_url, "whois",
-                              args={"username": str(username)})
+    response = service.call_function(
+                function="whois", args={"username": str(username)})
 
     return response["user_uid"]
 
@@ -102,13 +89,15 @@ def get_session_keys(username=None, user_uid=None, session_uid=None,
     if session_uid is None:
         raise ValueError("You must supply a valid UID for a login session")
 
-    if identity_url is None:
-        identity_url = _get_identity_url()
+    service = _get_identity_service(identity_url=identity_url)
 
-    response = _call_function(identity_url, "whois",
-                              username=username,
-                              user_uid=user_uid,
-                              session_uid=session_uid)
+    args = {"username": username,
+            "user_uid": user_uid,
+            "session_uid": session_uid}
+
+    response = service.call_function(function="whois", args=args)
+
+    from Acquire.Client import PublicKey as _PublicKey
 
     try:
         response["public_key"] = _PublicKey.from_data(response["public_key"])
@@ -149,6 +138,7 @@ class User:
 
             if self._username is not None:
                 if username != self._username:
+                    from Acquire.Client import LoginError
                     raise LoginError(
                         "Disagreement of username for account with UID '%s'. "
                         "%s versus %s" % (user_uid, username, self._username))
@@ -174,8 +164,8 @@ class User:
 
     def _set_status(self, status):
         """Internal function used to set the status from the
-           string obtained from the LoginSession"""
-
+           string obtained from the LoginSession
+        """
         if status == "approved":
             self._status = _LoginStatus.LOGGED_IN
         elif status == "denied":
@@ -205,6 +195,7 @@ class User:
            state. If it is in an error state then raise an
            exception"""
         if self._status == _LoginStatus.ERROR:
+            from Acquire.Client import LoginError
             raise LoginError(self._error_string)
 
     def _set_error_state(self, message):
@@ -245,6 +236,7 @@ class User:
         # pylint: disable=assignment-from-none
         if self._identity_uid:
             if identity_service.uid() != self._identity_uid:
+                from Acquire.Client import LoginError
                 raise LoginError(
                     "The UID of the identity service at '%s', which is "
                     "%s, does not match that supplied by the user, '%s'. "
@@ -329,23 +321,22 @@ class User:
     def logout(self):
         """Log out from the current session"""
         if self.is_logged_in() or self.is_logging_in():
-            identity_url = self.identity_service_url()
-
-            if identity_url is None:
-                return
+            service = self.identity_service()
 
             # create a permission message that can be signed
             # and then validated by the user
             permission = "Log out request for %s" % self._session_uid
             signature = self.signing_key().sign(permission)
 
-            result = _call_function(
-                            identity_url, "logout",
-                            args_key=self.identity_service().public_key(),
-                            username=self._username,
-                            session_uid=self._session_uid,
-                            permission=permission,
-                            signature=_bytes_to_string(signature))
+            from Acquire.ObjectStore import bytes_to_string \
+                as _bytes_to_string
+
+            args = {"username": self._username,
+                    "session_uid": self._session_uid,
+                    "permission": permission,
+                    "signature": _bytes_to_string(signature)}
+
+            result = service.call_function(function="logout", args=args)
 
             self._status = _LoginStatus.LOGGED_OUT
 
@@ -360,27 +351,24 @@ class User:
         if self._username is None:
             return None
 
-        if identity_url is None:
-            identity_url = self.identity_service_url()
+        service = self.identity_service()
 
-        privkey = _get_private_key("function")
+        args = {"username": self._username,
+                "password": password}
 
-        result = _call_function(
-                    identity_url, "register",
-                    args_key=self.identity_service().public_key(),
-                    response_key=privkey,
-                    public_cert=self.identity_service().public_certificate(),
-                    username=self._username, password=password)
+        result = service.call_function(function="register", args=args)
 
         try:
             provisioning_uri = result["provisioning_uri"]
         except:
+            from Acquire.Client import UserError
             raise UserError(
                 "Cannot register the user '%s' on "
                 "the identity service at '%s'!" %
                 (self._username, identity_url))
 
         # return a QR code for the provisioning URI
+        from Acquire.Client import create_qrcode as _create_qrcode
         return (provisioning_uri, _create_qrcode(provisioning_uri))
 
     def request_login(self, login_message=None, _is_local=False):
@@ -396,6 +384,8 @@ class User:
         """
         self._check_for_error()
 
+        from Acquire.Client import LoginError
+
         if not self.is_empty():
             raise LoginError("You cannot try to log in twice using the same "
                              "User object. Create another object if you want "
@@ -403,6 +393,7 @@ class User:
 
         # first, create a private key that will be used
         # to sign all requests and identify this login
+        from Acquire.Client import PrivateKey as _PrivateKey
         session_key = _PrivateKey()
         signing_key = _PrivateKey()
 
@@ -490,8 +481,11 @@ class User:
 
         qrcode = None
 
+        from Acquire.Client import has_qrcode as _has_qrcode
+
         if _has_qrcode() and not _is_local:
             try:
+                from Acquire.Client import create_qrcode as _create_qrcode
                 self._login_qrcode = _create_qrcode(self._login_url)
                 qrcode = self._login_qrcode
             except:
@@ -503,14 +497,12 @@ class User:
         """Function used to query the identity service for this session
            to poll for the session status"""
 
-        identity_url = self.identity_service_url()
+        service = self.identity_service()
 
-        if identity_url is None:
-            return
+        args = {"username": self._username,
+                "session_uid": self._session_uid}
 
-        result = _call_function(identity_url, "get_status",
-                                username=self._username,
-                                session_uid=self._session_uid)
+        result = service.call_function(function="get_status", args=args)
 
         # look for status = 0
         try:
@@ -527,6 +519,7 @@ class User:
             error = "Failed to query identity service. Error = %d. " \
                     "Message = %s" % (status, message)
             self._set_error_state(error)
+            from Acquire.Client import LoginError
             raise LoginError(error)
 
         # now update the status...

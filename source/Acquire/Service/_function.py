@@ -11,7 +11,7 @@ from ._errors import PackingError, UnpackingError, RemoteFunctionCallError
 
 __all__ = ["call_function", "pack_arguments", "unpack_arguments",
            "create_return_value", "pack_return_value", "unpack_return_value",
-           "exception_to_safe_exception"]
+           "exception_to_safe_exception", "exception_to_string"]
 
 
 def _get_signing_certificate(fingerprint=None):
@@ -316,6 +316,17 @@ def _unpack_and_raise(function, service, exdata):
             (function, service), e)
 
     raise ex
+
+
+def exception_to_string(e):
+    """This function returns a simple string that represents the exception,
+       including the first line of the traceback.
+    """
+    import traceback as _traceback
+    lines = _traceback.format_exception(e.__class__, e, e.__traceback__,
+                                        limit=2)
+
+    return "".join(lines)
 
 
 def _call_local_function(service, function=None, args_key=None,

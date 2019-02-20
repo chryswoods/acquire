@@ -42,9 +42,8 @@ class Service:
             service.__class__ == Acquire.Identity.IdentityService
         """
         try:
-            from Acquire.Service import get_remote_service \
-                as _get_remote_service
-            service = _get_remote_service(service_url)
+            from Acquire.Client import Wallet as _Wallet
+            service = _Wallet.get_service(service_url)
 
             from copy import copy as _copy
             self.__dict__ = _copy(service.__dict__)
@@ -298,7 +297,7 @@ class Service:
            response)
         """
         self._fail()
-        return None
+        return {}
 
     def sign(self, message):
         """Sign the specified message"""

@@ -27,9 +27,11 @@ def _get_abspath_size_md5(basedir, key, filename, max_size=None):
         FILE = open(filename, "r")
         FILE.close()
     except Exception as e:
+        from Acquire.Service import exception_to_string
         raise RunRequestError(
             "Cannot complete the run request because the file '%s' is not "
-            "readable: filename=%s, error=%s" % (key, filename, str(e)))
+            "readable: filename=%s.\n\nCAUSE: %s" %
+                (key, filename, exception_to_string(e)))
 
     (filesize, md5) = _get_filesize_and_checksum(filename)
 
@@ -239,11 +241,12 @@ class RunRequest(_Request):
             with open(runfile, "r") as FILE:
                 runlines = FILE.read()
         except Exception as e:
+            from Acquire.Service import exception_to_string
             raise RunRequestError(
                 "Cannot read '%s'. You must supply a readable input file "
                 "that describes the calculation to be performed and supplies "
-                "the names of all of the input files. Error = %s" %
-                (runfile, str(e)))
+                "the names of all of the input files.\n\nCAUSE: %s" %
+                (runfile, exception_to_string(e)))
 
         # get the directory that contains this file
         basedir = _os.path.dirname(_os.path.abspath(runfile))

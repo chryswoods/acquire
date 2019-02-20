@@ -424,10 +424,12 @@ def create_service_user_account(service, accounting_service_url):
 
         _ObjectStore.set_string_object(bucket, key, account_uid)
     except Exception as e:
+        from Acquire.Service import exception_to_string
         raise ServiceAccountError(
             "Unable to create a financial account for the service "
-            "principal for '%s' on accounting service '%s': %s" %
-            (str(service), str(accounting_service), str(e)))
+            "principal for '%s' on accounting service '%s'\n\nERROR\n%s" %
+            (str(service), str(accounting_service),
+             exception_to_string(e)))
 
 
 def _reload_key(fingerprint):

@@ -280,7 +280,8 @@ class Authorisation:
             try:
                 testing_key.verify(self._signature, message)
             except Exception as e:
-                raise PermissionError(str(e))
+                from Acquire.Service import exception_to_string
+                raise PermissionError(exception_to_string(e))
 
             self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource

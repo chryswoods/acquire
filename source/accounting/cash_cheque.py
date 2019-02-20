@@ -31,7 +31,10 @@ def run(args):
     try:
         cheque = Cheque.from_data(cheque)
     except Exception as e:
-        raise TypeError("Unable to interpret the cheque. Error: %s" % str(e))
+        from Acquire.Service import exception_to_string
+        raise TypeError(
+            "Unable to interpret the cheque.\n\nCAUSE: %s"
+                % exception_to_string(e))
 
     try:
         spend = args["spend"]
@@ -42,8 +45,10 @@ def run(args):
         try:
             spend = string_to_decimal(spend)
         except Exception as e:
+            from Acquire.Service import exception_to_string
             raise TypeError(
-                "Unable to interpret the spend. Error: %s" % str(e))
+                "Unable to interpret the spend.\n\nCause: %s"
+                    % exception_to_string(e))
 
     try:
         resource = str(args["resource"])
@@ -69,8 +74,10 @@ def run(args):
     try:
         receipt_by = string_to_datetime(receipt_by)
     except Exception as e:
+        from Acquire.Service import exception_to_string
         raise TypeError(
-            "Unable to interpret the receipt_by date. Error: %s" % str(e))
+            "Unable to interpret the receipt_by date.\n\nCAUSE: %s"
+                % exception_to_string(e))
 
     # now read the cheque - this will only succeed if the cheque
     # is valid, has been signed, has been sent from the right
@@ -91,15 +98,18 @@ def run(args):
     try:
         debit_account = Account(uid=info["account_uid"], bucket=bucket)
     except Exception as e:
+        from Acquire.Service import exception_to_string
         raise PaymentError(
-            "Cannot find the account associated with the cheque: %s" % str(e))
+            "Cannot find the account associated with the cheque"
+            "\n\nCAUSE: %s" % exception_to_string(e))
 
     try:
         credit_account = Account(uid=account_uid, bucket=bucket)
     except Exception as e:
+        from Acquire.Service import exception_to_string
         raise PaymentError(
-            "Cannot find the account to which funds will be creditted: %s"
-            % str(e))
+            "Cannot find the account to which funds will be creditted:"
+            "\n\nCAUSE: %s" % exception_to_string(e))
 
     user_uid = info["authorisation"].user_uid()
 
