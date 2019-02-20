@@ -5,9 +5,6 @@ import json as _json
 from cachetools import cached as _cached
 from cachetools import LRUCache as _LRUCache
 
-from ._errors import ServiceError, ServiceAccountError, \
-                     MissingServiceAccountError
-
 # The cache can hold a maximum of 5 objects, and will replace the least
 # recently used items first
 _cache_serviceinfo_data = _LRUCache(maxsize=5)
@@ -90,6 +87,8 @@ def _get_this_service_data():
     """
     assert_running_service()
 
+    from Acquire.Service import ServiceAccountError
+
     # get the bucket again - can't pass as an argument as this is a cached
     # function - luckily _get_service_account_bucket is also a cached function
     try:
@@ -107,12 +106,14 @@ def _get_this_service_data():
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         service = _ObjectStore.get_object_from_json(bucket, _service_key)
     except Exception as e:
+        from Acquire.Service import MissingServiceAccountError
         raise MissingServiceAccountError(
             "Unable to load the service account for this service. An "
             "error occured while loading the data from the object "
             "store: %s" % str(e))
 
     if not service:
+        from Acquire.Service import MissingServiceAccountError
         raise MissingServiceAccountError(
             "You haven't yet created the service account "
             "for this service. Please create an account first.")
@@ -128,6 +129,7 @@ def _get_service_password():
     service_password = _os.getenv("SERVICE_PASSWORD")
 
     if service_password is None:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "You must supply a $SERVICE_PASSWORD")
 
@@ -171,6 +173,7 @@ def setup_this_service(canonical_url, service_type):
         try:
             service = _Service.from_data(service_info, service_password)
         except Exception as e:
+            from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
                 "Something went write reading the Service data. You should "
                 "either debug the error or delete the data at key '%s' "
@@ -180,6 +183,7 @@ def setup_this_service(canonical_url, service_type):
 
         if service.service_type() != service_type or \
            service.canonical_url() != canonical_url:
+            from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
                "The existing service has a different type or URL to that "
                "requested at setup. The request type and URL are %s and %s, "
@@ -189,6 +193,7 @@ def setup_this_service(canonical_url, service_type):
 
     if service is None:
         if (service_type is None) or (canonical_url is None):
+            from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
                 "You need to supply both the service_type and canonical_url "
                 "in order to initialise a new Service")
@@ -249,11 +254,13 @@ def add_admin_user(service, account_uid, authorisation=None):
         # validate that the new user has been authorised by an existing
         # admin...
         if authorisation is None:
+            from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
                 "You must supply a valid authorisation from an existing admin "
                 "user if you want to add a new admin user.")
 
         if authorisation.user_uid() not in admin_users:
+            from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
                 "The authorisation for the new admin account is not valid "
                 "because the user who signed it is not a valid admin on "
@@ -287,6 +294,8 @@ def get_admin_users():
     """
     assert_running_service()
 
+    from Acquire.Service import ServiceAccountError
+
     try:
         from Acquire.Service import get_service_account_bucket as \
             _get_service_account_bucket
@@ -303,12 +312,14 @@ def get_admin_users():
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         admin_users = _ObjectStore.get_object_from_json(bucket, key)
     except Exception as e:
+        from Acquire.Service import MissingServiceAccountError
         raise MissingServiceAccountError(
             "Unable to load the Admin User data for this service. An "
             "error occured while loading the data from the object "
             "store: %s" % str(e))
 
     if not admin_users:
+        from Acquire.Service import MissingServiceAccountError
         raise MissingServiceAccountError(
             "You haven't yet created any Admin Users for the service account "
             "for this service. Please create an Admin User first.")
@@ -324,6 +335,8 @@ def get_this_service(need_private_access=False):
        the public certificates.
     """
     assert_running_service()
+
+    from Acquire.Service import MissingServiceAccountError
 
     try:
         service_info = _get_this_service_data()
@@ -377,6 +390,7 @@ def get_service_user_account_uid(accounting_service_uid):
         account_uid = None
 
     if account_uid is None:
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "This service does not have a valid financial account on "
             "the accounting service at '%s'" % accounting_service_uid)
@@ -425,6 +439,7 @@ def create_service_user_account(service, accounting_service_url):
         _ObjectStore.set_string_object(bucket, key, account_uid)
     except Exception as e:
         from Acquire.Service import exception_to_string
+        from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
             "Unable to create a financial account for the service "
             "principal for '%s' on accounting service '%s'\n\nERROR\n%s" %
@@ -553,6 +568,7 @@ def get_service_private_key(fingerprint=None):
             try:
                 return _reload_key(fingerprint)
             except Exception as e:
+                from Acquire.Service import ServiceAccountError
                 raise ServiceAccountError(
                     "Cannot find a private key for '%s' that matches "
                     "the fingerprint %s. This is either because you are "
@@ -580,6 +596,7 @@ def get_service_private_certificate(fingerprint=None):
             try:
                 return _reload_key(fingerprint)
             except Exception as e:
+                from Acquire.Service import ServiceAccountError
                 raise ServiceAccountError(
                     "Cannot find a private certificate for '%s' that matches "
                     "the fingerprint %s. This is either because you are "
@@ -598,6 +615,7 @@ def get_service_public_key(fingerprint=None):
 
     if fingerprint:
         if key.fingerprint() != fingerprint:
+            from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
                 "Cannot find a public key for '%s' that matches "
                 "the fingerprint %s" % (str(s), fingerprint))
@@ -615,6 +633,7 @@ def get_service_public_certificate(fingerprint=None):
             cert = s.last_certificate()
 
         if cert.fingerprint() != fingerprint:
+            from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
                 "Cannot find a public certificate for '%s' that matches "
                 "the fingerprint %s" % (str(s), fingerprint))

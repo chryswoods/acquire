@@ -1,8 +1,8 @@
 
-from Acquire.Service import ServiceError
+from Acquire.Service import ServiceError as _ServiceError
 
 __all__ = ["StorageServiceError"]
 
 
-class StorageServiceError(ServiceError):
+class StorageServiceError(_ServiceError):
     pass

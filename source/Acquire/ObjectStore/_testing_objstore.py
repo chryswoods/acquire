@@ -8,13 +8,6 @@ import glob as _glob
 import threading
 import uuid as _uuid
 
-from ._par import PAR as _PAR
-from ._encoding import get_datetime_now as _get_datetime_now
-from ._encoding import datetime_to_string as _datetime_to_string
-from ._encoding import string_to_datetime as _string_to_datetime
-
-from ._errors import ObjectStoreError, PARError
-
 _rlock = threading.RLock()
 
 __all__ = ["Testing_ObjectStore"]
@@ -42,6 +35,7 @@ class Testing_ObjectStore:
         full_name = _os.path.join(_os.path.split(bucket)[0], bucket_name)
 
         if _os.path.exists(full_name):
+            from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "CANNOT CREATE NEW BUCKET '%s': EXISTS!" % bucket_name)
 
@@ -72,6 +66,7 @@ class Testing_ObjectStore:
             if create_if_needed:
                 _os.makedirs(full_name)
             else:
+                from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError(
                     "There is no bucket available called '%s' in "
                     "compartment '%s'" % (bucket_name, compartment))
@@ -91,10 +86,12 @@ class Testing_ObjectStore:
         """
         if key is not None:
             if not _os.path.exists("%s/%s._data" % (bucket, key)):
+                from Acquire.ObjectStore import PARError
                 raise PARError(
                     "The object '%s' in bucket '%s' does not exist!" %
                     (key, bucket))
         elif not _os.path.exists(bucket):
+            from Acquire.ObjectStore import PARError
             raise PARError("The bucket '%s' does not exist!" % bucket)
 
         url = "file://%s" % bucket
@@ -103,6 +100,7 @@ class Testing_ObjectStore:
             url = "%s/%s" % (url, key)
 
         # get the time this PAR was created
+        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
         created_datetime = _get_datetime_now()
 
         # get the UTC datetime when this PAR should expire
@@ -112,9 +110,12 @@ class Testing_ObjectStore:
         # mimic limitations of OCI - cannot have a bucket PAR with
         # read permissions!
         if (key is None) and readable:
+            from Acquire.ObjectStore import PARError
             raise PARError(
                 "You cannot create a Bucket PAR that has read permissions "
                 "due to a limitation in the underlying platform")
+
+        from Acquire.ObjectStore import PAR as _PAR
 
         return _PAR(url=url, key=key,
                     created_datetime=created_datetime,
@@ -129,6 +130,7 @@ class Testing_ObjectStore:
            and writing this to the file called 'filename'"""
 
         if not _os.path.exists("%s/%s._data" % (bucket, key)):
+            from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError("No object at key '%s'" % key)
 
         _shutil.copy("%s/%s._data" % (bucket, key), filename)
@@ -142,6 +144,7 @@ class Testing_ObjectStore:
             if _os.path.exists("%s/%s._data" % (bucket, key)):
                 return open("%s/%s._data" % (bucket, key), "rb").read()
             else:
+                from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError("No object at key '%s'" % key)
 
     @staticmethod

@@ -3,10 +3,6 @@ import uuid as _uuid
 from copy import copy as _copy
 import os as _os
 
-from Acquire.Crypto import PrivateKey as _PrivateKey
-from Acquire.Crypto import PublicKey as _PublicKey
-
-from Acquire.Service import call_function as _call_function
 from Acquire.Service import Service as _Service
 
 from ._errors import StorageServiceError
@@ -21,6 +17,7 @@ class StorageService(_Service):
             self.__dict__ = _copy(other.__dict__)
 
             if not self.is_storage_service():
+                from Acquire.Storage import StorageServiceError
                 raise StorageServiceError(
                     "Cannot construct an StorageService from "
                     "a service which is not an storage service!")
@@ -37,6 +34,7 @@ class StorageService(_Service):
            stored. This should be a different compartment to the one used
            to store management data for the storage service"""
         if self._storage_compartment_id is None:
+            from Acquire.Storage import StorageServiceError
             raise StorageServiceError(
                 "The ID of the compartment for the storage account has not "
                 "been set. This should have been set when the StorageService "

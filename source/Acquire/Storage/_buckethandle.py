@@ -1,10 +1,6 @@
 
 import uuid as _uuid
 
-from Acquire.ObjectStore import ObjectStore as _ObjectStore
-from Acquire.Service import get_service_account_bucket as \
-                           _get_service_account_bucket
-
 __all__ = ["BucketHandle"]
 
 
@@ -25,6 +21,10 @@ class BucketHandle:
            service bucket. If you want to specify a different
            compartment then pass this in as 'compartment'
         """
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+
         bucket = _get_service_account_bucket()
 
         if uid is None:
@@ -59,4 +59,5 @@ class BucketHandle:
            seconds from granting the request. By default PARs are valid for
            one hour
         """
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
         return _ObjectStore.create_par(self._bucket, writeable, valid_duration)

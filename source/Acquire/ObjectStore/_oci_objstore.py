@@ -7,11 +7,6 @@ import os as _os
 import copy as _copy
 import uuid as _uuid
 
-from ._par import PAR as _PAR
-from ._encoding import get_datetime_now as _get_datetime_now
-
-from ._errors import ObjectStoreError, PARError, PARPermissionsError
-
 __all__ = ["OCI_ObjectStore"]
 
 
@@ -80,6 +75,7 @@ class OCI_ObjectStore:
         except Exception as e:
             # couldn't create the bucket - likely because it already
             # exists - try to connect to the existing bucket
+            from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unable to create the bucket '%s', likely because it "
                 "already exists: %s" % (bucket_name, str(e)))
@@ -143,6 +139,7 @@ class OCI_ObjectStore:
                 existing_bucket = None
 
         if existing_bucket is None:
+            from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "There is not bucket called '%s'. Please check the "
                 "compartment and access permissions." % bucket_name)
@@ -164,6 +161,7 @@ class OCI_ObjectStore:
         """
 
         # get the UTC datetime when this PAR should expire
+        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
         expires_datetime = _get_datetime_now() + \
             _datetime.timedelta(seconds=duration)
 
@@ -172,6 +170,7 @@ class OCI_ObjectStore:
         # Limitation of OCI - cannot have a bucket PAR with
         # read permissions!
         if is_bucket and readable:
+            from Acquire.ObjectStore import PARError
             raise PARError(
                 "You cannot create a Bucket PAR that has read permissions "
                 "due to a limitation in the underlying platform")
@@ -200,6 +199,7 @@ class OCI_ObjectStore:
             elif writeable:
                 request.access_type = "ObjectWrite"
             else:
+                from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError(
                     "Unsupported permissions model for PAR!")
 
@@ -218,11 +218,13 @@ class OCI_ObjectStore:
                                         request).data
         except Exception as e:
             # couldn't create the preauthenticated request
+            from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unable to create the preauthenticated request '%s': %s" %
                 (str(request), str(e)))
 
         if oci_par is None:
+            from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unable to create the preauthenticated request!")
 
@@ -237,6 +239,7 @@ class OCI_ObjectStore:
         url = _get_object_url_for_region(bucket["region"],
                                          oci_par.access_uri)
 
+        from Acquire.ObjectStore import PAR as _PAR
         par = _PAR(url=url, key=oci_par.object_name,
                    created_datetime=created_datetime,
                    expires_datetime=expires_datetime,
@@ -269,6 +272,7 @@ class OCI_ObjectStore:
                 pass
 
             if not is_chunked:
+                from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError("No object at key '%s'" % key)
 
         if not is_chunked:
@@ -319,6 +323,7 @@ class OCI_ObjectStore:
 
             # Raise the original error
             if not is_chunked:
+                from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError("No data at key '%s'" % key)
 
         data = None
