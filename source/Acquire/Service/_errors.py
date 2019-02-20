@@ -26,11 +26,14 @@ class RemoteFunctionCallError(Exception):
         super().__init__(message)
 
         if child_exception is not None:
-            from ._function import exception_to_safe_exception \
-                as _exception_to_safe_exception
+            if issubclass(child_exception.__class__, Exception):
+                from ._function import exception_to_safe_exception \
+                    as _exception_to_safe_exception
 
-            self._child_exception = _exception_to_safe_exception(
-                                                        child_exception)
+                self._child_exception = _exception_to_safe_exception(
+                                                            child_exception)
+            else:
+                self.args = ("%s : %s" % (message, str(child_exception)), )
 
     def unpack_and_raise(self):
         if self._child_exception is None:

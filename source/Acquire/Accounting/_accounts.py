@@ -57,7 +57,14 @@ class Accounts:
         accounts = []
 
         for key in keys:
-            accounts.append(_encoded_to_string(key[root_len:]))
+            try:
+                accounts.append(_encoded_to_string(key[root_len:]))
+            except Exception as e:
+                from Acquire.Accounting import AccountError
+                raise AccountError(
+                    "Unable to identify the account associated with key "
+                    "'%s', equals '%s': %s" %
+                    (key, key[root_len:], str(e)))
 
         return accounts
 

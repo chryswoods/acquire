@@ -169,6 +169,9 @@ def exception_to_safe_exception(e):
        that can be copied because it does not hold references to any
        local data
     """
+    if not issubclass(e.__class__, Exception):
+        return TypeError(str(e))
+
     import tblib as _tblib
     tb = _tblib.Traceback(e.__traceback__)
     e.__traceback__ = tb.as_traceback()
@@ -290,6 +293,13 @@ def unpack_return_value(return_value, key=None, public_cert=None,
                             service=service)
 
 
+class _UnicodeDecodeError(Exception):
+    """Fake UnicodeDecodeError as the real one has a strange
+       constructor syntax
+    """
+    pass
+
+
 def _unpack_and_raise(function, service, exdata):
     """This function unpacks the exception whose data is in 'exdata',
        and raises it in the current thread. Additional information
@@ -307,17 +317,25 @@ def _unpack_and_raise(function, service, exdata):
     try:
         import importlib as _importlib
         import tblib as _tblib
-        mod = _importlib.import_module(exdata["module"])
-        exclass = getattr(mod, exdata["class"])
+
+        if exdata["class"] == "UnicodeDecodeError":
+            exclass = _UnicodeDecodeError
+        else:
+            mod = _importlib.import_module(exdata["module"])
+            exclass = getattr(mod, exdata["class"])
+
         ex = exclass("Error calling '%s' on '%s': %s" %
                      (function, service, exdata["error"]))
         ex.__traceback__ = _tblib.Traceback.from_dict(
                                     exdata["traceback"]).as_traceback()
     except Exception as e:
         from Acquire.Service import RemoteFunctionCallError
+        from Acquire.Service import exception_to_string \
+            as _exception_to_string
         raise RemoteFunctionCallError(
-            "An exception occurred while calling '%s' on '%s'" %
-            (function, service), e)
+            "An exception occurred while calling '%s' on '%s'\n\n"
+            "CAUSE: %s\n\nEXDATA: %s" %
+            (function, service, _exception_to_string(e), exdata))
 
     raise ex
 
