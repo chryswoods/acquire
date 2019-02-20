@@ -189,8 +189,16 @@ class Testing_ObjectStore:
 
             for name in names:
                 if name.endswith("._data"):
-                    # remove the prefix and the ._data at the end
-                    object_names.append(name[root_len:-6])
+                    # remove the  ._data at the end
+                    name = name[root_len:-6]
+                    while name.endswith("/"):
+                        name = name[0:-1]
+
+                    while name.startswith("/"):
+                        name = name[1:]
+
+                    if len(name) > 0:
+                        object_names.append(name)
                 elif _os.path.isdir(name):
                     subdir_names += _glob.glob("%s/*" % name)
 

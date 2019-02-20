@@ -21,6 +21,14 @@ def _sanitise_bucket_name(bucket_name):
     return "_".join(bucket_name.split())
 
 
+def _clean_key(key):
+    """This function cleans and returns a key so that it is suitable
+       for use both as a key and a directory/file path
+       e.g. it removes double-slashes
+    """
+    return _os.path.normpath(key)
+
+
 def _get_object_url_for_region(region, uri):
     """Internal function used to get the full URL to the passed PAR URI
        for the specified region. This has the format;
@@ -93,7 +101,7 @@ class OCI_ObjectStore:
         """
         new_bucket = _copy.copy(bucket)
 
-        new_bucket["bucket_name"] = str(bucket_name)
+        new_bucket["bucket_name"] = _sanitise_bucket_name(bucket_name)
 
         if compartment is not None:
             new_bucket["compartment_id"] = str(compartment)
@@ -110,7 +118,7 @@ class OCI_ObjectStore:
         # try to get the existing bucket
         client = new_bucket["client"]
         namespace = client.get_namespace().data
-        sanitised_name = _sanitise_bucket_name(str(bucket_name))
+        sanitised_name = _sanitise_bucket_name(bucket_name)
 
         try:
             existing_bucket = client.get_bucket(
@@ -206,7 +214,7 @@ class OCI_ObjectStore:
             request.name = str(_uuid.uuid4())
 
             if not is_bucket:
-                request.object_name = key
+                request.object_name = _clean_key(key)
 
             request.time_expires = expires_datetime
 
@@ -255,6 +263,8 @@ class OCI_ObjectStore:
     def get_object_as_file(bucket, key, filename):
         """Get the object contained in the key 'key' in the passed 'bucket'
            and writing this to the file called 'filename'"""
+
+        key = _clean_key(key)
 
         try:
             response = bucket["client"].get_object(bucket["namespace"],
@@ -305,6 +315,8 @@ class OCI_ObjectStore:
     def get_object(bucket, key):
         """Return the binary data contained in the key 'key' in the
            passed bucket"""
+
+        key = _clean_key(key)
 
         try:
             response = bucket["client"].get_object(bucket["namespace"],
@@ -363,6 +375,7 @@ class OCI_ObjectStore:
     @staticmethod
     def get_string_object(bucket, key):
         """Return the string in 'bucket' associated with 'key'"""
+        key = _clean_key(key)
         return OCI_ObjectStore.get_object(bucket, key).decode("utf-8")
 
     @staticmethod
@@ -372,6 +385,8 @@ class OCI_ObjectStore:
            at this key
         """
         data = None
+
+        key = _clean_key(key)
 
         try:
             data = OCI_ObjectStore.get_string_object(bucket, key)
@@ -383,6 +398,9 @@ class OCI_ObjectStore:
     @staticmethod
     def get_all_object_names(bucket, prefix=None):
         """Returns the names of all objects in the passed bucket"""
+        if prefix is not None:
+            prefix = _clean_key(prefix)
+
         objects = bucket["client"].list_objects(bucket["namespace"],
                                                 bucket["bucket_name"],
                                                 prefix=prefix).data
@@ -410,6 +428,9 @@ class OCI_ObjectStore:
     @staticmethod
     def get_all_objects(bucket, prefix=None):
         """Return all of the objects in the passed bucket"""
+        if prefix is not None:
+            prefix = _clean_key(prefix)
+
         objects = {}
         names = OCI_ObjectStore.get_all_object_names(bucket, prefix)
 
@@ -421,6 +442,9 @@ class OCI_ObjectStore:
     @staticmethod
     def get_all_strings(bucket, prefix=None):
         """Return all of the strings in the passed bucket"""
+        if prefix is not None:
+            prefix = _clean_key(prefix)
+
         objects = OCI_ObjectStore.get_all_objects(bucket, prefix)
 
         names = list(objects.keys())
@@ -439,6 +463,7 @@ class OCI_ObjectStore:
         """Set the value of 'key' in 'bucket' to binary 'data'"""
         f = _io.BytesIO(data)
 
+        key = _clean_key(key)
         bucket["client"].put_object(bucket["namespace"],
                                     bucket["bucket_name"],
                                     key, f)
@@ -447,7 +472,7 @@ class OCI_ObjectStore:
     def set_object_from_file(bucket, key, filename):
         """Set the value of 'key' in 'bucket' to equal the contents
            of the file located by 'filename'"""
-
+        key = _clean_key(key)
         with open(filename, 'rb') as f:
             bucket["client"].put_object(bucket["namespace"],
                                         bucket["bucket_name"],
@@ -456,12 +481,14 @@ class OCI_ObjectStore:
     @staticmethod
     def set_string_object(bucket, key, string_data):
         """Set the value of 'key' in 'bucket' to the string 'string_data'"""
+        key = _clean_key(key)
         OCI_ObjectStore.set_object(bucket, key, string_data.encode("utf-8"))
 
     @staticmethod
     def set_object_from_json(bucket, key, data):
         """Set the value of 'key' in 'bucket' to equal to contents
            of 'data', which has been encoded to json"""
+        key = _clean_key(key)
         OCI_ObjectStore.set_string_object(bucket, key, _json.dumps(data))
 
     @staticmethod
@@ -477,6 +504,7 @@ class OCI_ObjectStore:
     def delete_object(bucket, key):
         """Removes the object at 'key'"""
         try:
+            key = _clean_key(key)
             bucket["client"].delete_object(bucket["namespace"],
                                            bucket["bucket_name"],
                                            key)
@@ -493,6 +521,7 @@ class OCI_ObjectStore:
             remove = True
 
             for key in keys:
+                key = _clean_key(key)
                 if name.startswith(key):
                     remove = False
                     break

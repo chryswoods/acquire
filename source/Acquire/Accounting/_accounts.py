@@ -26,7 +26,7 @@ class Accounts:
         """Return the root key for this group in the object store"""
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
-        return "accounting/account_groups/%s/" % \
+        return "accounting/account_groups/%s" % \
             _string_to_encoded(self._group)
 
     def _account_key(self, name):
@@ -58,13 +58,17 @@ class Accounts:
 
         for key in keys:
             try:
-                accounts.append(_encoded_to_string(key[root_len:]))
+                account_key = key[root_len:]
+                while account_key.startswith("/"):
+                    account_key = account_key[1:]
+
+                accounts.append(_encoded_to_string(account_key))
             except Exception as e:
                 from Acquire.Accounting import AccountError
                 raise AccountError(
                     "Unable to identify the account associated with key "
                     "'%s', equals '%s': %s" %
-                    (key, key[root_len:], str(e)))
+                    (key, account_key, str(e)))
 
         return accounts
 
