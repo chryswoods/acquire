@@ -1,10 +1,4 @@
 
-from ._decimal import create_decimal as _create_decimal
-from ._creditnote import CreditNote as _CreditNote
-from ._transaction import Transaction as _Transaction
-
-from Acquire.Identity import Authorisation as _Authorisation
-
 __all__ = ["Refund"]
 
 
@@ -30,6 +24,9 @@ class Refund:
             self._credit_note = None
             self._authorisation = None
             return
+
+        from Acquire.Accounting import CreditNote as _CreditNote
+        from Acquire.Identity import Authorisation as _Authorisation
 
         if not isinstance(credit_note, _CreditNote):
             raise TypeError("The credit note must be of type CreditNote")
@@ -60,6 +57,7 @@ class Refund:
     def credit_note(self):
         """Return the credit note that this is refunding"""
         if self.is_null():
+            from Acquire.Accounting import CreditNote as _CreditNote
             return _CreditNote()
         else:
             return self._credit_note
@@ -102,6 +100,8 @@ class Refund:
            that the original debit account will be the new credit account,
            and the original credit account will be the new debit account).
         """
+        from Acquire.Accounting import Transaction as _Transaction
+
         if self.is_null():
             return _Transaction()
         else:
@@ -112,6 +112,7 @@ class Refund:
     def value(self):
         """Return the value of the refund"""
         if self.is_null():
+            from Acquire.Accounting import create_decimal as _create_decimal
             return _create_decimal(0)
         else:
             return self._credit_note.value()
@@ -138,6 +139,8 @@ class Refund:
         r = Refund()
 
         if (data and len(data) > 0):
+            from Acquire.Accounting import CreditNote as _CreditNote
+            from Acquire.Identity import Authorisation as _Authorisation
             r._credit_note = _CreditNote.from_data(data["credit_note"])
             r._authorisation = _Authorisation.from_data(data["authorisation"])
 

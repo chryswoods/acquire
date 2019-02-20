@@ -1,6 +1,4 @@
 
-from ._errors import UnbalancedLedgerError
-
 __all__ = ["PairedNote"]
 
 
@@ -81,6 +79,7 @@ class PairedNote:
                 missing.append(debit_note)
 
         if len(missing) > 0 or len(credit_notes) != len(debit_notes):
+            from Acquire.Accounting import UnbalancedLedgerError
             raise UnbalancedLedgerError(
                 "Cannot balance the ledger as the debit do not match the "
                 "credits %s versus %s" % (str(debit_notes), str(credit_notes)))

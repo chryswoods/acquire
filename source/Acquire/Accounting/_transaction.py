@@ -1,9 +1,4 @@
 
-from decimal import Decimal as _Decimal
-from decimal import Context as _Context
-
-from ._errors import TransactionError
-
 __all__ = ["Transaction"]
 
 
@@ -14,6 +9,7 @@ def _getcontext():
        (i.e. everything up to just under one quadrillion - I doubt we will
         ever have an account that has more than a trillion units in it!)
     """
+    from decimal import Context as _Context
     return _Context(prec=24)
 
 
@@ -21,6 +17,8 @@ def _create_decimal(value):
     """Create a decimal from the passed value. This is a decimal that
        has 6 decimal places and is clamped between 0 <= value < 1 quadrillion
     """
+    from decimal import Decimal as _Decimal
+
     try:
         d = _Decimal("%.6f" % value, _getcontext())
     except:
@@ -28,11 +26,13 @@ def _create_decimal(value):
         d = _Decimal("%.6f" % value, _getcontext())
 
     if d < 0:
+        from Acquire.Accounting import TransactionError
         raise TransactionError(
                 "You cannot create a transaction with a negative value (%s)"
                 % (value))
 
     elif d >= 1000000000000000:
+        from Acquire.Accounting import TransactionError
         raise TransactionError(
                 "You cannot create a transaction with a value greater than "
                 "1 quadrillion! (%s)" % (value))
@@ -57,6 +57,7 @@ class Transaction:
         value = _create_decimal(value)
 
         if value > Transaction.maximum_transaction_value():
+            from Acquire.Accounting import TransactionError
             raise TransactionError(
                 "You cannot create a transaction (%s) with a "
                 "value greater than %s. Please "
@@ -68,12 +69,14 @@ class Transaction:
         self._value = value
 
         if self._value < 0:
+            from Acquire.Accounting import TransactionError
             raise TransactionError(
                 "You cannot create a transaction (%s) with a "
                 "negative value! %s" % (description, value))
 
         if description is None:
             if self._value > 0:
+                from Acquire.Accounting import TransactionError
                 raise TransactionError(
                     "You must give a description to all non-zero "
                     "transactions! %s" % self.value())
@@ -188,6 +191,7 @@ class Transaction:
             total = _create_decimal(total)
 
             if total != orig_value:
+                from Acquire.Accounting import TransactionError
                 raise TransactionError(
                     "Error as split sum (%s) is not equal to the original "
                     "value (%s)" % (total, orig_value))
@@ -202,7 +206,8 @@ class Transaction:
         transaction = Transaction()
 
         if (data and len(data) > 0):
-            transaction._value = _create_decimal(_Decimal(data["value"]))
+            from Acquire.Accounting import create_decimal as _create_decimal
+            transaction._value = _create_decimal(data["value"])
             transaction._description = data["description"]
 
         return transaction

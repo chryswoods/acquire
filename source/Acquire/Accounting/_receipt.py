@@ -1,10 +1,4 @@
 
-from ._decimal import create_decimal as _create_decimal
-from ._creditnote import CreditNote as _CreditNote
-from ._transaction import Transaction as _Transaction
-
-from Acquire.Identity import Authorisation as _Authorisation
-
 __all__ = ["Receipt"]
 
 
@@ -25,8 +19,12 @@ class Receipt:
         if credit_note is None:
             self._credit_note = None
             self._authorisation = None
+            from Acquire.Accounting import create_decimal as _create_decimal
             self._receipted_value = _create_decimal(0)
             return
+
+        from Acquire.Accounting import CreditNote as _CreditNote
+        from Acquire.Identity import Authorisation as _Authorisation
 
         if not isinstance(credit_note, _CreditNote):
             raise TypeError("The credit note must be of type CreditNote")
@@ -39,6 +37,7 @@ class Receipt:
                              "not provisional! - %s" % str(credit_note))
 
         if receipted_value is not None:
+            from Acquire.Accounting import create_decimal as _create_decimal
             receipted_value = _create_decimal(receipted_value)
 
             if receipted_value < 0:
@@ -78,6 +77,7 @@ class Receipt:
     def credit_note(self):
         """Return the credit note that this is a receipt for"""
         if self.is_null():
+            from Acquire.Accounting import CreditNote as _CreditNote
             return _CreditNote()
         else:
             return self._credit_note
@@ -119,6 +119,7 @@ class Receipt:
            of value between the debit and credit accounts. The value
            of the transaction is the actual receipted value
         """
+        from Acquire.Accounting import Transaction as _Transaction
         if self.is_null():
             return _Transaction()
         else:
@@ -129,6 +130,7 @@ class Receipt:
     def value(self):
         """Return the original (provisional) value of the transaction"""
         if self.is_null():
+            from Acquire.Accounting import create_decimal as _create_decimal
             return _create_decimal(0)
         else:
             return self._credit_note.value()
@@ -142,6 +144,7 @@ class Receipt:
            or equal to the provisional value in the attached CreditNote
         """
         if self.is_null():
+            from Acquire.Accounting import create_decimal as _create_decimal
             return _create_decimal(0)
         else:
             return self._receipted_value
@@ -169,6 +172,9 @@ class Receipt:
         r = Receipt()
 
         if (data and len(data) > 0):
+            from Acquire.Accounting import CreditNote as _CreditNote
+            from Acquire.Accounting import create_decimal as _create_decimal
+            from Acquire.Identity import Authorisation as _Authorisation
             r._credit_note = _CreditNote.from_data(data["credit_note"])
             r._authorisation = _Authorisation.from_data(data["authorisation"])
             r._receipted_value = _create_decimal(data["receipted_value"])
@@ -195,7 +201,10 @@ class Receipt:
         elif len(credit_notes) == 1:
             return Receipt(credit_notes[0], authorisation, receipted_value)
 
+        from Acquire.Accounting import create_decimal as _create_decimal
         total_value = _create_decimal(0)
+
+        from Acquire.Accounting import CreditNote as _CreditNote
 
         for credit_note in credit_notes:
             if not isinstance(credit_note, _CreditNote):

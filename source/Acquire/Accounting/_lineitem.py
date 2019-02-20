@@ -1,6 +1,4 @@
 
-from Acquire.Identity import Authorisation as _Authorisation
-
 __all__ = ["LineItem"]
 
 
@@ -66,6 +64,7 @@ class LineItem:
             l._uid = data["uid"]
 
             if "authorisation" in data:
+                from Acquire.Identity import Authorisation as _Authorisation
                 l._authorisation = _Authorisation.from_data(
                     data["authorisation"])
             else:

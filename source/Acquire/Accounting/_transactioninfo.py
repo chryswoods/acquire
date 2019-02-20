@@ -1,8 +1,6 @@
 
 from enum import Enum as _Enum
 
-from ._decimal import create_decimal as _create_decimal
-
 __all__ = ["TransactionInfo", "TransactionCode"]
 
 
@@ -42,6 +40,7 @@ class TransactionInfo:
 
            RR000100.005000T000090.000000
         """
+        from Acquire.Accounting import create_decimal as _create_decimal
 
         parts = key.split("/")
 
