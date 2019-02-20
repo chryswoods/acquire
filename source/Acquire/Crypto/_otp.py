@@ -1,8 +1,4 @@
 
-from ._keys import PublicKey as _PublicKey
-
-from ._errors import OTPError
-
 __all__ = ["OTP"]
 
 
@@ -14,6 +10,7 @@ class OTP:
         try:
             import pyotp as _pyotp
         except:
+            from Acquire.Crypto import OTPError
             raise OTPError(
                 "Cannot create a one-time-password as the "
                 "pyotp module is not available. Please install and try again")
@@ -31,6 +28,12 @@ class OTP:
     def decrypt(secret, key):
         """Construct a OTP from the passed encrypted secret
            that will be decrypted with the passed private key"""
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        if not isinstance(key, _PrivateKey):
+            raise TypeError(
+                "You can only encrypt a OTP using a valid "
+                "PrivateKey - not using a %s" % key.__class__)
+
         otp = OTP()
         otp._secret = key.decrypt(secret)
 
@@ -39,6 +42,12 @@ class OTP:
     def encrypt(self, key):
         """This uses the passed public key to encrypt and return the
            secret"""
+        from Acquire.Crypto import PublicKey as _PublicKey
+        if not isinstance(key, _PublicKey):
+            raise TypeError(
+                "You can only encrypt a OTP using a valid "
+                "PublicKey - not using a %s" % key.__class__)
+
         return key.encrypt(self._secret)
 
     def _totp(self):
@@ -47,6 +56,7 @@ class OTP:
             import pyotp as _pyotp
             return _pyotp.totp.TOTP(self._secret)
         except:
+            from Acquire.Crypto import OTPError
             raise OTPError("You cannot get a null OTP - create one first!")
 
     def provisioning_uri(self, username, issuer="Acquire"):
@@ -62,6 +72,7 @@ class OTP:
             return _re.search(r"secret=([\w\d+]+)&issuer",
                               provisioning_uri).groups()[0]
         except Exception as e:
+            from Acquire.Crypto import OTPError
             raise OTPError(
                 "Cannot extract the otp secret from the provisioning URL "
                 "'%s': %s" % (provisioning_uri, str(e)))
@@ -80,6 +91,7 @@ class OTP:
         # improves usability and tolerance for clock drift with only
         # minor increase in OTP validity time
         if not self._totp().verify(code, valid_window=1):
+            from Acquire.Crypto import OTPError
             raise OTPError("The passed OTP code is incorrect")
 
         # note that, ideally, we need to save whether or not this code

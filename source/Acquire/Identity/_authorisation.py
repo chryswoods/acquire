@@ -1,12 +1,4 @@
 
-import datetime as _datetime
-
-from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
-from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
-from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
-
 __all__ = ["Authorisation"]
 
 
@@ -37,6 +29,9 @@ class Authorisation:
                 raise ValueError(
                     "You must pass in an authenticated user who will "
                     "provide authorisation for resource '%s'" % resource)
+
+        from Acquire.ObjectStore import get_datetime_now \
+            as _get_datetime_now
 
         if user is not None:
             from Acquire.Client import User as _User
@@ -88,6 +83,9 @@ class Authorisation:
            signed the message, as well as the resource. This helps
            prevent tamporing with the data in this authorisation
         """
+        from Acquire.ObjectStore import datetime_to_string \
+            as _datetime_to_string
+
         if resource is None:
             return "%s|%s|%s|%s" % (
                 self._user_uid, self._session_uid,
@@ -205,6 +203,9 @@ class Authorisation:
         """
         stale_time = self._fix_integer(stale_time, 365*24*7200)
 
+        from Acquire.ObjectStore import get_datetime_now \
+            as _get_datetime_now
+
         now = _get_datetime_now()
 
         return ((now - self._auth_datetime).seconds > stale_time)
@@ -221,6 +222,9 @@ class Authorisation:
            authorisation must be used within 2 hours to be valid.
         """
         refresh_time = self._fix_integer(refresh_time, 24*3600)
+
+        from Acquire.ObjectStore import get_datetime_now \
+            as _get_datetime_now
 
         now = _get_datetime_now()
 
@@ -282,6 +286,9 @@ class Authorisation:
             except Exception as e:
                 from Acquire.Service import exception_to_string
                 raise PermissionError(exception_to_string(e))
+
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
 
             self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource
@@ -367,6 +374,11 @@ class Authorisation:
         auth = Authorisation()
 
         if (data and len(data) > 0):
+            from Acquire.ObjectStore import string_to_datetime \
+                as _string_to_datetime
+            from Acquire.ObjectStore import string_to_bytes \
+                as _string_to_bytes
+
             auth._user_uid = data["user_uid"]
             auth._session_uid = data["session_uid"]
             auth._identity_url = data["identity_url"]
@@ -386,6 +398,11 @@ class Authorisation:
 
         if self.is_null():
             return data
+
+        from Acquire.ObjectStore import datetime_to_string \
+            as _datetime_to_string
+        from Acquire.ObjectStore import bytes_to_string \
+            as _bytes_to_string
 
         data["user_uid"] = str(self._user_uid)
         data["session_uid"] = str(self._session_uid)

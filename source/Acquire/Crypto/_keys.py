@@ -5,17 +5,6 @@ import uuid as _uuid
 
 import lazy_import as _lazy_import
 
-from ._errors import WeakPassphraseError, KeyManipulationError, \
-                     SignatureVerificationError
-from ._errors import DecryptionError
-
-# tempfile = _lazy_import.lazy_module("tempfile")
-import tempfile as _tempfile
-
-_pyotp = _lazy_import.lazy_module("pyotp")
-
-_re = _lazy_import.lazy_module("re")
-
 _rsa = _lazy_import.lazy_module(
             "cryptography.hazmat.primitives.asymmetric.rsa")
 _serialization = _lazy_import.lazy_module(
@@ -26,8 +15,6 @@ _hashes = _lazy_import.lazy_module("cryptography.hazmat.primitives.hashes")
 _padding = _lazy_import.lazy_module(
             "cryptography.hazmat.primitives.asymmetric.padding")
 _fernet = _lazy_import.lazy_module("cryptography.fernet")
-
-_hashlib = _lazy_import.lazy_module("hashlib")
 
 __all__ = ["PrivateKey", "PublicKey", "get_private_key"]
 
@@ -67,12 +54,16 @@ def _assert_strong_passphrase(passphrase, mangleFunction):
         passphrase = str(passphrase)
 
     if len(passphrase) < 6 or len(passphrase) > 50:
+        from Acquire.Crypto import WeakPassphraseError
         raise WeakPassphraseError("The pass-phrase '%s' must contain between "
                                   "6 and 50 characters" % passphrase)
+
+    import re as _re
 
     if not (_re.search(r'[A-Z]', passphrase) and
             _re.search(r'[a-z]', passphrase) and
             _re.search(r'[0-9]', passphrase)):
+        from Acquire.Crypto import WeakPassphraseError
         raise WeakPassphraseError("The pass-phrase must contain numbers and "
                                   "upper- and lowercase characters")
 
@@ -122,6 +113,10 @@ class PublicKey:
             format=_serialization.PublicFormat
                                  .SubjectPublicKeyInfo)
 
+    def pem(self):
+        """Return a PEM string for this key"""
+        return self.bytes().decode("utf-8")
+
     def __str__(self):
         """Return a string representation of this key"""
         return "PublicKey('%s')" % self.bytes().decode("utf-8")
@@ -163,7 +158,8 @@ class PublicKey:
         """Return the fingerprint of this key - this is useful to help
            work out which key to use to decrypt data
         """
-        md5 = _hashlib.md5()
+        from hashlib import md5 as _md5
+        md5 = _md5()
         md5.update(self.bytes())
         h = md5.hexdigest()
         # return this signature as "AA:BB:CC:DD:EE:etc."
@@ -211,6 +207,7 @@ class PublicKey:
     def verify(self, signature, message):
         """Verify that the message has been correctly signed"""
         if self._pubkey is None:
+            from Acquire.Crypto import KeyManipulationError
             raise KeyManipulationError("You cannot verify a message using "
                                        "an empty public key!")
 
@@ -226,6 +223,7 @@ class PublicKey:
                              salt_length=_padding.PSS.MAX_LENGTH),
                           _hashes.SHA256())
         except Exception as e:
+            from Acquire.Crypto import SignatureVerificationError
             raise SignatureVerificationError(
                        "Error validating the signature "
                        "for the passed message: %s" % str(e))
@@ -301,6 +299,7 @@ class PrivateKey:
                              password=passphrase.encode("utf-8"),
                              backend=_default_backend())
         except Exception as e:
+            from Acquire.Crypto import KeyManipulationError
             raise KeyManipulationError("Cannot unlock key. %s" %
                                        str(e))
 
@@ -318,6 +317,7 @@ class PrivateKey:
             with open(filename, "rb") as FILE:
                 data = FILE.read()
         except IOError as e:
+            from Acquire.Crypto import KeyManipulationError
             raise KeyManipulationError(
                     "Cannot read the private keyfile %s: %s" %
                     (filename, str(e)))
@@ -331,12 +331,35 @@ class PrivateKey:
         """
         import random as _random
         import string as _string
-        return (''.join(_random.SystemRandom().choice(_string.ascii_uppercase)
-                        for _ in range(12)) +
-                ''.join(_random.SystemRandom().choice(_string.digits)
-                        for _ in range(12)) +
-                ''.join(_random.SystemRandom().choice(_string.ascii_lowercase)
-                        for _ in range(12)))
+
+        # use the operating system as source of random numbers
+        rand = _random.SystemRandom()
+
+        # generate a random password comprised of a random set of
+        # upper, lower and digits characters
+        nvals = int(rand.uniform(20, 40))
+        nlower = int(rand.uniform(1, nvals-5))
+        nupper = int(rand.uniform(1, nvals-nlower-5))
+        ndigits = nvals - nupper - nlower
+
+        assert(nlower > 0)
+        assert(nupper > 0)
+        assert(ndigits > 0)
+
+        lower = [rand.choice(_string.ascii_lowercase)
+                 for _ in range(nlower)]
+        upper = [rand.choice(_string.ascii_uppercase)
+                 for _ in range(nupper)]
+        digits = [rand.choice(_string.digits)
+                  for _ in range(ndigits)]
+
+        passphrase = "".join(rand.sample(lower+upper+digits, nvals))
+        _assert_strong_passphrase(passphrase, mangleFunction=None)
+        return passphrase
+
+    def pem(self, passphrase, mangleFunction=None):
+        """Return a PEM string for this key"""
+        return self.bytes(passphrase, mangleFunction).decode("utf-8")
 
     def bytes(self, passphrase, mangleFunction=None):
         """Return the raw bytes for this key, encoded by the passed
@@ -399,6 +422,7 @@ class PrivateKey:
         key_size = self.key_size_in_bytes()
 
         if key_size == 0:
+            from Acquire.Crypto import DecryptionError
             raise DecryptionError("You cannot decrypt a message "
                                   "with a null key!")
 
@@ -428,6 +452,7 @@ class PrivateKey:
                             algorithm=_hashes.SHA256(),
                             label=None))
         except Exception as e:
+            from Acquire.Crypto import DecryptionError
             raise DecryptionError(
                 "Cannot decrypt the symmetric key used "
                 "to encrypt the long message '%s' (%s): %s" %
@@ -444,6 +469,7 @@ class PrivateKey:
             except:
                 message = f.decrypt(message[key_size:].encode("utf-8"))
         except Exception as e:
+            from Acquire.Crypto import DecryptionError
             raise DecryptionError(
                     "Cannot decrypt the long message using the "
                     "symmetric key: %s" % str(e))

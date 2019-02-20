@@ -2,8 +2,6 @@
 import base64 as _base64
 import uuid as _uuid
 
-from ._errors import UsernameError, ExistingAccountError, UserValidationError
-
 __all__ = ["UserAccount"]
 
 
@@ -164,6 +162,7 @@ class UserAccount:
             return None
 
         if len(username) < 3 or len(username) > 50:
+            from Acquire.Identity import UsernameError
             raise UsernameError(
                 "The username must be between 3 and 50 characters!")
 
@@ -178,6 +177,7 @@ class UserAccount:
            uri needed to initialise the OTP code for this account
         """
         if not self.is_active():
+            from Acquire.Identity import UserValidationError
             raise UserValidationError(
                 "Cannot validate against an inactive account")
 
@@ -205,19 +205,6 @@ class UserAccount:
             otp = _OTP()
             otpsecret = _bytes_to_string(otp.encrypt(privkey.public_key()))
             return (otpsecret, otp.provisioning_uri(self.username()))
-
-    def direct_login(self, password, otpsecret):
-        """Call this function to directly create and authorise a login
-           for this account. This will return a valid, logged in
-           Acquire.Client.User object. You must supply the real
-           password and the secret underlying 2FA for this account
-           to log in. This is intended to be used by Service admin_user
-           accounts and is not supposed to be called for normal
-           User accounts. This will generate a new full login session,
-           identically to a normal login
-        """
-        from Acquire.Client import User as _User
-        return _User(username="admin")
 
     def to_data(self):
         """Return a data representation of this object (dictionary)"""

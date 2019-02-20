@@ -1,15 +1,5 @@
 
-import uuid as _uuid
-from copy import copy as _copy
-
-from Acquire.Crypto import PrivateKey as _PrivateKey
-from Acquire.Crypto import PublicKey as _PublicKey
-
-from Acquire.Service import call_function as _call_function
 from Acquire.Service import Service as _Service
-from Acquire.Service import ServiceError
-
-from ._errors import IdentityServiceError
 
 __all__ = ["IdentityService"]
 
@@ -18,9 +8,11 @@ class IdentityService(_Service):
     """This is a specialisation of Service for Identity Services"""
     def __init__(self, other=None):
         if isinstance(other, _Service):
+            from copy import copy as _copy
             self.__dict__ = _copy(other.__dict__)
 
             if not self.is_identity_service():
+                from Acquire.Identity import IdentityServiceError
                 raise IdentityServiceError(
                     "Cannot construct an IdentityService from "
                     "a service which is not an identity service!")

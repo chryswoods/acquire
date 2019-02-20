@@ -205,9 +205,12 @@ class Service:
                                                     _json.dumps(secrets))
 
     def __str__(self):
-        return "%s(url=%s, uid=%s)" % (self.__class__.__name__,
-                                       self.canonical_url(),
-                                       self.uid())
+        if self._uid is None:
+            return "%s(NULL)" % self.__class__.__name__
+        else:
+            return "%s(url=%s, uid=%s)" % (self.__class__.__name__,
+                                           self.canonical_url(),
+                                           self.uid())
 
     def uuid(self):
         """Synonym for uid"""
@@ -321,6 +324,9 @@ class Service:
 
     def refresh_keys(self):
         """Refresh the keys and certificates"""
+        if self._uid is None:
+            return
+
         if self.is_unlocked():
             # actually regenerate keys for the service - first save
             # the old private key (so we can decrypt data decrypted using
@@ -424,6 +430,9 @@ class Service:
         """Return the hostname of the canonical URL that provides
            this service
         """
+        if self._uid is None:
+            return None
+
         from urllib.parse import urlparse as _urlparse
         return _urlparse(self.canonical_url()).hostname
 
@@ -431,6 +440,9 @@ class Service:
         """Return whether or not the canonical URL of this service
            is connected to via https
         """
+        if self._uid is None:
+            return False
+
         from urllib.parse import urlparse as _urlparse
         return _urlparse(self.canonical_url()).scheme == "https"
 
@@ -541,6 +553,12 @@ class Service:
            the response (and automatically then decrypts the
            response)
         """
+        if self._uid is None:
+            from Acquire.Service import RemoteFunctionCallError
+            raise RemoteFunctionCallError(
+                "You cannot call the function '%s' on a null service!" %
+                function)
+
         from Acquire.Crypto import get_private_key as _get_private_key
         from ._function import call_function as _call_function
 

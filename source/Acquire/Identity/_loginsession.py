@@ -4,15 +4,7 @@ import uuid as _uuid
 
 import base64 as _base64
 
-from Acquire.Crypto import PublicKey as _PublicKey
-
-from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
-from Acquire.ObjectStore import string_to_datetime as _string_to_datetime
-from Acquire.ObjectStore import datetime_to_string as _datetime_to_string
-
-from ._errors import LoginSessionError
-
-__all__ = ["LoginSession", "LoginSessionError"]
+__all__ = ["LoginSession"]
 
 
 class LoginSession:
@@ -30,6 +22,8 @@ class LoginSession:
         self._hostname = None
         self._login_message = None
 
+        from Acquire.Crypto import PublicKey as _PublicKey
+
         if public_key:
             try:
                 public_key = open(public_key, "r").readlines()
@@ -43,6 +37,9 @@ class LoginSession:
 
             if not isinstance(self._pubkey, _PublicKey):
                 raise TypeError("The public key must be of type PublicKey")
+
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
 
             self._uid = str(_uuid.uuid4())
             self._request_datetime = _get_datetime_now()
@@ -95,11 +92,13 @@ class LoginSession:
     def public_key(self):
         """Return the public key"""
         if self._pubkey is None:
+            from Acquire.Identity import LoginSessionError
             raise LoginSessionError(
                 "You cannot get a public key from "
                 "a logged out or otherwise denied session")
 
         elif self.is_suspicious():
+            from Acquire.Identity import LoginSessionError
             raise LoginSessionError(
                 "You cannot get a public key from "
                 "a login session that has been marked as suspicious")
@@ -109,11 +108,13 @@ class LoginSession:
     def public_certificate(self):
         """Return the public certificate"""
         if self._pubcert is None:
+            from Acquire.Identity import LoginSessionError
             raise LoginSessionError(
                "You cannot get a public certificate from "
                "a logged out or otherwise denied session")
 
         elif self.is_suspicious():
+            from Acquire.Identity import LoginSessionError
             raise LoginSessionError(
                 "You cannot get a public certificate from "
                 "a login session that has been marked as suspicious")
@@ -180,6 +181,8 @@ class LoginSession:
            1 / 3600th of an hour"""
 
         if self._request_datetime:
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
             delta = _get_datetime_now() - self._request_datetime
             return delta.total_seconds() / 3600.0
         else:
@@ -202,17 +205,22 @@ class LoginSession:
         """Register that this request has been approved"""
         if self._uid:
             if self._pubkey is None or self._pubcert is None:
+                from Acquire.Identity import LoginSessionError
                 raise LoginSessionError(
                     "You cannot approve a login session "
                     "that doesn't have a valid public key or certificate. "
-                    "Perhaps you have already denied or logged out?")
+                    "Perhaps you have already denied the authorisation "
+                    "or logged out?")
 
             if self.status() != "unapproved":
+                from Acquire.Identity import LoginSessionError
                 raise LoginSessionError(
                     "You cannot approve a login session "
                     "that is not in the 'unapproved' state. This login "
                     "session is in the '%s' state." % self.status())
 
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
             self._login_datetime = _get_datetime_now()
             self._status = "approved"
 
@@ -235,6 +243,9 @@ class LoginSession:
         """Register that this request has been closed as
            the user has logged out"""
         if self._uid:
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
+
             self._status = "logged_out"
             self._logout_datetime = _get_datetime_now()
             self._clear_keys()
@@ -284,6 +295,9 @@ class LoginSession:
         if self._uid is None:
             return None
 
+        from Acquire.ObjectStore import datetime_to_string \
+            as _datetime_to_string
+
         data = {}
         data["uid"] = self._uid
         data["request_datetime"] = _datetime_to_string(self._request_datetime)
@@ -321,6 +335,9 @@ class LoginSession:
             return None
 
         try:
+            from Acquire.ObjectStore import string_to_datetime \
+                as _string_to_datetime
+
             logses = LoginSession()
 
             try:
@@ -364,6 +381,7 @@ class LoginSession:
 
         except Exception as e:
             from Acquire.Service import exception_to_string
+            from Acquire.Identity import LoginSessionError
             raise LoginSessionError(
                 "Cannot load the LoginSession from "
                 "the object store?\n\nCAUSE: %s" % (exception_to_string(e)))
