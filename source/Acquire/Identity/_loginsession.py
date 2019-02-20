@@ -337,6 +337,7 @@ class LoginSession:
         try:
             from Acquire.ObjectStore import string_to_datetime \
                 as _string_to_datetime
+            from Acquire.Crypto import PublicKey as _PublicKey
 
             logses = LoginSession()
 

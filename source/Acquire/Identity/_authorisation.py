@@ -297,8 +297,10 @@ class Authorisation:
 
         try:
             # we need to get the public signing key for this session
-            from Acquire.Service import get_trusted_service as \
-                _get_trusted_service
+            from Acquire.Service import get_trusted_service \
+                as _get_trusted_service
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
 
             try:
                 identity_service = _get_trusted_service(
