@@ -120,7 +120,7 @@ def get_accounts(user, accounting_service=None, accounting_url=None):
         account._account_name = name
         account._account_uid = uid
         account._user = user
-        account._accounting_service = accounting_service
+        account._accounting_service = service
 
         accounts.append(account)
 
@@ -168,7 +168,7 @@ def create_account(user, account_name, description=None,
     account._account_name = account_name
     account._account_uid = account_uid
     account._user = user
-    account._accounting_service = accounting_service
+    account._accounting_service = service
 
     return account
 
