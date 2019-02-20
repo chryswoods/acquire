@@ -4,8 +4,6 @@ import base64 as _base64
 import datetime as _datetime
 import uuid as _uuid
 
-from ._errors import EncodingError
-
 from backports.datetime_fromisoformat import MonkeyPatch as _MonkeyPatch
 _MonkeyPatch.patch_fromisoformat()
 
@@ -221,6 +219,7 @@ def time_to_string(t):
             # assume UTC
             t = t.replace(tzinfo=_datetime.timezone.utc)
         elif t.tzinfo != _datetime.timezone.utc:
+            from Acquire.ObjectStore import EncodingError
             raise EncodingError(
                 "Cannot encode a time to a string as this time is "
                 "not in the UTC timezone. Please convert to UTC "

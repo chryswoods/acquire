@@ -3,13 +3,6 @@ import uuid
 import datetime as _datetime
 import time as _time
 
-from ._objstore import ObjectStore as _ObjectStore
-from ._encoding import get_datetime_now as _get_datetime_now
-from ._encoding import datetime_to_string as _datetime_to_string
-from ._encoding import string_to_datetime as _string_to_datetime
-
-from ._errors import MutexTimeoutError
-
 __all__ = ["Mutex"]
 
 
@@ -79,6 +72,8 @@ class Mutex:
            a race condition
         """
         if self.is_locked():
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
             now = _get_datetime_now()
 
             if self._end_lease > now:
@@ -91,6 +86,8 @@ class Mutex:
     def expired(self):
         """Return whether or not this lock has expired"""
         if self._is_locked > 0:
+            from Acquire.ObjectStore import get_datetime_now as \
+                _get_datetime_now
             return self._end_lease < _get_datetime_now()
         else:
             return False
@@ -98,6 +95,7 @@ class Mutex:
     def assert_not_expired(self):
         """Function that asserts that this mutex has not expired"""
         if self.expired():
+            from Acquire.ObjectStore import MutexTimeoutError
             raise MutexTimeoutError("The lease on this mutex expired before "
                                     "this mutex was unlocked!")
 
@@ -107,6 +105,9 @@ class Mutex:
         """
         if self._is_locked == 0:
             return
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
 
         try:
             holder = _ObjectStore.get_string_object(self._bucket, self._key)
@@ -122,6 +123,7 @@ class Mutex:
 
         if self._end_lease < _get_datetime_now():
             self._end_lease = None
+            from Acquire.ObjectStore import MutexTimeoutError
             raise MutexTimeoutError("The lease on this mutex expired before "
                                     "this mutex was unlocked!")
         else:
@@ -160,6 +162,13 @@ class Mutex:
             lease_time = 10.0
         else:
             lease_time = float(lease_time)
+
+        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+        from Acquire.ObjectStore import datetime_to_string \
+            as _datetime_to_string
+        from Acquire.ObjectStore import string_to_datetime \
+            as _string_to_datetime
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
         if self.is_locked():
             # renew the lease - if there is less than a second remaining
@@ -245,5 +254,6 @@ class Mutex:
 
             now = _get_datetime_now()
 
+        from Acquire.ObjectStore import MutexTimeoutError
         raise MutexTimeoutError("Cannot acquire a mutex lock on the "
                                 "key '%s'" % self._key)

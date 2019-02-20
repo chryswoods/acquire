@@ -8,15 +8,6 @@ try:
 except:
     _pycurl = None
 
-from io import BytesIO as _BytesIO
-
-from ._encoding import get_datetime_now as _get_datetime_now
-from ._encoding import datetime_to_string as _datetime_to_string
-from ._encoding import string_to_datetime as _string_to_datetime
-
-from ._errors import PARError, PARTimeoutError, PARPermissionsError, \
-                     PARReadError, PARWriteError
-
 __all__ = ["PAR", "BucketReader", "BucketWriter", "ObjectReader",
            "ObjectWriter"]
 
@@ -70,6 +61,7 @@ class PAR:
             self._is_writeable = False
 
         if not (self._is_readable or self._is_writeable):
+            from Acquire.ObjectStore import PARPermissionsError
             raise PARPermissionsError(
                 "You cannot create a PAR that has no read or write "
                 "permissions!")
@@ -92,6 +84,7 @@ class PAR:
            will raise a PARTimeoutError if the url has less than 30 seconds
            of validity left"""
         if self.seconds_remaining(buffer=30) <= 0:
+            from Acquire.ObjectStore import PARTimeoutError
             raise PARTimeoutError(
                 "The URL behind this PAR has expired and is no longer valid")
 
@@ -143,6 +136,7 @@ class PAR:
            validity to provide a buffer against race conditions (function
            says this is valid when it is not)
         """
+        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
         now = _get_datetime_now()
 
         buffer = float(buffer)
@@ -160,6 +154,7 @@ class PAR:
     def read(self):
         """Return an object that can be used to read data from this PAR"""
         if not self.is_readable():
+            from Acquire.ObjectStore import PARPermissionsError
             raise PARPermissionsError(
                 "You do not have permission to read from this PAR: %s" % self)
 
@@ -171,6 +166,7 @@ class PAR:
     def write(self):
         """Return an object that can be used to write data to this PAR"""
         if not self.is_writeable():
+            from Acquire.ObjectStore import PARPermissionsError
             raise PARPermissionsError(
                 "You do not have permission to write to this PAR: %s" % self)
 
@@ -184,6 +180,9 @@ class PAR:
            for this object
         """
         data = {}
+
+        from Acquire.ObjectStore import datetime_to_string \
+            as _datetime_to_string
 
         data["url"] = self._url
         data["key"] = self._key
@@ -204,6 +203,9 @@ class PAR:
         """
         if data is None or len(data) == 0:
             return None
+
+        from Acquire.ObjectStore import string_to_datetime \
+            as _string_to_datetime
 
         par = PAR()
 
@@ -246,7 +248,10 @@ def _read_local(url):
 def _read_remote(url):
     """Internal function used to read data from a remote URL"""
     if _pycurl is None:
+        from Acquire.ObjectStore import PARError
         raise PARError("We need pycurl installed to read remote PARs!")
+
+    from io import BytesIO as _BytesIO
 
     buffer = _BytesIO()
     c = _pycurl.Curl()
@@ -260,11 +265,13 @@ def _read_remote(url):
         status_code = c.getinfo(_pycurl.HTTP_CODE)
         c.close()
     except _pycurl.error as e:
+        from Acquire.ObjectStore import PARReadError
         raise PARReadError(
             "Cannot read the remote PAR URL '%s' because of a possible "
             "network issue: curl errorcode %s, message '%s'" %
             (url, e.args[0], e.args[1]))
     except Exception as e:
+        from Acquire.ObjectStore import PARReadError
         raise PARReadError(
             "Cannot read the remote PAR URL '%s' because of a possible "
             "nework issue: %s" % (url, str(e)))
@@ -272,6 +279,7 @@ def _read_remote(url):
     output = buffer.getvalue()
 
     if status_code != 200:
+        from Acquire.ObjectStore import PARReadError
         raise PARReadError(
             "Failed to read data from the PAR URL. HTTP status code = %s, "
             "returned output: %s" % (status_code, output))
@@ -285,7 +293,7 @@ def _list_local(url):
 
     keys = []
 
-    for dirpath, _dirnames, filenames in _os.walk(local_dir):
+    for dirpath, _, filenames in _os.walk(local_dir):
         local_path = dirpath[len(local_dir):]
         has_local_path = (len(local_path) > 0)
 
@@ -325,7 +333,10 @@ def _write_local(url, data):
 def _write_remote(url, data):
     """Internal function used to write data to the passed remote URL"""
     if _pycurl is None:
+        from Acquire.ObjectStore import PARError
         raise PARError("We need pycurl installed to read remote PARs!")
+
+    from io import BytesIO as _BytesIO
 
     buffer = _BytesIO()
     c = _pycurl.Curl()
@@ -339,11 +350,13 @@ def _write_remote(url, data):
         c.perform()
         c.close()
     except _pycurl.error as e:
+        from Acquire.ObjectStore import PARWriteError
         raise PARWriteError(
             "Cannot write data to the remote PAR URL '%s' because of a "
             "possible network issue: curl errorcode %s, message '%s'" %
             (url, e.args[0], e.args[1]))
     except Exception as e:
+        from Acquire.ObjectStore import PARWriteError
         raise PARWriteError(
             "Cannot write data to the remote PAR URL '%s' because of a "
             "possible nework issue: %s" % (url, str(e)))
@@ -376,6 +389,7 @@ class BucketReader:
                     "You can only create a BucketReader from a PAR that "
                     "represents an entire bucket: %s" % par)
             elif not par.is_readable():
+                from Acquire.ObjectStore import PARPermissionsError
                 raise PARPermissionsError(
                     "You cannot create a BucketReader from a PAR without "
                     "read permissions: %s" % par)
@@ -388,6 +402,7 @@ class BucketReader:
         """Return the binary data contained in the key 'key' in the
            passed bucket"""
         if self._par is None:
+            from Acquire.ObjectStore import PARError
             raise PARError("You cannot read data from an empty PAR")
 
         while key.startswith("/"):
@@ -505,6 +520,7 @@ class BucketWriter:
                     "You can only create a BucketReader from a PAR that "
                     "represents an entire bucket: %s" % par)
             elif not par.is_writeable():
+                from Acquire.ObjectStore import PARPermissionsError
                 raise PARPermissionsError(
                     "You cannot create a BucketWriter from a PAR without "
                     "write permissions: %s" % par)
@@ -516,6 +532,7 @@ class BucketWriter:
     def set_object(self, key, data):
         """Set the value of 'key' in 'bucket' to binary 'data'"""
         if self._par is None:
+            from Acquire.ObjectStore import PARError
             raise PARError("You cannot write data to an empty PAR")
 
         while key.startswith("/"):
@@ -562,6 +579,7 @@ class ObjectReader:
                     "You can only create an ObjectReader from a PAR that "
                     "represents an object: %s" % par)
             elif not par.is_readable():
+                from Acquire.ObjectStore import PARPermissionsError
                 raise PARPermissionsError(
                     "You cannot create an ObjectReader from a PAR without "
                     "read permissions: %s" % par)
@@ -573,6 +591,7 @@ class ObjectReader:
     def get_object(self):
         """Return the binary data contained in this object"""
         if self._par is None:
+            from Acquire.ObjectStore import PARError
             raise PARError("You cannot read data from an empty PAR")
 
         url = self._par.url()
@@ -625,6 +644,7 @@ class ObjectWriter(ObjectReader):
                     "You can only create an ObjectReader from a PAR that "
                     "represents an object: %s" % par)
             elif not par.is_writeable():
+                from Acquire.ObjectStore import PARPermissionsError
                 raise PARPermissionsError(
                     "You cannot create an ObjectWriter from a PAR without "
                     "write permissions: %s" % par)
@@ -636,6 +656,7 @@ class ObjectWriter(ObjectReader):
     def set_object(self, data):
         """Set the value of the object behind this PAR to the binary 'data'"""
         if self._par is None:
+            from Acquire.ObjectStore import PARError
             raise PARError("You cannot write data to an empty PAR")
 
         url = self._par.url()

@@ -5,9 +5,6 @@ import uuid as _uuid
 import json as _json
 import os as _os
 
-from ._errors import ObjectStoreError
-from ._par import PAR as _PAR
-
 __all__ = ["ObjectStore", "set_object_store_backend",
            "use_testing_object_store_backend",
            "use_oci_object_store_backend"]
@@ -68,6 +65,8 @@ class ObjectStore:
            PARs are time-limited. Set the lifetime in seconds by passing
            in 'duration' (by default this is one hour)
         """
+        from Acquire.ObjectStore import PAR as _PAR
+
         par = _objstore_backend.create_par(bucket, key, readable,
                                            writeable, duration)
 
@@ -166,6 +165,7 @@ def set_object_store_backend(backend):
         return
 
     if _objstore_backend is not None:
+        from Acquire.ObjectStore import ObjectStoreError
         raise ObjectStoreError("You cannot change the object store "
                                "backend once it has been already set!")
 
