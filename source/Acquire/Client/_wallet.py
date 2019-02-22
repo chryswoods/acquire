@@ -607,9 +607,8 @@ class Wallet:
                                                    otpsecret.encode("utf-8")))
                     user_info["device_uid"] = device_uid
 
-                _write_json(Wallet._get_userfile(
-                            username, service.canonical_url()),
-                            user_info)
+                _write_json(data=user_info, filename=Wallet._get_userfile(
+                            username, service.canonical_url()))
 
         self._manual_password = False
         self._manual_otpcode = False
