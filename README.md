@@ -4,7 +4,7 @@
 
 (C) Christopher Woods 2018 - Released under the [Apache 2 License](LICENSE)
 
-## Installation
+## Installation
 
 ```
 pip install acquire
