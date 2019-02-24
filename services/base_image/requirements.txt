@@ -13,3 +13,10 @@ tblib
 # Apache or BSD dependencies
 cryptography
 requests
+# Apache license dependencies
+fdk==0.0.35
+oci
+# GPL 3+ license dependencies
+lazy_import
+
+
