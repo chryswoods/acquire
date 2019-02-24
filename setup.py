@@ -6,6 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="acquire",
     version="0.0.3",
+    python_requires='>=3.6.0',
     author="Christopher Woods",
     author_email="chryswoods@gmail.com",
     description="A serverless identity, access, accounting, storage and compute management system",
@@ -22,7 +23,9 @@ setuptools.setup(
         "pyotp>=2",
         "cachetools>=3",
         "backports-datetime-fromisoformat>=1",
-        "tblib>=1.2"
+        "tblib>=1.2",
+        "cryptography>=2",
+        "pyyaml>=3.0"
         # note that qrcode is an optional dependency
     ]
 )

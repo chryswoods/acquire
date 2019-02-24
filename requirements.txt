@@ -4,8 +4,12 @@ cachetools
 
 # MIT license, used only for Python < 3.7
 backports-datetime-fromisoformat
+pyyaml
 
 # BSD license dependencies
 qrcode[pil]
 tblib
+
+# Apache or BSD dependencies
+cryptography
 
