@@ -1,4 +1,4 @@
-#!/Users/chris/miniconda3/bin/python
+#!/bin/env python3
 
 import argparse
 import sys

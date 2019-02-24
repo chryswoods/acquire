@@ -58,6 +58,9 @@ class MockedRequests:
     def _perform(url, data, is_post=False):
         global _services
 
+        if "identity" not in _services:
+            raise ValueError("NO SERVICES? %s" % str(_services))
+
         from Acquire.Service import push_testing_objstore, \
             pop_testing_objstore
 
