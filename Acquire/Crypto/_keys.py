@@ -3,7 +3,7 @@ import os as _os
 import base64 as _base64
 import uuid as _uuid
 
-import lazy_import as _lazy_import
+from Acquire.Stubs import lazy_import as _lazy_import
 
 _rsa = _lazy_import.lazy_module(
             "cryptography.hazmat.primitives.asymmetric.rsa")

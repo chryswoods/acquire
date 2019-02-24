@@ -1,5 +1,6 @@
 
-import lazy_import as _lazy_import
+from Acquire.Stubs import lazy_import as _lazy_import
+
 import os as _os
 import sys as _sys
 import json as _json

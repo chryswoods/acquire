@@ -1,0 +1,6 @@
+# GPL 3+ license dependencies
+lazy_import
+
+# GPL or LGPL license dependencies
+pycurl
+

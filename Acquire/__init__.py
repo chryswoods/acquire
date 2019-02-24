@@ -13,8 +13,7 @@ three services:
     This
 """
 
-import lazy_import as _lazy_import
-_lazy_import.logging.disable(_lazy_import.logging.DEBUG)
+from Acquire.Stubs import lazy_import as _lazy_import
 
 Access = _lazy_import.lazy_module("Acquire.Access")
 Accounting = _lazy_import.lazy_module("Acquire.Accounting")
