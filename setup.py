@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="acquire",
-    version="0.0.2",
+    version="0.0.3",
     author="Christopher Woods",
     author_email="chryswoods@gmail.com",
     description="A serverless identity, access, accounting, storage and compute management system",
