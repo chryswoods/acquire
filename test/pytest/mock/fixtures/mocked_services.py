@@ -26,6 +26,8 @@ accounting_handler = create_handler(accounting_functions)
 access_handler = create_handler(access_functions)
 storage_handler = create_handler(storage_functions)
 
+_services = {}                    # global objstore for each service
+
 
 class MockedRequests:
     """Mocked requests object. This provides a requests interface which calls
@@ -59,7 +61,7 @@ class MockedRequests:
         global _services
 
         if "identity" not in _services:
-            raise ValueError("NO SERVICES? %s" % str(_services))
+            raise ValueError("NO SERVICES? %s" % str)
 
         from Acquire.Service import push_testing_objstore, \
             pop_testing_objstore
@@ -99,8 +101,6 @@ Acquire.Stubs.requests = MockedRequests
 # monkey-patch input so that we can say "y"
 Acquire.Client._wallet._input = mocked_input
 Acquire.Client._wallet._is_testing = True
-
-_services = {}                    # global objstore for each service
 
 
 def _login_admin(service_url, username, password, otp):
@@ -145,6 +145,8 @@ def aaai_services(tmpdir_factory):
     _services["access"] = tmpdir_factory.mktemp("access")
     _services["storage"] = tmpdir_factory.mktemp("storage")
     _services["userdata"] = tmpdir_factory.mktemp("userdata")
+
+    print("SETTING UP SERVICES: %s" % str(_services))
 
     password = PrivateKey.random_passphrase()
     args = {"password": password}
