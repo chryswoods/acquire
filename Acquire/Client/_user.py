@@ -415,8 +415,13 @@ class User:
                 args["hostname"] = hostname
 
         if (login_message is None) and not (_is_local):
-            login_message = "User '%s' in process '%s' wants to log in..." % \
-                              (_os.getlogin(), _os.getpid())
+            try:
+                login_message = \
+                    "User '%s' in process '%s' wants to log in..." % \
+                    (_os.getlogin(), _os.getpid())
+            except:
+                # os.getlogin() can fail - message is not needed
+                pass
 
         args["message"] = login_message
 
