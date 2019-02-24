@@ -29,6 +29,18 @@ storage_handler = create_handler(storage_functions)
 _services = {}                    # global objstore for each service
 
 
+def _set_services(s):
+    print("SETTING SERVICES TO %s" % str(s))
+    global _services
+    _services = s
+
+
+def _get_services():
+    global _services
+    print("GETTING SERVICES FROM %s" % str(_services))
+    return _services
+
+
 class MockedRequests:
     """Mocked requests object. This provides a requests interface which calls
        the 'handler' functions of the services directly, rather
@@ -58,7 +70,7 @@ class MockedRequests:
 
     @staticmethod
     def _perform(url, data, is_post=False):
-        global _services
+        _services = _get_services()
 
         if "identity" not in _services:
             raise ValueError("NO SERVICES? %s" % str)
@@ -147,6 +159,7 @@ def aaai_services(tmpdir_factory):
     _services["userdata"] = tmpdir_factory.mktemp("userdata")
 
     print("SETTING UP SERVICES: %s" % str(_services))
+    _set_services(_services)
 
     password = PrivateKey.random_passphrase()
     args = {"password": password}
