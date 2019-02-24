@@ -872,6 +872,9 @@ function perform_login_submit(){
         data["encrypted"] = true;
         data["fingerprint"] = getIdentityFingerprint();
 
+        console.log(data);
+        console.log(JSON.stringify(data));
+
         var response = null;
 
         try{
