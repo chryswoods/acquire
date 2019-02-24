@@ -284,6 +284,8 @@ function perform_login_submit(){
         data["encrypted"] = true;
         data["fingerprint"] = getIdentityFingerprint();
 
+        console.log(data);
+
         var response = null;
 
         try{
@@ -324,6 +326,7 @@ function perform_login_submit(){
         try{
             response = JSON.parse(result_json);
         } catch(err){
+            console.log(response);
             login_failure(`Could not interpret JSON from ${result_json}: ${err}`);
             return;
         }

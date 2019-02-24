@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="acquire",
-    version="0.0.3",
+    version="0.0.4",
     python_requires='>=3.6.0',
     author="Christopher Woods",
     author_email="chryswoods@gmail.com",
