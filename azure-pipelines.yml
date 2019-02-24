@@ -29,7 +29,7 @@ jobs:
     displayName: 'Install dependencies'
 
   - script: |
-      pip install pytest
+      pip install pytest backports-datetime-fromisoformat
       PYTHONPATH=.:services pytest test/pytest --doctest-modules --junitxml=junit/test-results.xml
     displayName: 'pytest'
 
