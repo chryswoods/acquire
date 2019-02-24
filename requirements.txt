@@ -2,7 +2,6 @@ fdk==0.0.35
 oci
 lazy_import
 pyotp
-pycurl
 qrcode[pil]
 cachetools
 tblib
