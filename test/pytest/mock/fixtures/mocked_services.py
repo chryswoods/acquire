@@ -26,7 +26,7 @@ accounting_handler = create_handler(accounting_functions)
 access_handler = create_handler(access_functions)
 storage_handler = create_handler(storage_functions)
 
-_services = {}                    # global objstore for each service
+_services = None                    # global objstore for each service
 
 
 def _set_services(s):
@@ -151,7 +151,7 @@ def aaai_services(tmpdir_factory):
     from Acquire.Crypto import PrivateKey, OTP
     from Acquire.Service import call_function, Service
 
-    global _services
+    _services = {}
     _services["identity"] = tmpdir_factory.mktemp("identity")
     _services["accounting"] = tmpdir_factory.mktemp("accounting")
     _services["access"] = tmpdir_factory.mktemp("access")
