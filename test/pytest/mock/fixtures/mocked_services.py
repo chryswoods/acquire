@@ -183,8 +183,8 @@ def aaai_services(tmpdir_factory):
     access_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
     access_user = _login_admin("access", "admin", password, access_otp)
     responses["access"] = {"service": access_service,
-                        "user": access_user,
-                        "response": response}
+                           "user": access_user,
+                           "response": response}
 
     args["canonical_url"] = "storage"
     args["service_type"] = "storage"
@@ -242,6 +242,7 @@ def aaai_services(tmpdir_factory):
     responses["_services"] = _services
 
     return responses
+
 
 @pytest.fixture(scope="session")
 def authenticated_user(aaai_services):
