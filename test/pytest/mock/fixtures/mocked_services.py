@@ -26,19 +26,15 @@ accounting_handler = create_handler(accounting_functions)
 access_handler = create_handler(access_functions)
 storage_handler = create_handler(storage_functions)
 
-_services = None                    # global objstore for each service
-
 
 def _set_services(s):
     print("SETTING SERVICES TO %s" % str(s))
-    global _services
-    _services = s
+    pytest.my_global_services = s
 
 
 def _get_services():
-    global _services
-    print("GETTING SERVICES FROM %s" % str(_services))
-    return _services
+    print("GETTING SERVICES FROM %s" % str(pytest.my_global_services))
+    return pytest.my_global_services
 
 
 class MockedRequests:
