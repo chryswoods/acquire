@@ -160,8 +160,6 @@ async function get_otpcode(){
     }
 
     if (provisioning_uri){
-        console.log(provisioning_uri);
-
         //extract the secret from the uri
         urlvars = getUrlVars(provisioning_uri);
         secret = urlvars["secret"];
@@ -284,8 +282,6 @@ function perform_login_submit(){
         data["encrypted"] = true;
         data["fingerprint"] = getIdentityFingerprint();
 
-        console.log(data);
-
         var response = null;
 
         try{
@@ -298,6 +294,7 @@ function perform_login_submit(){
                             body: JSON.stringify(data)
                         });
         } catch(err){
+            console.log(data);
             console.log(err);
             login_failure(`Error connecting to server. ${err}`);
             return;
