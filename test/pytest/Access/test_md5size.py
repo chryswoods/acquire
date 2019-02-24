@@ -4,6 +4,7 @@ from Acquire.Access import get_filesize_and_checksum
 import pytest
 import os
 
+from hashlib import md5
 
 def _get_size(filename):
     """Return the file size in bytes"""
@@ -12,9 +13,9 @@ def _get_size(filename):
 
 def _get_md5(filename):
     """Return the MD5 checksum of the passed file"""
-    output = os.popen("md5 %s" % filename, "r").read()
-
-    return output.split()[-1]
+    data = open(filename, "rb").read()
+    r = md5(data)
+    return r.hexdigest()
 
 
 def test_md5size():
