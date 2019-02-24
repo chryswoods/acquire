@@ -22,7 +22,6 @@ setuptools.setup(
     install_requires=[
         "pyotp>=2",
         "cachetools>=3",
-        "backports-datetime-fromisoformat>=1",
         "tblib>=1.2",
         "cryptography>=2",
         "pyyaml>=3.0",

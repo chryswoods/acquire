@@ -4,8 +4,25 @@ import base64 as _base64
 import datetime as _datetime
 import uuid as _uuid
 
-from backports.datetime_fromisoformat import MonkeyPatch as _MonkeyPatch
-_MonkeyPatch.patch_fromisoformat()
+import sys as _sys
+
+if _sys.version_info.major < 3:
+    raise ImportError("Acquire requires Python 3.6 minimum")
+
+if _sys.version_info.minor < 6:
+    raise ImportError("Acquire requires Python 3.6 minimum")
+
+if _sys.version_info.major == 3 and _sys.version_info.minor == 6:
+    try:
+        from backports.datetime_fromisoformat import MonkeyPatch \
+            as _MonkeyPatch
+        _MonkeyPatch.patch_fromisoformat()
+    except:
+        raise ImportError(
+            "backports-datetime-fromisoformat must be installed "
+            "on Python < 3.7. Please run 'pip install "
+            "backports-datetime-fromisoformat' or update to a newer "
+            "version of Python")
 
 __all__ = ["bytes_to_string", "string_to_bytes",
            "string_to_encoded", "encoded_to_string",
