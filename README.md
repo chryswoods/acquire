@@ -1,6 +1,14 @@
 # Acquire
 
+[![Build Status](https://dev.azure.com/bristolrse/Acquire/_apis/build/status/chryswoods.acquire?branchName=master)](https://dev.azure.com/bristolrse/Acquire/_build/latest?definitionId=1&branchName=master)
+
 (C) Christopher Woods 2018 - Released under the [Apache 2 License](LICENSE)
+
+## Installation
+
+```
+pip install acquire
+```
 
 ## An Access, Accounting and Authorisation (Identity) Infrastructure for the Cloud
 
