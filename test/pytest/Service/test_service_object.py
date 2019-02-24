@@ -6,14 +6,14 @@ from Acquire.Service import Service, push_is_running_service, \
 from Acquire.Crypto import PrivateKey
 
 
-def test_service_object(aaai_services, tmpdir_factory):
+def test_service_object(tmpdir_factory):
     bucket = tmpdir_factory.mktemp("test_service")
     push_testing_objstore(bucket)
     push_is_running_service()
 
     try:
         service = IdentityService(Service(service_type="identity",
-                                          service_url="identity"))
+                                          service_url="test_identity"))
 
         assert(service.uid() is not None)
         assert(service.is_identity_service())
