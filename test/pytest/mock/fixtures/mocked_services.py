@@ -120,7 +120,11 @@ def mocked_input(s):
 
 
 # monkey-patch _pycurl.Curl so that we can mock calls
-Acquire.Service._function._pycurl.Curl = MockedPyCurl
+try:
+    Acquire.Service._function._pycurl.Curl = MockedPyCurl
+except:
+    # We don't have pycurl available
+    pass
 
 # monkey-patch input so that we can say "y"
 Acquire.Client._wallet._input = mocked_input

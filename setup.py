@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="acquire",
-    version="0.0.1",
+    version="0.0.2",
     author="Christopher Woods",
     author_email="chryswoods@gmail.com",
     description="A serverless identity, access, accounting, storage and compute management system",
@@ -18,4 +18,11 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License  ",
         "Operating System :: OS Independent",
     ],
+    install_requires=[
+        "pyotp>=2",
+        "cachetools>=3",
+        "backports-datetime-fromisoformat>=1",
+        "tblib>=1.2"
+        # note that qrcode is an optional dependency
+    ]
 )
