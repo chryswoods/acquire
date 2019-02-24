@@ -3,11 +3,6 @@ import datetime as _datetime
 import json as _json
 import os as _os
 
-try:
-    import pycurl as _pycurl
-except:
-    _pycurl = None
-
 __all__ = ["PAR", "BucketReader", "BucketWriter", "ObjectReader",
            "ObjectWriter"]
 
@@ -247,36 +242,20 @@ def _read_local(url):
 
 def _read_remote(url):
     """Internal function used to read data from a remote URL"""
-    if _pycurl is None:
-        from Acquire.ObjectStore import PARError
-        raise PARError("We need pycurl installed to read remote PARs!")
-
-    from io import BytesIO as _BytesIO
-
-    buffer = _BytesIO()
-    c = _pycurl.Curl()
-    c.setopt(c.URL, url)
-    c.setopt(c.WRITEDATA, buffer)
-
     status_code = None
+    response = None
 
     try:
-        c.perform()
-        status_code = c.getinfo(_pycurl.HTTP_CODE)
-        c.close()
-    except _pycurl.error as e:
-        from Acquire.ObjectStore import PARReadError
-        raise PARReadError(
-            "Cannot read the remote PAR URL '%s' because of a possible "
-            "network issue: curl errorcode %s, message '%s'" %
-            (url, e.args[0], e.args[1]))
+        from Acquire.Stubs import requests as _requests
+        response = _requests.get(url)
+        status_code = response.status_code
     except Exception as e:
         from Acquire.ObjectStore import PARReadError
         raise PARReadError(
             "Cannot read the remote PAR URL '%s' because of a possible "
             "nework issue: %s" % (url, str(e)))
 
-    output = buffer.getvalue()
+    output = response.content
 
     if status_code != 200:
         from Acquire.ObjectStore import PARReadError
@@ -332,34 +311,21 @@ def _write_local(url, data):
 
 def _write_remote(url, data):
     """Internal function used to write data to the passed remote URL"""
-    if _pycurl is None:
-        from Acquire.ObjectStore import PARError
-        raise PARError("We need pycurl installed to read remote PARs!")
-
-    from io import BytesIO as _BytesIO
-
-    buffer = _BytesIO()
-    c = _pycurl.Curl()
-    c.setopt(c.URL, url)
-    c.setopt(c.WRITEDATA, buffer)
-    c.setopt(c.CUSTOMREQUEST, "PUT")
-    c.setopt(c.POST, True)
-    c.setopt(c.POSTFIELDS, data)
-
     try:
-        c.perform()
-        c.close()
-    except _pycurl.error as e:
-        from Acquire.ObjectStore import PARWriteError
-        raise PARWriteError(
-            "Cannot write data to the remote PAR URL '%s' because of a "
-            "possible network issue: curl errorcode %s, message '%s'" %
-            (url, e.args[0], e.args[1]))
+        from Acquire.Stubs import requests as _requests
+        response = _requests.put(url, data=data)
+        status_code = response.status_code
     except Exception as e:
         from Acquire.ObjectStore import PARWriteError
         raise PARWriteError(
             "Cannot write data to the remote PAR URL '%s' because of a "
             "possible nework issue: %s" % (url, str(e)))
+
+    if status_code != 200:
+        from Acquire.ObjectStore import PARWriteError
+        raise PARWriteError(
+            "Cannot write data to the remote PAR URL '%s' because of a "
+            "possible nework issue: %s" % (url, str(response.content)))
 
 
 def _join_bucket_and_prefix(url, prefix):

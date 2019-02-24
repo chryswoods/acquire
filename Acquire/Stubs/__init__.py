@@ -15,3 +15,5 @@ except:
     # lazy_import is not available, e.g. because we want the Apache
     # licensed version of this code - import the non-lazy wrapper
     from ._lazy_import import *
+
+requests = lazy_import.lazy_module("requests")

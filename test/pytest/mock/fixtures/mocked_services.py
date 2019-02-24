@@ -11,6 +11,9 @@ import re
 import uuid
 
 import Acquire
+import Acquire.Stubs
+
+import requests as _original_requests
 
 from admin.handler import create_handler
 from identity.route import identity_functions
@@ -18,59 +21,41 @@ from accounting.route import accounting_functions
 from access.route import access_functions
 from storage.route import storage_functions
 
-try:
-    from pycurl import Curl as _original_Curl
-except:
-    _original_Curl = None
-
 identity_handler = create_handler(identity_functions)
 accounting_handler = create_handler(accounting_functions)
 access_handler = create_handler(access_functions)
 storage_handler = create_handler(storage_functions)
 
 
-class MockedPyCurl:
-    """Mocked pycurl.PyCurl class. This provides a PyCurl which calls
+class MockedRequests:
+    """Mocked requests object. This provides a requests interface which calls
        the 'handler' functions of the services directly, rather
-       than posting the arguments to the online services via a curl
+       than posting the arguments to the online services via a requests
        call. In addition, as services can call services, this also
        handles switching between the different local object stores for
        each of the services
     """
-    def __init__(self):
-        self._data = {}
-        self._c = _original_Curl()
-        # self._c.setopt(self._c.VERBOSE, True)
+    def __init__(self, status_code, content, encoding="utf-8"):
+        self.status_code = status_code
+        self.content = content
+        self.encoding = encoding
 
-    URL = "URL"
-    WRITEDATA = "WRITEDATA"
-    POSTFIELDS = "POSTFIELDS"
-    POST = "POST"
-    CUSTOMREQUEST = "CUSTOMREQUEST"
-
-    def setopt(self, typ, value):
-        self._data[typ] = value
-        try:
-            if typ == MockedPyCurl.URL:
-                self._c.setopt(self._c.URL, value)
-            elif typ == MockedPyCurl.WRITEDATA:
-                self._c.setopt(self._c.WRITEDATA, value)
-            elif typ == MockedPyCurl.POSTFIELDS:
-                self._c.setopt(self._c.POSTFIELDS, value)
-            elif typ == MockedPyCurl.POST:
-                self._c.setopt(self._c.POST, value)
-            elif typ == MockedPyCurl.CUSTOMREQUEST:
-                self._c.setopt(self._c.CUSTOMREQUEST, value)
-        except:
-            pass
-
-    def perform(self):
-        url = self._data["URL"]
-
+    @staticmethod
+    def get(url, data, timeout=None):
         if url.startswith("http"):
-            self._c.perform()
-            return
+            return _original_requests.get(url, data=data)
+        else:
+            return MockedRequests._perform(url, data, is_post=False)
 
+    @staticmethod
+    def post(url, data, timeout=None):
+        if url.startswith("http"):
+            return _original_requests.post(url, data=data)
+        else:
+            return MockedRequests._perform(url, data, is_post=True)
+
+    @staticmethod
+    def _perform(url, data, is_post=False):
         global _services
 
         from Acquire.Service import push_testing_objstore, \
@@ -91,28 +76,14 @@ class MockedPyCurl:
         else:
             raise ValueError("Cannot recognise service from '%s'" % url)
 
-        result = func(None, self._data["POSTFIELDS"])
+        result = func(None, data)
 
         pop_testing_objstore()
 
         if type(result) is str:
             result = result.encode("utf-8")
 
-        self._data["WRITEDATA"].write(result)
-
-    def getinfo(self, key):
-        url = self._data["URL"]
-
-        if url.startswith("http"):
-            return self._c.getinfo(key)
-        else:
-            return 200
-
-    def close(self):
-        try:
-            self._c.close()
-        except:
-            pass
+        return MockedRequests(status_code=200, content=result)
 
 
 def mocked_input(s):
@@ -120,11 +91,7 @@ def mocked_input(s):
 
 
 # monkey-patch _pycurl.Curl so that we can mock calls
-try:
-    Acquire.Service._function._pycurl.Curl = MockedPyCurl
-except:
-    # We don't have pycurl available
-    pass
+Acquire.Stubs.requests = MockedRequests
 
 # monkey-patch input so that we can say "y"
 Acquire.Client._wallet._input = mocked_input

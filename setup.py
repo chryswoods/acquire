@@ -25,7 +25,8 @@ setuptools.setup(
         "backports-datetime-fromisoformat>=1",
         "tblib>=1.2",
         "cryptography>=2",
-        "pyyaml>=3.0"
+        "pyyaml>=3.0",
+        "requests>=2.10"
         # note that qrcode is an optional dependency
     ]
 )

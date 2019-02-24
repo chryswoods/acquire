@@ -1,9 +1,15 @@
-fdk==0.0.35
-oci
-lazy_import
+# MIT license dependencies
 pyotp
-pycurl
-qrcode[pil]
 cachetools
-tblib
+
+# MIT license, used only for Python < 3.7
 backports-datetime-fromisoformat
+pyyaml
+
+# BSD license dependencies
+qrcode[pil]
+tblib
+
+# Apache or BSD dependencies
+cryptography
+requests

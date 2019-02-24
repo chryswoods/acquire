@@ -47,32 +47,6 @@ COPY --from=build-stage /python /python
 
 RUN mkdir /extralibs
 
-# Copy libraries needed by pycurl
-COPY --from=build-stage /usr/lib/x86_64-linux-gnu/libgnutls.so.30 \
-                        /usr/lib/x86_64-linux-gnu/libcurl-gnutls.so.4 \
-                        /usr/lib/x86_64-linux-gnu/libnghttp2.so.14 \
-                        /usr/lib/x86_64-linux-gnu/libidn2.so.0 \
-                        /usr/lib/x86_64-linux-gnu/librtmp.so.1 \
-                        /usr/lib/x86_64-linux-gnu/libssh2.so.1 \
-                        /usr/lib/x86_64-linux-gnu/libpsl.so.5 \
-                        /usr/lib/x86_64-linux-gnu/libnettle.so.6 \
-                        /usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2 \
-                        /usr/lib/x86_64-linux-gnu/libkrb5.so.3 \
-                        /usr/lib/x86_64-linux-gnu/libk5crypto.so.3 \
-                        /usr/lib/x86_64-linux-gnu/liblber-2.4.so.2 \
-                        /usr/lib/x86_64-linux-gnu/libldap_r-2.4.so.2 \
-                        /usr/lib/x86_64-linux-gnu/libp11-kit.so.0 \
-                        /usr/lib/x86_64-linux-gnu/libunistring.so.0 \
-                        /lib/x86_64-linux-gnu/libidn.so.11 \
-                        /usr/lib/x86_64-linux-gnu/libtasn1.so.6 \
-                        /usr/lib/x86_64-linux-gnu/libnettle.so.6 \
-                        /usr/lib/x86_64-linux-gnu/libhogweed.so.4 \
-                        /usr/lib/x86_64-linux-gnu/libgmp.so.10 \
-                        /usr/lib/x86_64-linux-gnu/libkrb5support.so.0 \
-                        /lib/x86_64-linux-gnu/libkeyutils.so.1 \
-                        /usr/lib/x86_64-linux-gnu/libsasl2.so.2 \
-                        /extralibs/
-
 ENV PYTHONPATH=/python \
     LD_LIBRARY_PATH=/extralibs:$LD_LIBRARY_PATH
 

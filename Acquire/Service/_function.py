@@ -2,11 +2,6 @@
 import json as _json
 from io import BytesIO as _BytesIO
 
-try:
-    import pycurl as _pycurl
-except:
-    _pycurl = None
-
 __all__ = ["call_function", "pack_arguments", "unpack_arguments",
            "create_return_value", "pack_return_value", "unpack_return_value",
            "exception_to_safe_exception", "exception_to_string"]
@@ -411,13 +406,6 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
                 return _call_local_function(service, function, args_key,
                                             response_key, public_cert, args)
 
-    if _pycurl is None:
-        from Acquire.Service import RemoteFunctionCallError
-        raise RemoteFunctionCallError(
-            "Cannot call remote functions as "
-            "the pycurl module cannot be imported! It needs "
-            "to be installed into this python session...")
-
     response_key = _get_key(response_key)
 
     if function is not None:
@@ -429,33 +417,38 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
     else:
         args_json = pack_arguments(args, args_key)
 
-    buffer = _BytesIO()
-    c = _pycurl.Curl()
-    c.setopt(c.URL, service_url)
-    c.setopt(c.WRITEDATA, buffer)
-    c.setopt(c.POST, True)
-    c.setopt(c.POSTFIELDS, args_json)
+    response = None
+    try:
+        from Acquire.Stubs import requests as _requests
+        response = _requests.post(service_url, data=args_json, timeout=15.0)
+    except Exception as e:
+        from Acquire.Service import RemoteFunctionCallError
+        raise RemoteFunctionCallError(
+            "Cannot call remote function '%s' at '%s' because of a possible "
+            "network issue: requests exeption = '%s'" %
+            (function, service_url, str(e)))
 
     args = None
     args_json = None
     args_key = None
 
-    try:
-        c.perform()
-        c.close()
-    except _pycurl.error as e:
+    if response.status_code != 200:
         from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
-            "Cannot call remote function '%s' at  '%s' because of a possible "
-            "network issue: curl errorcode %s, message '%s'" %
-            (function, service_url, e.args[0], e.args[1]))
-    except Exception as e:
-        from Acquire.Service import RemoteFunctionCallError
-        raise RemoteFunctionCallError(
-            "Cannot call remote function '%s' at '%s'" %
-            (function, service_url), e)
+            "Cannot call remote function '%s' as '%s'. Invalid error code "
+            "%d returned. Message:\n%s" %
+            (function, service_url,
+             response.status_code, str(response.content)))
 
-    result = buffer.getvalue().decode("utf-8")
+    if response.encoding == "utf-8" or response.encoding is None:
+        result = response.content.decode("utf-8")
+    else:
+        from Acquire.Service import RemoteFunctionCallError
+        raise RemoteFunctionCallError(
+            "Cannot call remote function '%s' as '%s'. Invalid data encoding "
+            "%s returned. Message:\n%s" %
+            (function, service_url,
+             response.encoding, str(response.content)))
 
     return unpack_return_value(result, response_key, public_cert,
                                function=function, service=service_url)
