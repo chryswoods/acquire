@@ -28,12 +28,10 @@ storage_handler = create_handler(storage_functions)
 
 
 def _set_services(s):
-    print("SETTING SERVICES TO %s" % str(s))
     pytest.my_global_services = s
 
 
 def _get_services():
-    print("GETTING SERVICES FROM %s" % str(pytest.my_global_services))
     return pytest.my_global_services
 
 
