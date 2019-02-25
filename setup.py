@@ -30,7 +30,7 @@ setuptools.setup(
         "tblib>=1.2",
         "cryptography>=2",
         "pyyaml>=3.0",
-        "requests>=2.10"
-        # note that qrcode is an optional dependency
+        "requests>=2.10",
+        "qrcode[pil]>=5.0"
     ]
 )
