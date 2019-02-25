@@ -224,6 +224,7 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
                 if "exception" in data:
                     _unpack_and_raise(function, service, data["exception"])
                 else:
+                    from Acquire.Service import RemoteFunctionCallError
                     raise RemoteFunctionCallError(
                         "Calling %s on %s exited with status %d: %s" %
                         (function, service, data["status"], data["message"]))
