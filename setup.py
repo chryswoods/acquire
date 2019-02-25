@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="acquire",
-    version="0.0.4",
+    version="0.0.5",
     python_requires='>=3.6.0',
     author="Christopher Woods",
     author_email="chryswoods@gmail.com",
@@ -19,6 +19,11 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License  ",
         "Operating System :: OS Independent",
     ],
+    entry_points={
+        "console_scripts": [
+           "acquire_login = Acquire.Client.Scripts.__acquire_login__:main"
+        ]
+    },
     install_requires=[
         "pyotp>=2",
         "cachetools>=3",
