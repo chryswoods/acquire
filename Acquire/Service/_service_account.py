@@ -470,13 +470,14 @@ def _reload_key(fingerprint):
 
     try:
         keydata = _ObjectStore.get_object_from_json(bucket, keyfile)
-    except:
+    except Exception e:
         keydata = None
+        error = str(e)
 
     if keydata is None:
         raise KeyManipulationError(
-            "Unable to load the key or certificate with fingerprint '%s'"
-            % fingerprint)
+            "Unable to load the key or certificate with fingerprint '%s': %s"
+            % (fingerprint, error))
 
     service = get_this_service(need_private_access=True)
     return service.load_keys(keydata)[fingerprint]
