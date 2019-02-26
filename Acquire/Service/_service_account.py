@@ -465,12 +465,12 @@ def _reload_key(fingerprint):
 
     if keyfile is None:
         raise KeyManipulationError(
-            "There is no key or certificate with fingerprint '%s' : %s"
+            "Cannot find a key or certificate with fingerprint '%s' : %s"
             % (fingerprint, key))
 
     try:
         keydata = _ObjectStore.get_object_from_json(bucket, keyfile)
-    except Exception e:
+    except Exception as e:
         keydata = None
         error = str(e)
 
