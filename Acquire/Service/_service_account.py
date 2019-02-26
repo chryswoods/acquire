@@ -465,7 +465,7 @@ def _reload_key(fingerprint):
 
     if keyfile is None:
         raise KeyManipulationError(
-            "Cannot find a key or certificate with fingerprint '%s' : %s"
+            "There is no key or certificate with fingerprint '%s' : %s"
             % (fingerprint, key))
 
     try:
