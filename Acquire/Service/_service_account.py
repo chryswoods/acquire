@@ -457,6 +457,8 @@ def _reload_key(fingerprint):
         as _get_service_account_bucket
     from Acquire.Crypto import KeyManipulationError
 
+    bucket = _get_service_account_bucket()
+
     try:
         key = "%s/oldkeys/fingerprints/%s" % (_service_key, fingerprint)
         keyfile = _ObjectStore.get_string_object(bucket, key)
