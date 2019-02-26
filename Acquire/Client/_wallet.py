@@ -439,7 +439,7 @@ class Wallet:
             # the new keys and save them to the service file...
             if existing_service.should_refresh_keys():
                 existing_service.refresh_keys()
-                Wallet.add_service(existing_service)
+                _write_service(existing_service, service_file)
 
             return existing_service
         else:

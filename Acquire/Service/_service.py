@@ -890,6 +890,8 @@ class Service:
         elif self.uid() != other.uid():
             return False
 
+        print("WARNING - NEED TO IMPLEMENT KEY EVOLUTION COMPARISON")
+
         return False
 
     def validation_string(self):
