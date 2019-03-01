@@ -1,11 +1,26 @@
 import setuptools
 
+def get_version():
+    """get_version - thanks to 
+       https://milkr.io/kfei/5-common-patterns-to-version-your-Python-package
+    """
+    import os, re
+    VERSIONFILE = os.path.join('Acquire', '__init__.py')
+    initfile_lines = open(VERSIONFILE, 'rt').readlines()
+    VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
+    for line in initfile_lines:
+        mo = re.search(VSRE, line, re.M)
+        if mo:
+            return mo.group(1)
+    raise RuntimeError('Unable to find version string in %s.' % (VERSIONFILE,))
+
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="acquire",
-    version="0.0.5",
+    version=get_version(),
     python_requires='>=3.6.0',
     author="Christopher Woods",
     author_email="chryswoods@gmail.com",

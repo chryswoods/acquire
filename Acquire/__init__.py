@@ -13,6 +13,8 @@ three services:
     This
 """
 
+__version__ = "0.0.7"
+
 from Acquire.Stubs import lazy_import as _lazy_import
 
 Access = _lazy_import.lazy_module("Acquire.Access")
