@@ -1,10 +1,12 @@
 import setuptools
 
+
 def get_version():
-    """get_version - thanks to 
+    """get_version - thanks to
        https://milkr.io/kfei/5-common-patterns-to-version-your-Python-package
     """
-    import os, re
+    import os
+    import re
     VERSIONFILE = os.path.join('Acquire', '__init__.py')
     initfile_lines = open(VERSIONFILE, 'rt').readlines()
     VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
@@ -24,7 +26,8 @@ setuptools.setup(
     python_requires='>=3.6.0',
     author="Christopher Woods",
     author_email="chryswoods@gmail.com",
-    description="A serverless identity, access, accounting, storage and compute management system",
+    description="A serverless identity, access, accounting, storage and "
+                "compute management system",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/chryswoods/acquire",

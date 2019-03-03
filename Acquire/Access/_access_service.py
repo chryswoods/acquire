@@ -29,3 +29,18 @@ class AccessService(_Service):
         from admin.handler import create_handler as _create_handler
         handler = _create_handler(_access_functions)
         return handler(function, args)
+
+    def get_trusted_storage_service(self):
+        """Return a trusted storage service"""
+        from Acquire.Service import get_trusted_services \
+            as _get_trusted_services
+
+        services = _get_trusted_services()
+
+        try:
+            return services["storage"][0]
+        except:
+            from Acquire.Service import ServiceError
+            raise ServiceError(
+                "There is no trusted storage service known to this access "
+                "service")

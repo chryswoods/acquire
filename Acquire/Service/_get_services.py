@@ -5,9 +5,10 @@ from cachetools import cached as _cached
 from cachetools import LRUCache as _LRUCache
 
 _cache_local_serviceinfo = _LRUCache(maxsize=5)
+_cache_local_serviceinfos = _LRUCache(maxsize=5)
 _cache_remote_serviceinfo = _LRUCache(maxsize=20)
 
-__all__ = ["get_trusted_service",
+__all__ = ["get_trusted_service", "get_trusted_services",
            "get_remote_service", "get_checked_remote_service",
            "clear_services_cache"]
 
@@ -18,7 +19,59 @@ def clear_services_cache():
     _cache_remote_serviceinfo.clear()
 
 
-# Cached as the remove service information will not change too often
+# Cached as the list of all trusted remote service information
+# will not change too often
+@_cached(_cache_local_serviceinfos)
+def get_trusted_services():
+    """Return a dictionary of all trusted services indexed by
+       their type
+    """
+    from Acquire.Service import is_running_service as _is_running_service
+
+    if _is_running_service():
+        from Acquire.Service import get_this_service as _get_this_service
+        from Acquire.Service import Service as _Service
+
+        from Acquire.Service import get_service_account_bucket as \
+            _get_service_account_bucket
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import url_to_encoded as \
+            _url_to_encoded
+
+        # we already trust ourselves
+        service = _get_this_service()
+
+        trusted_services = {}
+        trusted_services[service.service_type()] = [service]
+
+        bucket = _get_service_account_bucket()
+
+        uidkey = "_trusted/uid/"
+        datas = _ObjectStore.get_all_objects(bucket, uidkey)
+
+        for data in datas:
+            remote_service = _Service.from_data(data)
+
+            if remote_service.should_refresh_keys():
+                # need to update the keys in our copy of the service
+                remote_service.refresh_keys()
+                key = "%s/%s" % (uidkey, remote_service.uid())
+                _ObjectStore.set_object_from_json(bucket, key,
+                                                  remote_service.to_data())
+
+            if remote_service.service_type() in datas:
+                datas[remote_service.service_type()].append(remote_service)
+            else:
+                datas[remote_service.service_type()] = [remote_service]
+
+        return datas
+    else:
+        # this is running on the client
+        from Acquire.Client import Wallet as _Wallet
+        return _Wallet.get_services()
+
+
+# Cached as the remote service information will not change too often
 @_cached(_cache_local_serviceinfo)
 def get_trusted_service(service_url=None, service_uid=None):
     """Return the trusted service info for the service with specified

@@ -4,11 +4,12 @@ from Acquire.Service import get_this_service
 
 from Acquire.Crypto import PrivateKey
 
-from Acquire.ObjectStore import ObjectStore, string_to_bytes
+from Acquire.ObjectStore import ObjectStore, string_to_bytes, \
+    datetime_to_string
 
 from Acquire.Identity import Authorisation, AuthorisationError
 
-from Acquire.Access import Request, RunRequest
+from Acquire.Access import Request, RunRequest, JobSheet
 
 from Acquire.Client import Cheque
 
@@ -58,80 +59,26 @@ def run(args):
             "You must pass in a valid RunRequest to request a calculation "
             "is run. The passed request is the wrong type: %s" % str(request))
 
-    # verify that the user has authorised this request
-    authorisation.verify(request.signature())
+    # create a job sheet to record all stages of the job
+    job_sheet = JobSheet(request=request, authorisation=authorisation)
+    job_sheet.set_payment(cheque=cheque)
 
-    # now find the cost to run the job - this will be a compute
-    # cost and a storage cost
-    total_cost = 10
-
-    # create a record for this job
-    #record = JobRecord(request=request, total_cost=total_cost,
-    #                   payment_account=account_uid)
-    #                   # child services = services....
-
-    # send the cheque to the accounting service to get a credit note
-    # to show that we will be paid for this job
-    try:
-        credit_notes = cheque.cash(spend=total_cost,
-                                   resource=request.signature())
-    except Exception as e:
-        from Acquire.Service import exception_to_string
-        raise PaymentError(
-            "Problem cashing the cheque used to pay for the calculation: "
-            "\n\nCAUSE: %s" % exception_to_string(e))
-
-    if credit_notes is None or len(credit_notes) == 0:
-        raise PaymentError("Cannot be paid!")
-
-    # save this credit_note so that it is not lost
-    # bucket = _get_service_account_bucket()
-
-    # the access service will be paid for the job. We need to now
-    # create the Credit/Debit note pairs to transfer funds from
-    # the access service to the selected storage and compute services
-
-    # we will then store these in the object store against the credit
-    # note - only once everything is receipted to us will we then
-    # calculate how much we want to receipt back to the user (we may
-    # take a cut or have other overheads)
-
-    # ... check that the user has enough money to perform this calculation
-    # ... create a credit note for the storage service and the run service
-    # ... that can be used to pay for the compute and data
-
-    # ... choose a storage service which will store the data for the
-    # ... simulation. Get the encryption keys for this service so that
-    # ... we can safely send it data about how to receipt the storage
-    # ... without worrying that anyone can interfere with that data
-
-    # ... choose a run service which will run the simulation. Get the
-    # ... encryption keys for this service so that we can safely send
-    # ... it data about how to write output and receipt the account
-
-    # 1. ask the storage service to create a new bucket for the simulation
-    # 2. create a PAR for the bucket used by the user to upload their
-    #    input file (as described in the runinfo in the RunRequest)
-    # 3. create a bucket write PAR that will be used by the run service
-    # 4. create the data that will be passed (at the end of the calculation)
-    #    to the storage service to delete the bucket write PAR and finalise
-    #    the bucket. This will include the credit note that will need to be
-    #    receipted once the total size of the bucket is known. Encrypt
-    #    this data using the storage service encryption key
-    # 5. create the data that will passed to the run service to run the
-    #    calculation. This will contain the PAR for writing, the credit
-    #    note to receipt the calculation, and the encrypted data that
-    #    the run service will relay to the storage service. Encrypt
-    #    this data using the run service encryption key.
-    # 6. Package up the write PAR with the URL and function to call the
-    #    run service, with the encrypted run data, so that this can be
-    #    sent back to the user. The user should use the PAR to upload
-    #    the input data, then call the run function url, passing in the
-    #    encrypted data as arguments.
+    # now communicate with all of the services to make the actual
+    # requests. This returns the PARs that must be given back to the
+    # user to upload the input and trigger the simulation, and the
+    # date on which they will expire
+    (upload_par, run_par, expires) = job_sheet.request_services()
 
     status = 0
     message = "Request has been validated"
 
     return_value = create_return_value(status, message)
+
+    # return to the user the PAR used to upload the input data and
+    # the PAR on the compute service to call to trigger
+    # the start of the calculation
+    return_value["upload_par"] = upload_par.to_data()
+    return_value["simulation_par"] = run_par.to_data()
+    return_value["expiry_date"] = datetime_to_string(expires)
 
     return return_value
