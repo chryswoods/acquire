@@ -231,6 +231,9 @@ class PAR:
         """
         data = {}
 
+        if self._url is None:
+            return data
+
         from Acquire.ObjectStore import datetime_to_string \
             as _datetime_to_string
         from Acquire.ObjectStore import bytes_to_string \
@@ -255,7 +258,7 @@ class PAR:
            dictionary
         """
         if data is None or len(data) == 0:
-            return None
+            return PAR()
 
         from Acquire.ObjectStore import string_to_datetime \
             as _string_to_datetime

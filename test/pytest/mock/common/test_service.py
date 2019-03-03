@@ -11,7 +11,8 @@ from Acquire.Service import call_function, Service, get_this_service, \
 @pytest.mark.parametrize("service_url",
                          [("identity"),
                           ("storage"),
-                          ("access")])
+                          ("access"),
+                          ("compute")])
 def test_service(service_url, aaai_services):
 
     # get the public service from the default API frontend

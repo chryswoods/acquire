@@ -20,11 +20,13 @@ from identity.route import identity_functions
 from accounting.route import accounting_functions
 from access.route import access_functions
 from storage.route import storage_functions
+from compute.route import compute_functions
 
 identity_handler = create_handler(identity_functions)
 accounting_handler = create_handler(accounting_functions)
 access_handler = create_handler(access_functions)
 storage_handler = create_handler(storage_functions)
+compute_handler = create_handler(compute_functions)
 
 
 def _set_services(s):
@@ -84,6 +86,9 @@ class MockedRequests:
         elif url.startswith("storage"):
             push_testing_objstore(_services["storage"])
             func = storage_handler
+        elif url.startswith("compute"):
+            push_testing_objstore(_services["compute"])
+            func = compute_handler
         else:
             raise ValueError("Cannot recognise service from '%s'" % url)
 
@@ -151,8 +156,8 @@ def aaai_services(tmpdir_factory):
     _services["access"] = tmpdir_factory.mktemp("access")
     _services["storage"] = tmpdir_factory.mktemp("storage")
     _services["userdata"] = tmpdir_factory.mktemp("userdata")
+    _services["compute"] = tmpdir_factory.mktemp("compute")
 
-    print("SETTING UP SERVICES: %s" % str(_services))
     _set_services(_services)
 
     password = PrivateKey.random_passphrase()
@@ -198,6 +203,17 @@ def aaai_services(tmpdir_factory):
                            "user": access_user,
                            "response": response}
 
+    args["canonical_url"] = "compute"
+    args["service_type"] = "compute"
+    response = call_function("compute", function="admin/setup", args=args)
+    responses["compute"] = response
+    compute_service = Service.from_data(response["service"])
+    compute_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
+    compute_user = _login_admin("compute", "admin", password, compute_otp)
+    responses["compute"] = {"service": compute_service,
+                            "user": compute_user,
+                            "response": response}
+
     args["canonical_url"] = "storage"
     args["service_type"] = "storage"
     response = call_function("storage", function="admin/setup", args=args)
@@ -222,6 +238,18 @@ def aaai_services(tmpdir_factory):
                                           resource=resource).to_data()
 
     response = access_service.call_function(
+                    function="admin/trust_service", args=args)
+
+    args["authorisation"] = Authorisation(user=storage_user,
+                                          resource=resource).to_data()
+
+    response = storage_service.call_function(
+                    function="admin/trust_service", args=args)
+
+    args["authorisation"] = Authorisation(user=compute_user,
+                                          resource=resource).to_data()
+
+    response = compute_service.call_function(
                     function="admin/trust_service", args=args)
 
     args["authorisation"] = Authorisation(user=storage_user,

@@ -109,7 +109,11 @@ class JobSheet:
         # save so we don't lost the debit notes or any value
         self.save()
 
-        return ("upload_par", "run_par", "future")
+        from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import get_datetime_future \
+            as _get_datetime_future
+
+        return (_PAR(), _PAR(), _get_datetime_future(hours=1))
 
     def save(self):
         """Save this JobSheet to the object store"""

@@ -60,7 +60,7 @@ def run(args):
             "is run. The passed request is the wrong type: %s" % str(request))
 
     # create a job sheet to record all stages of the job
-    job_sheet = JobSheet(request=request, authorisation=authorisation)
+    job_sheet = JobSheet(job=request, authorisation=authorisation)
     job_sheet.set_payment(cheque=cheque)
 
     # now communicate with all of the services to make the actual
