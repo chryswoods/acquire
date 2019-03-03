@@ -41,14 +41,14 @@ def test_run_calc(aaai_services, authenticated_user):
     # authorised by the cheque
     cheque = Cheque.write(account=account,
                           recipient_url="access",
-                          resource=r.signature(),
+                          resource=r.fingerprint(),
                           max_spend=50.0)
 
     func = "run_calculation"
     args = {}
     args["request"] = r.to_data()
     args["authorisation"] = Authorisation(user=user,
-                                          resource=r.signature()).to_data()
+                                          resource=r.fingerprint()).to_data()
     args["cheque"] = cheque.to_data()
 
     access_service = Service("access")

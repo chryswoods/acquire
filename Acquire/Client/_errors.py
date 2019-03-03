@@ -1,6 +1,8 @@
 
 __all__ = ["QRCodeError", "LoginError", "AccountError",
-           "PaymentError", "UserError"]
+           "PaymentError", "UserError", "PARError",
+           "PARTimeoutError", "PARPermissionsError",
+           "PARReadError", "PARWriteError"]
 
 
 class QRCodeError(Exception):
@@ -20,4 +22,24 @@ class UserError(Exception):
 
 
 class PaymentError(Exception):
+    pass
+
+
+class PARError(Exception):
+    pass
+
+
+class PARTimeoutError(PARError):
+    pass
+
+
+class PARPermissionsError(PARError):
+    pass
+
+
+class PARReadError(PARError):
+    pass
+
+
+class PARWriteError(PARError):
     pass

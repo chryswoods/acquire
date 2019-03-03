@@ -74,7 +74,7 @@ class Testing_ObjectStore:
         return full_name
 
     @staticmethod
-    def create_par(bucket, key=None, readable=True,
+    def create_par(bucket, encrypt_key, key=None, readable=True,
                    writeable=False, duration=3600):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
@@ -82,16 +82,27 @@ class Testing_ObjectStore:
            be used to access the object/bucket. If writeable is true, then
            the URL will also allow the object/bucket to be written to.
            PARs are time-limited. Set the lifetime in seconds by passing
-           in 'duration' (by default this is one hour)
+           in 'duration' (by default this is one hour). Note that you must
+           pass in a public key that will be used to encrypt this PAR. This is
+           necessary as the PAR grants access to anyone who can decrypt
+           the URL
         """
+        from Acquire.Crypto import PublicKey as _PublicKey
+
+        if not isinstance(encrypt_key, _PublicKey):
+            from Acquire.Client import PARError
+            raise PARError(
+                "You must supply a valid PublicKey to encrypt the "
+                "returned PAR")
+
         if key is not None:
             if not _os.path.exists("%s/%s._data" % (bucket, key)):
-                from Acquire.ObjectStore import PARError
+                from Acquire.Client import PARError
                 raise PARError(
                     "The object '%s' in bucket '%s' does not exist!" %
                     (key, bucket))
         elif not _os.path.exists(bucket):
-            from Acquire.ObjectStore import PARError
+            from Acquire.Client import PARError
             raise PARError("The bucket '%s' does not exist!" % bucket)
 
         url = "file://%s" % bucket
@@ -110,14 +121,14 @@ class Testing_ObjectStore:
         # mimic limitations of OCI - cannot have a bucket PAR with
         # read permissions!
         if (key is None) and readable:
-            from Acquire.ObjectStore import PARError
+            from Acquire.Client import PARError
             raise PARError(
                 "You cannot create a Bucket PAR that has read permissions "
                 "due to a limitation in the underlying platform")
 
-        from Acquire.ObjectStore import PAR as _PAR
+        from Acquire.Client import PAR as _PAR
 
-        return _PAR(url=url, key=key,
+        return _PAR(url=url, key=key, encrypt_key=encrypt_key,
                     created_datetime=created_datetime,
                     expires_datetime=expires_datetime,
                     is_readable=readable, is_writeable=writeable,

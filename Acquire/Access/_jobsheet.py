@@ -6,12 +6,16 @@ class JobSheet:
     """This class holds a complete record of a job that the access
        service has been asked to perform.
     """
-    def __init__(self, request=None, authorisation=None):
-        if request is not None:
-            authorisation.validate(request.fingerprint())
+    def __init__(self, job=None, authorisation=None):
+        if job is not None:
+            from Acquire.Identity import Authorisation as _Authorisation
+            if not isinstance(authorisation, _Authorisation):
+                raise TypeError("You can only authorise a reqeust with "
+                                "a valid Authorisation object")
+            authorisation.verify(job.fingerprint())
             from Acquire.ObjectStore import create_uuid as _create_uuid
-            self._job_request = request
-            self._job_authorisation = authorisation
+            self._job = job
+            self._authorisation = authorisation
             self._uid = _create_uuid()
         else:
             self._uid = None
@@ -38,14 +42,14 @@ class JobSheet:
         if self.is_null():
             return None
         else:
-            return self._job_request
+            return self._job
 
     def authorisation(self):
         """Return the original authorisation for this job"""
         if self.is_null():
             return None
         else:
-            return self._job_authorisation
+            return self._authorisation
 
     def set_payment(self, cheque):
         """Pass in and cash that contains the source of value of
@@ -63,7 +67,7 @@ class JobSheet:
 
         try:
             credit_notes = cheque.cash(spend=self.total_cost(),
-                                       resource=self.job().signature())
+                                       resource=self.job().fingerprint())
         except Exception as e:
             from Acquire.Service import exception_to_string
             from Acquire.Accounting import PaymentError
@@ -182,8 +186,8 @@ class JobSheet:
                 as _string_to_list
 
             j._uid = str(data["uid"])
-            j._job_request = _RunRequest.from_data(data["job"])
-            j._job_authorisation = _Authorisation.from_data(
+            j._job = _RunRequest.from_data(data["job"])
+            j._authorisation = _Authorisation.from_data(
                                             data["authorisation"])
             j._credit_notes = _string_to_list(data["credit_notes"],
                                               _CreditNote)

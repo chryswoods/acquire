@@ -1,17 +1,13 @@
 """
-Acquire: (C) Christopher Woods 2018
+Acquire: (C) Christopher Woods 2019
 
-This module provides everything needed to implement an Acquire Accounting
+This module provides everything needed to implement an Acquire Compute
 Service
 
 """
 
-from ._access_service import *
+from ._compute_service import *
 from ._errors import *
-from ._checksum import *
-from ._request import *
-from ._runrequest import *
-from ._jobsheet import *
 
 try:
     if __IPYTHON__:

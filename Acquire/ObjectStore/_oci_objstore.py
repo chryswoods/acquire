@@ -157,7 +157,7 @@ class OCI_ObjectStore:
         return new_bucket
 
     @staticmethod
-    def create_par(bucket, key=None, readable=True,
+    def create_par(bucket, encrypt_key, key=None, readable=True,
                    writeable=False, duration=3600):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
@@ -167,6 +167,13 @@ class OCI_ObjectStore:
            PARs are time-limited. Set the lifetime in seconds by passing
            in 'duration' (by default this is one hour)
         """
+        from Acquire.Crypto import PublicKey as _PublicKey
+
+        if not isinstance(encrypt_key, _PublicKey):
+            from Acqure.Client import PARError
+            raise PARError(
+                "You must supply a valid PublicKey to encrypt the "
+                "returned PAR")
 
         # get the UTC datetime when this PAR should expire
         from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
@@ -178,7 +185,7 @@ class OCI_ObjectStore:
         # Limitation of OCI - cannot have a bucket PAR with
         # read permissions!
         if is_bucket and readable:
-            from Acquire.ObjectStore import PARError
+            from Acquire.Client import PARError
             raise PARError(
                 "You cannot create a Bucket PAR that has read permissions "
                 "due to a limitation in the underlying platform")
@@ -247,8 +254,9 @@ class OCI_ObjectStore:
         url = _get_object_url_for_region(bucket["region"],
                                          oci_par.access_uri)
 
-        from Acquire.ObjectStore import PAR as _PAR
-        par = _PAR(url=url, key=oci_par.object_name,
+        from Acquire.Client import PAR as _PAR
+        par = _PAR(url=url, encrypt_key=encrypt_key,
+                   key=oci_par.object_name,
                    created_datetime=created_datetime,
                    expires_datetime=expires_datetime,
                    is_readable=readable,

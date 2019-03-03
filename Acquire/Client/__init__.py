@@ -12,6 +12,7 @@ from ._wallet import *
 from ._errors import *
 from ._cheque import *
 from ._service import *
+from ._par import *
 
 # The below objects are useful for the client, so are pulled into
 # this module to discourage people using the other Acquire modules
@@ -19,7 +20,6 @@ from ._service import *
 from Acquire.Crypto import PublicKey
 from Acquire.Crypto import PrivateKey
 from Acquire.Crypto import OTP
-from Acquire.ObjectStore import PAR
 from Acquire.Identity import Authorisation
 
 try:

@@ -2,13 +2,17 @@
 import pytest
 
 from Acquire.ObjectStore import ObjectStore, ObjectStoreError
-from Acquire.Service import get_service_account_bucket
+from Acquire.Service import get_service_account_bucket, \
+    push_is_running_service, pop_is_running_service
 
 
 @pytest.fixture(scope="session")
 def bucket(tmpdir_factory):
     d = tmpdir_factory.mktemp("simple_objstore")
-    return get_service_account_bucket(str(d))
+    push_is_running_service()
+    bucket = get_service_account_bucket(str(d))
+    pop_is_running_service()
+    return bucket
 
 
 def test_objstore(bucket):

@@ -4,32 +4,46 @@ import json as _json
 import os as _os
 
 __all__ = ["PAR", "BucketReader", "BucketWriter", "ObjectReader",
-           "ObjectWriter"]
+           "ObjectWriter", "ComputeRunner"]
 
 
 class PAR:
     """This class holds the result of a pre-authenticated request
-       (a PAR - also called a pre-signed request). This holds a URL
-       at which an object (or entire bucket) in the object store
-       can be accessed. The PAR has a lifetime.
+       (a PAR - also called a pre-signed request). This holds a
+       pre-authenticated URL to access either;
 
-       This object can safely be saved and/or transmitted from
-       the server to the client
+       (1) A individual object in an object store (read or write)
+       (2) An entire bucket in the object store (write only)
+       (3) A calculation to be performed on the compute service (start or stop)
+
+       The PAR is created encrypted, so can only be used by the
+       person or service that has access to the decryption key
     """
-    def __init__(self, url=None, key=None,
+    def __init__(self, url=None, key=None, encrypt_key=None,
                  created_datetime=None,
                  expires_datetime=None,
-                 is_readable=True,
+                 is_readable=False,
                  is_writeable=False,
+                 is_executable=False,
                  par_id=None, par_name=None,
                  driver=None):
         """Construct a PAR result by passing in the URL at which the
            object can be accessed, the UTC datetime when this expires,
-           whether this is writeable, and (optionally) 'key' for the
-           object that is accessed (if this is not supplied then an
+           whether this is readable, writeable or executable, and
+           the encryption key to use to encrypt the PAR.
+
+           If this is an object store PAR, then optionally you can
+           pass in the key for the object in the object store that
+           this provides access to. If this is not supplied, then an
            entire bucket is accessed). If 'is_readable', then read-access
            has been granted, while if 'is_writeable' then write
-           access has been granted. Otherwise no access is possible.
+           access has been granted.
+
+           If 'is_executable' then this is a calculation PAR that triggers
+           a calculation.
+
+           Otherwise no access is possible.
+
            This also records the type of object store behind this PAR
            in the free-form string 'driver'. You can optionally supply
            the ID of the PAR by passing in 'par_id', the user-supplied name,
@@ -37,6 +51,17 @@ class PAR:
            was created using 'created_datetime' (in the same format
            as 'expires_datetime' - should be a UTC datetime with UTC tzinfo)
         """
+        if url is None:
+            is_readable = True
+        else:
+            from Acquire.Crypto import PublicKey as _PublicKey
+            if not isinstance(encrypt_key, _PublicKey):
+                raise TypeError(
+                    "You must supply a valid PublicKey to encrypt a PAR")
+
+            url = encrypt_key.encrypt(url)
+            print(url)
+
         self._url = url
         self._key = key
         self._created_datetime = created_datetime
@@ -55,35 +80,46 @@ class PAR:
         else:
             self._is_writeable = False
 
-        if not (self._is_readable or self._is_writeable):
-            from Acquire.ObjectStore import PARPermissionsError
+        if is_executable:
+            self._is_executable = True
+        else:
+            self._is_executable = False
+
+        if self._is_executable:
+            self._is_readable = False
+            self._is_writeable = False
+        elif not (self._is_readable or self._is_writeable):
+            from Acquire.Client import PARPermissionsError
             raise PARPermissionsError(
                 "You cannot create a PAR that has no read or write "
-                "permissions!")
+                "or execute permissions!")
+        else:
+            self._is_executable = False
 
     def __str__(self):
-        try:
-            my_url = self.url()
-        except:
+        if self.seconds_remaining() < 1:
             return "PAR( expired )"
-
+        elif self._is_executable:
+            return "PAR( calculation, seconds_remaining=%s )" % \
+                (self.seconds_remaining(buffer=0))
         if self._key is None:
-            return "PAR( bucket=True, url=%s, seconds_remaining=%s )" % \
-                (my_url, self.seconds_remaining(buffer=0))
+            return "PAR( bucket=True, seconds_remaining=%s )" % \
+                (self.seconds_remaining(buffer=0))
         else:
-            return "PAR( key=%s, url=%s, seconds_remaining=%s )" % \
-                (self.key(), my_url, self.seconds_remaining(buffer=0))
+            return "PAR( key=%s, seconds_remaining=%s )" % \
+                (self.key(), self.seconds_remaining(buffer=0))
 
-    def url(self):
+    def url(self, encrypt_key):
         """Return the URL at which the bucket/object can be accessed. This
            will raise a PARTimeoutError if the url has less than 30 seconds
-           of validity left"""
+           of validity left. Note that you must pass in the key used to
+           decrypt the PAR"""
         if self.seconds_remaining(buffer=30) <= 0:
-            from Acquire.ObjectStore import PARTimeoutError
+            from Acquire.Client import PARTimeoutError
             raise PARTimeoutError(
                 "The URL behind this PAR has expired and is no longer valid")
 
-        return self._url
+        return encrypt_key.decrypt(self._url)
 
     def par_id(self):
         """Return the ID of the PAR, if this was supplied by the underlying
@@ -106,6 +142,10 @@ class PAR:
         """Return whether or not this PAR gives write access"""
         return self._is_writeable
 
+    def is_executable(self):
+        """Return whether or not this is an executable job"""
+        return self._is_executable
+
     def key(self):
         """Return the key for the object this accesses - this is None
            if the PAR grants access to the entire bucket"""
@@ -113,7 +153,11 @@ class PAR:
 
     def is_bucket(self):
         """Return whether or not this PAR is for an entire bucket"""
-        return self._key is None
+        return (self._key is None) and not (self.is_executable())
+
+    def is_calculation(self):
+        """Return whether or not this PAR is for a calculation"""
+        return self._is_executable
 
     def is_object(self):
         """Return whether or not this PAR is for a single object"""
@@ -146,29 +190,40 @@ class PAR:
         else:
             return delta
 
-    def read(self):
+    def read(self, encrypt_key):
         """Return an object that can be used to read data from this PAR"""
         if not self.is_readable():
-            from Acquire.ObjectStore import PARPermissionsError
+            from Acquire.Client import PARPermissionsError
             raise PARPermissionsError(
                 "You do not have permission to read from this PAR: %s" % self)
 
         if self.is_bucket():
-            return BucketReader(self)
+            return BucketReader(self, encrypt_key)
         else:
-            return ObjectReader(self)
+            return ObjectReader(self, encrypt_key)
 
-    def write(self):
+    def write(self, encrypt_key):
         """Return an object that can be used to write data to this PAR"""
         if not self.is_writeable():
-            from Acquire.ObjectStore import PARPermissionsError
+            from Acquire.Client import PARPermissionsError
             raise PARPermissionsError(
                 "You do not have permission to write to this PAR: %s" % self)
 
         if self.is_bucket():
-            return BucketWriter(self)
+            return BucketWriter(self, encrypt_key)
         else:
-            return ObjectWriter(self)
+            return ObjectWriter(self, encrypt_key)
+
+    def execute(self, encrypt_key):
+        """Return an object that can be used to control execution of
+           this PAR
+        """
+        if not self.is_executable():
+            from Acquire.Client import PARPermissionsError
+            raise PARPermissionsError(
+                "You do not have permission to execute this PAR: %s" % self)
+
+        return ComputeRunner(self, encrypt_key)
 
     def to_data(self):
         """Return a json-serialisable dictionary that contains all data
@@ -178,8 +233,10 @@ class PAR:
 
         from Acquire.ObjectStore import datetime_to_string \
             as _datetime_to_string
+        from Acquire.ObjectStore import bytes_to_string \
+            as _bytes_to_string
 
-        data["url"] = self._url
+        data["url"] = _bytes_to_string(self._url)
         data["key"] = self._key
         data["created_datetime"] = _datetime_to_string(self._created_datetime)
         data["expires_datetime"] = _datetime_to_string(self._expires_datetime)
@@ -188,6 +245,7 @@ class PAR:
         data["par_name"] = self._par_name
         data["is_readable"] = self._is_readable
         data["is_writeable"] = self._is_writeable
+        data["is_executable"] = self._is_executable
 
         return data
 
@@ -201,14 +259,12 @@ class PAR:
 
         from Acquire.ObjectStore import string_to_datetime \
             as _string_to_datetime
+        from Acquire.ObjectStore import string_to_bytes \
+            as _string_to_bytes
 
         par = PAR()
 
-        par._url = data["url"]
-
-        if par._url is not None:
-            par._url = str(par._url)
-
+        par._url = _string_to_bytes(data["url"])
         par._key = data["key"]
 
         if par._key is not None:
@@ -221,6 +277,7 @@ class PAR:
         par._par_name = data["par_name"]
         par._is_readable = data["is_readable"]
         par._is_writeable = data["is_writeable"]
+        par._is_executable = data["is_executable"]
 
         return par
 
@@ -250,7 +307,7 @@ def _read_remote(url):
         response = _requests.get(url)
         status_code = response.status_code
     except Exception as e:
-        from Acquire.ObjectStore import PARReadError
+        from Acquire.Client import PARReadError
         raise PARReadError(
             "Cannot read the remote PAR URL '%s' because of a possible "
             "nework issue: %s" % (url, str(e)))
@@ -258,7 +315,7 @@ def _read_remote(url):
     output = response.content
 
     if status_code != 200:
-        from Acquire.ObjectStore import PARReadError
+        from Acquire.Client import PARReadError
         raise PARReadError(
             "Failed to read data from the PAR URL. HTTP status code = %s, "
             "returned output: %s" % (status_code, output))
@@ -316,13 +373,13 @@ def _write_remote(url, data):
         response = _requests.put(url, data=data)
         status_code = response.status_code
     except Exception as e:
-        from Acquire.ObjectStore import PARWriteError
+        from Acquire.Client import PARWriteError
         raise PARWriteError(
             "Cannot write data to the remote PAR URL '%s' because of a "
             "possible nework issue: %s" % (url, str(e)))
 
     if status_code != 200:
-        from Acquire.ObjectStore import PARWriteError
+        from Acquire.Client import PARWriteError
         raise PARWriteError(
             "Cannot write data to the remote PAR URL '%s' because of a "
             "possible nework issue: %s" % (url, str(response.content)))
@@ -345,7 +402,7 @@ class BucketReader:
     """This class provides functions to enable reading data from a
        bucket via a PAR
     """
-    def __init__(self, par=None):
+    def __init__(self, par=None, encrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -355,12 +412,13 @@ class BucketReader:
                     "You can only create a BucketReader from a PAR that "
                     "represents an entire bucket: %s" % par)
             elif not par.is_readable():
-                from Acquire.ObjectStore import PARPermissionsError
+                from Acquire.Client import PARPermissionsError
                 raise PARPermissionsError(
                     "You cannot create a BucketReader from a PAR without "
                     "read permissions: %s" % par)
 
             self._par = par
+            self._url = par.url(encrypt_key)
         else:
             self._par = None
 
@@ -368,13 +426,13 @@ class BucketReader:
         """Return the binary data contained in the key 'key' in the
            passed bucket"""
         if self._par is None:
-            from Acquire.ObjectStore import PARError
+            from Acquire.Client import PARError
             raise PARError("You cannot read data from an empty PAR")
 
         while key.startswith("/"):
             key = key[1:]
 
-        url = self._par.url()
+        url = self._url
 
         if url.endswith("/"):
             url = "%s%s" % (url, key)
@@ -415,7 +473,7 @@ class BucketReader:
 
     def get_all_object_names(self, prefix=None):
         """Returns the names of all objects in the passed bucket"""
-        (url, part) = _join_bucket_and_prefix(self._par.url(), prefix)
+        (url, part) = _join_bucket_and_prefix(self._url, prefix)
 
         if url.startswith("file://"):
             objnames = _list_local(url)
@@ -476,7 +534,7 @@ class BucketWriter:
     """This class provides functions to enable writing data to a
        bucket via a PAR
     """
-    def __init__(self, par):
+    def __init__(self, par=None, encrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -486,25 +544,26 @@ class BucketWriter:
                     "You can only create a BucketReader from a PAR that "
                     "represents an entire bucket: %s" % par)
             elif not par.is_writeable():
-                from Acquire.ObjectStore import PARPermissionsError
+                from Acquire.Client import PARPermissionsError
                 raise PARPermissionsError(
                     "You cannot create a BucketWriter from a PAR without "
                     "write permissions: %s" % par)
 
             self._par = par
+            self._url = par.url(encrypt_key)
         else:
             self._par = None
 
     def set_object(self, key, data):
         """Set the value of 'key' in 'bucket' to binary 'data'"""
         if self._par is None:
-            from Acquire.ObjectStore import PARError
+            from Acquire.Client import PARError
             raise PARError("You cannot write data to an empty PAR")
 
         while key.startswith("/"):
             key = key[1:]
 
-        url = self._par.url()
+        url = self._url
 
         if url.endswith("/"):
             url = "%s%s" % (url, key)
@@ -535,7 +594,7 @@ class BucketWriter:
 
 class ObjectReader:
     """This class provides functions for reading an object via a PAR"""
-    def __init__(self, par=None):
+    def __init__(self, par=None, encrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -545,22 +604,23 @@ class ObjectReader:
                     "You can only create an ObjectReader from a PAR that "
                     "represents an object: %s" % par)
             elif not par.is_readable():
-                from Acquire.ObjectStore import PARPermissionsError
+                from Acquire.Client import PARPermissionsError
                 raise PARPermissionsError(
                     "You cannot create an ObjectReader from a PAR without "
                     "read permissions: %s" % par)
 
             self._par = par
+            self._url = par.url(encrypt_key)
         else:
             self._par = None
 
     def get_object(self):
         """Return the binary data contained in this object"""
         if self._par is None:
-            from Acquire.ObjectStore import PARError
+            from Acquire.Client import PARError
             raise PARError("You cannot read data from an empty PAR")
 
-        url = self._par.url()
+        url = self._url
 
         if url.startswith("file://"):
             return _read_local(url)
@@ -600,7 +660,7 @@ class ObjectWriter(ObjectReader):
     """This is an extension of ObjectReader that also allows writing to
        the object via the PAR
     """
-    def __init__(self, par=None):
+    def __init__(self, par=None, encrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -610,22 +670,23 @@ class ObjectWriter(ObjectReader):
                     "You can only create an ObjectReader from a PAR that "
                     "represents an object: %s" % par)
             elif not par.is_writeable():
-                from Acquire.ObjectStore import PARPermissionsError
+                from Acquire.Client import PARPermissionsError
                 raise PARPermissionsError(
                     "You cannot create an ObjectWriter from a PAR without "
                     "write permissions: %s" % par)
 
             self._par = par
+            self._url = par.url(encrypt_key)
         else:
             self._par = None
 
     def set_object(self, data):
         """Set the value of the object behind this PAR to the binary 'data'"""
         if self._par is None:
-            from Acquire.ObjectStore import PARError
+            from Acquire.Client import PARError
             raise PARError("You cannot write data to an empty PAR")
 
-        url = self._par.url()
+        url = self._url
 
         if url.startswith("file://"):
             return _write_local(url, data)
@@ -649,3 +710,23 @@ class ObjectWriter(ObjectReader):
         """Set the value of the object behind this PAR to equal to contents
            of 'data', which has been encoded to json"""
         self.set_string_object(_json.dumps(data))
+
+
+class ComputeRunner:
+    """This class provides functions for executing a calculation
+       pre-authorised by the passed PAR
+    """
+    def __init__(self, par=None, encrypt_key=None):
+        if par:
+            if not isinstance(par, PAR):
+                raise TypeError(
+                    "You can only create a ComputeRunner from a PAR")
+            elif not par.is_executable():
+                raise ValueError(
+                    "You can only create a ComputeRunner from a PAR that "
+                    "represents an executable calculation: %s" % par)
+
+            self._par = par
+            self._url = par.url(encrypt_key)
+        else:
+            self._par = None

@@ -55,7 +55,7 @@ class ObjectStore:
                                             compartment, create_if_needed)
 
     @staticmethod
-    def create_par(bucket, key=None, readable=True,
+    def create_par(bucket, encrypt_key, key=None, readable=True,
                    writeable=False, duration=3600):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
@@ -63,11 +63,14 @@ class ObjectStore:
            be used to access the object/bucket. If writeable is true, then
            the URL will also allow the object/bucket to be written to.
            PARs are time-limited. Set the lifetime in seconds by passing
-           in 'duration' (by default this is one hour)
+           in 'duration' (by default this is one hour). Note that you must
+           pass in a public key that will be used to encrypt this PAR. This is
+           necessary as the PAR grants access to anyone who can decrypt
+           the URL
         """
-        from Acquire.ObjectStore import PAR as _PAR
+        from Acquire.Client import PAR as _PAR
 
-        par = _objstore_backend.create_par(bucket, key, readable,
+        par = _objstore_backend.create_par(bucket, encrypt_key, key, readable,
                                            writeable, duration)
 
         if not isinstance(par, _PAR):

@@ -6,6 +6,7 @@ from Acquire.Service import get_this_service
 from Acquire.ObjectStore import ObjectStore, string_to_bytes
 
 from Acquire.Service import ServiceAccountError
+from Acquire.Crypto import PublicKey
 
 
 class CreateBucketError(Exception):
@@ -35,6 +36,8 @@ def run(args):
     # object_name = args['object_name']
     # md5sum = args["md5sum"]
 
+    encrypt_key = PublicKey.from_data(args["encrypt_key"])
+
     service = get_this_service()
 
     if not service.is_storage_service():
@@ -59,10 +62,12 @@ def run(args):
     ObjectStore.set_object_from_json(new_bucket, "test_key",
                                      None)
 
-    par = ObjectStore.create_par(new_bucket, "test_key",
+    par = ObjectStore.create_par(new_bucket, key="test_key",
+                                 encrypt_key=encrypt_key,
                                  readable=True, writeable=True)
 
-    par2 = ObjectStore.create_par(new_bucket, readable=False, writeable=True)
+    par2 = ObjectStore.create_par(new_bucket, encrypt_key=encrypt_key,
+                                  readable=False, writeable=True)
 
     status = 0
     message = "Success"

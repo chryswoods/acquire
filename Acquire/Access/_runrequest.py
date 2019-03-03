@@ -92,6 +92,16 @@ class RunRequest(_Request):
         """Return the UID of this request"""
         return self._uid
 
+    def fingerprint(self):
+        """Return a unique fingerprint for this request that can be
+           used for signing and verifying authorisations
+        """
+        if self.is_null():
+            return None
+
+        return "%s%s%s" % (self.uid(), self.tarfile_size(),
+                           self.tarfile_md5sum())
+
     def tarfile(self):
         """Return the name of the tarfile containing all of the
            input files
@@ -288,10 +298,6 @@ class RunRequest(_Request):
 
         # everything is ok - set the UID of this request
         self._uid = str(_uuid.uuid4())
-
-    def signature(self):
-        """Return a signature that uniquely defines this request"""
-        return "%s=%s" % (self.uid(), self.tarfile_md5sum())
 
     def to_data(self):
         """Return this request as a json-serialisable dictionary"""

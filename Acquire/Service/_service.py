@@ -171,7 +171,7 @@ class Service:
         self._service_user_secrets = None
 
         if self._service_type:
-            if self._service_type not in ["identity", "access",
+            if self._service_type not in ["identity", "access", "compute",
                                           "accounting", "storage"]:
                 raise ServiceError("Services of type '%s' are not allowed!" %
                                    self._service_type)
@@ -405,6 +405,13 @@ class Service:
         """Return whether or not this is an accounting service"""
         if self._service_type:
             return self._service_type == "accounting"
+        else:
+            return False
+
+    def is_compute_service(self):
+        """Return whether or not this is a compute service"""
+        if self._service_type:
+            return self._service_type == "compute"
         else:
             return False
 
@@ -1043,6 +1050,9 @@ class Service:
         elif service.is_access_service():
             from Acquire.Access import AccessService as _AccessService
             service = _AccessService(service)
+        elif service.is_compute_service():
+            from Acquire.Compute import ComputeService as _ComputeService
+            service = _ComputeService(service)
         elif service.is_storage_service():
             from Acquire.Storage import StorageService as _StorageService
             service = _StorageService(service)
