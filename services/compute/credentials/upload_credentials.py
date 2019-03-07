@@ -67,5 +67,5 @@ secret_config["PASSWORD"] = sys.argv[2]
 config_data = bytes_to_string(config_key.encrypt(json.dumps(secret_config).encode("utf-8")))
 secret_key = json.dumps(config_key.to_data(sys.argv[3]))
 
-os.system("fn config app identity SECRET_CONFIG '%s'" % config_data)
-os.system("fn config app identity SECRET_KEY '%s'" % secret_key)
+os.system("fn config app compute SECRET_CONFIG '%s'" % config_data)
+os.system("fn config app compute SECRET_KEY '%s'" % secret_key)
