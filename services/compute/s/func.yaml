@@ -1,0 +1,11 @@
+schema_version: 20180708
+name: s
+version: 0.0.46
+runtime: docker
+format: default
+type: sync
+timeout: 20
+triggers:
+- name: s
+  type: http
+  source: /s
