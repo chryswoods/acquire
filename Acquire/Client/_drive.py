@@ -49,12 +49,11 @@ def get_drive(user, name=None, storage_service=None, storage_url=None,
        drive does not exist
     """
     if storage_service is None:
-        service = _get_storage_service(storage_url)
+        storage_service = _get_storage_service(storage_url)
     else:
         if not storage_service.is_storage_service():
             raise TypeError("You can only query drives using "
                             "a valid storage service")
-        service = storage_service
 
     if name is None:
         name = "main"
@@ -72,7 +71,7 @@ def get_drive(user, name=None, storage_service=None, storage_url=None,
     args = {"authorisation": authorisation.to_data(),
             "name": name, "autocreate": autocreate}
 
-    response = service.call_function(function="open_drive", args=args)
+    response = storage_service.call_function(function="open_drive", args=args)
 
     return _create_drive(user=user, name=name, storage_service=storage_service,
                          driveinfo=response["drives"][name])
@@ -83,19 +82,18 @@ def get_drives(user, storage_service=None, storage_url=None):
        user must be authenticated to call this function
     """
     if storage_service is None:
-        service = _get_storage_service(storage_url)
+        storage_service = _get_storage_service(storage_url)
     else:
         if not storage_service.is_storage_service():
             raise TypeError("You can only query drives using "
                             "a valid storage service")
-        service = storage_service
 
     from Acquire.Client import Authorisation as _Authorisation
     authorisation = _Authorisation(resource="UserDrives", user=user)
 
     args = {"authorisation": authorisation.to_data()}
 
-    response = service.call_function(function="open_drive", args=args)
+    response = storage_service.call_function(function="open_drive", args=args)
 
     drives = {}
     for name, value in response["drives"].items():
