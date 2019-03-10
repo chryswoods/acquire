@@ -57,6 +57,14 @@ class Authorisation:
             self._last_verified_resource = resource
             self._last_verified_key = None
 
+            if user.guid() != self.user_guid():
+                # interesting future case when we allow individual users
+                # to be identified by multiple identity services...
+                raise PermissionError(
+                    "We do not yet support a single user being identified "
+                    "by multiple identity services: %s versus %s" %
+                    (user.guid(), self.user_guid()))
+
         elif testing_key is not None:
             self._user_uid = "some user uid"
             self._session_uid = "some session uid"
@@ -144,6 +152,10 @@ class Authorisation:
             return None
         else:
             return self._user_uid
+
+    def user_guid(self):
+        """Return the global UID for this user"""
+        return "%s@%s" % (self.identity_uid(), self.user_uid())
 
     def session_uid(self):
         """Return the login session that authenticated the user"""

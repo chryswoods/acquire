@@ -26,6 +26,48 @@ class ACLRule:
         else:
             self._is_writeable = False
 
+    def __str__(self):
+        s = []
+
+        if self.is_owner():
+            s.append("owner")
+
+        if self.is_writeable():
+            s.append("writeable")
+
+        if self.is_readable():
+            s.append("readable")
+
+        if len(s) == 0:
+            return "ACLRule(no permission)"
+        else:
+            return "ACLRule(%s)" % ":".join(s)
+
+    @staticmethod
+    def owner():
+        """Return the ACLRule of an owner"""
+        return ACLRule(is_owner=True, is_readable=True, is_writeable=True)
+
+    @staticmethod
+    def writer():
+        """Return the ACLRule of a writer"""
+        return ACLRule(is_owner=False, is_readable=True, is_writeable=True)
+
+    @staticmethod
+    def reader():
+        """Return the ACLRule of a reader"""
+        return ACLRule(is_owner=False, is_readable=True, is_writeable=False)
+
+    @staticmethod
+    def null():
+        """Return a null (no-permission) rule"""
+        return ACLRule(is_owner=False, is_readable=False, is_writeable=False)
+
+    def is_null(self):
+        """Return whether or not this is null"""
+        return self._is_owner is False and self._is_readable is False and \
+            self._is_writeable is False
+
     def is_owner(self):
         """Return whether or not the user is the owner of the bucket"""
         return self._is_owner
@@ -76,6 +118,7 @@ class ACLRule:
         data["is_owner"] = self._is_owner
         data["is_readable"] = self._is_readable
         data["is_writeable"] = self._is_writeable
+        return data
 
     @staticmethod
     def from_data(data):

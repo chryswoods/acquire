@@ -186,6 +186,15 @@ class User:
                                              self.identity_service_url())
         return self._user_uid
 
+    def guid(self):
+        """Return the global UID of the user. While the UID is highly
+           likely to be unique, the GUID should be globally guaranteed
+           to be unique. This is ensured by combining the UID of the
+           user with the UID of the identity service that
+           primarily identifies the user
+        """
+        return "%s@%s" % (self.identity_service().uid(), self.uid())
+
     def status(self):
         """Return the current status of this user"""
         return self._status

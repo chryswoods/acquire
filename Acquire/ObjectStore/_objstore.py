@@ -131,6 +131,63 @@ class ObjectStore:
         _objstore_backend.set_object_from_file(bucket, key, filename)
 
     @staticmethod
+    def set_ins_object_from_json(bucket, key, data):
+        """Set the value of 'key' in 'bucket' to equal to contents
+           of 'data', which has been encoded to json, if (and only if)
+           this key has not already been set (ins = 'if not set').
+           This returns the object at this key after the operation
+           (either the set object or the value that was previously
+           set
+        """
+        from Acquire.ObjectStore import Mutex as _Mutex
+        m = _Mutex(bucket=bucket, key=key)
+
+        try:
+            old_data = ObjectStore.get_object_from_json(bucket, key)
+        except:
+            old_data = None
+
+        if old_data is not None:
+            m.unlock()
+            return old_data
+        else:
+            try:
+                ObjectStore.set_object_from_json(bucket, key, data)
+            except:
+                m.unlock()
+                raise
+
+            return data
+
+    @staticmethod
+    def set_ins_string_object(bucket, key, string_data):
+        """Set the value of 'key' in 'bucket' to the string 'string_data',
+           if (and only if) this key has not already been set
+           (ins = 'if not set'). This returns the object at this
+           key after the operation (either the set string, or the value
+           that was previously set)
+        """
+        from Acquire.ObjectStore import Mutex as _Mutex
+        m = _Mutex(bucket=bucket, key=key)
+
+        try:
+            val = ObjectStore.get_string_object(bucket, key)
+        except:
+            val = None
+
+        if val is not None:
+            m.unlock()
+            return val
+        else:
+            try:
+                ObjectStore.set_string_object(bucket, key, string_data)
+            except:
+                m.unlock()
+                raise
+
+            return string_data
+
+    @staticmethod
     def set_string_object(bucket, key, string_data):
         """Set the value of 'key' in 'bucket' to the string 'string_data'"""
         _objstore_backend.set_string_object(bucket, key, string_data)

@@ -34,6 +34,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "get_datetime_now", "datetime_to_datetime",
            "string_to_safestring", "safestring_to_string",
            "string_to_list", "list_to_string",
+           "string_to_dict", "dict_to_string",
            "get_datetime_future",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
@@ -295,5 +296,35 @@ def string_to_list(s, C):
 
     for val in _json.loads(s):
         items.append(C.from_data(val))
+
+    return items
+
+
+def dict_to_string(d):
+    """Return the passed dict of items converted to a json string.
+       All items should have the same type
+    """
+    j = {}
+    for key, value in d.items():
+        if value is None:
+            j[key] = None
+        else:
+            j[key] = value.to_data()
+
+    return _json.dumps(j)
+
+
+def string_to_dict(s, C):
+    """Convert the string encoded using dict_to_string back to a dict
+        of objects of type C. Note that all objects must have the
+        same type
+    """
+    items = {}
+
+    for key, value in _json.loads(s).items():
+        if value is None:
+            items[key] = None
+        else:
+            items[key] = C.from_data(value)
 
     return items
