@@ -2,24 +2,14 @@
 
 import pytest
 
-from Acquire.Client import Service, Authorisation
+from Acquire.Client import Drive
 
 
-def test_create_par(authenticated_user):
+def test_drives(authenticated_user):
 
-    service = Service("storage")
+    drive_name = "test å∫ç∂ something"
+    drive = Drive(user=authenticated_user, name=drive_name,
+                  storage_url="storage")
 
-    print(service)
-
-    auth = Authorisation(resource="UserDrives", user=authenticated_user)
-
-    function = "open_drive"
-
-    args = {"authorisation": auth.to_data(),
-            "name": "test a drive å∫ç∂"}
-
-    response = service.call_function(function=function, args=args)
-
-    print(response)
-
-    assert(False)
+    assert(drive.name() == drive_name)
+    assert(drive.acl().is_owner())

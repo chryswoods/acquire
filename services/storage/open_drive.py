@@ -17,7 +17,11 @@ def run(args):
     message = None
 
     authorisation = Authorisation.from_data(args["authorisation"])
-    name = args["name"]
+
+    try:
+        name = args["name"]
+    except:
+        name = None
 
     try:
         autocreate = args["autocreate"]
@@ -30,11 +34,24 @@ def run(args):
         autocreate = True
 
     drives = UserDrives(authorisation=authorisation)
-    drive_info = drives.get_drive(name=name, autocreate=autocreate)
+
+    infos = {}
+
+    if name is None:
+        for name in drives.list_drives():
+            drive_info = drives.get_drive(name=name, autocreate=False)
+            infos[name] = {"drive_uid": drive_info.uid(),
+                           "acl": drive_info.get_acl(
+                                authorisation.user_guid()).to_data()}
+    else:
+        drive_info = drives.get_drive(name=name, autocreate=autocreate)
+        infos[name] = {"drive_uid": drive_info.uid(),
+                       "acl": drive_info.get_acl(
+                                authorisation.user_guid()).to_data()}
 
     message = "success"
     return_value = create_return_value(status, message)
 
-    return_value["drive_info"] = drive_info.to_data()
+    return_value["drives"] = infos
 
     return return_value

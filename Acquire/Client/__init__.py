@@ -8,6 +8,7 @@ client (user-facing) interfaces for Acquire
 from ._qrcode import *
 from ._user import *
 from ._account import *
+from ._drive import *
 from ._wallet import *
 from ._errors import *
 from ._cheque import *
@@ -21,6 +22,7 @@ from Acquire.Crypto import PublicKey
 from Acquire.Crypto import PrivateKey
 from Acquire.Crypto import OTP
 from Acquire.Identity import Authorisation
+from Acquire.Storage import ACLRule
 
 try:
     if __IPYTHON__:

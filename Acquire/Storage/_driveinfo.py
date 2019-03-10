@@ -28,6 +28,10 @@ class DriveInfo:
         """Return the key for this drive in the object store"""
         return "%s/%s/info" % (_drive_root, self._drive_uid)
 
+    def uid(self):
+        """Return the UID of this drive"""
+        return self._drive_uid
+
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised
            by one of the drive owners
@@ -69,6 +73,17 @@ class DriveInfo:
             n += acl.is_writeable()
 
         return n
+
+    def get_acl(self, user_guid):
+        """Return the ACL on this drive for the user with passed
+           GUID - this returns ACLRule.null() if the user does
+           not have permission to read this drive
+        """
+        try:
+            return self._acls[user_guid]
+        except:
+            from Acquire.Storage import ACLRule as _ACLRule
+            return _ACLRule.null()
 
     def set_permission(self, user_guid, aclrule):
         """Set the permission for the user with the passed user_guid

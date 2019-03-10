@@ -235,6 +235,19 @@ class Account:
 
             if accounting_service is None:
                 accounting_service = _get_accounting_service(accounting_url)
+            else:
+                from Acquire.Accounting import AccountingService \
+                    as _AccountingService
+
+                if not isinstance(accounting_service, _AccountingService):
+                    raise TypeError(
+                        "You can only create an account on a valid "
+                        "AccountingService object")
+
+                if not accounting_service.is_accounting_service():
+                    raise TypeError(
+                        "The passed service - %s - is not an accounting "
+                        "service." % str(accounting_service))
 
             self._accounting_service = accounting_service
 
@@ -268,6 +281,13 @@ class Account:
     def uid(self):
         """Return the UID of this account"""
         return self._account_uid
+
+    def guid(self):
+        """Return the globally unique UID of this account. This is a
+           combination of the UID of the accounting service and the
+           UID of the account
+        """
+        return "%s@%s" % (self.accounting_service().uid(), self.uid())
 
     def name(self):
         """Return the name of this account"""
