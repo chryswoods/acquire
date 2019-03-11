@@ -12,6 +12,7 @@ from ._errors import *
 from ._buckethandle import *
 from ._aclrule import *
 from ._userdrives import *
+from ._fileinfo import *
 from ._driveinfo import *
 
 try:

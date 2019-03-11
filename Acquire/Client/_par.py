@@ -60,7 +60,6 @@ class PAR:
                     "You must supply a valid PublicKey to encrypt a PAR")
 
             url = encrypt_key.encrypt(url)
-            print(url)
 
         self._url = url
         self._key = key
@@ -224,6 +223,10 @@ class PAR:
                 "You do not have permission to execute this PAR: %s" % self)
 
         return ComputeRunner(self, encrypt_key)
+
+    def close(self):
+        """Close this PAR - this closes and deletes the PAR"""
+        pass
 
     def to_data(self):
         """Return a json-serialisable dictionary that contains all data

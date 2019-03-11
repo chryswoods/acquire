@@ -10,6 +10,12 @@ def storage_functions(function, args):
     elif function == "open_drive":
         from storage.open_drive import run as _open_drive
         return _open_drive(args)
+    elif function == "upload_file":
+        from storage.upload_file import run as _upload_file
+        return _upload_file(args)
+    elif function == "uploaded_file":
+        from storage.uploaded_file import run as _uploaded_file
+        return _uploaded_file(args)
     else:
         return None
 

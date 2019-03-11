@@ -13,3 +13,11 @@ def test_drives(authenticated_user):
 
     assert(drive.name() == drive_name)
     assert(drive.acl().is_owner())
+
+    filename = __file__
+
+    fileinfo = drive.upload(filename=filename)
+
+    print(fileinfo)
+
+    assert(False)

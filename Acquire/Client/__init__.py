@@ -23,6 +23,7 @@ from Acquire.Crypto import PrivateKey
 from Acquire.Crypto import OTP
 from Acquire.Identity import Authorisation
 from Acquire.Storage import ACLRule
+from Acquire.Storage import FileInfo
 
 try:
     if __IPYTHON__:

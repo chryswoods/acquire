@@ -54,7 +54,7 @@ def _get_key(key, fingerprint=None):
     return key
 
 
-def create_return_value(status, message, log=None, error=None):
+def create_return_value(status=0, message="success", log=None, error=None):
     """Convenience functiont that creates the start of the
        return_value dictionary, setting the "status" key
        to the value of 'status', the "message" key to the

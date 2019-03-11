@@ -171,3 +171,78 @@ class Drive:
             return None
         else:
             return self._storage_service
+
+    def upload(self, filename, aclrule=None):
+        """Upload the file at 'filename' to this drive. This will overwrite
+           any existing file, as long as we have permission to do so.
+           The file will be uploaded to drive/filename (will eventually
+           make this more configurable!)
+        """
+        if self.is_null():
+            raise PermissionError("Cannot upload a file to a null drive!")
+
+        from Acquire.Client import Authorisation as _Authorisation
+        from Acquire.Client import FileInfo as _FileInfo
+        from Acquire.Client import PAR as _PAR
+
+        fileinfo = _FileInfo(filename=filename, acl=aclrule)
+
+        authorisation = _Authorisation(
+                            resource="upload %s" % fileinfo.fingerprint(),
+                            user=self._user)
+
+        privkey = self._user.session_key()
+
+        args = {"drive_uid": self.uid(),
+                "authorisation": authorisation.to_data(),
+                "fileinfo": fileinfo.to_data(),
+                "encryption_key": privkey.public_key().to_data()}
+
+        # will eventually need to authorise payment...
+
+        response = self.storage_service().call_function(
+                                function="upload_file", args=args)
+
+        par = _PAR.from_data(response["upload_par"])
+
+        par.write(privkey).set_object_from_file(filename)
+
+        authorisation = _Authorisation(
+                            resource="uploaded %s" % fileinfo.fingerprint(),
+                            user=self._user)
+
+        args = {"authorisation": authorisation.to_data(),
+                "fileinfo": fileinfo.to_data()}
+
+        response = self.storage_service().call_function(
+                                  function="uploaded_file", args=args)
+
+        return _FileInfo.from_data(response["fileinfo"])
+
+    def list_dir(self, dirname=None, recursive=False):
+        """Return the names and details of the files in 'dirname'"""
+        if self.is_null():
+            return []
+
+        from Acquire.Client import Authorisation as _Authorisation
+        from Acquire.ObjectStore import string_to_dict as _string_to_dict
+        from Acquire.Storage import FileInfo as _FileInfo
+
+        authorisation = _Authorisation(resource="list %s" % dirname,
+                                       user=self._user)
+
+        if recursive:
+            recursive = True
+        else:
+            recursive = False
+
+        if dirname is not None:
+            dirname = str(dirname)
+
+        args = {"authorisation": authorisation.to_data(),
+                "dirname": dirname, "recursive": recursive}
+
+        response = self.storage_service().call_function(function="list_dir",
+                                                        args=args)
+
+        return _string_to_dict(response["fileinfos"], _FileInfo)

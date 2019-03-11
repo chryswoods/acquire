@@ -32,6 +32,127 @@ class DriveInfo:
         """Return the UID of this drive"""
         return self._drive_uid
 
+    def _get_bucket(self):
+        """Return the bucket that contains all of the files for this
+           drive
+        """
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+        from Acquire.Service import get_this_service as _get_this_service
+
+        service = _get_this_service()
+        bucket = _get_service_account_bucket()
+        bucket_name = self.uid()
+
+        try:
+            return _ObjectStore.get_bucket(
+                            bucket=bucket, bucket_name=bucket_name,
+                            compartment=service.storage_compartment(),
+                            create_if_needed=True)
+        except Exception as e:
+            from Acquire.ObjectStore import RequestBucketError
+            raise RequestBucketError(
+                "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
+
+    def _get_fileinfo_key(self, fileinfo):
+        """Return the key in the service bucket for the passed fileinfo"""
+        from Acquire.ObjectStore import string_to_encoded \
+            as _string_to_encoded
+        return "%s/storage/%s/files/%s" % (
+                    _drive_root, self.uid(),
+                    _string_to_encoded(fileinfo.name()))
+
+    def _get_file_key(self, fileinfo):
+        """Return the key in the bucket for this drive for the file
+           described by the passed fileinfo
+        """
+        return fileinfo.file_uid()
+
+    def _get_par_key(self, fileinfo):
+        """Return the key in the service bucket for the PAR associated
+           with the upload of the file described by the passed fileinfo
+        """
+        return "%s/storage/pars/%s" % (_drive_root, fileinfo.file_uid())
+
+    def get_upload_par(self, filehandle, authorisation, encrypt_key):
+        """Return a PAR that can be used to upload the file described
+           by 'filehandle' to this drive. This is authorised by
+           'authorisation', and will be encrypted using the passed
+           'encrypt_key' public key
+        """
+        from Acquire.Client import FileHandle as _FileHandle
+        from Acquire.Storage import FileInfo as _FileInfo
+        from Acquire.Identity import Authorisation as _Authorisation
+        from Acquire.Crypto import PublicKey as _PublicKey
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import string_to_encoded \
+            as _string_to_encoded
+
+        if not isinstance(filehandle, _FileHandle):
+            raise TypeError("The fileinfo must be of type FileInfo")
+
+        if not isinstance(authorisation, _Authorisation):
+            raise TypeError("The authorisation must be of type Authorisation")
+
+        if not isinstance(encrypt_key, _PublicKey):
+            raise TypeError("The encryption key must be of type PublicKey")
+
+        authorisation.verify("upload %s" % filehandle.fingerprint())
+
+        acl = self.get_acl(authorisation.user_guid())
+
+        if not acl.is_writeable():
+            raise PermissionError(
+                "You do not have permission to write to this directory")
+
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+
+        # now generate a FileInfo for this FileHandle
+        fileinfo = _FileInfo(filehandle=filehandle,
+                             user_guid=authorisation.user_guid())
+
+        fileinfo_data = fileinfo.to_data()
+
+        fileinfo_key = self._get_fileinfo_key(fileinfo)
+
+        existing_fileinfo_data = _ObjectStore.set_ins_object_from_json(
+                                    bucket=bucket, key=fileinfo_key,
+                                    data=fileinfo_data)
+
+        while existing_fileinfo_data != fileinfo_data:
+            old_fileinfo = _FileInfo.from_data(existing_fileinfo_data)
+            fileinfo.add_old_versions(old_fileinfo)
+            fileinfo_data = fileinfo.to_data()
+            existing_fileinfo_data = _ObjectStore.set_ins_object_from_json(
+                                        bucket=bucket, key=fileinfo_key,
+                                        data=fileinfo_data)
+
+        # we have saved the metadata for the file and have a unique
+        # UID that can be used to upload the file itself
+
+        # First save an empty object, so that we can then create
+        # a PAR that can be used to write the actual data
+        file_bucket = self._get_bucket()
+        file_key = self._get_file_key(fileinfo)
+        _ObjectStore.set_object_from_json(bucket=file_bucket,
+                                          key=file_key, data=None)
+
+        par = _ObjectStore.create_par(bucket=file_bucket,
+                                      encrypt_key=encrypt_key,
+                                      key=file_key,
+                                      readable=False,
+                                      writeable=True)
+
+        _ObjectStore.set_object_from_json(bucket=bucket,
+                                          key=self._get_par_key(fileinfo),
+                                          data=par.to_data())
+
+        return par
+
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised
            by one of the drive owners
