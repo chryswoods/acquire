@@ -24,10 +24,6 @@ class FileHandle:
 
             self._filesize = filesize
             self._checksum = cksum
-
-            from Acquire.Storage import ACLRule as _ACLRule
-            self._acl = _ACLRule.owner()
-            self._version = None
         else:
             self._filename = None
 
@@ -53,35 +49,9 @@ class FileHandle:
         else:
             return self._checksum
 
-    def acl(self):
-        """Return the ACL rule for the current user for this file"""
-        return self._acl
-
-    def version(self):
-        """Return the version of this file on the storage service. This
-           is a datetime of the upload of this version. You will need to
-           query the storage service to find if there are other versions.
-           This returns None if this file has not yet been uploaded
-        """
-        if self.is_null():
-            return None
-        else:
-            return self._version
-
     def fingerprint(self):
         """Return a fingerprint for this file"""
         return "%s-%s-%s" % (self.filename(), self.filesize(), self.checksum())
-
-    def add_old_versions(self, old_fileinfo):
-        """Record an old version of this file described in the passed
-           'old_fileinfo'
-        """
-        if self.is_null() or old_fileinfo.is_null():
-            return
-
-        # somehow match filenames and acls... (should inherit ACLS?)
-
-        # add the versions to our dictionary
 
     def to_data(self):
         """Return a json-serialisable dictionary for this object"""
@@ -93,8 +63,6 @@ class FileHandle:
             data["filename"] = self.filename()
             data["filesize"] = self.filesize()
             data["checksum"] = self.checksum()
-            data["acl"] = self.acl().to_data()
-            data["version"] = _datetime_to_string(self.version())
 
         return data
 
@@ -106,14 +74,8 @@ class FileHandle:
         f = FileHandle()
 
         if data is not None and len(data) > 0:
-            from Acquire.Storage import ACLRule as _ACLRule
-            from Acquire.ObjectStore import string_to_datetime \
-                as _string_to_datetime
-
             f._filename = data["filename"]
             f._filesize = int(data["filesize"])
             f._checksum = data["checksum"]
-            f._acl = _ACLRule.from_data(data["acl"])
-            f._version = _string_to_datetime(data["version"])
 
         return f
