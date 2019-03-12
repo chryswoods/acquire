@@ -10,10 +10,10 @@
 pip install acquire
 ```
 
-## An Access, Accounting and Authorisation (Identity) Infrastructure for the Cloud
+## An Access, Accounting, Authorisation (Identity), Storage and Compute Infrastructure for the Cloud
 
 Acquire is a AAAI infrastructure for the cloud. It provides a cloud-neutral
-platform to cover the following three functions:
+platform to cover the following five functions:
 
 1. Authorisation (Identity) management : Enables users to securely identify themselves
 and generate secure identity tokens that can be given to other services to authorise
@@ -30,6 +30,23 @@ exist to pay for access, and submits an invoice for payment. Once the access
 has been provided it is receipted and funds transferred. In this way, users
 have control over their spending, with a full audit trail providing
 financial and usage accounting for their use of a system.
+
+4. Storage : Enables users to store and share data. Users create Drives which 
+are located on storage services and can pay up-front for short- and long-term
+storage of data in those Drives. Access Control Lists allow individual files
+or Drives to be shared with any user or group identifiable via the Identity
+service, or via permanent publicly-visible URLs. Files are versioned, and can
+be moved between "hot" (quick) and "cold" (slow but cheap) storage. This 
+provides a thin-wrapper over the object store capabilities of each cloud.
+
+5. Compute : Enables users to request access to compute on-demand, e.g.
+via single instances or elastic clusters such as 
+[cluster in the cloud](http://cluster-in-the-cloud.readthedocs.io).
+Compute is paid for up front and is provided via any cloud that runs 
+a Compute Service that accepts payment via the Accounting Service, and
+runs jobs securely authorised by users identified via the Identity Service.
+The service is completely elastic, meaning that users only pay up-front
+for compute they actually use.
 
 ## Cloud Native and Highly Scalable
 
@@ -83,14 +100,13 @@ uses 2048-bit RSA keys with MGF1 padding using a SHA256 hash
 and a random salt.
 
 To simplify use of cryptography in the Python parts of Acquire, it is fully wrapped
-into a simple [Acquire.Crypto](source/Acquire/Crypto) library,
+into a simple [Acquire.Crypto](Acquire/Crypto) library,
 with all encryption, decryption, signing and verification handled
-via [Acquire.Crypto.Keys](source/Acquire/Crypto/_keys.py)
-(with corresponding Javascript code in [acquire_crypto.js](source/identity/s/html/acquire_crypto.js)).
+via [Acquire.Crypto.Keys](Acquire/Crypto/_keys.py)
+(with corresponding Javascript code in [acquire_crypto.js](services/identity/s/html/acquire_crypto.js)).
 In addition, users authenticate both with passwords and with
 one-time-codes that are generated using the [PyOTP](https://github.com/pyauth/pyotp)
 library, which follows [RFC 6238](https://tools.ietf.org/html/rfc6238)
 to produce google-authenticator-compatible time-based one-time
 password codes. These are rigorously checked by Acquire, with
 record keeping used to ensure that each code is used only once.
-
