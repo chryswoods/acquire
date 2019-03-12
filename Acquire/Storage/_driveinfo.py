@@ -55,26 +55,6 @@ class DriveInfo:
             raise RequestBucketError(
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
 
-    def _get_fileinfo_key(self, fileinfo):
-        """Return the key in the service bucket for the passed fileinfo"""
-        from Acquire.ObjectStore import string_to_encoded \
-            as _string_to_encoded
-        return "%s/storage/%s/files/%s" % (
-                    _drive_root, self.uid(),
-                    _string_to_encoded(fileinfo.name()))
-
-    def _get_file_key(self, fileinfo):
-        """Return the key in the bucket for this drive for the file
-           described by the passed fileinfo
-        """
-        return fileinfo.file_uid()
-
-    def _get_par_key(self, fileinfo):
-        """Return the key in the service bucket for the PAR associated
-           with the upload of the file described by the passed fileinfo
-        """
-        return "%s/storage/pars/%s" % (_drive_root, fileinfo.file_uid())
-
     def get_upload_par(self, filehandle, authorisation, encrypt_key):
         """Return a PAR that can be used to upload the file described
            by 'filehandle' to this drive. This is authorised by
@@ -111,33 +91,16 @@ class DriveInfo:
 
         bucket = _get_service_account_bucket()
 
-        # now generate a FileInfo for this FileHandle
-        fileinfo = _FileInfo(filehandle=filehandle,
+        # now generate a FileInfo for this FileHandle - this automatically
+        # saves itself with the latest version to the object store
+        fileinfo = _FileInfo(drive_uid=self._drive_uid,
+                             filehandle=filehandle,
                              user_guid=authorisation.user_guid())
-
-        fileinfo_data = fileinfo.to_data()
-
-        fileinfo_key = self._get_fileinfo_key(fileinfo)
-
-        existing_fileinfo_data = _ObjectStore.set_ins_object_from_json(
-                                    bucket=bucket, key=fileinfo_key,
-                                    data=fileinfo_data)
-
-        while existing_fileinfo_data != fileinfo_data:
-            old_fileinfo = _FileInfo.from_data(existing_fileinfo_data)
-            fileinfo.add_old_versions(old_fileinfo)
-            fileinfo_data = fileinfo.to_data()
-            existing_fileinfo_data = _ObjectStore.set_ins_object_from_json(
-                                        bucket=bucket, key=fileinfo_key,
-                                        data=fileinfo_data)
-
-        # we have saved the metadata for the file and have a unique
-        # UID that can be used to upload the file itself
 
         # First save an empty object, so that we can then create
         # a PAR that can be used to write the actual data
         file_bucket = self._get_bucket()
-        file_key = self._get_file_key(fileinfo)
+        file_key = fileinfo.latest_version()._file_key()
         _ObjectStore.set_object_from_json(bucket=file_bucket,
                                           key=file_key, data=None)
 

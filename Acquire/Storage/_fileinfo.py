@@ -3,6 +3,7 @@ __all__ = ["FileInfo", "VersionInfo"]
 
 _version_root = "storage/versions"
 _fileinfo_root = "storage/files"
+_file_root = "files"
 
 
 class VersionInfo:
@@ -94,15 +95,28 @@ class VersionInfo:
         else:
             return None
 
-    def _key(self, encoded_filename):
+    def _file_key(self):
+        """Return the key for this actual file for this version
+           in the object store"""
+        if self.is_null():
+            return None
+        else:
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+
+            return "%s/%s/%s" % (_file_root,
+                                 _datetime_to_string(self._datetime),
+                                 self._file_uid)
+
+    def _key(self, drive_uid, encoded_filename):
         """Return the key for this version in the object store"""
         if self.is_null():
             return None
         else:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
-            return "%s/%s/%s/%s" % (
-                _version_root, encoded_filename,
+            return "%s/%s/%s/%s/%s" % (
+                _version_root, drive_uid, encoded_filename,
                 _datetime_to_string(self._datetime), self._file_uid)
 
     def to_data(self):
@@ -156,7 +170,7 @@ class FileInfo:
        Acquire.Client.FileHandle provide the client-side view
        of Acquire.Storage.FileInfo
     """
-    def __init__(self, filehandle=None, user_guid=None):
+    def __init__(self, drive_uid=None, filehandle=None, user_guid=None):
         """Construct from a passed filehandle of a file that will be
            uploaded
         """
@@ -171,6 +185,8 @@ class FileInfo:
 
             if filehandle.is_null():
                 return
+
+            self._drive_uid = drive_uid
 
             from Acquire.ObjectStore import string_to_encoded \
                 as _string_to_encoded
@@ -225,6 +241,10 @@ class FileInfo:
         """
         return self._version_info(version).checksum()
 
+    def drive_uid(self):
+        """Return the UID of the drive on which this file resides"""
+        return self._drive_uid
+
     def file_uid(self, version=None):
         """Return the UID of the latest (or specified) version
            of this file
@@ -262,7 +282,8 @@ class FileInfo:
 
     def _key(self):
         """Return the key for this fileinfo in the object store"""
-        return "%s/%s" % (_fileinfo_root, self._encoded_filename)
+        return "%s/%s/%s" % (_fileinfo_root, self._drive_uid,
+                             self._encoded_filename)
 
     def save(self):
         """Save this fileinfo to the object store"""
@@ -283,8 +304,42 @@ class FileInfo:
         # also save the version information (saves old versions)
         _ObjectStore.set_object_from_json(
                         bucket=bucket,
-                        key=self._latest_version._key(self._encoded_filename),
+                        key=self._latest_version._key(self._drive_uid,
+                                                      self._encoded_filename),
                         data=self._latest_version.to_data())
+
+    @staticmethod
+    def load(drive_uid, filename):
+        """Load and return the FileInfo for the file called 'filename'
+           on the drive with UID 'drive_uid'"""
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+        from Acquire.ObjectStore import string_to_encoded \
+            as _string_to_encoded
+
+        encoded_filename = _string_to_encoded(filename)
+
+        bucket = _get_service_account_bucket()
+
+        key = "%s/%s/%s" % (_fileinfo_root, drive_uid, encoded_filename)
+
+        try:
+            data = _ObjectStore.get_object_from_json(bucket=bucket,
+                                                     key=key)
+        except:
+            data = None
+
+        if data is None:
+            from Acquire.Storage import MissingFileError
+            raise MissingFileError(
+                "Cannnot find the file called '%s' on drive '%s'" %
+                (filename, drive_uid))
+
+        f = FileInfo.from_data(data)
+        f._drive_uid = drive_uid
+
+        return f
 
     def to_data(self):
         """Return a json-serialisable dictionary for this object"""
