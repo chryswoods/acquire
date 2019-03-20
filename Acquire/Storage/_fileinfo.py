@@ -5,8 +5,6 @@ _version_root = "storage/version"
 
 _fileinfo_root = "storage/file"
 
-_upload_par_root = "storage/upload_par"
-
 _file_root = "storage/file"
 
 
@@ -109,18 +107,6 @@ class VersionInfo:
                 as _datetime_to_string
 
             return "%s/%s/%s" % (_file_root,
-                                 _datetime_to_string(self._datetime),
-                                 self._file_uid)
-
-    def _upload_par_key(self):
-        """Return the key for the PAR used to upload this version in
-           the object store"""
-        if self.is_null():
-            return None
-        else:
-            from Acquire.ObjectStore import datetime_to_string \
-                as _datetime_to_string
-            return "%s/%s/%s" % (_upload_par_root,
                                  _datetime_to_string(self._datetime),
                                  self._file_uid)
 

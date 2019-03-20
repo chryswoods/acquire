@@ -217,7 +217,7 @@ class Drive:
         response = self.storage_service().call_function(
                                   function="uploaded_file", args=args)
 
-        return _FileHandle(response["filehandle"])
+        return response
 
     def list_dir(self, dirname=None, recursive=False):
         """Return the names and details of the files in 'dirname'"""

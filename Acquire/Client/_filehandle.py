@@ -20,11 +20,13 @@ class FileHandle:
             from Acquire.Access import get_filesize_and_checksum \
                 as _get_filesize_and_checksum
 
-            self._filename = str(filename)
             (filesize, cksum) = _get_filesize_and_checksum(filename=filename)
 
+            self._filename = filename
+
             if remote_filename is None:
-                self._remote_filename = self._filename
+                import os as _os
+                self._remote_filename = _os.path.split(self._filename)[1]
             else:
                 self._remote_filename = str(remote_filename)
 

@@ -3,7 +3,7 @@ __all__ = ["DriveInfo"]
 
 _drive_root = "storage/drive"
 
-_par_root = "storage/par"
+_upload_par_root = "storage/upload_par"
 
 
 class DriveInfo:
@@ -122,7 +122,6 @@ class DriveInfo:
         file_bucket = self._get_file_bucket()
         metadata_bucket = self._get_metadata_bucket()
 
-        par_key = fileinfo.latest_version()._upload_par_key()
         file_key = fileinfo.latest_version()._file_key()
         _ObjectStore.set_object_from_json(bucket=file_bucket,
                                           key=file_key, data=None)
@@ -133,9 +132,15 @@ class DriveInfo:
                                       readable=False,
                                       writeable=True)
 
+        par_key = "%s/%s" % (_upload_par_root, par.uid())
+
+        data = {"par": par.to_data(),
+                "file_key": file_key,
+                "fileinfo_key": fileinfo._fileinfo_key()}
+
         _ObjectStore.set_object_from_json(bucket=metadata_bucket,
                                           key=par_key,
-                                          data=par.to_data())
+                                          data=data)
 
         return par
 
