@@ -3,6 +3,8 @@ __all__ = ["DriveInfo"]
 
 _drive_root = "storage/drive"
 
+_par_root = "storage/par"
+
 
 class DriveInfo:
     """This class provides a service-side handle to the information
@@ -32,7 +34,30 @@ class DriveInfo:
         """Return the UID of this drive"""
         return self._drive_uid
 
-    def _get_bucket(self):
+    def _get_metadata_bucket(self):
+        """Return the bucket that contains all of the metadata about
+           the files for this drive
+        """
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+        from Acquire.Service import get_this_service as _get_this_service
+
+        service = _get_this_service()
+        bucket = _get_service_account_bucket()
+        bucket_name = "user_metadata"
+
+        try:
+            return _ObjectStore.get_bucket(
+                            bucket=bucket, bucket_name=bucket_name,
+                            compartment=service.storage_compartment(),
+                            create_if_needed=True)
+        except Exception as e:
+            from Acquire.ObjectStore import RequestBucketError
+            raise RequestBucketError(
+                "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
+
+    def _get_file_bucket(self):
         """Return the bucket that contains all of the files for this
            drive
         """
@@ -43,7 +68,7 @@ class DriveInfo:
 
         service = _get_this_service()
         bucket = _get_service_account_bucket()
-        bucket_name = self.uid()
+        bucket_name = "user_files"
 
         try:
             return _ObjectStore.get_bucket(
@@ -86,11 +111,6 @@ class DriveInfo:
             raise PermissionError(
                 "You do not have permission to write to this directory")
 
-        from Acquire.Service import get_service_account_bucket \
-            as _get_service_account_bucket
-
-        bucket = _get_service_account_bucket()
-
         # now generate a FileInfo for this FileHandle - this automatically
         # saves itself with the latest version to the object store
         fileinfo = _FileInfo(drive_uid=self._drive_uid,
@@ -99,7 +119,10 @@ class DriveInfo:
 
         # First save an empty object, so that we can then create
         # a PAR that can be used to write the actual data
-        file_bucket = self._get_bucket()
+        file_bucket = self._get_file_bucket()
+        metadata_bucket = self._get_metadata_bucket()
+
+        par_key = fileinfo.latest_version()._upload_par_key()
         file_key = fileinfo.latest_version()._file_key()
         _ObjectStore.set_object_from_json(bucket=file_bucket,
                                           key=file_key, data=None)
@@ -110,8 +133,8 @@ class DriveInfo:
                                       readable=False,
                                       writeable=True)
 
-        _ObjectStore.set_object_from_json(bucket=bucket,
-                                          key=self._get_par_key(fileinfo),
+        _ObjectStore.set_object_from_json(bucket=metadata_bucket,
+                                          key=par_key,
                                           data=par.to_data())
 
         return par

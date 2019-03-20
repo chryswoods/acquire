@@ -63,6 +63,10 @@ class ACLRule:
         """Return a null (no-permission) rule"""
         return ACLRule(is_owner=False, is_readable=False, is_writeable=False)
 
+    @staticmethod
+    def inherit():
+        return ACLRule()
+
     def is_null(self):
         """Return whether or not this is null"""
         return self._is_owner is False and self._is_readable is False and \
