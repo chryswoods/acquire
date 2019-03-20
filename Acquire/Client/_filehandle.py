@@ -10,7 +10,8 @@ class FileHandle:
        the file, to upload new versions, or to move the data between
        hot and cold storage or pay for extended storage
     """
-    def __init__(self, filename=None):
+    def __init__(self, filename=None, remote_filename=None,
+                 aclrule=None, fileinfo=None):
         """Construct a handle for the local file 'filename'. This will
            create the initial version of the file that can be uploaded
            to the storage service
@@ -22,8 +23,31 @@ class FileHandle:
             self._filename = str(filename)
             (filesize, cksum) = _get_filesize_and_checksum(filename=filename)
 
+            if remote_filename is None:
+                self._remote_filename = self._filename
+            else:
+                self._remote_filename = str(remote_filename)
+
+            from Acquire.Storage import ACLRule as _ACLRule
+            if aclrule is not None:
+                if not isinstance(aclrule, _ACLRule):
+                    raise TypeError("The ACL rules must be type ACLRule")
+
+                self._aclrule = aclrule
+            else:
+                self._aclrule = _ACLRule.inherit()
+
             self._filesize = filesize
             self._checksum = cksum
+        elif fileinfo is not None:
+            # construct as a handle to a remote file
+            from Acquire.Storage import FileInfo as _FileInfo
+            if not isinstance(fileinfo, _FileInfo):
+                raise TypeError("The fileinfo must be type FileInfo")
+
+            self._filename = None
+            self._remote_filename = fileinfo.filename()
+            self._acl = fileinfo.acl()
         else:
             self._filename = None
 
@@ -31,9 +55,17 @@ class FileHandle:
         """Return whether or not this this null"""
         return self._filename is None
 
+    def acl(self):
+        """Return the ACL rule for this file"""
+        return self._aclrule
+
     def filename(self):
-        """Return the object-store filename for this file"""
+        """Return the local filename for this file"""
         return self._filename
+
+    def remote_filename(self):
+        """Return the remote (object store) filename for this file"""
+        return self._remote_filename
 
     def filesize(self):
         """Return the size (in bytes) of this file"""
@@ -51,7 +83,8 @@ class FileHandle:
 
     def fingerprint(self):
         """Return a fingerprint for this file"""
-        return "%s-%s-%s" % (self.filename(), self.filesize(), self.checksum())
+        return "%s:%s:%s:%s" % (self.filename(), self.remote_filename(),
+                                self.filesize(), self.checksum())
 
     def to_data(self):
         """Return a json-serialisable dictionary for this object"""
@@ -61,8 +94,10 @@ class FileHandle:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
             data["filename"] = self.filename()
+            data["remote_filename"] = self.remote_filename()
             data["filesize"] = self.filesize()
             data["checksum"] = self.checksum()
+            data["aclrule"] = self.acl().to_data()
 
         return data
 
@@ -74,8 +109,11 @@ class FileHandle:
         f = FileHandle()
 
         if data is not None and len(data) > 0:
+            from Acquire.Storage import ACLRule as _ACLRule
             f._filename = data["filename"]
+            f._remote_filename = data["remote_filename"]
             f._filesize = int(data["filesize"])
             f._checksum = data["checksum"]
+            f._aclrule = _ACLRule.from_data(data["aclrule"])
 
         return f

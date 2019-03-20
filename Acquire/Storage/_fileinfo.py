@@ -118,7 +118,7 @@ class VersionInfo:
         if self.is_null():
             return None
         else:
-            from Acquire.ObjectStore import date_to_string \
+            from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
             return "%s/%s/%s" % (_upload_par_root,
                                  _datetime_to_string(self._datetime),
@@ -146,7 +146,7 @@ class VersionInfo:
                 as _dict_to_string
             data["filesize"] = self._filesize
             data["checksum"] = self._checksum
-            data["uid"] = self._uid
+            data["file_uid"] = self._file_uid
             data["datetime"] = _datetime_to_string(self._datetime)
             data["user_guid"] = self._user_guid
             data["acls"] = _dict_to_string(self._acls)
@@ -168,7 +168,7 @@ class VersionInfo:
             from Acquire.Storage import ACLRule as _ACLRule
             v._filesize = data["filesize"]
             v._checksum = data["checksum"]
-            v._uid = data["uid"]
+            v._file_uid = data["file_uid"]
             v._user_guid = data["user_guid"]
             v._datetime = _string_to_datetime(data["datetime"])
             v._acls = _string_to_dict(data["acls"], _ACLRule)
@@ -206,8 +206,10 @@ class FileInfo:
 
             from Acquire.ObjectStore import string_to_encoded \
                 as _string_to_encoded
+            from Acquire.ObjectStore import string_to_filepath \
+                as _string_to_filepath
 
-            self._filename = filehandle.filename()
+            self._filename = _string_to_filepath(filehandle.remote_filename())
             self._encoded_filename = _string_to_encoded(self._filename)
 
             version = VersionInfo(filesize=filehandle.filesize(),
@@ -236,26 +238,23 @@ class FileInfo:
             return VersionInfo()
         else:
             if version is None:
-                version = self._latest_version
+                return self._latest_version
 
-            try:
-                return self._versions[version]
-            except:
-                from Acquire.Storage import VersionNotFoundError
-                raise VersionNotFoundError(
-                    "Cannot find the version '%s' for file '%s'" %
-                    (version, self.filename()))
+            from Acquire.Storage import MissingVersionError
+            raise MissingVersionError(
+                "Cannot find the version '%s' for file '%s'" %
+                (version, self.filename()))
 
     def filesize(self, version=None):
         """Return the size (in bytes) of the latest (or specified)
            version of this file"""
-        return self._version_info(version).filesize()
+        return self._version_info(version=version).filesize()
 
     def checksum(self, version=None):
         """Return the checksum of the latest (or specified) version
            of this file
         """
-        return self._version_info(version).checksum()
+        return self._version_info(version=version).checksum()
 
     def drive_uid(self):
         """Return the UID of the drive on which this file resides"""
@@ -275,18 +274,18 @@ class FileInfo:
         """Return the UID of the latest (or specified) version
            of this file
         """
-        return self._version_info(version).uid()
+        return self._version_info(version=version).uid()
 
-    def acl(self, user_guid=None):
+    def acl(self, version=None, user_guid=None):
         """Return the ACL rule for the specified user, or if that is not
            specified, the ACL mask that will be applied to the ACL
            for the drive
         """
-        try:
-            return self._acls[user_guid]
-        except:
-            from Acquire.Storage import ACLRule as _ACLRule
-            return _ACLRule.null()
+        return self._version_info(version=version).acl(user_guid=user_guid)
+
+    def version(self, version):
+        """Return the version at the specified datetime"""
+        return self._version_info(version=version)
 
     def latest_version(self):
         """Return the latest version of this file on the storage service. This
@@ -302,9 +301,10 @@ class FileInfo:
         """Return the sorted list of all versions of this file on the
            storage service
         """
-        v = list(self._versions.keys())
-        v.sort()
-        return v
+        if self.is_null():
+            return []
+        else:
+            return {self._latest_version.datetime(), self._latest_version}
 
     def _fileinfo_key(self):
         """Return the key for this fileinfo in the object store"""
@@ -369,23 +369,8 @@ class FileInfo:
         data = {}
 
         if not self.is_null():
-            from Acquire.ObjectStore import datetime_to_string \
-                as _datetime_to_string
-
             data["filename"] = self.filename()
-
-            versions = []
-
-            for version, info in self._versions.items():
-                versions.append((_datetime_to_string(version), info.to_data()))
-
-            acls = []
-
-            for user_guid, acl in self._acls.items():
-                acls.append((user_guid, acl.to_data()))
-
-            data["versions"] = versions
-            data["acls"] = acls
+            data["latest_version"] = self.latest_version().to_data()
 
         return data
 
@@ -397,26 +382,8 @@ class FileInfo:
         f = FileInfo()
 
         if data is not None and len(data) > 0:
-            from Acquire.ObjectStore import string_to_datetime \
-                as _string_to_datetime
-            from Acquire.Storage import ACLRule as _ACLRule
-
             f._filename = data["filename"]
-
-            versions = {}
-
-            for version, info in data["versions"]:
-                versions[_string_to_datetime(version)] = \
-                    VersionInfo.from_data(info)
-
-            acls = {}
-
-            for user_guid, acl in data["acls"]:
-                acls[user_guid] = _ACLRule.from_data(acl)
-
-            f._versions = versions
-            f._acls = acls
-
-            f._latest_version = f.versions()[-1]
+            f._latest_version = VersionInfo.from_data(data["latest_version"])
+            f._drive_uid = None
 
         return f

@@ -11,17 +11,23 @@ class ACLRule:
         """Construct a default rule. By default this rule has zero
            permissions (cannot own, read or write)
         """
-        if is_owner:
+        if is_owner is None:
+            self._is_owner = None
+        elif is_owner:
             self._is_owner = True
         else:
             self._is_owner = False
 
-        if is_readable:
+        if is_readable is None:
+            self._is_readable = None
+        elif is_readable:
             self._is_readable = True
         else:
             self._is_readable = False
 
-        if is_writeable:
+        if is_writeable is None:
+            self._is_writeable = None
+        elif is_writeable:
             self._is_writeable = True
         else:
             self._is_writeable = False
@@ -31,12 +37,18 @@ class ACLRule:
 
         if self.is_owner():
             s.append("owner")
+        elif self.inherits_owner():
+            s.append("inherits_owner")
 
         if self.is_writeable():
             s.append("writeable")
+        elif self.inherits_writeable():
+            s.append("inherits_writeable")
 
         if self.is_readable():
             s.append("readable")
+        elif self.inherits_readable():
+            s.append("inherits_readable")
 
         if len(s) == 0:
             return "ACLRule(no permission)"
@@ -65,7 +77,8 @@ class ACLRule:
 
     @staticmethod
     def inherit():
-        return ACLRule()
+        """Return the ACL rule that means 'inherit permissions from parent'"""
+        return ACLRule(is_owner=None, is_readable=None, is_writeable=None)
 
     def is_null(self):
         """Return whether or not this is null"""
@@ -83,6 +96,22 @@ class ACLRule:
     def is_writeable(self):
         """Return whether or not the user can write to this bucket"""
         return self._is_writeable
+
+    def inherits_owner(self):
+        """Return whether or not this inherits the owner status from parent"""
+        return self._is_owner is None
+
+    def inherits_readable(self):
+        """Return whether or not this inherits the reader status
+           from parent
+        """
+        return self._is_readable is None
+
+    def inherits_writeable(self):
+        """Return whether or not this inherits the writeable status
+           from parent
+        """
+        return self._is_writeable is None
 
     def set_owner(self, is_owner=True):
         """Set the user as an owner of the bucket"""
@@ -104,6 +133,18 @@ class ACLRule:
             self._is_writeable = True
         else:
             self._is_writeable = False
+
+    def set_inherits_owner(self):
+        """Set that this ACL inherits ownership from its parent"""
+        self._is_owner = None
+
+    def set_inherits_readable(self):
+        """Set that this ACL inherits readable from its parent"""
+        self._is_readable = None
+
+    def set_inherits_writeable(self):
+        """Set that this ACL inherits writeable from its parent"""
+        self._is_writeable = None
 
     def set_readable_writeable(self, is_readable_writeable=True):
         """Set both the readable and writeable rules to
@@ -132,18 +173,28 @@ class ACLRule:
         if data is None:
             return None
 
-        rule = ACLRule()
+        is_owner = None
+        is_readable = None
+        is_writeable = None
 
         if "is_owner" in data:
             if data["is_owner"]:
-                rule._is_owner = True
+                is_owner = True
+            elif data["is_owner"] is not None:
+                is_owner = False
 
         if "is_readable" in data:
             if data["is_readable"]:
-                rule._is_readable = True
+                is_readable = True
+            elif data["is_readable"] is not None:
+                is_readable = False
 
         if "is_writeable" in data:
             if data["is_writeable"]:
-                rule._is_writeable = True
+                is_writeable = True
+            elif data["is_writeable"] is not None:
+                is_writeable = False
 
-        return rule
+        return ACLRule(is_owner=is_owner,
+                       is_writeable=is_writeable,
+                       is_readable=is_readable)

@@ -5,6 +5,8 @@ from Acquire.Identity import Authorisation
 
 from Acquire.Storage import FileInfo, DriveInfo
 
+from Acquire.Client import FileHandle
+
 from Acquire.Crypto import PublicKey
 
 from Acquire.ObjectStore import ObjectStore
@@ -26,13 +28,14 @@ def run(args):
     """
 
     drive_uid = args["drive_uid"]
-    fileinfo = FileInfo.from_data(args["fileinfo"])
+    filehandle = FileHandle.from_data(args["filehandle"])
     authorisation = Authorisation.from_data(args["authorisation"])
     public_key = PublicKey.from_data(args["encryption_key"])
 
     drive = DriveInfo(drive_uid=drive_uid, user_guid=authorisation.user_guid())
 
-    par = drive.get_upload_par(fileinfo=fileinfo, authorisation=authorisation,
+    par = drive.get_upload_par(filehandle=filehandle,
+                               authorisation=authorisation,
                                encrypt_key=public_key)
 
     return_value = create_return_value()

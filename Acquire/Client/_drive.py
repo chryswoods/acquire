@@ -182,20 +182,20 @@ class Drive:
             raise PermissionError("Cannot upload a file to a null drive!")
 
         from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.Client import FileInfo as _FileInfo
+        from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Client import PAR as _PAR
 
-        fileinfo = _FileInfo(filename=filename, acl=aclrule)
+        filehandle = _FileHandle(filename=filename, aclrule=aclrule)
 
         authorisation = _Authorisation(
-                            resource="upload %s" % fileinfo.fingerprint(),
+                            resource="upload %s" % filehandle.fingerprint(),
                             user=self._user)
 
         privkey = self._user.session_key()
 
         args = {"drive_uid": self.uid(),
                 "authorisation": authorisation.to_data(),
-                "fileinfo": fileinfo.to_data(),
+                "filehandle": filehandle.to_data(),
                 "encryption_key": privkey.public_key().to_data()}
 
         # will eventually need to authorise payment...
@@ -208,16 +208,16 @@ class Drive:
         par.write(privkey).set_object_from_file(filename)
 
         authorisation = _Authorisation(
-                            resource="uploaded %s" % fileinfo.fingerprint(),
+                            resource="uploaded %s" % par.fingerprint(),
                             user=self._user)
 
         args = {"authorisation": authorisation.to_data(),
-                "fileinfo": fileinfo.to_data()}
+                "par": par.to_data()}
 
         response = self.storage_service().call_function(
                                   function="uploaded_file", args=args)
 
-        return _FileInfo.from_data(response["fileinfo"])
+        return _FileHandle(response["filehandle"])
 
     def list_dir(self, dirname=None, recursive=False):
         """Return the names and details of the files in 'dirname'"""

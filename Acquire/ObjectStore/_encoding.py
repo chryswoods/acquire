@@ -3,7 +3,7 @@ import json as _json
 import base64 as _base64
 import datetime as _datetime
 import uuid as _uuid
-
+import os as _os
 import sys as _sys
 
 if _sys.version_info.major < 3:
@@ -35,6 +35,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "string_to_safestring", "safestring_to_string",
            "string_to_list", "list_to_string",
            "string_to_dict", "dict_to_string",
+           "string_to_filepath",
            "get_datetime_future",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
@@ -328,3 +329,30 @@ def string_to_dict(s, C):
             items[key] = C.from_data(value)
 
     return items
+
+
+def string_to_filepath(path):
+    """This function cleans the passed path so that doesn't contain
+       redundant slashes or '..' etc., so that all backslashes are forwards
+       slashes, and that the trailing slash is removed
+    """
+    if path is None:
+        return ""
+
+    path = _os.path.normpath(path)
+
+    # remove all ".." and "." from this path
+    if path.find(".") != -1:
+        parts = path.split("/")
+        for i, part in enumerate(parts):
+            if part == ".":
+                parts[i] = None
+            elif part == "..":
+                if i == 0:
+                    raise ValueError("You cannot start a path with '..'")
+                part[i-1] = None
+                part[i] = None
+
+        path = _os.path.normpath("/".join(parts))
+
+    return path

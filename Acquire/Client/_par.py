@@ -53,6 +53,7 @@ class PAR:
         """
         if url is None:
             is_readable = True
+            self._uid = None
         else:
             from Acquire.Crypto import PublicKey as _PublicKey
             if not isinstance(encrypt_key, _PublicKey):
@@ -60,6 +61,9 @@ class PAR:
                     "You must supply a valid PublicKey to encrypt a PAR")
 
             url = encrypt_key.encrypt(url)
+
+            from Acquire.ObjectStore import create_uuid as _create_uuid
+            self._uid = _create_uuid()
 
         self._url = url
         self._key = key
@@ -108,6 +112,10 @@ class PAR:
             return "PAR( key=%s, seconds_remaining=%s )" % \
                 (self.key(), self.seconds_remaining(buffer=0))
 
+    def is_null(self):
+        """Return whether or not this is null"""
+        return self._uid is None
+
     def url(self, encrypt_key):
         """Return the URL at which the bucket/object can be accessed. This
            will raise a PARTimeoutError if the url has less than 30 seconds
@@ -119,6 +127,10 @@ class PAR:
                 "The URL behind this PAR has expired and is no longer valid")
 
         return encrypt_key.decrypt(self._url)
+
+    def uid(self):
+        """Return the UID of this PAR"""
+        return self._uid
 
     def par_id(self):
         """Return the ID of the PAR, if this was supplied by the underlying
@@ -132,6 +144,12 @@ class PAR:
            be useful for PAR management by the server
         """
         return self._par_name
+
+    def fingerprint(self):
+        """Return a fingerprint for this PAR that can be used
+           in authorisations
+        """
+        return self._uid
 
     def is_readable(self):
         """Return whether or not this PAR gives read access"""
@@ -243,6 +261,7 @@ class PAR:
             as _bytes_to_string
 
         data["url"] = _bytes_to_string(self._url)
+        data["uid"] = self._uid
         data["key"] = self._key
         data["created_datetime"] = _datetime_to_string(self._created_datetime)
         data["expires_datetime"] = _datetime_to_string(self._expires_datetime)
@@ -272,6 +291,7 @@ class PAR:
 
         par._url = _string_to_bytes(data["url"])
         par._key = data["key"]
+        par._uid = data["uid"]
 
         if par._key is not None:
             par._key = str(par._key)

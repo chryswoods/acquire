@@ -1,7 +1,8 @@
 
 from Acquire.Service import ServiceError as _ServiceError
 
-__all__ = ["StorageServiceError", "MissingDriveError", "MissingFileError"]
+__all__ = ["StorageServiceError", "MissingDriveError", "MissingFileError",
+           "MissingVersionError"]
 
 
 class StorageServiceError(_ServiceError):
@@ -13,4 +14,8 @@ class MissingDriveError(Exception):
 
 
 class MissingFileError(Exception):
+    pass
+
+
+class MissingVersionError(Exception):
     pass
