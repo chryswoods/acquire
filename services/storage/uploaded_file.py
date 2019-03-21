@@ -1,6 +1,7 @@
 
-from Acquire.Client import PAR
 from Acquire.Client import Authorisation
+
+from Acquire.Storage import DriveInfo
 
 from Acquire.Service import create_return_value
 
@@ -13,4 +14,17 @@ def run(args):
        the payment
     """
 
-    return create_return_value()
+    drive_uid = str(args["drive_uid"])
+    authorisation = Authorisation.from_data(args["authorisation"])
+    par_uid = str(args["par_uid"])
+
+    drive = DriveInfo(drive_uid=drive_uid, user_guid=authorisation.user_guid())
+
+    fileinfo = drive.par_upload_complete(par_uid=par_uid,
+                                         authorisation=authorisation)
+
+    return_value = create_return_value()
+
+    return_value["fileinfo"] = fileinfo.to_data()
+
+    return return_value

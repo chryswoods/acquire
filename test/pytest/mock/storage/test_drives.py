@@ -1,6 +1,7 @@
 
 
 import pytest
+import os
 
 from Acquire.Client import Drive
 
@@ -16,8 +17,8 @@ def test_drives(authenticated_user):
 
     filename = __file__
 
-    fileinfo = drive.upload(filename=filename)
+    filehandle = drive.upload(filename=filename)
 
-    print(fileinfo)
+    (root, filename) = os.path.split(filename)
 
-    assert(False)
+    assert(filehandle.filename() == filename)

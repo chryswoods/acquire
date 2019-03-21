@@ -136,6 +136,20 @@ class Testing_ObjectStore:
                     driver="testing_objstore")
 
     @staticmethod
+    def delete_par(bucket, par):
+        """Delete the passed PAR, which provides access to data in the
+           passed bucket
+        """
+        from Acquire.Client import PAR as _PAR
+
+        if not isinstance(par, _PAR):
+            raise TypeError("The PAR must be of type PAR")
+
+        if par.driver() != "testing_objstore":
+            raise ValueError("Cannot delete a PAR that was not created "
+                             "by the testing object store")
+
+    @staticmethod
     def get_object_as_file(bucket, key, filename):
         """Get the object contained in the key 'key' in the passed 'bucket'
            and writing this to the file called 'filename'"""
@@ -318,3 +332,19 @@ class Testing_ObjectStore:
 
             if remove:
                 Testing_ObjectStore.delete_object(bucket, key)
+
+    @staticmethod
+    def get_size_and_checksum(bucket, key):
+        """Return the object size (in bytes) and checksum of the
+           object in the passed bucket at the specified key
+        """
+        filepath = "%s/%s._data" % (bucket, key)
+
+        if not _os.path.exists(filepath):
+            from Acquire.ObjectStore import ObjectStoreError
+            raise ObjectStoreError("No object at key '%s'" % key)
+
+        from Acquire.Access import get_filesize_and_checksum \
+            as _get_filesize_and_checksum
+
+        return _get_filesize_and_checksum(filepath)

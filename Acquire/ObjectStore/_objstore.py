@@ -80,6 +80,13 @@ class ObjectStore:
         return par
 
     @staticmethod
+    def delete_par(bucket, par):
+        """Delete the passed PAR, which provides access to data in the
+           passed bucket
+        """
+        _objstore_backend.delete_par(bucket=bucket, par=par)
+
+    @staticmethod
     def get_object_as_file(bucket, key, filename):
         """Get the object contained in the key 'key' in the passed 'bucket'
            and writing this to the file called 'filename'"""
@@ -213,6 +220,13 @@ class ObjectStore:
         """Removes all objects from the passed 'bucket' except those
            whose keys are or start with any key in 'keys'"""
         _objstore_backend.clear_all_except(bucket, keys)
+
+    @staticmethod
+    def get_size_and_checksum(bucket, key):
+        """Return the object size (in bytes) and checksum of the
+           object in the passed bucket at the specified key
+        """
+        return _objstore_backend.get_size_and_checksum(bucket, key)
 
 
 def set_object_store_backend(backend):

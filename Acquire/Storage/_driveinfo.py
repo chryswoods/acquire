@@ -80,6 +80,67 @@ class DriveInfo:
             raise RequestBucketError(
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
 
+    def par_upload_complete(self, par_uid, authorisation):
+        """Call this function to signify that the file associated with
+           the PAR with UID 'par_uid' has been uploaded (must have matching
+           authorisation)
+        """
+        from Acquire.Client import PAR as _PAR
+        from Acquire.Client import Authorisation as _Authorisation
+        from Acquire.Storage import FileInfo as _FileInfo
+
+        if not isinstance(authorisation, _Authorisation):
+            raise TypeError("The authorisation must be of type Authorisation")
+
+        authorisation.verify("uploaded %s" % par_uid)
+
+        acl = self.get_acl(authorisation.user_guid())
+
+        if not acl.is_writeable():
+            raise PermissionError(
+                "You do not have permission to write to this drive")
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+
+        par_key = "%s/%s" % (_upload_par_root, par_uid)
+        file_bucket = self._get_file_bucket()
+        metadata_bucket = self._get_metadata_bucket()
+
+        data = _ObjectStore.get_object_from_json(metadata_bucket, par_key)
+
+        par = _PAR.from_data(data["par"])
+        file_key = data["file_key"]
+        fileinfo_key = data["fileinfo_key"]
+
+        # get the fileinfo object
+        fileinfo_data = _ObjectStore.get_object_from_json(
+                                        metadata_bucket, fileinfo_key)
+
+        fileinfo = _FileInfo.from_data(fileinfo_data)
+
+        # check that the file uploaded matches what was promised
+        (objsize, checksum) = _ObjectStore.get_size_and_checksum(file_bucket,
+                                                                 file_key)
+
+        if fileinfo.filesize() != objsize or fileinfo.checksum() != checksum:
+            from Acquire.Storage import FileValidationError
+            raise FileValidationError(
+                "The file uploaded for %s does not match what was promised. "
+                "size: %s versus %s, checksum: %s versus %s. Please try "
+                "to upload the file again." %
+                (fileinfo.filename(), fileinfo.filesize(), objsize,
+                 fileinfo.checksum(), checksum))
+
+            # probably should delete the broken object here...
+
+        # SHOULD HERE RECEIPT THE STORAGE TRANSACTION
+
+        _ObjectStore.delete_par(bucket=file_bucket, par=par)
+        _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
+
+        # return the handle to the uploaded file
+        return fileinfo
+
     def get_upload_par(self, filehandle, authorisation, encrypt_key):
         """Return a PAR that can be used to upload the file described
            by 'filehandle' to this drive. This is authorised by
@@ -109,7 +170,7 @@ class DriveInfo:
 
         if not acl.is_writeable():
             raise PermissionError(
-                "You do not have permission to write to this directory")
+                "You do not have permission to write to this drive")
 
         # now generate a FileInfo for this FileHandle - this automatically
         # saves itself with the latest version to the object store

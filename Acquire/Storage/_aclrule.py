@@ -53,7 +53,7 @@ class ACLRule:
         if len(s) == 0:
             return "ACLRule(no permission)"
         else:
-            return "ACLRule(%s)" % ":".join(s)
+            return "ACLRule(%s)" % ", ".join(s)
 
     @staticmethod
     def owner():

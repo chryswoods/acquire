@@ -47,11 +47,22 @@ class FileHandle:
             if not isinstance(fileinfo, _FileInfo):
                 raise TypeError("The fileinfo must be type FileInfo")
 
-            self._filename = None
+            self._filename = fileinfo.filename()
             self._remote_filename = fileinfo.filename()
-            self._acl = fileinfo.acl()
+            self._aclrule = fileinfo.acl()
+
+            self._filesize = fileinfo.filesize()
+            self._checksum = fileinfo.checksum()
         else:
             self._filename = None
+
+    def __str__(self):
+        """Return a string representation of the file"""
+        if self.is_null():
+            return "FileHandle::null"
+
+        return "FileHandle(filename='%s', acl=%s)" % \
+                                (self.filename(), self.acl())
 
     def is_null(self):
         """Return whether or not this this null"""

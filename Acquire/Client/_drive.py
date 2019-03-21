@@ -184,6 +184,7 @@ class Drive:
         from Acquire.Client import Authorisation as _Authorisation
         from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Client import PAR as _PAR
+        from Acquire.Storage import FileInfo as _FileInfo
 
         filehandle = _FileHandle(filename=filename, aclrule=aclrule)
 
@@ -208,16 +209,19 @@ class Drive:
         par.write(privkey).set_object_from_file(filename)
 
         authorisation = _Authorisation(
-                            resource="uploaded %s" % par.fingerprint(),
+                            resource="uploaded %s" % par.uid(),
                             user=self._user)
 
-        args = {"authorisation": authorisation.to_data(),
-                "par": par.to_data()}
+        args = {"drive_uid": self.uid(),
+                "authorisation": authorisation.to_data(),
+                "par_uid": par.uid()}
 
         response = self.storage_service().call_function(
                                   function="uploaded_file", args=args)
 
-        return response
+        fileinfo = _FileInfo.from_data(response["fileinfo"])
+
+        return _FileHandle(fileinfo=fileinfo)
 
     def list_dir(self, dirname=None, recursive=False):
         """Return the names and details of the files in 'dirname'"""
