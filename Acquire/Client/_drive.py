@@ -232,9 +232,6 @@ class Drive:
         from Acquire.ObjectStore import string_to_dict as _string_to_dict
         from Acquire.Storage import FileInfo as _FileInfo
 
-        authorisation = _Authorisation(resource="list %s" % dirname,
-                                       user=self._user)
-
         if recursive:
             recursive = True
         else:
@@ -243,8 +240,13 @@ class Drive:
         if dirname is not None:
             dirname = str(dirname)
 
+        authorisation = _Authorisation(
+                            resource="list %s %s" % (dirname, recursive),
+                            user=self._user)
+
         args = {"authorisation": authorisation.to_data(),
-                "dirname": dirname, "recursive": recursive}
+                "dirname": dirname, "recursive": recursive,
+                "drive_uid": self._drive_uid}
 
         response = self.storage_service().call_function(function="list_dir",
                                                         args=args)

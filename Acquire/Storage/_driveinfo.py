@@ -11,12 +11,15 @@ class DriveInfo:
        about a particular cloud drive
     """
     def __init__(self, drive_uid=None, user_guid=None,
-                 is_authorised=False):
+                 is_authorised=False, parent_drive_uid=None):
         """Construct a DriveInfo for the drive with UID 'drive_uid',
            and optionally the GUID of the user making the request
-           (and whether this was authorised)
+           (and whether this was authorised). If this drive
+           has a parent then it is a sub-drive and not recorded
+           in the list of top-level drives
         """
         self._drive_uid = drive_uid
+        self._parent_drive_uid = parent_drive_uid
         self._user_guid = user_guid
         self._is_authorised = is_authorised
 
@@ -309,6 +312,28 @@ class DriveInfo:
             raise PermissionError(
                 "You cannot stop yourself being an owner as this would "
                 "leave the drive with no owners!")
+
+    def list_dir(self, dirname=None, recursive=False, authorisation=None):
+        """Return the set of files contained in 'dirname'. If this is None,
+           then list the files in the top level of the drive. If recursive
+           is true then recursively go down all of the files. The passed
+           authorisation is needed to list any non-public files in this
+           drive
+        """
+        user_guid = None
+
+        if authorisation is not None:
+            from Acquire.Client import Authorisation as _Authorisation
+            if not isinstance(authorisation, _Authorisation):
+                raise TypeError(
+                    "The authorisation must be of type Authorisation")
+
+            authorisation.verify("list %s %s" % (dirname, recursive))
+
+            user_guid = authorisation.user_guid()
+
+        acl = self.get_acl(user_guid)
+        raise ValueError("INCOMPLETE CODE")
 
     def load(self):
         """Load the metadata about this drive from the object store"""

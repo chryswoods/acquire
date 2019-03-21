@@ -15,10 +15,17 @@ def test_drives(authenticated_user):
     assert(drive.name() == drive_name)
     assert(drive.acl().is_owner())
 
+    drive_name = "test/this/is/a/../../dir"
+
+    drive2 = Drive(user=authenticated_user, name=drive_name,
+                   storage_url="storage")
+
     filename = __file__
 
     filehandle = drive.upload(filename=filename)
 
-    (root, filename) = os.path.split(filename)
+    (_, filename) = os.path.split(filename)
 
     assert(filehandle.filename() == filename)
+
+    #files = drive.list_dir()

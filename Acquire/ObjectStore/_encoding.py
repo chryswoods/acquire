@@ -35,7 +35,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "string_to_safestring", "safestring_to_string",
            "string_to_list", "list_to_string",
            "string_to_dict", "dict_to_string",
-           "string_to_filepath",
+           "string_to_filepath", "string_to_filepath_parts",
            "get_datetime_future",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
@@ -356,3 +356,30 @@ def string_to_filepath(path):
         path = _os.path.normpath("/".join(parts))
 
     return path
+
+
+def string_to_filepath_parts(path):
+    """Break the passed path into a list of the individual parts,
+       e.g. /home/user/test/../something/./new.txt will return
+
+       ['home', 'user', 'something', 'new.txt']
+    """
+    from os.path import split as _split
+
+    path = string_to_filepath(path)
+
+    dirs = []
+
+    (root, part) = _split(path)
+
+    dirs.append(part)
+
+    while len(root) > 0:
+        (root, part) = _split(root)
+
+        if len(part) > 0:
+            dirs.insert(0, part)
+        else:
+            break
+
+    return dirs
