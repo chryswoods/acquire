@@ -139,7 +139,7 @@ class UserDrives:
         return drive
 
     def get_drive(self, name, autocreate=True):
-        """Return the DriveInfo for the Drive that the user has
+        """Return the DriveMeta for the Drive that the user has
            called 'name'. If 'autocreate' is True then this
            drive is automatically created if it does not exist. Note
            that the '/' in the name will be interpreted as drive
@@ -165,6 +165,7 @@ class UserDrives:
         from Acquire.ObjectStore import string_to_encoded as _string_to_encoded
 
         encoded_name = _string_to_encoded(root_name)
+        drive_name = root_name
 
         bucket = _get_service_account_bucket()
 
@@ -205,12 +206,16 @@ class UserDrives:
             raise MissingDriveError(
                 "There is no Drive called '%s' available" % name)
 
+        container = []
+
         # now we have the drive, get the sub-drive in this drive...
         if len(parts) > 1:
             for subdrive in parts[1:]:
+                container.append(drive.uid())
+                drive_name = subdrive
                 drive = self._get_subdrive(
                                     drive_uid=drive.uid(),
-                                    name=subdrive,
+                                    name=drive_name,
                                     autocreate=autocreate)
 
                 if drive is None:
@@ -218,4 +223,8 @@ class UserDrives:
                     raise MissingDriveError(
                         "There is no Drive called '%s' available" % name)
 
-        return drive
+        from Acquire.Storage import DriveMeta as _DriveMeta
+
+        return _DriveMeta(name=drive_name, uid=drive.uid(),
+                          container=container,
+                          acl=drive.get_acl(self._user_guid))

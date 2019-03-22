@@ -3,7 +3,7 @@
 import pytest
 import os
 
-from Acquire.Client import Drive, get_drives
+from Acquire.Client import Drive
 
 
 def test_drives(authenticated_user):
@@ -25,7 +25,21 @@ def test_drives(authenticated_user):
 
     assert(len(drives) == 2)
 
+    drives = drive2.list_drives()
+
+    print(drive2)
+    print(drives)
+
+    assert(len(drives) == 1)
+
+    drives = drive.list_drives()
+
+    assert(len(drives) == 0)
+
     filename = __file__
+
+    files = drive.list_files()
+    assert(len(files) == 0)
 
     filehandle = drive.upload(filename=filename)
 
@@ -33,4 +47,8 @@ def test_drives(authenticated_user):
 
     assert(filehandle.filename() == filename)
 
-    files = drive.list_dir()
+    files = drive.list_files()
+
+    assert(len(files) == 1)
+
+    assert(files[0].filename() == filename)

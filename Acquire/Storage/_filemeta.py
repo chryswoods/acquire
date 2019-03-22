@@ -27,6 +27,9 @@ class FileMeta:
         else:
             return "FileMeta(%s)" % self._filename
 
+    def __repr__(self):
+        return self.__str__()
+
     def is_null(self):
         """Return whether or not this is null"""
         return self._filename is None

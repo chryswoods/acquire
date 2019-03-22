@@ -1,5 +1,5 @@
 
-__all__ = ["Drive", "get_drive", "get_drives"]
+__all__ = ["Drive"]
 
 
 def _get_storage_url():
@@ -28,20 +28,21 @@ def _get_storage_service(storage_url=None):
     return service
 
 
-def _create_drive(user, name, driveinfo, storage_service):
+def _create_drive(user, name, drivemeta, storage_service):
     """Internal function used to create a Drive"""
     from Acquire.Client import ACLRule as _ACLRule
     drive = Drive()
-    drive._name = name
+    drive._name = drivemeta.name()
+    drive._drive_uid = drivemeta.uid()
+    drive._container = drivemeta.container_uids()
+    drive._acl = drivemeta.acl()
     drive._user = user
-    drive._drive_uid = driveinfo["drive_uid"]
-    drive._acl = _ACLRule.from_data(driveinfo["acl"])
     drive._storage_service = storage_service
     return drive
 
 
-def get_drive(user, name=None, storage_service=None, storage_url=None,
-              autocreate=True):
+def _get_drive(user, name=None, storage_service=None, storage_url=None,
+               autocreate=True):
     """Return the drive called 'name' of the passed user. Note that the
        user must be authenticated to call this function. The name
        will default to 'main' if it is not set, and the drive will
@@ -73,35 +74,10 @@ def get_drive(user, name=None, storage_service=None, storage_url=None,
 
     response = storage_service.call_function(function="open_drive", args=args)
 
+    from Acquire.Client import DriveMeta as _DriveMeta
+
     return _create_drive(user=user, name=name, storage_service=storage_service,
-                         driveinfo=response["drives"][name])
-
-
-def get_drives(user, storage_service=None, storage_url=None):
-    """Return all of the drives of the passed user. Note that the
-       user must be authenticated to call this function
-    """
-    if storage_service is None:
-        storage_service = _get_storage_service(storage_url)
-    else:
-        if not storage_service.is_storage_service():
-            raise TypeError("You can only query drives using "
-                            "a valid storage service")
-
-    from Acquire.Client import Authorisation as _Authorisation
-    authorisation = _Authorisation(resource="UserDrives", user=user)
-
-    args = {"authorisation": authorisation.to_data()}
-
-    response = storage_service.call_function(function="open_drive", args=args)
-
-    drives = {}
-    for name, value in response["drives"].items():
-        drives[name] = _create_drive(user=user, name=name,
-                                     storage_service=storage_service,
-                                     driveinfo=value)
-
-    return drives
+                         drivemeta=_DriveMeta.from_data(response["drive"]))
 
 
 class Drive:
@@ -120,9 +96,9 @@ class Drive:
            it doesn't exist already
         """
         if user is not None:
-            drive = get_drive(user=user, name=name,
-                              storage_service=storage_service,
-                              storage_url=storage_url, autocreate=autocreate)
+            drive = _get_drive(user=user, name=name,
+                               storage_service=storage_service,
+                               storage_url=storage_url, autocreate=autocreate)
 
             from copy import copy as _copy
             self.__dict__ = _copy(drive.__dict__)
@@ -266,36 +242,28 @@ class Drive:
         if self.is_null():
             return []
         else:
-            return Drive._list_drives(user=self.user(),
+            return Drive._list_drives(user=self._user,
                                       drive_uid=self._drive_uid,
                                       storage_service=self._storage_service)
 
-    def list_dir(self, dirname=None, recursive=False):
-        """Return the names and details of the files in 'dirname'"""
+    def list_files(self):
+        """Return a list of the FileMetas of all of the files contained
+           in this drive
+        """
         if self.is_null():
             return []
 
         from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.ObjectStore import string_to_dict as _string_to_dict
-        from Acquire.Storage import FileInfo as _FileInfo
+        from Acquire.ObjectStore import string_to_list as _string_to_list
+        from Acquire.Storage import FileMeta as _FileMeta
 
-        if recursive:
-            recursive = True
-        else:
-            recursive = False
-
-        if dirname is not None:
-            dirname = str(dirname)
-
-        authorisation = _Authorisation(
-                            resource="list %s %s" % (dirname, recursive),
-                            user=self._user)
+        authorisation = _Authorisation(resource="list_files",
+                                       user=self._user)
 
         args = {"authorisation": authorisation.to_data(),
-                "dirname": dirname, "recursive": recursive,
                 "drive_uid": self._drive_uid}
 
-        response = self.storage_service().call_function(function="list_dir",
+        response = self.storage_service().call_function(function="list_files",
                                                         args=args)
 
-        return _string_to_dict(response["fileinfos"], _FileInfo)
+        return _string_to_list(response["files"], _FileMeta)

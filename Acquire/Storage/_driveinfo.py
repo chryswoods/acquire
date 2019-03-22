@@ -3,6 +3,8 @@ __all__ = ["DriveInfo"]
 
 _drive_root = "storage/drive"
 
+_fileinfo_root = "storage/file"
+
 _upload_par_root = "storage/upload_par"
 
 
@@ -313,12 +315,10 @@ class DriveInfo:
                 "You cannot stop yourself being an owner as this would "
                 "leave the drive with no owners!")
 
-    def list_dir(self, dirname=None, recursive=False, authorisation=None):
-        """Return the set of files contained in 'dirname'. If this is None,
-           then list the files in the top level of the drive. If recursive
-           is true then recursively go down all of the files. The passed
-           authorisation is needed to list any non-public files in this
-           drive
+    def list_files(self, authorisation=None):
+        """Return the list of FileMeta data for the files contained
+           in this Drive. The passed authorisation is needed in case
+           the list contents of this drive is not publi
         """
         user_guid = None
 
@@ -328,12 +328,32 @@ class DriveInfo:
                 raise TypeError(
                     "The authorisation must be of type Authorisation")
 
-            authorisation.verify("list %s %s" % (dirname, recursive))
+            authorisation.verify("list_files")
 
             user_guid = authorisation.user_guid()
 
         acl = self.get_acl(user_guid)
-        raise ValueError("INCOMPLETE CODE")
+
+        if not acl.is_readable():
+            raise PermissionError(
+                "You don't have permission to read this Drive")
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import encoded_to_string as _encoded_to_string
+        from Acquire.Storage import FileMeta as _FileMeta
+
+        metadata_bucket = self._get_metadata_bucket()
+
+        names = _ObjectStore.get_all_object_names(
+                    metadata_bucket, "%s/%s" % (_fileinfo_root,
+                                                self._drive_uid))
+
+        files = []
+        for name in names:
+            filename = _encoded_to_string(name.split("/")[-1])
+            files.append(_FileMeta(filename=filename))
+
+        return files
 
     def load(self):
         """Load the metadata about this drive from the object store"""

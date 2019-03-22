@@ -10,7 +10,8 @@ from Acquire.ObjectStore import list_to_string
 
 def run(args):
     """Call this function to return a list of DriveMetas for the
-       top-level drives accessible to the authorising user
+       top-level drives accessible to the authorising user, or the
+       list of DriveMetas contained in the drive with passed UID
     """
 
     authorisation = Authorisation.from_data(args["authorisation"])

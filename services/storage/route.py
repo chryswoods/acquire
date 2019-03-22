@@ -4,9 +4,9 @@ def storage_functions(function, args):
     """This function routes calls to all of the storage service's
        extra functions
     """
-    if function == "list_dir":
-        from storage.list_dir import run as _list_dir
-        return _list_dir(args)
+    if function == "list_files":
+        from storage.list_files import run as _list_files
+        return _list_files(args)
     elif function == "list_drives":
         from storage.list_drives import run as _list_drives
         return _list_drives(args)
