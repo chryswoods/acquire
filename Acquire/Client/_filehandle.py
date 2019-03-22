@@ -62,7 +62,7 @@ class FileHandle:
             return "FileHandle::null"
 
         return "FileHandle(filename='%s', acl=%s)" % \
-                                (self.filename(), self.acl())
+            (self.filename(), self.acl())
 
     def is_null(self):
         """Return whether or not this this null"""
