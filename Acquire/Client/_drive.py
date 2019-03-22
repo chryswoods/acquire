@@ -223,6 +223,53 @@ class Drive:
 
         return _FileHandle(fileinfo=fileinfo)
 
+    @staticmethod
+    def _list_drives(user, drive_uid=None,
+                     storage_service=None, storage_url=None):
+        if storage_service is None:
+            storage_service = _get_storage_service(storage_url)
+        else:
+            if not storage_service.is_storage_service():
+                raise TypeError("You can only query drives using "
+                                "a valid storage service")
+
+        from Acquire.Client import Authorisation as _Authorisation
+        authorisation = _Authorisation(resource="UserDrives", user=user)
+
+        args = {"authorisation": authorisation.to_data()}
+
+        if drive_uid is not None:
+            args["drive_uid"] = str(drive_uid)
+
+        response = storage_service.call_function(
+                                    function="list_drives", args=args)
+
+        from Acquire.ObjectStore import string_to_list as _string_to_list
+        from Acquire.Client import DriveMeta as _DriveMeta
+
+        return _string_to_list(response["drives"], _DriveMeta)
+
+    @staticmethod
+    def list_toplevel_drives(user, storage_service=None, storage_url=None):
+        """Return a list of all of the DriveMetas of the drives accessible
+           at the top-level by the passed user on the passed storage
+           service
+        """
+        return Drive._list_drives(user=user,
+                                  storage_service=storage_service,
+                                  storage_url=storage_url)
+
+    def list_drives(self):
+        """Return a list of the DriveMetas of all of the drives contained
+           in this drive that are accessible to the user
+        """
+        if self.is_null():
+            return []
+        else:
+            return Drive._list_drives(user=self.user(),
+                                      drive_uid=self._drive_uid,
+                                      storage_service=self._storage_service)
+
     def list_dir(self, dirname=None, recursive=False):
         """Return the names and details of the files in 'dirname'"""
         if self.is_null():

@@ -42,10 +42,10 @@ class UserDrives:
         """Return whether or not this is null"""
         return self._user_guid is None
 
-    def list_drives(self):
+    def list_drives(self, drive_uid=None):
         """Return a list of all of the top-level drives to which this user
-           has access. This returned names are the user-assigned
-           names of the drives, not their uids
+           has access, or all of the sub-drives of the drive with
+           passed 'drive_uid'
         """
         if self.is_null():
             return []
@@ -54,15 +54,24 @@ class UserDrives:
             as _get_service_account_bucket
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.ObjectStore import encoded_to_string as _encoded_to_string
+        from Acquire.Storage import DriveMeta as _DriveMeta
 
         bucket = _get_service_account_bucket()
 
-        names = _ObjectStore.get_all_object_names(
-                    bucket, "%s/%s" % (_drives_root, self._user_guid))
+        if drive_uid is None:
+            # look for the top-level drives
+            names = _ObjectStore.get_all_object_names(
+                        bucket, "%s/%s" % (_drives_root, self._user_guid))
+        else:
+            # look for the subdrives
+            names = _ObjectStore.get_all_object_names(
+                        bucket, "%s/%s/%s" %
+                        (_subdrives_root, self._user_guid, drive_uid))
 
         drives = []
         for name in names:
-            drives.append(_encoded_to_string(name.split("/")[-1]))
+            drive_name = _encoded_to_string(name.split("/")[-1])
+            drives.append(_DriveMeta(name=drive_name, container=drive_uid))
 
         return drives
 

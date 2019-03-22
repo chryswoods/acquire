@@ -14,6 +14,8 @@ from ._aclrule import *
 from ._userdrives import *
 from ._fileinfo import *
 from ._driveinfo import *
+from ._filemeta import *
+from ._drivemeta import *
 
 try:
     if __IPYTHON__:

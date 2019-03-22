@@ -24,7 +24,8 @@ from Acquire.Crypto import PrivateKey
 from Acquire.Crypto import OTP
 from Acquire.Identity import Authorisation
 from Acquire.Storage import ACLRule
-from Acquire.Storage import FileInfo
+from Acquire.Storage import FileMeta
+from Acquire.Storage import DriveMeta
 
 try:
     if __IPYTHON__:

@@ -7,6 +7,9 @@ def storage_functions(function, args):
     if function == "list_dir":
         from storage.list_dir import run as _list_dir
         return _list_dir(args)
+    elif function == "list_drives":
+        from storage.list_drives import run as _list_drives
+        return _list_drives(args)
     elif function == "open":
         from storage.open import run as _open
         return _open(args)
