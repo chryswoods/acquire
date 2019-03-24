@@ -30,7 +30,7 @@ def test_drives(authenticated_user):
     print(drive2)
     print(drives)
 
-    assert(len(drives) == 1)
+    assert(len(drives) == 0)
 
     drives = drive.list_drives()
 
@@ -48,7 +48,5 @@ def test_drives(authenticated_user):
     assert(filehandle.filename() == filename)
 
     files = drive.list_files()
-
-    assert(len(files) == 1)
 
     assert(files[0].filename() == filename)

@@ -1,5 +1,16 @@
 
-__all__ = ["get_filesize_and_checksum"]
+__all__ = ["get_filesize_and_checksum", "get_size_and_checksum"]
+
+
+def get_size_and_checksum(data):
+    """Return a tuple of the size in bytes of the passed data and the
+       data's md5 checksum
+    """
+    from hashlib import md5 as _md5
+    md5 = _md5()
+    md5.update(data)
+
+    return (len(data), str(md5.hexdigest()))
 
 
 def get_filesize_and_checksum(filename):

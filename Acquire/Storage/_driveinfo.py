@@ -85,14 +85,14 @@ class DriveInfo:
             raise RequestBucketError(
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
 
-    def par_upload_complete(self, par_uid, authorisation):
+    def upload_complete(self, par_uid, authorisation):
         """Call this function to signify that the file associated with
            the PAR with UID 'par_uid' has been uploaded (must have matching
            authorisation)
         """
         from Acquire.Client import PAR as _PAR
         from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.Storage import FileInfo as _FileInfo
+        from Acquire.Client import FileMeta as _FileMeta
 
         if not isinstance(authorisation, _Authorisation):
             raise TypeError("The authorisation must be of type Authorisation")
@@ -115,26 +115,20 @@ class DriveInfo:
 
         par = _PAR.from_data(data["par"])
         file_key = data["file_key"]
-        fileinfo_key = data["fileinfo_key"]
-
-        # get the fileinfo object
-        fileinfo_data = _ObjectStore.get_object_from_json(
-                                        metadata_bucket, fileinfo_key)
-
-        fileinfo = _FileInfo.from_data(fileinfo_data)
+        filemeta = _FileMeta.from_data(data["filemeta"])
 
         # check that the file uploaded matches what was promised
         (objsize, checksum) = _ObjectStore.get_size_and_checksum(file_bucket,
                                                                  file_key)
 
-        if fileinfo.filesize() != objsize or fileinfo.checksum() != checksum:
+        if filemeta.filesize() != objsize or filemeta.checksum() != checksum:
             from Acquire.Storage import FileValidationError
             raise FileValidationError(
                 "The file uploaded for %s does not match what was promised. "
                 "size: %s versus %s, checksum: %s versus %s. Please try "
                 "to upload the file again." %
-                (fileinfo.filename(), fileinfo.filesize(), objsize,
-                 fileinfo.checksum(), checksum))
+                (filemeta.filename(), filemeta.filesize(), objsize,
+                 filemeta.checksum(), checksum))
 
             # probably should delete the broken object here...
 
@@ -144,13 +138,15 @@ class DriveInfo:
         _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
 
         # return the handle to the uploaded file
-        return fileinfo
+        return filemeta
 
-    def get_upload_par(self, filehandle, authorisation, encrypt_key):
-        """Return a PAR that can be used to upload the file described
-           by 'filehandle' to this drive. This is authorised by
-           'authorisation', and will be encrypted using the passed
-           'encrypt_key' public key
+    def upload_file(self, filehandle, authorisation, encrypt_key=None):
+        """Upload the file associated with the passed filehandle.
+           If the filehandle has the data embedded, then this uploads
+           the file data directly and returns a FileMeta for the
+           result. Otherwise, this returns a PAR which should
+           be used to upload the data. The PAR will be encrypted
+           using 'encrypt_key'
         """
         from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Storage import FileInfo as _FileInfo
@@ -166,8 +162,9 @@ class DriveInfo:
         if not isinstance(authorisation, _Authorisation):
             raise TypeError("The authorisation must be of type Authorisation")
 
-        if not isinstance(encrypt_key, _PublicKey):
-            raise TypeError("The encryption key must be of type PublicKey")
+        if encrypt_key is not None:
+            if not isinstance(encrypt_key, _PublicKey):
+                raise TypeError("The encryption key must be of type PublicKey")
 
         authorisation.verify("upload %s" % filehandle.fingerprint())
 
@@ -177,38 +174,55 @@ class DriveInfo:
             raise PermissionError(
                 "You do not have permission to write to this drive")
 
-        # now generate a FileInfo for this FileHandle - this automatically
-        # saves itself with the latest version to the object store
+        # now generate a FileInfo for this FileHandle
         fileinfo = _FileInfo(drive_uid=self._drive_uid,
                              filehandle=filehandle,
                              user_guid=authorisation.user_guid())
 
-        # First save an empty object, so that we can then create
-        # a PAR that can be used to write the actual data
         file_bucket = self._get_file_bucket()
         metadata_bucket = self._get_metadata_bucket()
 
         file_key = fileinfo.latest_version()._file_key()
-        _ObjectStore.set_object_from_json(bucket=file_bucket,
-                                          key=file_key, data=None)
 
-        par = _ObjectStore.create_par(bucket=file_bucket,
-                                      encrypt_key=encrypt_key,
-                                      key=file_key,
-                                      readable=False,
-                                      writeable=True)
+        filedata = None
 
-        par_key = "%s/%s" % (_upload_par_root, par.uid())
+        if filehandle.is_localdata():
+            # the filehandle already contains the file, so save it
+            # directly
+            filedata = filehandle.local_filedata()
 
-        data = {"par": par.to_data(),
-                "file_key": file_key,
-                "fileinfo_key": fileinfo._fileinfo_key()}
+        _ObjectStore.set_object(bucket=file_bucket,
+                                key=file_key,
+                                data=filedata)
 
-        _ObjectStore.set_object_from_json(bucket=metadata_bucket,
-                                          key=par_key,
-                                          data=data)
+        if filedata is None:
+            # the file is too large to include in the filehandle so
+            # we need to use a PAR to upload
+            par = _ObjectStore.create_par(bucket=file_bucket,
+                                          encrypt_key=encrypt_key,
+                                          key=file_key,
+                                          readable=False,
+                                          writeable=True)
 
-        return par
+            par_key = "%s/%s" % (_upload_par_root, par.uid())
+
+            data = {"par": par.to_data(),
+                    "file_key": file_key,
+                    "filemeta": fileinfo.get_filemeta().to_data()}
+
+            _ObjectStore.set_object_from_json(bucket=metadata_bucket,
+                                              key=par_key,
+                                              data=data)
+        else:
+            par = None
+
+        # now save the fileinfo to the object store
+        fileinfo.save()
+
+        if par:
+            return par
+        else:
+            return fileinfo.get_filemeta()
 
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised

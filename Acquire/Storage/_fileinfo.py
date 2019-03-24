@@ -205,9 +205,6 @@ class FileInfo:
 
             self._latest_version = version
 
-            # save this to the object store
-            self.save()
-
     def is_null(self):
         """Return whether or not this is null"""
         return self._filename is None

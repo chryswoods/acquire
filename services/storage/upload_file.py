@@ -3,13 +3,11 @@ from Acquire.Service import create_return_value
 
 from Acquire.Identity import Authorisation
 
-from Acquire.Storage import FileInfo, DriveInfo
+from Acquire.Storage import DriveInfo
 
-from Acquire.Client import FileHandle
+from Acquire.Client import FileHandle, FileMeta, PAR
 
 from Acquire.Crypto import PublicKey
-
-from Acquire.ObjectStore import ObjectStore
 
 
 def run(args):
@@ -27,19 +25,30 @@ def run(args):
                will receipt the storage cost and will delete the PAR
     """
 
-    drive_uid = args["drive_uid"]
     filehandle = FileHandle.from_data(args["filehandle"])
     authorisation = Authorisation.from_data(args["authorisation"])
-    public_key = PublicKey.from_data(args["encryption_key"])
 
-    drive = DriveInfo(drive_uid=drive_uid, user_guid=authorisation.user_guid())
+    try:
+        public_key = PublicKey.from_data(args["encryption_key"])
+    except:
+        public_key = None
 
-    par = drive.get_upload_par(filehandle=filehandle,
-                               authorisation=authorisation,
-                               encrypt_key=public_key)
+    drive_uid = filehandle.drive_uid()
+
+    drive = DriveInfo(drive_uid=drive_uid,
+                      user_guid=authorisation.user_guid())
 
     return_value = create_return_value()
 
-    return_value["upload_par"] = par.to_data()
+    result = drive.upload_file(filehandle=filehandle,
+                               authorisation=authorisation,
+                               encrypt_key=public_key)
+
+    if isinstance(result, PAR):
+        return_value["upload_par"] = result.to_data()
+    elif isinstance(result, FileMeta):
+        return_value["filemeta"] = result.to_data()
+    else:
+        raise TypeError("Unrecognised upload return type: %s" % result)
 
     return return_value

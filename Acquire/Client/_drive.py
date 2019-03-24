@@ -160,44 +160,50 @@ class Drive:
         from Acquire.Client import Authorisation as _Authorisation
         from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Client import PAR as _PAR
-        from Acquire.Storage import FileInfo as _FileInfo
+        from Acquire.Client import FileMeta as _FileMeta
 
-        filehandle = _FileHandle(filename=filename, aclrule=aclrule)
+        filehandle = _FileHandle(filename=filename, drive_uid=self.uid(),
+                                 aclrule=aclrule)
 
         authorisation = _Authorisation(
                             resource="upload %s" % filehandle.fingerprint(),
                             user=self._user)
 
-        privkey = self._user.session_key()
+        args = {"filehandle": filehandle.to_data(),
+                "authorisation": authorisation.to_data()}
 
-        args = {"drive_uid": self.uid(),
-                "authorisation": authorisation.to_data(),
-                "filehandle": filehandle.to_data(),
-                "encryption_key": privkey.public_key().to_data()}
+        if not filehandle.is_localdata():
+            # we will need to upload against a PAR, so need to tell
+            # the service how to encrypt the PAR...
+            privkey = self._user.session_key()
+            args["encryption_key"] = privkey.public_key().to_data()
 
         # will eventually need to authorise payment...
 
         response = self.storage_service().call_function(
                                 function="upload_file", args=args)
 
-        par = _PAR.from_data(response["upload_par"])
+        # if this was a large file, then we will receive a PAR back
+        # which must be used to upload the file
+        if not filehandle.is_localdata():
+            par = _PAR.from_data(response["upload_par"])
+            par.write(privkey).set_object_from_file(
+                                    filehandle.local_filename())
 
-        par.write(privkey).set_object_from_file(filename)
+            authorisation = _Authorisation(
+                                resource="uploaded %s" % par.uid(),
+                                user=self._user)
 
-        authorisation = _Authorisation(
-                            resource="uploaded %s" % par.uid(),
-                            user=self._user)
+            args = {"drive_uid": self.uid(),
+                    "authorisation": authorisation.to_data(),
+                    "par_uid": par.uid()}
 
-        args = {"drive_uid": self.uid(),
-                "authorisation": authorisation.to_data(),
-                "par_uid": par.uid()}
+            response = self.storage_service().call_function(
+                                      function="uploaded_file", args=args)
 
-        response = self.storage_service().call_function(
-                                  function="uploaded_file", args=args)
+        filemeta = _FileMeta.from_data(response["filemeta"])
 
-        fileinfo = _FileInfo.from_data(response["fileinfo"])
-
-        return _FileHandle(fileinfo=fileinfo)
+        return _FileHandle(filemeta=filemeta, drive_uid=self.uid())
 
     @staticmethod
     def _list_drives(user, drive_uid=None,
