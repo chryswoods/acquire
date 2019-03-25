@@ -27,9 +27,6 @@ def test_drives(authenticated_user):
 
     drives = drive2.list_drives()
 
-    print(drive2)
-    print(drives)
-
     assert(len(drives) == 0)
 
     drives = drive.list_drives()
@@ -41,12 +38,33 @@ def test_drives(authenticated_user):
     files = drive.list_files()
     assert(len(files) == 0)
 
-    filehandle = drive.upload(filename=filename)
+    filemeta = drive.upload(filename=filename)
+
+    assert(filemeta.has_metadata())
+    assert(filemeta.acl(authenticated_user.guid()).is_readable())
+    assert(filemeta.acl(authenticated_user.guid()).is_writeable())
 
     (_, filename) = os.path.split(filename)
 
-    assert(filehandle.filename() == filename)
+    assert(filemeta.filename() == filename)
 
     files = drive.list_files()
 
-    assert(files[0].filename() == filename)
+    assert(len(files) == 1)
+
+    assert(files[0].filename() == filemeta.filename())
+    assert(not files[0].has_metadata())
+
+    files = drive.list_files(include_metadata=True)
+
+    assert(len(files) == 1)
+
+    assert(files[0].filename() == filemeta.filename())
+    assert(files[0].has_metadata())
+
+    assert(files[0].uid() == filemeta.uid())
+    assert(files[0].filesize() == filemeta.filesize())
+    assert(files[0].checksum() == filemeta.checksum())
+    assert(files[0].compression_type() == filemeta.compression_type())
+    assert(files[0].uploaded_by() == filemeta.uploaded_by())
+    assert(files[0].uploaded_when() == filemeta.uploaded_when())

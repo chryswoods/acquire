@@ -251,9 +251,10 @@ class FileInfo:
         """Return the object-store filename for this file"""
         return self._filename
 
-    def get_filemeta(self, version=None):
+    def get_filemeta(self, version=None, user_guid=None):
         """Return the metadata about the latest (or specified) version
-           of this file
+           of this file, optionally limiting the view if the
+           passed user_guid does not have read access to this file
         """
         from Acquire.Client import FileMeta as _FileMeta
 
@@ -261,6 +262,12 @@ class FileInfo:
             return _FileMeta()
 
         info = self._version_info(version)
+
+        if user_guid is not None:
+            if not info.acl(user_guid=user_guid).is_readable():
+                from Acquire.Storage import ACLRule as _ACLRule
+                return _FileMeta(filename=self._filename,
+                                 acls={user_guid: _ACLRule.denied()})
 
         return _FileMeta(filename=self._filename, uid=info.uid(),
                          filesize=info.filesize(), checksum=info.checksum(),

@@ -202,12 +202,17 @@ class Drive:
                                       function="uploaded_file", args=args)
 
         filemeta = _FileMeta.from_data(response["filemeta"])
+        filemeta._set_drive(self)
 
         return filemeta
 
     @staticmethod
     def _list_drives(user, drive_uid=None,
                      storage_service=None, storage_url=None):
+        """Return a list of all of the DriveMetas of the drives accessible
+           at the top-level by the passed user on the passed storage
+           service
+        """
         if storage_service is None:
             storage_service = _get_storage_service(storage_url)
         else:
@@ -252,7 +257,7 @@ class Drive:
                                       drive_uid=self._drive_uid,
                                       storage_service=self._storage_service)
 
-    def list_files(self):
+    def list_files(self, include_metadata=False):
         """Return a list of the FileMetas of all of the files contained
            in this drive
         """
@@ -263,11 +268,17 @@ class Drive:
         from Acquire.ObjectStore import string_to_list as _string_to_list
         from Acquire.Storage import FileMeta as _FileMeta
 
+        if include_metadata:
+            include_metadata = True
+        else:
+            include_metadata = False
+
         authorisation = _Authorisation(resource="list_files",
                                        user=self._user)
 
         args = {"authorisation": authorisation.to_data(),
-                "drive_uid": self._drive_uid}
+                "drive_uid": self._drive_uid,
+                "include_metadata": include_metadata}
 
         response = self.storage_service().call_function(function="list_files",
                                                         args=args)

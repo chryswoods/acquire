@@ -19,6 +19,16 @@ class FileMeta:
         self._user_guid = uploaded_by
         self._datetime = uploaded_when
         self._compression = compression
+
+        if acls is not None:
+            if not isinstance(acls, dict):
+                raise TypeError("The passed ACLs must be in a dictionary!")
+
+            from Acquire.Client import ACLRule as _ACLRule
+            for value in acls.values():
+                if not isinstance(value, _ACLRule):
+                    raise TypeError("The passed ACL must be a ACLRule")
+
         self._acls = acls
 
     def __str__(self):
@@ -34,6 +44,12 @@ class FileMeta:
     def is_null(self):
         """Return whether or not this is null"""
         return self._filename is None
+
+    def has_metadata(self):
+        """Return whether or not this file includes all of the
+           metadata. If not, then only the filename is available
+        """
+        return self._uid is not None
 
     def filename(self):
         """Return the name of the file"""

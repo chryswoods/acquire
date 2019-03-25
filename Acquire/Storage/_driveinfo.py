@@ -168,7 +168,9 @@ class DriveInfo:
 
         authorisation.verify("upload %s" % filehandle.fingerprint())
 
-        acl = self.get_acl(authorisation.user_guid())
+        user_guid = authorisation.user_guid()
+
+        acl = self.get_acl(user_guid)
 
         if not acl.is_writeable():
             raise PermissionError(
@@ -329,7 +331,7 @@ class DriveInfo:
                 "You cannot stop yourself being an owner as this would "
                 "leave the drive with no owners!")
 
-    def list_files(self, authorisation=None):
+    def list_files(self, authorisation=None, include_metadata=False):
         """Return the list of FileMeta data for the files contained
            in this Drive. The passed authorisation is needed in case
            the list contents of this drive is not publi
@@ -363,9 +365,25 @@ class DriveInfo:
                                                 self._drive_uid))
 
         files = []
-        for name in names:
-            filename = _encoded_to_string(name.split("/")[-1])
-            files.append(_FileMeta(filename=filename))
+
+        if include_metadata:
+            # we need to load all of the metadata info for this file to
+            # return to the user
+            from Acquire.Storage import FileInfo as _FileInfo
+
+            for name in names:
+                data = _ObjectStore.get_object_from_json(metadata_bucket,
+                                                         name)
+
+                try:
+                    fileinfo = _FileInfo.from_data(data)
+                    files.append(fileinfo.get_filemeta(user_guid=user_guid))
+                except:
+                    pass
+        else:
+            for name in names:
+                filename = _encoded_to_string(name.split("/")[-1])
+                files.append(_FileMeta(filename=filename))
 
         return files
 

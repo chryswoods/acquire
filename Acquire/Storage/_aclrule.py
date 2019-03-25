@@ -71,6 +71,11 @@ class ACLRule:
         return ACLRule(is_owner=False, is_readable=True, is_writeable=False)
 
     @staticmethod
+    def denied():
+        """Return a "denied" (no-access at all) permission rule"""
+        return ACLRule(is_owner=False, is_readable=False, is_writeable=False)
+
+    @staticmethod
     def null():
         """Return a null (no-permission) rule"""
         return ACLRule(is_owner=False, is_readable=False, is_writeable=False)
