@@ -79,7 +79,7 @@ class FileHandle:
        hot and cold storage or pay for extended storage
     """
     def __init__(self, filename=None, remote_filename=None,
-                 aclrule=None, drive_uid=None, filemeta=None, compress=True):
+                 aclrule=None, drive_uid=None, compress=True):
         """Construct a handle for the local file 'filename'. This will
            create the initial version of the file that can be uploaded
            to the storage service
@@ -144,21 +144,6 @@ class FileHandle:
                 self._aclrule = aclrule
             else:
                 self._aclrule = _ACLRule.inherit()
-
-        elif filemeta is not None:
-            # construct as a handle to a remote file
-            from Acquire.Client import FileMeta as _FileMeta
-            if not isinstance(filemeta, _FileMeta):
-                raise TypeError("The filemeta must be type FileMeta")
-
-            self._filename = filemeta.filename()
-            self._aclrule = filemeta.acl()
-            self._compression = filemeta.compression()
-
-            self._filesize = filemeta.filesize()
-            self._checksum = filemeta.checksum()
-
-            self._drive_uid = None
         else:
             self._filename = None
 

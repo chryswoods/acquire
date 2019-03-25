@@ -203,7 +203,7 @@ class Drive:
 
         filemeta = _FileMeta.from_data(response["filemeta"])
 
-        return _FileHandle(filemeta=filemeta, drive_uid=self.uid())
+        return filemeta
 
     @staticmethod
     def _list_drives(user, drive_uid=None,

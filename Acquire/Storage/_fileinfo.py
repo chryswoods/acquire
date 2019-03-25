@@ -11,10 +11,12 @@ _file_root = "storage/file"
 class VersionInfo:
     """This class holds specific info about a version of a file"""
     def __init__(self, filesize=None, checksum=None,
-                 acls=None, user_guid=None):
+                 acls=None, compression=None, user_guid=None):
         """Construct the version of the file that has the passed
            size and checksum, was uploaded by the specified user,
-           and that has the specified acls
+           and that has the specified acls, and whether or not
+           this file is stored and transmitted in a compressed
+           state
         """
         if filesize is not None:
             from Acquire.ObjectStore import create_uuid as _create_uuid
@@ -28,6 +30,7 @@ class VersionInfo:
             self._checksum = checksum
             self._file_uid = _create_uuid()
             self._user_guid = str(user_guid)
+            self._compression = compression
 
             self._acls = {}
 
@@ -65,6 +68,13 @@ class VersionInfo:
         else:
             return self._checksum
 
+    def acls(self):
+        """Return all of the ACLs for this version of the file"""
+        if self.is_null():
+            return None
+        else:
+            return self._acls
+
     def acl(self, user_guid):
         """Return the ACL for this version of the file for the user
            with passed GUID. This ACL will override any ACL inherited
@@ -82,6 +92,25 @@ class VersionInfo:
             return None
         else:
             return self._file_uid
+
+    def is_compressed(self):
+        """Return whether or not this file is stored and transmitted
+           in a compressed state
+        """
+        if self.is_null():
+            return False
+        else:
+            return self._compression is not None
+
+    def compression_type(self):
+        """Return the type of compression used if this file is
+           stored and transmitted in a compressed state, or None
+           if this is not compressed
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._compression
 
     def datetime(self):
         """Return the datetime when this version was created"""
@@ -137,6 +166,9 @@ class VersionInfo:
             data["user_guid"] = self._user_guid
             data["acls"] = _dict_to_string(self._acls)
 
+            if self._compression is not None:
+                data["compression"] = self._compression
+
         return data
 
     @staticmethod
@@ -158,6 +190,11 @@ class VersionInfo:
             v._user_guid = data["user_guid"]
             v._datetime = _string_to_datetime(data["datetime"])
             v._acls = _string_to_dict(data["acls"], _ACLRule)
+
+            if "compression" in data:
+                v._compression = data["compression"]
+            else:
+                v._compression = None
 
         return v
 
@@ -195,12 +232,13 @@ class FileInfo:
             from Acquire.ObjectStore import string_to_filepath \
                 as _string_to_filepath
 
-            self._filename = _string_to_filepath(filehandle.remote_filename())
+            self._filename = _string_to_filepath(filehandle.filename())
             self._encoded_filename = _string_to_encoded(self._filename)
 
             version = VersionInfo(filesize=filehandle.filesize(),
                                   checksum=filehandle.checksum(),
                                   user_guid=user_guid,
+                                  compression=filehandle.compression_type(),
                                   acls=None)
 
             self._latest_version = version
@@ -212,6 +250,24 @@ class FileInfo:
     def filename(self):
         """Return the object-store filename for this file"""
         return self._filename
+
+    def get_filemeta(self, version=None):
+        """Return the metadata about the latest (or specified) version
+           of this file
+        """
+        from Acquire.Client import FileMeta as _FileMeta
+
+        if self.is_null():
+            return _FileMeta()
+
+        info = self._version_info(version)
+
+        return _FileMeta(filename=self._filename, uid=info.uid(),
+                         filesize=info.filesize(), checksum=info.checksum(),
+                         uploaded_by=info.uploaded_by(),
+                         uploaded_when=info.datetime(),
+                         compression=info.compression_type(),
+                         acls=info.acls())
 
     def _version_info(self, version=None):
         """Return the version info object of the latest version of
@@ -238,6 +294,19 @@ class FileInfo:
            of this file
         """
         return self._version_info(version=version).checksum()
+
+    def is_compressed(self, version=None):
+        """Return whether or not the latest (or specified) version
+           of this file is stored and transmitted in a compressed
+           state
+        """
+        return self._version_info(version=version).is_compressed()
+
+    def compression_type(self, version=None):
+        """Return the compression type (or None if not compressed)
+           of the latest (or specified) version of this file
+        """
+        return self._version_info(version=version).compression_type()
 
     def drive_uid(self):
         """Return the UID of the drive on which this file resides"""
