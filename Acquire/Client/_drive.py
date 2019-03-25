@@ -283,4 +283,9 @@ class Drive:
         response = self.storage_service().call_function(function="list_files",
                                                         args=args)
 
-        return _string_to_list(response["files"], _FileMeta)
+        files = _string_to_list(response["files"], _FileMeta)
+
+        for f in files:
+            f._set_drive(self)
+
+        return files

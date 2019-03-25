@@ -51,6 +51,16 @@ class FileMeta:
         """
         return self._uid is not None
 
+    def _set_drive(self, drive):
+        """Internal function called by "Drive" to store the Drive
+           associated with a FileMeta
+        """
+        from Acquire.Client import Drive as _Drive
+        if not isinstance(drive, _Drive):
+            raise TypeError("You can only set a Drive object")
+
+        self._drive = drive
+
     def filename(self):
         """Return the name of the file"""
         return self._filename

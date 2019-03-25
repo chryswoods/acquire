@@ -5,11 +5,12 @@ __all__ = ["ACLRule"]
 
 class ACLRule:
     """This class holds the access control list (ACL) rule for
-       a particular user accessing a particular bucket
+       a particular user accessing a particular resource
     """
-    def __init__(self, is_owner=False, is_readable=False, is_writeable=False):
+    def __init__(self, is_owner=False, is_readable=False,
+                 is_writeable=False, is_executable=False):
         """Construct a default rule. By default this rule has zero
-           permissions (cannot own, read or write)
+           permissions (cannot own, read, write or execute)
         """
         if is_owner is None:
             self._is_owner = None
@@ -32,6 +33,13 @@ class ACLRule:
         else:
             self._is_writeable = False
 
+        if is_executable is None:
+            self._is_executable = None
+        elif is_executable:
+            self._is_executable = True
+        else:
+            self._is_executable = False
+
     def __str__(self):
         s = []
 
@@ -50,73 +58,170 @@ class ACLRule:
         elif self.inherits_readable():
             s.append("inherits_readable")
 
+        if self.is_executable():
+            s.append("executable")
+        elif self.inherits_executable():
+            s.append("inherits_executable")
+
         if len(s) == 0:
-            return "ACLRule(no permission)"
+            return "ACLRule::denied"
         else:
             return "ACLRule(%s)" % ", ".join(s)
+
+    def __eq__(self, other):
+        if not isinstance(other, ACLRule):
+            return False
+
+        return (self._is_owner == other._is_owner) and \
+               (self._is_writeable == other._is_writeable) and \
+               (self._is_readable == other._is_readable) and \
+               (self._is_executable == other._is_executable)
 
     @staticmethod
     def owner():
         """Return the ACLRule of an owner"""
-        return ACLRule(is_owner=True, is_readable=True, is_writeable=True)
+        return ACLRule(is_owner=True, is_readable=True,
+                       is_writeable=True, is_executable=True)
 
     @staticmethod
     def writer():
         """Return the ACLRule of a writer"""
-        return ACLRule(is_owner=False, is_readable=True, is_writeable=True)
+        return ACLRule(is_owner=False, is_readable=True,
+                       is_writeable=True, is_executable=False)
 
     @staticmethod
     def reader():
         """Return the ACLRule of a reader"""
-        return ACLRule(is_owner=False, is_readable=True, is_writeable=False)
+        return ACLRule(is_owner=False, is_readable=True,
+                       is_writeable=False, is_executable=False)
 
     @staticmethod
     def denied():
         """Return a "denied" (no-access at all) permission rule"""
-        return ACLRule(is_owner=False, is_readable=False, is_writeable=False)
+        return ACLRule(is_owner=False, is_readable=False,
+                       is_writeable=False, is_executable=False)
 
     @staticmethod
     def null():
-        """Return a null (no-permission) rule"""
-        return ACLRule(is_owner=False, is_readable=False, is_writeable=False)
+        """Return a null (inherit all permissions) rule"""
+        return ACLRule(is_owner=None, is_readable=None,
+                       is_writeable=None, is_executable=None)
 
     @staticmethod
     def inherit():
         """Return the ACL rule that means 'inherit permissions from parent'"""
-        return ACLRule(is_owner=None, is_readable=None, is_writeable=None)
-
-    def is_null(self):
-        """Return whether or not this is null"""
-        return self._is_owner is False and self._is_readable is False and \
-            self._is_writeable is False
+        return ACLRule(is_owner=None, is_readable=None,
+                       is_writeable=None, is_executable=None)
 
     def is_owner(self):
-        """Return whether or not the user is the owner of the bucket"""
+        """Return whether or not the user is the owner of this resource"""
         return self._is_owner
 
     def is_readable(self):
-        """Return whether or not the user can read this bucket"""
+        """Return whether or not the user can read this resource"""
         return self._is_readable
 
     def is_writeable(self):
-        """Return whether or not the user can write to this bucket"""
+        """Return whether or not the user can write to this resource"""
         return self._is_writeable
 
+    def is_executable(self):
+        """Return whether or not the user can execute this resource"""
+        return self._is_executable
+
     def inherits_owner(self):
-        """Return whether or not this inherits the owner status from parent"""
+        """Return whether or not this inherits the owner status
+           from upstream
+        """
         return self._is_owner is None
 
     def inherits_readable(self):
         """Return whether or not this inherits the reader status
-           from parent
+           from upstream
         """
         return self._is_readable is None
 
     def inherits_writeable(self):
         """Return whether or not this inherits the writeable status
-           from parent
+           from upstream
         """
         return self._is_writeable is None
+
+    def inherits_executable(self):
+        """Return whether or not this inherits the executable status
+           from upstream
+        """
+        return self._is_executable is None
+
+    def inherits_all(self):
+        """Return whether or not this rule inherits all permissions"""
+        return (self._is_owner is None) and \
+               (self._is_readable is None) and \
+               (self._is_writeable is None) and \
+               (self._is_executable is None)
+
+    def is_fully_resolved(self):
+        """Return whether or not this rule is fully resolved"""
+        return (self._is_owner is not None) and \
+               (self._is_readable is not None) and \
+               (self._is_writeable is not None) and \
+               (self._is_executable is not None)
+
+    def denied_all(self):
+        """Return whether or not this rule shows that everything is
+           denied
+        """
+        return (self._is_owner is False) and \
+               (self._is_readable is False) and \
+               (self._is_writeable is False) and \
+               (self._is_executable is False)
+
+    def resolve(self, **kwargs):
+        """Resolve these rules based on the information supplied
+           in 'kwargs'. Notably, if any of our rules are 'inherit',
+           the this will look for an ACLRule called "upstream" to
+           inherit the rule. This function must always return
+           a fully-resolved ACLRule
+        """
+        if self.is_fully_resolved():
+            return self
+
+        if "upstream" not in kwargs:
+            raise PermissionError(
+                "This ACL is not fully resolved, but there is no "
+                "'upstream' ACL to inherit from! %s" % str(self)
+            )
+
+        upstream = kwargs["upstream"]
+
+        if not upstream.is_fully_resolved():
+            del kwargs["upstream"]
+            upstream = upstream.resolve(**kwargs)
+
+        if not upstream.is_fully_resolved():
+            raise PermissionError(
+                "The upstream ACL is not fully resolved! %s" % str(upstream)
+            )
+
+        is_owner = self._is_owner
+        is_readable = self._is_readable
+        is_writeable = self._is_writeable
+        is_executable = self._is_executable
+
+        if is_owner is None:
+            is_owner = upstream._is_owner
+
+        if is_readable is None:
+            is_readable = upstream._is_readable
+
+        if is_writeable is None:
+            is_writeable = upstream._is_writeable
+
+        if is_executable is None:
+            is_executable = upstream._is_executable
+
+        return ACLRule(is_owner=is_owner, is_writeable=is_writeable,
+                       is_readable=is_readable, is_executable=is_executable)
 
     def set_owner(self, is_owner=True):
         """Set the user as an owner of the bucket"""
@@ -163,12 +268,21 @@ class ACLRule:
             self._is_writeable = False
 
     def to_data(self):
-        """Return this object converted to a json-serlisable dictionary"""
-        data = {}
-        data["is_owner"] = self._is_owner
-        data["is_readable"] = self._is_readable
-        data["is_writeable"] = self._is_writeable
-        return data
+        """Return this object converted to a json-serialisable object"""
+        if self.inherits_all():
+            return "inherits"
+        elif self == ACLRule.owner():
+            return "owner"
+        elif self == ACLRule.reader():
+            return "reader"
+        elif self == ACLRule.writer():
+            return "writer"
+        else:
+            data = {}
+            data["is_owner"] = self._is_owner
+            data["is_readable"] = self._is_readable
+            data["is_writeable"] = self._is_writeable
+            return data
 
     @staticmethod
     def from_data(data):
@@ -177,6 +291,16 @@ class ACLRule:
         """
         if data is None:
             return None
+
+        if isinstance(data, str):
+            if data == "inherits":
+                return ACLRule.inherit()
+            elif data == "owner":
+                return ACLRule.owner()
+            elif data == "reader":
+                return ACLRule.reader()
+            elif data == "writer":
+                return ACLRule.writer()
 
         is_owner = None
         is_readable = None
