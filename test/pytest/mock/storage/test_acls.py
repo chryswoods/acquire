@@ -21,8 +21,11 @@ def test_acls():
     rules = ACLRules()
     assert(rules.is_simple_inherit())
 
-    rule = rules.resolve()
+    rule = rules.resolve(must_resolve=False)
     assert(rule.inherits_all())
+
+    with pytest.raises(PermissionError):
+        rule = rules.resolve()
 
     data = rules.to_data()
     assert(data == "inherit")
@@ -32,13 +35,13 @@ def test_acls():
 
     user_guid = "someone@somewhere"
 
-    rule = rules.resolve(user_guid=user_guid)
+    rule = rules.resolve(user_guid=user_guid, must_resolve=False)
     assert(rule.inherits_all())
 
     user_rule = ACLUserRules.owner(user_guid=user_guid)
     assert(user_rule.resolve(user_guid=user_guid).is_owner())
 
-    rules.append(user_rule)
+    rules = ACLRules(rule=user_rule, default_rule=ACLRule.denied())
     assert(rules.resolve(user_guid=user_guid).is_owner())
 
     user_guid2 = "someone_else@somewhere"

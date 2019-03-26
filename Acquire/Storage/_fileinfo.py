@@ -163,15 +163,15 @@ class VersionInfo:
         if data is not None and len(data) > 0:
             from Acquire.ObjectStore import string_to_datetime \
                 as _string_to_datetime
-            from Acquire.ObjectStore import string_to_dict \
-                as _string_to_dict
-            from Acquire.Storage import ACLRule as _ACLRule
+            from Acquire.Storage import ACLRules as _ACLRules
             v._filesize = data["filesize"]
             v._checksum = data["checksum"]
             v._file_uid = data["file_uid"]
             v._user_guid = data["user_guid"]
             v._datetime = _string_to_datetime(data["datetime"])
-            v._acls = _string_to_dict(data["acls"], _ACLRule)
+
+            if "aclrules" in data:
+                v._aclrules = data["aclrules"]
 
             if "compression" in data:
                 v._compression = data["compression"]

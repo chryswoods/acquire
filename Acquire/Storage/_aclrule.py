@@ -3,6 +3,78 @@
 __all__ = ["ACLRule"]
 
 
+def _add(a, b):
+    """Function to do most-permissive addition of two bools
+
+        True + True = True
+        True + False = True
+        False + True = True
+        False + False = False
+
+        True + None = True
+        None + True = True
+
+        False + None = None
+        None + False = None
+
+        None + None = None
+    """
+    if a or b:
+        return True
+    elif (a is None) or (b is None):
+        return None
+    else:
+        return False
+
+
+def _sub(a, b):
+    """Function to do subtraction of two bools
+
+        True - True = False
+        True - False = True
+        False - True = False
+        False - False = False
+
+        True - None = True
+        None - True = False
+
+        False - None = False
+        None - False = None
+
+        None - None = None
+    """
+    if b is True:
+        return False
+    else:
+        return a
+
+
+def _mul(a, b):
+    """Function to do least-permission addition of two bools
+
+        True - True = True
+        True - False = False
+        False - True = False
+        False - False = False
+
+        True - None = True
+        None - True = True
+
+        False - None = False
+        None - False = False
+
+        None - None = None
+    """
+    if a is None:
+        return b
+    elif b is None:
+        return a
+    elif a is False:
+        return False
+    else:
+        return b
+
+
 class ACLRule:
     """This class holds the access control list (ACL) rule for
        a particular user accessing a particular resource
@@ -76,6 +148,50 @@ class ACLRule:
                (self._is_writeable == other._is_writeable) and \
                (self._is_readable == other._is_readable) and \
                (self._is_executable == other._is_executable)
+
+    def __add__(self, other):
+        """Add two rules together - this will combine the parts
+           additively, i.e. the most-permissive options are set
+           in the return value
+        """
+        if not isinstance(other, ACLRule):
+            raise TypeError(
+                "You can only combine together pairs of ACLRules")
+
+        return ACLRule(
+                is_owner=_add(self._is_owner, other._is_owner),
+                is_writeable=_add(self._is_writeable, other._is_writeable),
+                is_readable=_add(self._is_readable, other._is_readable),
+                is_executable=_add(self._is_executable, other._is_executable))
+
+    def __sub__(self, other):
+        """Subtract 'other' from these rules - if 'other' is False
+           the this is set to False
+        """
+        if not isinstance(other, ACLRule):
+            raise TypeError(
+                "You can only combine together pairs of ACLRules")
+
+        return ACLRule(
+                is_owner=_sub(self._is_owner, other._is_owner),
+                is_writeable=_sub(self._is_writeable, other._is_writeable),
+                is_readable=_sub(self._is_readable, other._is_readable),
+                is_executable=_sub(self._is_executable, other._is_executable))
+
+    def __mul__(self, other):
+        """Combine two rules together - this will combine
+           the parts subtractively, i.e. the least permissive options
+           are set in the return value
+        """
+        if not isinstance(other, ACLRule):
+            raise TypeError(
+                "You can only combine together pairs of ACLRules")
+
+        return ACLRule(
+                is_owner=_mul(self._is_owner, other._is_owner),
+                is_writeable=_mul(self._is_writeable, other._is_writeable),
+                is_readable=_mul(self._is_readable, other._is_readable),
+                is_executable=_mul(self._is_executable, other._is_executable))
 
     @staticmethod
     def owner():
@@ -176,29 +292,33 @@ class ACLRule:
                (self._is_writeable is False) and \
                (self._is_executable is False)
 
-    def resolve(self, **kwargs):
+    def resolve(self, must_resolve=True, **kwargs):
         """Resolve these rules based on the information supplied
            in 'kwargs'. Notably, if any of our rules are 'inherit',
            the this will look for an ACLRule called "upstream" to
-           inherit the rule. This function must always return
+           inherit the rule. If 'must_resolve' is true, then
+           this function must always return
            a fully-resolved ACLRule
         """
         if self.is_fully_resolved():
             return self
 
         if "upstream" not in kwargs:
-            raise PermissionError(
-                "This ACL is not fully resolved, but there is no "
-                "'upstream' ACL to inherit from! %s" % str(self)
-            )
+            if must_resolve:
+                raise PermissionError(
+                    "This ACL is not fully resolved, but there is no "
+                    "'upstream' ACL to inherit from! %s" % str(self)
+                )
+            else:
+                return self
 
         upstream = kwargs["upstream"]
 
         if not upstream.is_fully_resolved():
             del kwargs["upstream"]
-            upstream = upstream.resolve(**kwargs)
+            upstream = upstream.resolve(must_resolve=must_resolve, **kwargs)
 
-        if not upstream.is_fully_resolved():
+        if must_resolve and (not upstream.is_fully_resolved()):
             raise PermissionError(
                 "The upstream ACL is not fully resolved! %s" % str(upstream)
             )
@@ -277,6 +397,8 @@ class ACLRule:
             return "reader"
         elif self == ACLRule.writer():
             return "writer"
+        elif self == ACLRule.denied():
+            return "denied"
         else:
             data = {}
             data["is_owner"] = self._is_owner
@@ -301,6 +423,8 @@ class ACLRule:
                 return ACLRule.reader()
             elif data == "writer":
                 return ACLRule.writer()
+            elif data == "denied":
+                return ACLRule.denied()
 
         is_owner = None
         is_readable = None
