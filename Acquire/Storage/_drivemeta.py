@@ -6,7 +6,7 @@ class DriveMeta:
     """This is a lightweight class that holds the metadata about
        a Drive
     """
-    def __init__(self, name=None, uid=None, container=None, acl=None):
+    def __init__(self, name=None, uid=None, container=None, aclrules=None):
         """Construct a drive with a specified name and (optionally) UID.
            'container' is the UID of the drive that contains this drive,
            at least for the user who has accessed this drive via a path.
@@ -23,7 +23,15 @@ class DriveMeta:
                 container = None
 
         self._container = container
-        self._acl = acl
+
+        if aclrules is not None:
+            from Acquire.Storage import ACLRules as _ACLRules
+            if not isinstance(aclrules, _ACLRules):
+                raise PermissionError(
+                    "The ACL rules must be type ACLRules")
+
+        self._aclrules = aclrules
+        self._acl = None
 
     def __str__(self):
         """Return a string representation"""
@@ -49,6 +57,28 @@ class DriveMeta:
 
     def acl(self):
         """If known, return the ACL rule for this drive"""
+        return self._acl
+
+    def aclrules(self):
+        """If known, return the ACL rules for this drive"""
+        return self._aclrules
+
+    def resolve_acl(self, **kwargs):
+        """Resolve the ACL for this file based on the passed arguments
+           (same as for ACLRules.resolve()). This returns the resolved
+           ACL, which is set as self.acl()
+        """
+        if self._aclrules is None:
+            raise PermissionError(
+                "You do not have permission to resolve the ACLs for "
+                "this drive")
+
+        self._acl = self._aclrules.resolve(**kwargs)
+
+        if not self._acl.is_owner():
+            # only owners can see the ACLs
+            self._aclrules = None
+
         return self._acl
 
     def is_top_level(self):

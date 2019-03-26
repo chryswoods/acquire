@@ -8,7 +8,7 @@ class FileMeta:
     """
     def __init__(self, filename=None, uid=None, filesize=None,
                  checksum=None, uploaded_by=None, uploaded_when=None,
-                 compression=None, acls=None):
+                 compression=None, aclrules=None):
         """Construct, specifying the filename, and then optionally
            other useful data
         """
@@ -19,17 +19,15 @@ class FileMeta:
         self._user_guid = uploaded_by
         self._datetime = uploaded_when
         self._compression = compression
+        self._acl = None
+        self._aclrules = None
 
-        if acls is not None:
-            if not isinstance(acls, dict):
-                raise TypeError("The passed ACLs must be in a dictionary!")
+        if aclrules is not None:
+            from Acquire.Storage import ACLRules as _ACLRules
+            if not isinstance(aclrules, _ACLRules):
+                raise TypeError("The aclrules must be type ACLRules")
 
-            from Acquire.Client import ACLRule as _ACLRule
-            for value in acls.values():
-                if not isinstance(value, _ACLRule):
-                    raise TypeError("The passed ACL must be a ACLRule")
-
-        self._acls = acls
+            self._aclrules = aclrules
 
     def __str__(self):
         """Return a string representation"""
@@ -122,22 +120,42 @@ class FileMeta:
         else:
             return self._datetime
 
-    def acl(self, user_guid):
-        """If known, return the ACL for this version of the file for the user
-           with passed GUID. This ACL will override any ACL inherited
-           from the drive
+    def aclrules(self):
+        """If known, return the ACL rules that were used to generate the ACL
+           for this file. Note that you can only see the ACL rules if
+           you are an owner of the file
         """
-        if self.is_null():
-            return None
-
-        if self._acls is None:
-            return None
-
         try:
-            return self._acls[user_guid]
+            return self._aclrules
         except:
-            from Acquire.Storage import ACLRule as _ACLRule
-            return _ACLRule.inherit()
+            return None
+
+    def resolve_acl(self, **kwargs):
+        """Resolve the ACL for this file based on the passed arguments
+           (same as for ACLRules.resolve()). This returns the resolved
+           ACL, which is set as self.acl()
+        """
+        if self._aclrules is None:
+            raise PermissionError(
+                "You do not have permission to resolve the ACLs for this file")
+
+        self._acl = self._aclrules.resolve(**kwargs)
+
+        if not self._acl.is_owner():
+            # only owners can see the ACLs
+            self._aclrules = None
+
+        return self._acl
+
+    def acl(self):
+        """If known, return the ACL for this version of the file for the
+           user that requested this FileMeta (e.g. the user who listed
+           the drive containing this file)
+        """
+        try:
+            return self._acl
+        except:
+            return None
 
     def to_data(self):
         """Return a json-serialisable dictionary of this object"""
@@ -163,10 +181,21 @@ class FileMeta:
         if self._compression is not None:
             data["compression"] = self._compression
 
-        if self._acls is not None:
-            from Acquire.ObjectStore import dict_to_string \
-                as _dict_to_string
-            data["acls"] = _dict_to_string(self._acls)
+        try:
+            acl = self._acl
+        except:
+            acl = None
+
+        if acl is not None:
+            data["acl"] = acl.to_data()
+
+        try:
+            aclrules = self._aclrules
+        except:
+            aclrules = None
+
+        if aclrules is not None:
+            data["aclrules"] = aclrules.to_data()
 
         if self._datetime is not None:
             from Acquire.ObjectStore import datetime_to_string \
@@ -205,10 +234,12 @@ class FileMeta:
             if "compression" in data:
                 f._compression = data["compression"]
 
-            if "acls" in data:
-                from Acquire.ObjectStore import string_to_dict \
-                    as _string_to_dict
+            if "acl" in data:
                 from Acquire.Client import ACLRule as _ACLRule
-                f._acls = _string_to_dict(data["acls"], _ACLRule)
+                f._acl = _ACLRule.from_data(data["acl"])
+
+            if "aclrules" in data:
+                from Acquire.Storage import ACLRules as _ACLRules
+                f._aclrules = _ACLRules.from_data(data["aclrules"])
 
         return f

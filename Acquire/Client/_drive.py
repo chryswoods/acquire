@@ -30,12 +30,12 @@ def _get_storage_service(storage_url=None):
 
 def _create_drive(user, name, drivemeta, storage_service):
     """Internal function used to create a Drive"""
-    from Acquire.Client import ACLRule as _ACLRule
     drive = Drive()
     drive._name = drivemeta.name()
     drive._drive_uid = drivemeta.uid()
     drive._container = drivemeta.container_uids()
     drive._acl = drivemeta.acl()
+    drive._aclrules = drivemeta.aclrules()
     drive._user = user
     drive._storage_service = storage_service
     return drive
@@ -117,12 +117,23 @@ class Drive:
         return self._drive_uid is None
 
     def acl(self):
-        """Return the access control list for the user on this drive"""
-        if self.is_null():
-            from Acquire.Client import ACLRule as _ACLRule
-            return _ACLRule.null()
-        else:
+        """Return the access control list for the user on this drive.
+           If the ACL is not known, then None is returned
+        """
+        try:
             return self._acl
+        except:
+            return None
+
+    def aclrules(self):
+        """Return the ACL rules used to grant access to this drive. This
+           is only visible to owners of this drive. If it is not visible,
+           then None is returned
+        """
+        try:
+            return self._aclrules
+        except:
+            return None
 
     def name(self):
         """Return the name given to this drive by the user"""
@@ -148,22 +159,35 @@ class Drive:
         else:
             return self._storage_service
 
-    def upload(self, filename, aclrule=None):
-        """Upload the file at 'filename' to this drive. This will overwrite
-           any existing file, as long as we have permission to do so.
-           The file will be uploaded to drive/filename (will eventually
-           make this more configurable!)
+    def upload(self, filename, uploaded_name=None, aclrules=None):
+        """Upload the file at 'filename' to this drive, assuming we have
+           write access to this drive. The local file 'filename' will be
+           uploaded to the drive as the file called 'filename' (just the
+           filename - not the full path). If you want to specify the
+           uploaded name then set this as "uploaded_name" (which again will
+           just be a filename - no paths). If a file with this name exists,
+           then this will upload a new version (assuming you have permission).
+           Otherwise this will create a new file. You can set the
+           ACL rules used to grant access to this file via 'aclrule'.
+           If this is not set, then the rules will be derived from either
+           the last version of the file, or inherited from the drive.
         """
         if self.is_null():
             raise PermissionError("Cannot upload a file to a null drive!")
+
+        if uploaded_name is None:
+            uploaded_name = filename
 
         from Acquire.Client import Authorisation as _Authorisation
         from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Client import PAR as _PAR
         from Acquire.Client import FileMeta as _FileMeta
 
-        filehandle = _FileHandle(filename=filename, drive_uid=self.uid(),
-                                 aclrule=aclrule)
+        filehandle = _FileHandle(filename=filename,
+                                 remote_filename=uploaded_name,
+                                 drive_uid=self.uid(),
+                                 user_guid=self._user.guid(),
+                                 aclrules=aclrules)
 
         authorisation = _Authorisation(
                             resource="upload %s" % filehandle.fingerprint(),

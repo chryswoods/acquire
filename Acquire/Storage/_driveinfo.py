@@ -99,12 +99,6 @@ class DriveInfo:
 
         authorisation.verify("uploaded %s" % par_uid)
 
-        acl = self.get_acl(authorisation.user_guid())
-
-        if not acl.is_writeable():
-            raise PermissionError(
-                "You do not have permission to write to this drive")
-
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
         par_key = "%s/%s" % (_upload_par_root, par_uid)
@@ -115,20 +109,30 @@ class DriveInfo:
 
         par = _PAR.from_data(data["par"])
         file_key = data["file_key"]
-        filemeta = _FileMeta.from_data(data["filemeta"])
+        user_guid = data["user_guid"]
+        expected_objsize = data["filesize"]
+        expected_checksum = data["checksum"]
+
+        # the same user who requested the PAR must signify that the upload
+        # has completed
+        if authorisation.user_guid() != user_guid:
+            raise PermissionError(
+                "Only the user with GUID %s can signify that the "
+                "upload is complete. Not user with GUID %s" %
+                (user_guid, authorisation.user_guid()))
 
         # check that the file uploaded matches what was promised
         (objsize, checksum) = _ObjectStore.get_size_and_checksum(file_bucket,
                                                                  file_key)
 
-        if filemeta.filesize() != objsize or filemeta.checksum() != checksum:
+        if expected_objsize != objsize or expected_checksum != checksum:
             from Acquire.Storage import FileValidationError
             raise FileValidationError(
-                "The file uploaded for %s does not match what was promised. "
+                "The file uploaded does not match what was promised. "
                 "size: %s versus %s, checksum: %s versus %s. Please try "
                 "to upload the file again." %
-                (filemeta.filename(), filemeta.filesize(), objsize,
-                 filemeta.checksum(), checksum))
+                (expected_objsize, objsize,
+                 expected_checksum, checksum))
 
             # probably should delete the broken object here...
 
@@ -136,9 +140,6 @@ class DriveInfo:
 
         _ObjectStore.delete_par(bucket=file_bucket, par=par)
         _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
-
-        # return the handle to the uploaded file
-        return filemeta
 
     def upload_file(self, filehandle, authorisation, encrypt_key=None):
         """Upload the file associated with the passed filehandle.
@@ -170,16 +171,27 @@ class DriveInfo:
 
         user_guid = authorisation.user_guid()
 
-        acl = self.get_acl(user_guid)
+        drive_acl = self.aclrules().resolve(user_guid=user_guid)
 
-        if not acl.is_writeable():
+        if not drive_acl.is_writeable():
             raise PermissionError(
-                "You do not have permission to write to this drive")
+                "You do not have permission to write to this drive. "
+                "Your permissions are %s" % str(drive_acl))
 
         # now generate a FileInfo for this FileHandle
         fileinfo = _FileInfo(drive_uid=self._drive_uid,
                              filehandle=filehandle,
                              user_guid=authorisation.user_guid())
+
+        # resolve the ACL for the file from this FileHandle
+        file_acl = fileinfo.aclrules().resolve(upstream=drive_acl,
+                                               user_guid=user_guid)
+
+        if not file_acl.is_writeable():
+            raise PermissionError(
+                "Despite having write permission to the drive, you "
+                "do not have write permission for the file. Your file "
+                "permissions are %s" % str(file_acl))
 
         file_bucket = self._get_file_bucket()
         metadata_bucket = self._get_metadata_bucket()
@@ -210,7 +222,9 @@ class DriveInfo:
 
             data = {"par": par.to_data(),
                     "file_key": file_key,
-                    "filemeta": fileinfo.get_filemeta().to_data()}
+                    "user_guid": user_guid,
+                    "objsize": fileinfo.filesize(),
+                    "checksum": fileinfo.checksum()}
 
             _ObjectStore.set_object_from_json(bucket=metadata_bucket,
                                               key=par_key,
@@ -221,10 +235,8 @@ class DriveInfo:
         # now save the fileinfo to the object store
         fileinfo.save()
 
-        if par:
-            return par
-        else:
-            return fileinfo.get_filemeta()
+        # return the PAR if we need to have a second-stage of upload
+        return par
 
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised
@@ -238,46 +250,13 @@ class DriveInfo:
         except:
             return False
 
-    def num_owners(self):
-        """Return the number of users who have ownership permissions
-           for this drive
-        """
-        n = 0
-        for acl in self._acls.values():
-            n += acl.is_owner()
-
-        return n
-
-    def num_readers(self):
-        """Return the number of users who have read permissions
-           for this drive
-        """
-        n = 0
-        for acl in self._acls.values():
-            n += acl.is_readable()
-
-        return n
-
-    def num_writers(self):
-        """Return the number of users who have write permissions
-           for this drive
-        """
-        n = 0
-        for acl in self._acls.values():
-            n += acl.is_writeable()
-
-        return n
-
-    def get_acl(self, user_guid):
-        """Return the ACL on this drive for the user with passed
-           GUID - this returns ACLRule.null() if the user does
-           not have permission to read this drive
-        """
+    def aclrules(self):
+        """Return the acl rules for this drive"""
         try:
-            return self._acls[user_guid]
+            return self._aclrules
         except:
-            from Acquire.Storage import ACLRule as _ACLRule
-            return _ACLRule.null()
+            from Acquire.Storage import ACLRules as _ACLRules
+            return _ACLRules()
 
     def set_permission(self, user_guid, aclrule):
         """Set the permission for the user with the passed user_guid
@@ -289,9 +268,8 @@ class DriveInfo:
         if self.is_null():
             return
 
-        from Acquire.Storage import ACLRule as _ACLRule
-        if not isinstance(aclrule, _ACLRule):
-            raise TypeError("The aclrule must be type ACLRule")
+        from Acquire.Storage import create_aclrules as _create_aclrules
+        aclrules = _create_aclrules(aclrule=aclrule, user_guid=user_guid)
 
         # make sure we have the latest version
         self.load()
@@ -302,34 +280,12 @@ class DriveInfo:
                 "not the owner of this drive or you failed to provide "
                 "authorisation when you opened the drive")
 
-        try:
-            old_acl = self._acls[user_guid]
-        except:
-            old_acl = _ACLRule()
-
-        if self.num_owners() == 1 and old_acl.is_owner():
-            raise PermissionError(
-                "You cannot remove ownership permissions from the only "
-                "owner of the drive")
-
-        if aclrule.is_null():
-            del self._acls[user_guid]
-        else:
-            self._acls[user_guid] = aclrule
+        # this will append the new rules, ensuring that the change
+        # does not leave the drive ownerless
+        self._aclrules.append(aclrules, ensure_owner=True)
 
         self.save()
         self.load()
-
-        if self.num_owners() == 0:
-            # race-condition of two people removing their ownership
-            # at the same time - restore old permissions and raise an
-            # error
-            self._acls[user_guid] = old_acl
-            self.save()
-            self.load()
-            raise PermissionError(
-                "You cannot stop yourself being an owner as this would "
-                "leave the drive with no owners!")
 
     def list_files(self, authorisation=None, include_metadata=False):
         """Return the list of FileMeta data for the files contained
@@ -348,9 +304,9 @@ class DriveInfo:
 
             user_guid = authorisation.user_guid()
 
-        acl = self.get_acl(user_guid)
+        drive_acl = self.aclrules().resolve(user_guid=user_guid)
 
-        if not acl.is_readable():
+        if not drive_acl.is_readable():
             raise PermissionError(
                 "You don't have permission to read this Drive")
 
@@ -377,7 +333,12 @@ class DriveInfo:
 
                 try:
                     fileinfo = _FileInfo.from_data(data)
-                    files.append(fileinfo.get_filemeta(user_guid=user_guid))
+                    filemeta = fileinfo.get_filemeta()
+                    file_acl = filemeta.resolve_acl(upstream=drive_acl,
+                                                    user_guid=user_guid)
+
+                    if file_acl.is_readable() or file_acl.is_writeable():
+                        files.append(filemeta)
                 except:
                     pass
         else:
@@ -421,8 +382,12 @@ class DriveInfo:
 
             # create a new drive and save it...
             from Acquire.Storage import ACLRule as _ACLRule
+            from Acquire.Storage import create_aclrules as _create_aclrules
 
-            self._acls = {self._user_guid: _ACLRule.owner()}
+            # by default this user is the drive's owner
+            self._aclrules = _create_aclrules(user_guid=self._user_guid,
+                                              aclrule=_ACLRule.owner())
+
             data = self.to_data()
 
             data = _ObjectStore.set_ins_object_from_json(bucket, drive_key,
@@ -462,7 +427,9 @@ class DriveInfo:
         if not self.is_null():
             from Acquire.ObjectStore import dict_to_string as _dict_to_string
             data["uid"] = self._drive_uid
-            data["acls"] = _dict_to_string(self._acls)
+
+            if self._aclrules is not None:
+                data["aclrules"] = self._aclrules.to_data()
 
         return data
 
@@ -476,10 +443,10 @@ class DriveInfo:
         if data is None or len(data) == 0:
             return info
 
-        from Acquire.Storage import ACLRule as _ACLRule
-        from Acquire.ObjectStore import string_to_dict as _string_to_dict
-
-        info._acls = _string_to_dict(data["acls"], _ACLRule)
         info._drive_uid = str(data["uid"])
+
+        if "aclrules" in data:
+            from Acquire.Storage import ACLRules as _ACLRules
+            info._aclrules = _ACLRules.from_data(data["aclrules"])
 
         return info

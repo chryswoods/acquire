@@ -1,5 +1,37 @@
 
-__all__ = ["ACLRules", "ACLUserRules", "ACLGroupRules"]
+__all__ = ["ACLRules", "ACLUserRules", "ACLGroupRules",
+           "create_aclrules"]
+
+
+def create_aclrules(**kwargs):
+    """Create an ACLRules object the passed set of rules, for example
+
+        user_guid, aclrule  would set the aclrule for user to aclrule
+        group_guid, aclrule would set the aclrule for group to aclrule
+
+        default_rule  would set a default rule if nothing else matches
+    """
+
+    aclrules = ACLRules()
+
+    if "aclrule" in kwargs:
+        aclrule = kwargs["aclrule"]
+        if "user_guid" in kwargs:
+            user_rules = ACLUserRules()
+            user_rules.add_user_rule(kwargs["user_guid"], aclrule)
+            aclrules.append(user_rules)
+        elif "group_guid" in kwargs:
+            group_rules = ACLGroupRules()
+            group_rules.add_group_rule(kwargs["group_guid"], aclrule)
+            aclrules.append(group_rules)
+        else:
+            if isinstance(aclrule, ACLRules):
+                aclrules = aclrule
+
+    if "default" in kwargs:
+        aclrules.set_default(kwargs["default"])
+
+    return aclrules
 
 
 def _save_rule(rule):
@@ -185,8 +217,13 @@ class ACLRules:
                 self._default_rule = aclrule
                 self._rules = []
 
-    def append(self, aclrule):
-        """Append a rule onto the set of rules"""
+    def append(self, aclrule, ensure_owner=False):
+        """Append a rule onto the set of rules. This will resolve any
+           conflicts in the rules. If 'ensure_owner' is True, then
+           this will ensure that there is at least one user who
+           has unambiguous ownership of the resource controlled by
+           these ACL rules
+        """
         if self._is_simple_inherit:
             if _is_inherit(aclrule):
                 return
@@ -196,6 +233,10 @@ class ACLRules:
                 self._rules = []
 
         self._rules.append(aclrule)
+
+        if ensure_owner:
+            # work needed to ensure we have ownership
+            pass
 
     def prepend(self, aclrule):
         """Prepend a rule onto the set of rules"""

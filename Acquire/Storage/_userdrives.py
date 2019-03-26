@@ -227,4 +227,4 @@ class UserDrives:
 
         return _DriveMeta(name=drive_name, uid=drive.uid(),
                           container=container,
-                          acl=drive.get_acl(self._user_guid))
+                          aclrules=drive.aclrules())

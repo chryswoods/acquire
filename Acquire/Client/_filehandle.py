@@ -79,18 +79,28 @@ class FileHandle:
        hot and cold storage or pay for extended storage
     """
     def __init__(self, filename=None, remote_filename=None,
-                 aclrule=None, drive_uid=None, compress=True):
+                 aclrules=None, drive_uid=None, user_guid=None,
+                 compress=True):
         """Construct a handle for the local file 'filename'. This will
            create the initial version of the file that can be uploaded
-           to the storage service
+           to the storage service.
         """
         self._local_filename = None
         self._local_filedata = None
         self._compression = None
         self._compressed_filename = None
         self._drive_uid = drive_uid
+        self._user_guid = None
+        self._aclrules = None
 
         if filename is not None:
+            self._user_guid = user_guid
+
+            if aclrules is not None:
+                from Acquire.Storage import create_aclrules as _create_aclrules
+                self._aclrules = _create_aclrules(aclrule=aclrules,
+                                                  user_guid=user_guid)
+
             from Acquire.Access import get_filesize_and_checksum \
                 as _get_filesize_and_checksum
             import os as _os
@@ -135,15 +145,6 @@ class FileHandle:
                 self._filename = _os.path.split(filename)[1]
             else:
                 self._filename = _os.path.split(remote_filename)[1]
-
-            from Acquire.Storage import ACLRule as _ACLRule
-            if aclrule is not None:
-                if not isinstance(aclrule, _ACLRule):
-                    raise TypeError("The ACL rules must be type ACLRule")
-
-                self._aclrule = aclrule
-            else:
-                self._aclrule = _ACLRule.inherit()
         else:
             self._filename = None
 
@@ -158,8 +159,7 @@ class FileHandle:
         if self.is_null():
             return "FileHandle::null"
 
-        return "FileHandle(filename='%s', acl=%s)" % \
-            (self.filename(), self.acl())
+        return "FileHandle(filename='%s')" % self.filename()
 
     def is_null(self):
         """Return whether or not this this null"""
@@ -211,9 +211,13 @@ class FileHandle:
         """Return the UID of the drive on which this file is located"""
         return self._drive_uid
 
-    def acl(self):
-        """Return the ACL rule for this file"""
-        return self._aclrule
+    def aclrules(self):
+        """Return the ACL rules for this file"""
+        return self._aclrules
+
+    def user_guid(self):
+        """Return the GUID of the user who has opened/uploaded this file"""
+        return self._user_guid
 
     def filename(self):
         """Return the remote (object store) filename for this file"""
@@ -254,8 +258,12 @@ class FileHandle:
             data["filename"] = self.filename()
             data["filesize"] = self.filesize()
             data["checksum"] = self.checksum()
-            data["aclrule"] = self.acl().to_data()
+
+            if self._aclrules is not None:
+                data["aclrules"] = self._aclrules.to_data()
+
             data["drive_uid"] = self.drive_uid()
+            data["user_guid"] = self.user_guid()
 
             if self._local_filedata is not None:
                 from Acquire.ObjectStore import bytes_to_string \
@@ -283,11 +291,14 @@ class FileHandle:
             f._filename = data["filename"]
             f._filesize = int(data["filesize"])
             f._checksum = data["checksum"]
-            f._aclrule = _ACLRule.from_data(data["aclrule"])
             f._drive_uid = data["drive_uid"]
 
             if "compression" in data:
                 f._compression = data["compression"]
+
+            if "aclrules" in data:
+                from Acquire.Storage import ACLRules as _ACLRules
+                f._aclrules = _ACLRules.from_data(data["aclrules"])
 
             if "filedata" in data:
                 from Acquire.ObjectStore import string_to_bytes \

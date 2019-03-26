@@ -11,10 +11,10 @@ _file_root = "storage/file"
 class VersionInfo:
     """This class holds specific info about a version of a file"""
     def __init__(self, filesize=None, checksum=None,
-                 acls=None, compression=None, user_guid=None):
+                 aclrules=None, compression=None, user_guid=None):
         """Construct the version of the file that has the passed
            size and checksum, was uploaded by the specified user,
-           and that has the specified acls, and whether or not
+           and that has the specified aclrules, and whether or not
            this file is stored and transmitted in a compressed
            state
         """
@@ -24,27 +24,18 @@ class VersionInfo:
                 as _get_datetime_now
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
-            from Acquire.Storage import ACLRule as _ACLRule
+            from Acquire.Storage import ACLRules as _ACLRules
+
+            if aclrules is not None:
+                if not isinstance(aclrules, _ACLRules):
+                    raise TypeError("The aclrules must be type ACLRules")
 
             self._filesize = filesize
             self._checksum = checksum
             self._file_uid = _create_uuid()
             self._user_guid = str(user_guid)
             self._compression = compression
-
-            self._acls = {}
-
-            if acls is not None:
-                for user, acl in acls.items():
-                    if not isinstance(acl, _ACLRule):
-                        raise TypeError(
-                            "ACL must be of type ACLRule")
-
-                    if user is not None:
-                        self._acls[str(user)] = acl
-                    else:
-                        self._acls[user] = acl
-
+            self._aclrules = aclrules
             self._datetime = _get_datetime_now()
 
         else:
@@ -68,23 +59,12 @@ class VersionInfo:
         else:
             return self._checksum
 
-    def acls(self):
-        """Return all of the ACLs for this version of the file"""
+    def aclrules(self):
+        """Return all of the ACL rules for this version of the file"""
         if self.is_null():
             return None
         else:
-            return self._acls
-
-    def acl(self, user_guid):
-        """Return the ACL for this version of the file for the user
-           with passed GUID. This ACL will override any ACL inherited
-           from the drive
-        """
-        try:
-            return self._acls[user_guid]
-        except:
-            from Acquire.Storage import ACLRule as _ACLRule
-            return _ACLRule.inherit()
+            return self._aclrules
 
     def uid(self):
         """Return the UID of this version of the file in object store"""
@@ -164,7 +144,9 @@ class VersionInfo:
             data["file_uid"] = self._file_uid
             data["datetime"] = _datetime_to_string(self._datetime)
             data["user_guid"] = self._user_guid
-            data["acls"] = _dict_to_string(self._acls)
+
+            if self._aclrules is not None:
+                data["aclrules"] = self._aclrules.to_data()
 
             if self._compression is not None:
                 data["compression"] = self._compression
@@ -239,7 +221,7 @@ class FileInfo:
                                   checksum=filehandle.checksum(),
                                   user_guid=user_guid,
                                   compression=filehandle.compression_type(),
-                                  acls=None)
+                                  aclrules=filehandle.aclrules())
 
             self._latest_version = version
 
@@ -251,10 +233,9 @@ class FileInfo:
         """Return the object-store filename for this file"""
         return self._filename
 
-    def get_filemeta(self, version=None, user_guid=None):
+    def get_filemeta(self, version=None):
         """Return the metadata about the latest (or specified) version
-           of this file, optionally limiting the view if the
-           passed user_guid does not have read access to this file
+           of this file
         """
         from Acquire.Client import FileMeta as _FileMeta
 
@@ -263,18 +244,12 @@ class FileInfo:
 
         info = self._version_info(version)
 
-        if user_guid is not None:
-            if not info.acl(user_guid=user_guid).is_readable():
-                from Acquire.Storage import ACLRule as _ACLRule
-                return _FileMeta(filename=self._filename,
-                                 acls={user_guid: _ACLRule.denied()})
-
         return _FileMeta(filename=self._filename, uid=info.uid(),
                          filesize=info.filesize(), checksum=info.checksum(),
                          uploaded_by=info.uploaded_by(),
                          uploaded_when=info.datetime(),
                          compression=info.compression_type(),
-                         acls=info.acls())
+                         aclrules=info.aclrules())
 
     def _version_info(self, version=None):
         """Return the version info object of the latest version of
@@ -335,12 +310,11 @@ class FileInfo:
         """
         return self._version_info(version=version).uid()
 
-    def acl(self, version=None, user_guid=None):
-        """Return the ACL rule for the specified user, or if that is not
-           specified, the ACL mask that will be applied to the ACL
-           for the drive
+    def aclrules(self, version=None):
+        """Return the ACL rules for the specified user, or if that is not
+           specified, the ACL rules for the current version
         """
-        return self._version_info(version=version).acl(user_guid=user_guid)
+        return self._version_info(version=version).aclrules()
 
     def version(self, version):
         """Return the version at the specified datetime"""
