@@ -34,8 +34,7 @@ class VersionInfo:
             if aclrules is None:
                 from Acquire.Storage import create_aclrules as _create_aclrules
                 from Acquire.Storage import ACLRule as _ACLRule
-                aclrules = _create_aclrules(user_guid=user_guid,
-                                            aclrule=_ACLRule.inherit())
+                aclrules = _create_aclrules(aclrule=_ACLRule.inherit())
             else:
                 if not isinstance(aclrules, _ACLRules):
                     raise TypeError("The aclrules must be type ACLRules")
