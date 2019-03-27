@@ -330,17 +330,13 @@ class DriveInfo:
             for name in names:
                 data = _ObjectStore.get_object_from_json(metadata_bucket,
                                                          name)
+                fileinfo = _FileInfo.from_data(data)
+                filemeta = fileinfo.get_filemeta()
+                file_acl = filemeta.resolve_acl(upstream=drive_acl,
+                                                user_guid=user_guid)
 
-                try:
-                    fileinfo = _FileInfo.from_data(data)
-                    filemeta = fileinfo.get_filemeta()
-                    file_acl = filemeta.resolve_acl(upstream=drive_acl,
-                                                    user_guid=user_guid)
-
-                    if file_acl.is_readable() or file_acl.is_writeable():
-                        files.append(filemeta)
-                except:
-                    pass
+                if file_acl.is_readable() or file_acl.is_writeable():
+                    files.append(filemeta)
         else:
             for name in names:
                 filename = _encoded_to_string(name.split("/")[-1])

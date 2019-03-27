@@ -173,7 +173,6 @@ class VersionInfo:
         if data is not None and len(data) > 0:
             from Acquire.ObjectStore import string_to_datetime \
                 as _string_to_datetime
-            from Acquire.Storage import ACLRules as _ACLRules
             v._filesize = data["filesize"]
             v._checksum = data["checksum"]
             v._file_uid = data["file_uid"]
@@ -181,7 +180,8 @@ class VersionInfo:
             v._datetime = _string_to_datetime(data["datetime"])
 
             if "aclrules" in data:
-                v._aclrules = data["aclrules"]
+                from Acquire.Storage import ACLRules as _ACLRules
+                v._aclrules = _ACLRules.from_data(data["aclrules"])
 
             if "compression" in data:
                 v._compression = data["compression"]
