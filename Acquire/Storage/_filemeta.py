@@ -193,6 +193,28 @@ class FileMeta:
         except:
             return None
 
+    def assert_correct_data(self, filedata=None, filename=None):
+        """Assert that the passed data is correct (right size and
+           checksum)
+        """
+        if filedata is not None:
+            from Acquire.Access import get_size_and_checksum \
+                as _get_size_and_checksum
+            (filesize, checksum) = _get_size_and_checksum(filedata)
+        else:
+            from Acquire.Access import get_filesize_and_checksum \
+                as _get_filesize_and_checksum
+            (filesize, checksum) = _get_filesize_and_checksum(filename)
+
+        if (filesize != self._filesize) or (checksum != self._checksum):
+            from Acquire.Storage import FileValidationError
+            raise FileValidationError(
+                "Possible data corruption. Mismatch in file size or "
+                "checksum for file '%s'. "
+                "%s versus %s, and %s versus %s" %
+                (self._filename, filesize, self._filesize,
+                 checksum, self._checksum))
+
     def to_data(self):
         """Return a json-serialisable dictionary of this object"""
         data = {}

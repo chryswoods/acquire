@@ -6,7 +6,13 @@ import os
 from Acquire.Client import Drive
 
 
-def test_drives(authenticated_user):
+@pytest.fixture(scope="session")
+def tempdir(tmpdir_factory):
+    d = tmpdir_factory.mktemp("")
+    return str(d)
+
+
+def test_drives(authenticated_user, tempdir):
 
     drive_name = "test å∫ç∂ something"
     drive = Drive(user=authenticated_user, name=drive_name,
@@ -34,6 +40,7 @@ def test_drives(authenticated_user):
     assert(len(drives) == 0)
 
     filename = __file__
+    filepath = os.path.split(filename)[0]
 
     files = drive.list_files()
     assert(len(files) == 0)
@@ -71,4 +78,24 @@ def test_drives(authenticated_user):
     assert(files[0].uploaded_when() == filemeta.uploaded_when())
     assert(files[0].acl().is_owner())
 
-    filemeta = drive.download(files[0].filename())
+    (filename, filemeta) = drive.download(files[0].filename(), dir=tempdir)
+
+    # make sure that the two files are identical
+    with open(filename, "rb") as FILE:
+        data1 = FILE.read()
+
+    # remove this tmp file
+    os.unlink(filename)
+
+    with open(__file__, "rb") as FILE:
+        data2 = FILE.read()
+
+    assert(data1 == data2)
+
+    assert(files[0].uid() == filemeta.uid())
+    assert(files[0].filesize() == filemeta.filesize())
+    assert(files[0].checksum() == filemeta.checksum())
+    assert(files[0].compression_type() == filemeta.compression_type())
+    assert(files[0].uploaded_by() == filemeta.uploaded_by())
+    assert(files[0].uploaded_when() == filemeta.uploaded_when())
+    assert(files[0].acl().is_owner())

@@ -229,16 +229,19 @@ class Drive:
 
         return filemeta
 
-    def download(self, filename, downloaded_name=None, version=None):
+    def download(self, filename, downloaded_name=None, version=None,
+                 dir=None):
         """Download the file called 'filename' from this drive into
-           the local directory, ideally called 'filename'
+           the local directory, or 'dir' if specified,
+           ideally called 'filename'
            (or 'downloaded_name' if that is specified). If a local
            file exists with this name, then a new, unique filename
-           will be used. This returns the FileMeta of the file
+           will be used. This returns a dictionary mapping the
+           downloaded filename to the FileMeta of the file
 
            Note that this only downloads files for which you
            have read-access. If the file is not readable then
-           nothing is downloaded a 'denied' FileMeta is returned
+           an exception is raised and nothing is returned
 
            If 'version' is specified then download a specific version
            of the file. Otherwise download the latest version
@@ -249,7 +252,14 @@ class Drive:
         if downloaded_name is None:
             downloaded_name = filename
 
+        from Acquire.Client import create_new_file as \
+            _create_new_file
+
+        downloaded_name = _create_new_file(filename=downloaded_name,
+                                           dir=dir)
+
         from Acquire.Client import Authorisation as _Authorisation
+        from Acquire.Client import FileMeta as _FileMeta
 
         authorisation = _Authorisation(
                             resource="download %s %s" % (self.uid(),
@@ -277,31 +287,41 @@ class Drive:
             # we have already downloaded the file to 'filedata'
             filedata = response["filedata"]
 
-            # validate that the size and checksum are correct
-
             from Acquire.ObjectStore import string_to_bytes \
                 as _string_to_bytes
             filedata = _string_to_bytes(response["filedata"])
             del response["filedata"]
 
+            # validate that the size and checksum are correct
+            filemeta.assert_correct_data(filedata)
+
             if filemeta.is_compressed():
                 # uncompress the data
-                from Acquire.ObjectStore import uncompress_data \
-                    as _uncompress_data
-                filedata = _uncompress_data(filedata,
-                                            filemeta.compression_type())
+                from Acquire.Client import uncompress as _uncompress
+                filedata = _uncompress(
+                                inputdata=filedata,
+                                compression_type=filemeta.compression_type())
 
             # write the data to the specified local file...
-
+            with open(downloaded_name, "wb") as FILE:
+                FILE.write(filedata)
+                FILE.flush()
         else:
             from Acquire.Client import PAR as _PAR
             par = _PAR.from_data(response["upload_par"])
             par.read(privkey).get_object_as_file(downloaded_name)
 
             # validate that the size and checksum are correct
+            filemeta.assert_correct_data(filename=downloaded_name)
 
             # uncompress the file if desired
+            if filemeta.is_compressed():
+                from Acquire.Client import uncompress as _uncompress
+                _uncompress(inputfile=downloaded_name,
+                            outputfile=downloaded_name,
+                            compression_type=filemeta.compression_type())
 
+            # everything is ok, so we don't need the PAR any more
             authorisation = _Authorisation(
                                 resource="downloaded %s" % par.uid(),
                                 user=self._user)
@@ -313,8 +333,7 @@ class Drive:
             self.storage_service().call_function(
                                        function="downloaded", args=args)
 
-
-        return filemeta
+        return (downloaded_name, filemeta)
 
     @staticmethod
     def _list_drives(user, drive_uid=None,

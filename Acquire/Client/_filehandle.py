@@ -36,38 +36,9 @@ def _bz2compress(inputfile, outputfile=None):
        in the current directory for the file. This returns
        the filename for the compressed file
     """
-    import bz2 as _bz2
-    IFILE = open(inputfile, "rb")
-
-    if outputfile is None:
-        import tempfile as _tempfile
-        (tmpfile, outputfile) = _tempfile.mkstemp(dir=".")
-        tmpfile.close()
-        is_tempfile = True
-    else:
-        is_tempfile = False
-
-    try:
-        OFILE = _bz2.BZ2File(outputfile, "wb", compresslevel=9)
-
-        # compress data in MB blocks
-        data = IFILE.read(size=1048576)
-
-        while data:
-            OFILE.write(data)
-            data = IFILE.read(size=1048576)
-
-        IFILE.close()
-        OFILE.close()
-
-        return outputfile
-    except:
-        # make sure we delete the temporary file
-        if is_tempfile:
-            import os as _os
-            _os.unlink(outputfile)
-
-        raise
+    from Acquire.Client import compress as _compress
+    return _compress(inputfile=inputfile, outputfile=outputfile,
+                     compression_type="bz2")
 
 
 class FileHandle:

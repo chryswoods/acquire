@@ -10,6 +10,7 @@ from ._user import *
 from ._account import *
 from ._drive import *
 from ._filehandle import *
+from ._fileops import *
 from ._wallet import *
 from ._errors import *
 from ._cheque import *

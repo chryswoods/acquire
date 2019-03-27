@@ -41,13 +41,13 @@ def run(args):
 
     return_value = create_return_value()
 
-    (filehandle, filedata, par) = drive.download(filename=filename,
-                                                 version=version,
-                                                 authorisation=authorisation,
-                                                 encrypt_key=public_key)
+    (filemeta, filedata, par) = drive.download(filename=filename,
+                                               version=version,
+                                               authorisation=authorisation,
+                                               encrypt_key=public_key)
 
-    if filehandle is not None:
-        return_value["filehandle"] = filehandle.to_data()
+    if filemeta is not None:
+        return_value["filemeta"] = filemeta.to_data()
 
     if filedata is not None:
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
