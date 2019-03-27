@@ -44,28 +44,47 @@ def create_aclrules(**kwargs):
 
         default_rule  would set a default rule if nothing else matches
     """
-    from Acquire.Storage import ACLRule as _ACLRule
+    aclrules = None
 
-    aclrules = ACLRules()
+    if "aclrules" in kwargs:
+        aclrules = kwargs["aclrules"]
+
+        if not isinstance(aclrules, ACLRules):
+            aclrules = ACLRules(rule=aclrules)
+
+        if "default" in kwargs:
+            aclrules.set_default_rule(kwargs["default"])
 
     if "aclrule" in kwargs:
+        from Acquire.Storage import ACLRule as _ACLRule
+
         aclrule = kwargs["aclrule"]
         if "user_guid" in kwargs:
-            aclrules = ACLRules(default_rule=_ACLRule.denied())
+            if aclrules is None:
+                aclrules = ACLRules(default_rule=_ACLRule.denied())
+
             user_rules = ACLUserRules()
             user_rules.add_user_rule(kwargs["user_guid"], aclrule)
             aclrules.append(user_rules)
         elif "group_guid" in kwargs:
-            aclrules = ACLRules(default_rule=_ACLRule.denied())
+            if aclrules is None:
+                aclrules = ACLRules(default_rule=_ACLRule.denied())
+
             group_rules = ACLGroupRules()
             group_rules.add_group_rule(kwargs["group_guid"], aclrule)
             aclrules.append(group_rules)
         else:
             if isinstance(aclrule, ACLRules):
-                aclrules = aclrule
+                aclrules.append(aclrule)
 
     if "default" in kwargs:
-        aclrules.set_default(kwargs["default"])
+        if aclrules is None:
+            aclrules = ACLRules(default_rule=kwargs["default"])
+        else:
+            aclrules.set_default(kwargs["default"])
+
+    if aclrules is None:
+        aclrules = ACLRules()
 
     return aclrules
 

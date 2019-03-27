@@ -20,11 +20,9 @@ def run(args):
 
     drive = DriveInfo(drive_uid=drive_uid, user_guid=authorisation.user_guid())
 
-    filemeta = drive.upload_complete(par_uid=par_uid,
-                                     authorisation=authorisation)
+    drive.upload_complete(par_uid=par_uid,
+                          authorisation=authorisation)
 
     return_value = create_return_value()
-
-    return_value["filemeta"] = filemeta.to_data()
 
     return return_value

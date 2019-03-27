@@ -41,8 +41,9 @@ def test_drives(authenticated_user):
     filemeta = drive.upload(filename=filename)
 
     assert(filemeta.has_metadata())
-    assert(filemeta.acl(authenticated_user.guid()).is_readable())
-    assert(filemeta.acl(authenticated_user.guid()).is_writeable())
+    assert(filemeta.acl().is_owner())
+    assert(filemeta.acl().is_readable())
+    assert(filemeta.acl().is_writeable())
 
     (_, filename) = os.path.split(filename)
 

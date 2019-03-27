@@ -207,6 +207,8 @@ class Drive:
         response = self.storage_service().call_function(
                                 function="upload_file", args=args)
 
+        filemeta = _FileMeta.from_data(response["filemeta"])
+
         # if this was a large file, then we will receive a PAR back
         # which must be used to upload the file
         if not filehandle.is_localdata():
@@ -222,11 +224,8 @@ class Drive:
                     "authorisation": authorisation.to_data(),
                     "par_uid": par.uid()}
 
-            response = self.storage_service().call_function(
-                                      function="uploaded_file", args=args)
-
-        filemeta = _FileMeta.from_data(response["filemeta"])
-        filemeta._set_drive(self)
+            self.storage_service().call_function(
+                                       function="uploaded_file", args=args)
 
         return filemeta
 

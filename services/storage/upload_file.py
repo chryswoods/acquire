@@ -15,8 +15,11 @@ def run(args):
 
        Step 1: upload_file - tells the service that a file of specific
                size and checksum will be uploaded. This gives the service
-               the chance to decide whether this will be allowed, and if
-               so, it returns a PAR that can be used for this upload
+               the chance to decide whether this will be allowed. If the
+               file is small, and was thus included in the FileHandle,
+               then it is uploaded immediately and the operation completes.
+               If the file is large, then we now returns a PAR
+               that can be used for this upload (Step 2)
 
        Step 2: uploaded_file - after the user has used the PAR to upload
                the file, they should call this function to notify
@@ -40,15 +43,14 @@ def run(args):
 
     return_value = create_return_value()
 
-    result = drive.upload_file(filehandle=filehandle,
-                               authorisation=authorisation,
-                               encrypt_key=public_key)
+    (filemeta, par) = drive.upload_file(filehandle=filehandle,
+                                        authorisation=authorisation,
+                                        encrypt_key=public_key)
 
-    if isinstance(result, PAR):
-        return_value["upload_par"] = result.to_data()
-    elif isinstance(result, FileMeta):
-        return_value["filemeta"] = result.to_data()
-    else:
-        raise TypeError("Unrecognised upload return type: %s" % result)
+    if filemeta is not None:
+        return_value["filemeta"] = filemeta.to_data()
+
+    if par is not None:
+        return_value["upload_par"] = par.to_data()
 
     return return_value

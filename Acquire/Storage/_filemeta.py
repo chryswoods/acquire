@@ -135,6 +135,21 @@ class FileMeta:
            (same as for ACLRules.resolve()). This returns the resolved
            ACL, which is set as self.acl()
         """
+        if "resolved_acl" in kwargs:
+            acl = kwargs["resolved_acl"]
+            from Acquire.Storage import ACLRule as _ACLRule
+            if not isinstance(acl, _ACLRule):
+                raise TypeError(
+                    "The resolved ACL must be type ACLRule")
+
+            self._acl = acl.resolve(must_resolve=True, **kwargs)
+
+            if not self._acl.is_owner():
+                # only owners can see the ACLs
+                self._aclrules = None
+
+            return self._acl
+
         if self._aclrules is None:
             raise PermissionError(
                 "You do not have permission to resolve the ACLs for this file")

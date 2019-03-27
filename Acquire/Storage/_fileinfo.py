@@ -26,7 +26,17 @@ class VersionInfo:
                 as _datetime_to_string
             from Acquire.Storage import ACLRules as _ACLRules
 
-            if aclrules is not None:
+            if user_guid is None:
+                raise PermissionError(
+                    "You must specify the user_guid of the user who is "
+                    "uploading this version of the file!")
+
+            if aclrules is None:
+                from Acquire.Storage import create_aclrules as _create_aclrules
+                from Acquire.Storage import ACLRule as _ACLRule
+                aclrules = _create_aclrules(user_guid=user_guid,
+                                            aclrule=_ACLRule.inherit())
+            else:
                 if not isinstance(aclrules, _ACLRules):
                     raise TypeError("The aclrules must be type ACLRules")
 
@@ -233,9 +243,10 @@ class FileInfo:
         """Return the object-store filename for this file"""
         return self._filename
 
-    def get_filemeta(self, version=None):
+    def get_filemeta(self, version=None, resolved_acl=None):
         """Return the metadata about the latest (or specified) version
-           of this file
+           of this file. If 'resolved_acl' is specified, then
+           return the
         """
         from Acquire.Client import FileMeta as _FileMeta
 
@@ -244,12 +255,18 @@ class FileInfo:
 
         info = self._version_info(version)
 
-        return _FileMeta(filename=self._filename, uid=info.uid(),
-                         filesize=info.filesize(), checksum=info.checksum(),
-                         uploaded_by=info.uploaded_by(),
-                         uploaded_when=info.datetime(),
-                         compression=info.compression_type(),
-                         aclrules=info.aclrules())
+        filemeta = _FileMeta(filename=self._filename, uid=info.uid(),
+                             filesize=info.filesize(),
+                             checksum=info.checksum(),
+                             uploaded_by=info.uploaded_by(),
+                             uploaded_when=info.datetime(),
+                             compression=info.compression_type(),
+                             aclrules=info.aclrules())
+
+        if resolved_acl is not None:
+            filemeta.resolve_acl(resolved_acl=resolved_acl)
+
+        return filemeta
 
     def _version_info(self, version=None):
         """Return the version info object of the latest version of

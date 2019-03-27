@@ -236,7 +236,7 @@ class DriveInfo:
         fileinfo.save()
 
         # return the PAR if we need to have a second-stage of upload
-        return par
+        return (fileinfo.get_filemeta(resolved_acl=file_acl), par)
 
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised

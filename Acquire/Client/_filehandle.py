@@ -96,10 +96,12 @@ class FileHandle:
         if filename is not None:
             self._user_guid = user_guid
 
-            if aclrules is not None:
+            if aclrules is None:
+                # will be automatically set to 'inherit' on the service
+                self._aclrules = None
+            else:
                 from Acquire.Storage import create_aclrules as _create_aclrules
-                self._aclrules = _create_aclrules(aclrule=aclrules,
-                                                  user_guid=user_guid)
+                self._aclrules = _create_aclrules(aclrules=aclrules)
 
             from Acquire.Access import get_filesize_and_checksum \
                 as _get_filesize_and_checksum
