@@ -13,7 +13,7 @@ from Acquire.Crypto import PublicKey
 def run(args):
     """Call this function to initiate the two-step file-upload process.
 
-       Step 1: upload_file - tells the service that a file of specific
+       Step 1: upload - tells the service that a file of specific
                size and checksum will be uploaded. This gives the service
                the chance to decide whether this will be allowed. If the
                file is small, and was thus included in the FileHandle,
@@ -21,7 +21,7 @@ def run(args):
                If the file is large, then we now returns a PAR
                that can be used for this upload (Step 2)
 
-       Step 2: uploaded_file - after the user has used the PAR to upload
+       Step 2: uploaded - after the user has used the PAR to upload
                the file, they should call this function to notify
                the service that the file has been successfully uploaded.
                This will verify that the file has been uploaded correctly,
@@ -43,9 +43,9 @@ def run(args):
 
     return_value = create_return_value()
 
-    (filemeta, par) = drive.upload_file(filehandle=filehandle,
-                                        authorisation=authorisation,
-                                        encrypt_key=public_key)
+    (filemeta, par) = drive.upload(filehandle=filehandle,
+                                   authorisation=authorisation,
+                                   encrypt_key=public_key)
 
     if filemeta is not None:
         return_value["filemeta"] = filemeta.to_data()

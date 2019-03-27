@@ -5,7 +5,7 @@ _drive_root = "storage/drive"
 
 _fileinfo_root = "storage/file"
 
-_upload_par_root = "storage/upload_par"
+_par_root = "storage/file_pars"
 
 
 class DriveInfo:
@@ -27,6 +27,12 @@ class DriveInfo:
 
         if self._drive_uid is not None:
             self.load()
+
+    def __str__(self):
+        if self.is_null():
+            return "Drive::null"
+        else:
+            return "Drive(%s)" % self._drive_uid
 
     def is_null(self):
         return self._drive_uid is None
@@ -101,7 +107,7 @@ class DriveInfo:
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
-        par_key = "%s/%s" % (_upload_par_root, par_uid)
+        par_key = "%s/%s" % (_par_root, par_uid)
         file_bucket = self._get_file_bucket()
         metadata_bucket = self._get_metadata_bucket()
 
@@ -141,7 +147,7 @@ class DriveInfo:
         _ObjectStore.delete_par(bucket=file_bucket, par=par)
         _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
 
-    def upload_file(self, filehandle, authorisation, encrypt_key=None):
+    def upload(self, filehandle, authorisation, encrypt_key=None):
         """Upload the file associated with the passed filehandle.
            If the filehandle has the data embedded, then this uploads
            the file data directly and returns a FileMeta for the
@@ -218,7 +224,7 @@ class DriveInfo:
                                           readable=False,
                                           writeable=True)
 
-            par_key = "%s/%s" % (_upload_par_root, par.uid())
+            par_key = "%s/%s" % (_par_root, par.uid())
 
             data = {"par": par.to_data(),
                     "file_key": file_key,
@@ -237,6 +243,141 @@ class DriveInfo:
 
         # return the PAR if we need to have a second-stage of upload
         return (fileinfo.get_filemeta(resolved_acl=file_acl), par)
+
+    def download_complete(self, par_uid, authorisation):
+        """Call this function to signify that the file associated with
+           the PAR with UID 'par_uid' has been downloaded (must have matching
+           authorisation)
+        """
+        from Acquire.Client import PAR as _PAR
+        from Acquire.Client import Authorisation as _Authorisation
+
+        if not isinstance(authorisation, _Authorisation):
+            raise TypeError("The authorisation must be of type Authorisation")
+
+        authorisation.verify("downloaded %s" % par_uid)
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+
+        par_key = "%s/%s" % (_par_root, par_uid)
+        file_bucket = self._get_file_bucket()
+        metadata_bucket = self._get_metadata_bucket()
+
+        data = _ObjectStore.get_object_from_json(metadata_bucket, par_key)
+
+        par = _PAR.from_data(data["par"])
+        file_key = data["file_key"]
+        user_guid = data["user_guid"]
+
+        # the same user who requested the PAR must signify that the upload
+        # has completed
+        if authorisation.user_guid() != user_guid:
+            raise PermissionError(
+                "Only the user with GUID %s can signify that the "
+                "upload is complete. Not user with GUID %s" %
+                (user_guid, authorisation.user_guid()))
+
+        if par.is_writeable():
+            expected_objsize = data["filesize"]
+            expected_checksum = data["checksum"]
+
+            # check that use of the PAR has not changed the file...
+            (objsize, checksum) = _ObjectStore.get_size_and_checksum(
+                                            file_bucket, file_key)
+
+            if expected_objsize != objsize or expected_checksum != checksum:
+                from Acquire.Storage import FileValidationError
+                raise FileValidationError(
+                    "The file downloaded does not match what was promised. "
+                    "size: %s versus %s, checksum: %s versus %s. This "
+                    "suggests that the PAR has been used incorrectly!" %
+                    (expected_objsize, objsize,
+                     expected_checksum, checksum))
+
+                # probably should delete the broken object here...
+
+        _ObjectStore.delete_par(bucket=file_bucket, par=par)
+        _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
+
+    def download(self, filename, authorisation,
+                 version=None, encrypt_key=None):
+        """Download the file called filename. This will return a
+           FileHandle that describes the file. If the file is
+           sufficiently small, then the filedata will be embedded
+           into this handle. Otherwise a PAR will be generated and
+           also returned to allow the file to be downloaded
+           separately. The PAR will be encrypted with 'encrypt_key'
+        """
+        from Acquire.Client import FileHandle as _FileHandle
+        from Acquire.Storage import FileInfo as _FileInfo
+        from Acquire.Identity import Authorisation as _Authorisation
+        from Acquire.Crypto import PublicKey as _PublicKey
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import string_to_encoded \
+            as _string_to_encoded
+
+        if not isinstance(authorisation, _Authorisation):
+            raise TypeError("The authorisation must be of type Authorisation")
+
+        if not isinstance(encrypt_key, _PublicKey):
+            raise TypeError("The encryption key must be of type PublicKey")
+
+        authorisation.verify("download %s %s" % (self._drive_uid,
+                                                 filename))
+
+        user_guid = authorisation.user_guid()
+
+        drive_acl = self.aclrules().resolve(user_guid=user_guid)
+
+        # even if the drive_acl is not readable by this user, they
+        # may have read permission for the file...
+
+        # now get the FileInfo for this FileHandle
+        fileinfo = _FileInfo.load(drive=self,
+                                  filename=filename, version=version)
+
+        # resolve the ACL for the file from this FileHandle
+        file_acl = fileinfo.aclrules().resolve(upstream=drive_acl,
+                                               user_guid=user_guid)
+
+        if not file_acl.is_readable():
+            raise PermissionError(
+                "You do not have read permissions for the file. Your file "
+                "permissions are %s" % str(file_acl))
+
+        file_bucket = self._get_file_bucket()
+        metadata_bucket = self._get_metadata_bucket()
+
+        file_key = fileinfo.latest_version()._file_key()
+        filedata = None
+        par = None
+
+        if fileinfo.filesize() < 1048576:
+            # one-trip download of files that are less than 1 MB
+            filedata = _ObjectStore.get_object(file_bucket, file_key)
+        else:
+            # the file is too large to include in the download so
+            # we need to use a PAR to download
+            par = _ObjectStore.create_par(bucket=file_bucket,
+                                          encrypt_key=encrypt_key,
+                                          key=file_key,
+                                          readable=True,
+                                          writeable=False)
+
+            par_key = "%s/%s" % (_par_root, par.uid())
+
+            data = {"par": par.to_data(),
+                    "file_key": file_key,
+                    "user_guid": user_guid,
+                    "objsize": fileinfo.filesize(),
+                    "checksum": fileinfo.checksum()}
+
+            _ObjectStore.set_object_from_json(bucket=metadata_bucket,
+                                              key=par_key,
+                                              data=data)
+
+        # return the filemeta, and either the filedata or par
+        return (fileinfo.get_filemeta(resolved_acl=file_acl), filedata, par)
 
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised

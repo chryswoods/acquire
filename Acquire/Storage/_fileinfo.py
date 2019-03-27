@@ -200,7 +200,8 @@ class FileInfo:
        Acquire.Client.FileHandle provide the client-side view
        of Acquire.Storage.FileInfo
     """
-    def __init__(self, drive_uid=None, filehandle=None, user_guid=None):
+    def __init__(self, drive_uid=None, filehandle=None, user_guid=None,
+                 filename=None, version=None):
         """Construct from a passed filehandle of a file that will be
            uploaded
         """
@@ -382,9 +383,9 @@ class FileInfo:
                                           data=self.to_data())
 
     @staticmethod
-    def load(drive, filename):
+    def load(drive, filename, version=None):
         """Load and return the FileInfo for the file called 'filename'
-           on the passed 'drive'"""
+           on the passed 'drive'. """
         from Acquire.Storage import DriveInfo as _DriveInfo
 
         if not isinstance(drive, _DriveInfo):
@@ -396,20 +397,29 @@ class FileInfo:
 
         metadata_bucket = drive._get_metadata_bucket()
 
+        encoded_filename = _string_to_encoded(filename)
+
+        filekey = "%s/%s/%s" % (_fileinfo_root, drive.uid(),
+                                encoded_filename)
+
         try:
             data = _ObjectStore.get_object_from_json(bucket=metadata_bucket,
-                                                     key=self._filinfo_key())
-        except:
+                                                     key=filekey)
+        except Exception as e:
+            print(e)
             data = None
 
         if data is None:
             from Acquire.Storage import MissingFileError
             raise MissingFileError(
-                "Cannnot find the file called '%s' on drive '%s'" %
+                "Cannot find the file called '%s' on drive '%s'" %
                 (filename, drive))
 
         f = FileInfo.from_data(data)
-        f._drive_uid = drive.drive_uid()
+        f._drive_uid = drive.uid()
+
+        if version is not None:
+            f._latest_version = f._version_info(version=version)
 
         return f
 

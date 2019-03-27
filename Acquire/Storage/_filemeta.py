@@ -39,6 +39,20 @@ class FileMeta:
     def __repr__(self):
         return self.__str__()
 
+    def _set_denied(self):
+        """Call this function to remove all information that should
+           not be visible to someone who has denied access to the file
+        """
+        self._uid = None
+        self._filesize = None
+        self._checksum = None
+        self._user_guid = None
+        self._datetime = None
+        self._compression = None
+        self._aclrules = None
+        from Acquire.Storage import ACLRule as _ACLRule
+        self._acl = _ACLRule.denied()
+
     def is_null(self):
         """Return whether or not this is null"""
         return self._filename is None
@@ -148,6 +162,10 @@ class FileMeta:
                 # only owners can see the ACLs
                 self._aclrules = None
 
+            if self._acl.denied_all():
+                # not allowed to know anythign about the file
+                self._set_denied()
+
             return self._acl
 
         if self._aclrules is None:
@@ -159,6 +177,9 @@ class FileMeta:
         if not self._acl.is_owner():
             # only owners can see the ACLs
             self._aclrules = None
+
+        if self._acl.denied_all():
+            self._set_denied()
 
         return self._acl
 

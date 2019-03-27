@@ -205,7 +205,7 @@ class Drive:
         # will eventually need to authorise payment...
 
         response = self.storage_service().call_function(
-                                function="upload_file", args=args)
+                                function="upload", args=args)
 
         filemeta = _FileMeta.from_data(response["filemeta"])
 
@@ -225,7 +225,94 @@ class Drive:
                     "par_uid": par.uid()}
 
             self.storage_service().call_function(
-                                       function="uploaded_file", args=args)
+                                       function="uploaded", args=args)
+
+        return filemeta
+
+    def download(self, filename, downloaded_name=None, version=None):
+        """Download the file called 'filename' from this drive into
+           the local directory, ideally called 'filename'
+           (or 'downloaded_name' if that is specified). If a local
+           file exists with this name, then a new, unique filename
+           will be used. This returns the FileMeta of the file
+
+           Note that this only downloads files for which you
+           have read-access. If the file is not readable then
+           nothing is downloaded a 'denied' FileMeta is returned
+
+           If 'version' is specified then download a specific version
+           of the file. Otherwise download the latest version
+        """
+        if self.is_null():
+            raise PermissionError("Cannot download from a null drive!")
+
+        if downloaded_name is None:
+            downloaded_name = filename
+
+        from Acquire.Client import Authorisation as _Authorisation
+
+        authorisation = _Authorisation(
+                            resource="download %s %s" % (self.uid(),
+                                                         filename),
+                            user=self._user)
+
+        privkey = self._user.session_key()
+
+        args = {"drive_uid": self.uid(),
+                "filename": filename,
+                "authorisation": authorisation.to_data(),
+                "encryption_key": privkey.public_key().to_data()}
+
+        if version is not None:
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+            args["version"] = _datetime_to_string(version)
+
+        response = self.storage_service().call_function(
+                                function="download", args=args)
+
+        filemeta = _FileMeta.from_data(response["filemeta"])
+
+        if "filedata" in response:
+            # we have already downloaded the file to 'filedata'
+            filedata = response["filedata"]
+
+            # validate that the size and checksum are correct
+
+            from Acquire.ObjectStore import string_to_bytes \
+                as _string_to_bytes
+            filedata = _string_to_bytes(response["filedata"])
+            del response["filedata"]
+
+            if filemeta.is_compressed():
+                # uncompress the data
+                from Acquire.ObjectStore import uncompress_data \
+                    as _uncompress_data
+                filedata = _uncompress_data(filedata,
+                                            filemeta.compression_type())
+
+            # write the data to the specified local file...
+
+        else:
+            from Acquire.Client import PAR as _PAR
+            par = _PAR.from_data(response["upload_par"])
+            par.read(privkey).get_object_as_file(downloaded_name)
+
+            # validate that the size and checksum are correct
+
+            # uncompress the file if desired
+
+            authorisation = _Authorisation(
+                                resource="downloaded %s" % par.uid(),
+                                user=self._user)
+
+            args = {"drive_uid": self.uid(),
+                    "authorisation": authorisation.to_data(),
+                    "par_uid": par.uid()}
+
+            self.storage_service().call_function(
+                                       function="downloaded", args=args)
+
 
         return filemeta
 

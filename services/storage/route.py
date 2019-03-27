@@ -4,7 +4,13 @@ def storage_functions(function, args):
     """This function routes calls to all of the storage service's
        extra functions
     """
-    if function == "list_files":
+    if function == "download":
+        from storage.download import run as _download
+        return _download(args)
+    elif function == "downloaded":
+        from storage.downloaded import run as _downloaded
+        return _downloaded(args)
+    elif function == "list_files":
         from storage.list_files import run as _list_files
         return _list_files(args)
     elif function == "list_drives":
@@ -16,12 +22,12 @@ def storage_functions(function, args):
     elif function == "open_drive":
         from storage.open_drive import run as _open_drive
         return _open_drive(args)
-    elif function == "upload_file":
-        from storage.upload_file import run as _upload_file
-        return _upload_file(args)
-    elif function == "uploaded_file":
-        from storage.uploaded_file import run as _uploaded_file
-        return _uploaded_file(args)
+    elif function == "upload":
+        from storage.upload import run as _upload
+        return _upload(args)
+    elif function == "uploaded":
+        from storage.uploaded import run as _uploaded
+        return _uploaded(args)
     else:
         return None
 

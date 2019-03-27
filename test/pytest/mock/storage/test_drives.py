@@ -69,3 +69,6 @@ def test_drives(authenticated_user):
     assert(files[0].compression_type() == filemeta.compression_type())
     assert(files[0].uploaded_by() == filemeta.uploaded_by())
     assert(files[0].uploaded_when() == filemeta.uploaded_when())
+    assert(files[0].acl().is_owner())
+
+    filemeta = drive.download(files[0].filename())
