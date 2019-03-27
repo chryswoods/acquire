@@ -3,7 +3,7 @@
 __all__ = ["ACLRule"]
 
 
-def _add(a, b):
+def _max(a, b):
     """Function to do most-permissive addition of two bools
 
         True + True = True
@@ -14,17 +14,19 @@ def _add(a, b):
         True + None = True
         None + True = True
 
-        False + None = None
-        None + False = None
+        False + None = False
+        None + False = False
 
         None + None = None
     """
-    if a or b:
+    if a is None:
+        return b
+    elif b is None:
+        return a
+    elif a is True:
         return True
-    elif (a is None) or (b is None):
-        return None
     else:
-        return False
+        return b
 
 
 def _sub(a, b):
@@ -49,19 +51,19 @@ def _sub(a, b):
         return a
 
 
-def _mul(a, b):
+def _min(a, b):
     """Function to do least-permission addition of two bools
 
-        True - True = True
-        True - False = False
-        False - True = False
-        False - False = False
+        True * True = True
+        True * False = False
+        False * True = False
+        False * False = False
 
-        True - None = True
-        None - True = True
+        True * None = True
+        None * True = True
 
-        False - None = False
-        None - False = False
+        False * None = False
+        None * False = False
 
         None - None = None
     """
@@ -79,10 +81,10 @@ class ACLRule:
     """This class holds the access control list (ACL) rule for
        a particular user accessing a particular resource
     """
-    def __init__(self, is_owner=False, is_readable=False,
-                 is_writeable=False, is_executable=False):
-        """Construct a default rule. By default this rule has zero
-           permissions (cannot own, read, write or execute)
+    def __init__(self, is_owner=None, is_readable=None,
+                 is_writeable=None, is_executable=None):
+        """Construct a default rule. By default this rule has
+           fully-inherit permissions (nothing is set either way)
         """
         if is_owner is None:
             self._is_owner = None
@@ -159,10 +161,10 @@ class ACLRule:
                 "You can only combine together pairs of ACLRules")
 
         return ACLRule(
-                is_owner=_add(self._is_owner, other._is_owner),
-                is_writeable=_add(self._is_writeable, other._is_writeable),
-                is_readable=_add(self._is_readable, other._is_readable),
-                is_executable=_add(self._is_executable, other._is_executable))
+                is_owner=_max(self._is_owner, other._is_owner),
+                is_writeable=_max(self._is_writeable, other._is_writeable),
+                is_readable=_max(self._is_readable, other._is_readable),
+                is_executable=_max(self._is_executable, other._is_executable))
 
     def __sub__(self, other):
         """Subtract 'other' from these rules - if 'other' is False
@@ -188,16 +190,22 @@ class ACLRule:
                 "You can only combine together pairs of ACLRules")
 
         return ACLRule(
-                is_owner=_mul(self._is_owner, other._is_owner),
-                is_writeable=_mul(self._is_writeable, other._is_writeable),
-                is_readable=_mul(self._is_readable, other._is_readable),
-                is_executable=_mul(self._is_executable, other._is_executable))
+                is_owner=_min(self._is_owner, other._is_owner),
+                is_writeable=_min(self._is_writeable, other._is_writeable),
+                is_readable=_min(self._is_readable, other._is_readable),
+                is_executable=_min(self._is_executable, other._is_executable))
 
     @staticmethod
     def owner():
         """Return the ACLRule of an owner"""
         return ACLRule(is_owner=True, is_readable=True,
                        is_writeable=True, is_executable=True)
+
+    @staticmethod
+    def executer():
+        """Return the ACLRule of an executer"""
+        return ACLRule(is_owner=False, is_executable=True,
+                       is_writeable=True, is_readable=True)
 
     @staticmethod
     def writer():
@@ -292,6 +300,35 @@ class ACLRule:
                (self._is_writeable is False) and \
                (self._is_executable is False)
 
+    def _force_resolve(self, unresolved=False):
+        """This returns a fully resolved ACL, where anything that
+           is not resolved is set equal to 'unresolved'
+        """
+        if unresolved:
+            unresolved = True
+        else:
+            unresolved = False
+
+        is_owner = self._is_owner
+        is_readable = self._is_readable
+        is_writeable = self._is_writeable
+        is_executable = self._is_executable
+
+        if is_owner is None:
+            is_owner = unresolved
+
+        if is_readable is None:
+            is_readable = unresolved
+
+        if is_executable is None:
+            is_executable = unresolved
+
+        if is_writeable is None:
+            is_writeable = unresolved
+
+        return ACLRule(is_owner=is_owner, is_writeable=is_writeable,
+                       is_readable=is_readable, is_executable=is_executable)
+
     def resolve(self, must_resolve=True, **kwargs):
         """Resolve these rules based on the information supplied
            in 'kwargs'. Notably, if any of our rules are 'inherit',
@@ -303,12 +340,14 @@ class ACLRule:
         if self.is_fully_resolved():
             return self
 
+        if "unresolved" in kwargs:
+            unresolved = kwargs["unresolved"]
+        else:
+            unresolved = False
+
         if "upstream" not in kwargs:
             if must_resolve:
-                raise PermissionError(
-                    "This ACL is not fully resolved, but there is no "
-                    "'upstream' ACL to inherit from! %s" % str(self)
-                )
+                return self._force_resolve(unresolved=unresolved)
             else:
                 return self
 
@@ -319,9 +358,7 @@ class ACLRule:
             upstream = upstream.resolve(must_resolve=must_resolve, **kwargs)
 
         if must_resolve and (not upstream.is_fully_resolved()):
-            raise PermissionError(
-                "The upstream ACL is not fully resolved! %s" % str(upstream)
-            )
+            upstream = upstream._force_resolve(unresolved=unresolved)
 
         is_owner = self._is_owner
         is_readable = self._is_readable
@@ -399,6 +436,8 @@ class ACLRule:
             return "writer"
         elif self == ACLRule.denied():
             return "denied"
+        elif self == ACLRule.executer():
+            return "executer"
         else:
             data = {}
             data["is_owner"] = self._is_owner
@@ -423,6 +462,8 @@ class ACLRule:
                 return ACLRule.reader()
             elif data == "writer":
                 return ACLRule.writer()
+            elif data == "executer":
+                return ACLRule.executer()
             elif data == "denied":
                 return ACLRule.denied()
 

@@ -24,8 +24,8 @@ def test_acls():
     rule = rules.resolve(must_resolve=False)
     assert(rule.inherits_all())
 
-    with pytest.raises(PermissionError):
-        rule = rules.resolve()
+    rule = rules.resolve()
+    assert(rule.denied_all())
 
     data = rules.to_data()
     assert(data == "inherit")

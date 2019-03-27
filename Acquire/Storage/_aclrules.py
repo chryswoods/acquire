@@ -6,10 +6,10 @@ __all__ = ["ACLRules", "ACLUserRules", "ACLGroupRules",
 
 
 class ACLRuleOperation(_Enum):
-    ADD = "add"  # add rules together (most permissive)
-    MUL = "mul"  # add rules together (least permissive)
+    MAX = "max"  # add rules together (most permissive)
+    MIN = "min"  # add rules together (least permissive)
     SUB = "sub"  # subtract rules (why?)
-    BRK = "brk"  # break - take first matching rule - default
+    SET = "set"  # break - set first matching fully-resolved rule
 
     def to_data(self):
         return self.value
@@ -20,11 +20,11 @@ class ACLRuleOperation(_Enum):
         elif acl2 is None:
             return acl1
 
-        if self is ACLRuleOperation.BRK:
+        if self is ACLRuleOperation.SET:
             return acl1
-        elif self is ACLRuleOperation.ADD:
+        elif self is ACLRuleOperation.MAX:
             return acl1 + acl2
-        elif self is ACLRuleOperation.MUL:
+        elif self is ACLRuleOperation.MIN:
             return acl1 * acl2
         elif self is ACLRuleOperation.SUB:
             return acl1 - acl2
@@ -116,6 +116,9 @@ class ACLGroupRules:
         if group_guid in self._group_rules:
             rule = self._group_rules[group_guid]
             return rule.resolve(must_resolve=must_resolve, **kwargs)
+        elif must_resolve:
+            from Acquire.Storage import ACLRule as _ACLRule
+            return _ACLRule.inherit().resolve(must_resolve=True, **kwargs)
         else:
             return None
 
@@ -166,6 +169,9 @@ class ACLUserRules:
         if user_guid in self._user_rules:
             rule = self._user_rules[user_guid]
             return rule.resolve(must_resolve=must_resolve, **kwargs)
+        elif must_resolve:
+            from Acquire.Storage import ACLRule as _ACLRule
+            return _ACLRule.inherit().resolve(must_resolve=True, **kwargs)
         else:
             return None
 
@@ -174,14 +180,57 @@ class ACLUserRules:
         self._user_rules[user_guid] = rule
 
     @staticmethod
-    def owner(user_guid):
+    def _create(aclrule, user_guid, user_guids):
+        rule = ACLUserRules()
+
+        if user_guid is not None:
+            rule.add_user_rule(user_guid, aclrule)
+
+        if user_guids is not None:
+            for user_guid in user_guids:
+                rule.add_user_rule(user_guid, aclrule)
+
+        return rule
+
+    @staticmethod
+    def owner(user_guid=None, user_guids=None):
         """Simple shorthand to create the rule that the specified
            user is the owner of the resource
         """
         from Acquire.Storage import ACLRule as _ACLRule
-        rule = ACLUserRules()
-        rule.add_user_rule(user_guid, _ACLRule.owner())
-        return rule
+        return ACLUserRules._create(aclrule=_ACLRule.owner(),
+                                    user_guid=user_guid,
+                                    user_guids=user_guids)
+
+    @staticmethod
+    def executer(user_guid=None, user_guids=None):
+        """Simple shorthand to create the rule that the specified
+           user is the executer of the resource
+        """
+        from Acquire.Storage import ACLRule as _ACLRule
+        return ACLUserRules._create(aclrule=_ACLRule.executer(),
+                                    user_guid=user_guid,
+                                    user_guids=user_guids)
+
+    @staticmethod
+    def writer(user_guid=None, user_guids=None):
+        """Simple shorthand to create the rule that the specified
+           user is the writer of the resource
+        """
+        from Acquire.Storage import ACLRule as _ACLRule
+        return ACLUserRules._create(aclrule=_ACLRule.writer(),
+                                    user_guid=user_guid,
+                                    user_guids=user_guids)
+
+    @staticmethod
+    def reader(user_guid=None, user_guids=None):
+        """Simple shorthand to create the rule that the specified
+           user is the reader of the resource
+        """
+        from Acquire.Storage import ACLRule as _ACLRule
+        return ACLUserRules._create(aclrule=_ACLRule.reader(),
+                                    user_guid=user_guid,
+                                    user_guids=user_guids)
 
     def to_data(self):
         """Return a json-serialisable representation of these rules"""
@@ -225,7 +274,7 @@ class ACLRules:
        it will inherit whatever comes from upstream)
     """
     def __init__(self, rule=None, rules=None, default_rule=None,
-                 default_operation=ACLRuleOperation.ADD):
+                 default_operation=ACLRuleOperation.MAX):
         """Construct, optionally starting with a default ACLRule
            for all users
         """
@@ -271,7 +320,7 @@ class ACLRules:
             else:
                 self._is_simple_inherit = False
                 self._default_rule = aclrule
-                self._default_operation = ACLRuleOperation.ADD
+                self._default_operation = ACLRuleOperation.MAX
                 self._rules = []
         else:
             self._default_rule = aclrule
@@ -365,7 +414,7 @@ class ACLRules:
             rule = rule.resolve(must_resolve=False, **kwargs)
 
             if rule is not None:
-                if op is ACLRuleOperation.BRK:
+                if op is ACLRuleOperation.SET:
                     # take the first matching rule
                     result = rule
                     must_break = True
@@ -391,8 +440,7 @@ class ACLRules:
                 "Did not fully resolve the ACLRule - got %s" % str(result))
 
         if not result.is_fully_resolved():
-            raise PermissionError(
-                "Did not fully resolve the ACLRule - got %s" % str(result))
+            result = result.resolve(must_resolve=True, **kwargs)
 
         # we have not been able to generate a fully-resolved ACL
         return result
@@ -416,7 +464,7 @@ class ACLRules:
                 default_operation = \
                     ACLRuleOperation.from_data(data["default_operation"])
             else:
-                default_operation = ACLRuleOperation.ADD
+                default_operation = ACLRuleOperation.MAX
 
             if "rules" in data:
                 rules = []
@@ -456,7 +504,7 @@ class ACLRules:
         if self._default_rule is not None:
             data["default_rule"] = _save_rule(self._default_rule)
 
-        if self._default_operation is not ACLRuleOperation.ADD:
+        if self._default_operation is not ACLRuleOperation.MAX:
             data["default_operation"] = self._default_operation.to_data()
 
         return data
