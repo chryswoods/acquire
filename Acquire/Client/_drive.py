@@ -418,3 +418,26 @@ class Drive:
             f._set_drive(self)
 
         return files
+
+    def list_versions(self, filename):
+        """Return a list of all of the versions of the specified file.
+           This returns an empty list if there are no versions of this
+           file
+        """
+        if self.is_null():
+            return []
+
+        from Acquire.Client import Authorisation as _Authorisation
+
+        authorisation = _Authorisation(resource="get_versions %s" % filename,
+                                       user=self._user)
+
+        args = {"authorisation": authorisation.to_data(),
+                "drive_uid": self._drive_uid,
+                "filename": filename}
+
+        response = self.storage_service().call_function(
+                                                function="list_versions",
+                                                args=args)
+
+        return response["versions"]

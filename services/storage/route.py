@@ -16,6 +16,9 @@ def storage_functions(function, args):
     elif function == "list_drives":
         from storage.list_drives import run as _list_drives
         return _list_drives(args)
+    elif function == "list_versions":
+        from storage.list_versions import run as _list_versions
+        return _list_versions(args)
     elif function == "open":
         from storage.open import run as _open
         return _open(args)

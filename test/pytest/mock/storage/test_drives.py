@@ -40,7 +40,6 @@ def test_drives(authenticated_user, tempdir):
     assert(len(drives) == 0)
 
     filename = __file__
-    filepath = os.path.split(filename)[0]
 
     files = drive.list_files()
     assert(len(files) == 0)

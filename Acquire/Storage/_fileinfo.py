@@ -200,8 +200,7 @@ class FileInfo:
        Acquire.Client.FileHandle provide the client-side view
        of Acquire.Storage.FileInfo
     """
-    def __init__(self, drive_uid=None, filehandle=None, user_guid=None,
-                 filename=None, version=None):
+    def __init__(self, drive_uid=None, filehandle=None, user_guid=None):
         """Construct from a passed filehandle of a file that will be
            uploaded
         """
@@ -381,6 +380,36 @@ class FileInfo:
         _ObjectStore.set_object_from_json(bucket=metadata_bucket,
                                           key=self._fileinfo_key(),
                                           data=self.to_data())
+
+    @staticmethod
+    def list_versions(drive, filename, include_metadata=False, **kwargs):
+        """List all of the versions of this file. If 'include_metadata'
+           is True then this will load all of the associated metadata
+           for each file
+        """
+        from Acquire.Storage import DriveInfo as _DriveInfo
+
+        if not isinstance(drive, _DriveInfo):
+            raise TypeError("The drive must be of type DriveInfo")
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import string_to_encoded \
+            as _string_to_encoded
+
+        metadata_bucket = drive._get_metadata_bucket()
+
+        encoded_filename = _string_to_encoded(filename)
+
+        version_root = "%s/%s/%s/" % (
+                _version_root, drive.uid(), encoded_filename)
+
+        version_keys = _ObjectStore.get_all_object_names(
+                                            bucket=metadata_bucket,
+                                            prefix=version_root)
+
+        # should now interpret these keys into versions and FileMeta
+        # object data
+        return version_keys
 
     @staticmethod
     def load(drive, filename, version=None):
