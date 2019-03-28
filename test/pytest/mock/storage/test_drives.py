@@ -51,6 +51,10 @@ def test_drives(authenticated_user, tempdir):
     assert(filemeta.acl().is_owner())
     assert(filemeta.acl().is_readable())
     assert(filemeta.acl().is_writeable())
+    assert(filemeta.uploaded_by() == authenticated_user.guid())
+    assert(filemeta.uploaded_when() is not None)
+
+    upload_datetime = filemeta.uploaded_when()
 
     (_, filename) = os.path.split(filename)
 
@@ -77,6 +81,8 @@ def test_drives(authenticated_user, tempdir):
     assert(files[0].uploaded_by() == filemeta.uploaded_by())
     assert(files[0].uploaded_when() == filemeta.uploaded_when())
     assert(files[0].acl().is_owner())
+    assert(files[0].uploaded_by() == authenticated_user.guid())
+    assert(files[0].uploaded_when() == upload_datetime)
 
     (filename, filemeta) = drive.download(files[0].filename(), dir=tempdir)
 
@@ -99,3 +105,5 @@ def test_drives(authenticated_user, tempdir):
     assert(files[0].uploaded_by() == filemeta.uploaded_by())
     assert(files[0].uploaded_when() == filemeta.uploaded_when())
     assert(files[0].acl().is_owner())
+    assert(files[0].uploaded_by() == authenticated_user.guid())
+    assert(files[0].uploaded_when() == upload_datetime)

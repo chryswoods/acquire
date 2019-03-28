@@ -104,16 +104,16 @@ class VersionInfo:
     def datetime(self):
         """Return the datetime when this version was created"""
         if self.is_null():
-            return self._datetime
-        else:
             return None
+        else:
+            return self._datetime
 
     def uploaded_by(self):
         """Return the GUID of the user that uploaded this version"""
         if self.is_null():
-            return self._user_guid
-        else:
             return None
+        else:
+            return self._user_guid
 
     def _file_key(self):
         """Return the key for this actual file for this version
