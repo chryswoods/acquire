@@ -123,6 +123,18 @@ class ACLGroupRules:
         """
         self._group_rules = {}
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def __str__(self):
+        s = []
+        for group, rule in self._group_rules.items():
+            s.append("%s => %s" % (group, rule))
+        return "Group{%s}" % ", ".join(s)
+
     def resolve(self, must_resolve=True, **kwargs):
         """Resolve the rule for the user with specified group_guid.
            This returns None if there are no rules for this group
@@ -175,6 +187,18 @@ class ACLUserRules:
            if no users are matched
         """
         self._user_rules = {}
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def __str__(self):
+        s = []
+        for user, rule in self._user_rules.items():
+            s.append("%s => %s" % (user, rule))
+        return "User{%s}" % ", ".join(s)
 
     def resolve(self, must_resolve=True, **kwargs):
         """Resolve the rule for the user with specified user_guid.
@@ -314,6 +338,25 @@ class ACLRules:
         if rules is not None:
             for rule in rules:
                 self.append(aclrule=rule[1], operation=rule[0])
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def __str__(self):
+        if self._is_simple_inherit:
+            return "inherit"
+
+        s = []
+        for rule in rules:
+            s.append("%s" % rule)
+
+        if self._default_rule is not None:
+            s.append("DEFAULT %s" % self._default_rule)
+
+        return s
 
     def is_simple_inherit(self):
         """Return whether or not this set of rules is a simple

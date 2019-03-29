@@ -106,3 +106,47 @@ def test_drives(authenticated_user, tempdir):
     assert(files[0].acl().is_owner())
     assert(files[0].uploaded_by() == authenticated_user.guid())
     assert(files[0].uploaded_when() == upload_datetime)
+
+    versions = drive.list_versions(filename=filemeta.filename())
+
+    assert(len(versions) == 1)
+    assert(versions[0].filename() == filemeta.filename())
+    assert(versions[0].uploaded_when() == filemeta.uploaded_when())
+
+    versions = drive.list_versions(filename=filemeta.filename(),
+                                   include_metadata=True)
+
+    assert(len(versions) == 1)
+    assert(versions[0].filename() == filemeta.filename())
+    assert(versions[0].uploaded_when() == filemeta.uploaded_when())
+
+    assert(versions[0] == filemeta)
+
+    new_filemeta = drive.upload(filename=__file__)
+
+    versions = drive.list_versions(filename=filemeta.filename())
+
+    assert(len(versions) == 2)
+
+    versions = drive.list_versions(filename=filemeta.filename(),
+                                   include_metadata=True)
+
+    assert(len(versions) == 2)
+
+    (filename, new_filemeta) = drive.download(filemeta.filename(), dir=tempdir)
+
+    # make sure that the two files are identical
+    with open(filename, "rb") as FILE:
+        data1 = FILE.read()
+
+    # remove this tmp file
+    os.unlink(filename)
+
+    with open(__file__, "rb") as FILE:
+        data2 = FILE.read()
+
+    assert(data1 == data2)
+
+    # should be in upload order
+    assert(versions[0] == filemeta)
+    assert(versions[1] == new_filemeta)

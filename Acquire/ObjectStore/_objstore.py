@@ -122,6 +122,13 @@ class ObjectStore:
         return _objstore_backend.get_all_objects(bucket, prefix)
 
     @staticmethod
+    def get_all_objects_from_json(bucket, prefix=None):
+        """Return all of the objects in the passed bucket as
+           json-deserialised objects
+        """
+        return _objstore_backend.get_all_objects_from_json(bucket, prefix)
+
+    @staticmethod
     def get_all_strings(bucket, prefix=None):
         """Return all of the strings in the passed bucket"""
         return _objstore_backend.get_all_strings(bucket, prefix)

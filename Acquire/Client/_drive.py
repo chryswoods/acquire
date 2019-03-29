@@ -333,6 +333,8 @@ class Drive:
             self.storage_service().call_function(
                                        function="downloaded", args=args)
 
+        filemeta._set_drive(self)
+
         return (downloaded_name, filemeta)
 
     @staticmethod
@@ -419,7 +421,7 @@ class Drive:
 
         return files
 
-    def list_versions(self, filename):
+    def list_versions(self, filename, include_metadata=False):
         """Return a list of all of the versions of the specified file.
            This returns an empty list if there are no versions of this
            file
@@ -427,17 +429,31 @@ class Drive:
         if self.is_null():
             return []
 
+        if include_metadata:
+            include_metadata = True
+        else:
+            include_metadata = False
+
         from Acquire.Client import Authorisation as _Authorisation
 
-        authorisation = _Authorisation(resource="get_versions %s" % filename,
+        authorisation = _Authorisation(resource="list_versions %s" % filename,
                                        user=self._user)
 
         args = {"authorisation": authorisation.to_data(),
                 "drive_uid": self._drive_uid,
+                "include_metadata": include_metadata,
                 "filename": filename}
 
         response = self.storage_service().call_function(
                                                 function="list_versions",
                                                 args=args)
 
-        return response["versions"]
+        from Acquire.ObjectStore import string_to_list \
+            as _string_to_list
+        from Acquire.Storage import FileMeta as _FileMeta
+
+        versions = _string_to_list(response["versions"], _FileMeta)
+        for version in versions:
+            version._set_drive(self)
+
+        return versions

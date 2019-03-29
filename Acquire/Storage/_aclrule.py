@@ -143,13 +143,10 @@ class ACLRule:
             return "ACLRule(%s)" % ", ".join(s)
 
     def __eq__(self, other):
-        if not isinstance(other, ACLRule):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
             return False
-
-        return (self._is_owner == other._is_owner) and \
-               (self._is_writeable == other._is_writeable) and \
-               (self._is_readable == other._is_readable) and \
-               (self._is_executable == other._is_executable)
 
     def __add__(self, other):
         """Add two rules together - this will combine the parts

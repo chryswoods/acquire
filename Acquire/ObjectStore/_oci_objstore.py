@@ -448,11 +448,26 @@ class OCI_ObjectStore:
         return objects
 
     @staticmethod
+    def get_all_objects_from_json(bucket, prefix=None):
+        """Return all of the json objects in the passed bucket as
+           json-deserialised objects
+        """
+        objects = OCI_ObjectStore.get_all_objects(bucket, prefix)
+
+        names = list(objects.keys())
+
+        for name in names:
+            try:
+                s = objects[name].decode("utf-8")
+                objects[name] = _json.loads(s)
+            except:
+                del objects[name]
+
+        return objects
+
+    @staticmethod
     def get_all_strings(bucket, prefix=None):
         """Return all of the strings in the passed bucket"""
-        if prefix is not None:
-            prefix = _clean_key(prefix)
-
         objects = OCI_ObjectStore.get_all_objects(bucket, prefix)
 
         names = list(objects.keys())

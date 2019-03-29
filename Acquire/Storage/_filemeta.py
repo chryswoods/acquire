@@ -39,6 +39,13 @@ class FileMeta:
     def __repr__(self):
         return self.__str__()
 
+    def __eq__(self, other):
+        """Comparison equals"""
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
     def _set_denied(self):
         """Call this function to remove all information that should
            not be visible to someone who has denied access to the file

@@ -25,7 +25,7 @@ def run(args):
     if include_metadata:
         include_metadata = True
     else:
-        include_metedata = False
+        include_metadata = False
 
     drive = DriveInfo(drive_uid=drive_uid, user_guid=authorisation.user_guid())
 

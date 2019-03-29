@@ -486,7 +486,7 @@ class DriveInfo:
         return files
 
     def list_versions(self, filename, authorisation=None,
-                      include_metadata=False):
+                      include_metadata=False, **kwargs):
         """Return the list of versions of the file with specified
            filename. If 'include_metadata' is true then this will
            load full metadata for each version. This will return
@@ -505,50 +505,34 @@ class DriveInfo:
 
             user_guid = authorisation.user_guid()
 
-        drive_acl = self.aclrules().resolve(user_guid=user_guid)
+        drive_acl = self.aclrules().resolve(user_guid=user_guid, **kwargs)
 
         if not drive_acl.is_readable():
             raise PermissionError(
                 "You don't have permission to read this Drive")
 
         from Acquire.Storage import FileInfo as _FileInfo
-        fileinfo = _FileInfo(drive_uid=self.uid(), filename=filename)
+        versions = _FileInfo.list_versions(drive=self,
+                                           filename=filename,
+                                           include_metadata=include_metadata)
 
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.ObjectStore import string_to_encoded as _string_to_encoded
-        from Acquire.Storage import FileMeta as _FileMeta
+        result = []
 
-        metadata_bucket = self._get_metadata_bucket()
+        for version in versions:
+            if version.aclrules() is not None:
+                acl = version.resolve_acl(upstream=drive_acl,
+                                          user_guid=user_guid,
+                                          **kwargs)
 
-        encoded_filename = _string_to_encoded(filename)
+                if acl.is_readable() or acl.is_writeable():
+                    result.append(version)
+            else:
+                result.append(version)
 
-        names = _ObjectStore.get_all_object_names(
-                    metadata_bucket, "%s/%s" % (_fileinfo_root,
-                                                self._drive_uid))
+        # return the versions sorted in upload order
+        versions.sort(key=lambda x: x.uploaded_when())
 
-        files = []
-
-        if include_metadata:
-            # we need to load all of the metadata info for this file to
-            # return to the user
-            from Acquire.Storage import FileInfo as _FileInfo
-
-            for name in names:
-                data = _ObjectStore.get_object_from_json(metadata_bucket,
-                                                         name)
-                fileinfo = _FileInfo.from_data(data)
-                filemeta = fileinfo.get_filemeta()
-                file_acl = filemeta.resolve_acl(upstream=drive_acl,
-                                                user_guid=user_guid)
-
-                if file_acl.is_readable() or file_acl.is_writeable():
-                    files.append(filemeta)
-        else:
-            for name in names:
-                filename = _encoded_to_string(name.split("/")[-1])
-                files.append(_FileMeta(filename=filename))
-
-        return files
+        return versions
 
     def load(self):
         """Load the metadata about this drive from the object store"""

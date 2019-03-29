@@ -242,6 +242,26 @@ class FileInfo:
         """Return the object-store filename for this file"""
         return self._filename
 
+    @staticmethod
+    def _get_filemeta(filename, version, resolved_acl=None):
+        """Internal function used to create a FileMeta from the passed
+           filename and VersionInfo object
+        """
+        from Acquire.Client import FileMeta as _FileMeta
+
+        filemeta = _FileMeta(filename=filename, uid=version.uid(),
+                             filesize=version.filesize(),
+                             checksum=version.checksum(),
+                             uploaded_by=version.uploaded_by(),
+                             uploaded_when=version.datetime(),
+                             compression=version.compression_type(),
+                             aclrules=version.aclrules())
+
+        if resolved_acl is not None:
+            filemeta.resolve_acl(resolved_acl=resolved_acl)
+
+        return filemeta
+
     def get_filemeta(self, version=None, resolved_acl=None):
         """Return the metadata about the latest (or specified) version
            of this file. If 'resolved_acl' is specified, then
@@ -252,20 +272,9 @@ class FileInfo:
         if self.is_null():
             return _FileMeta()
 
-        info = self._version_info(version)
-
-        filemeta = _FileMeta(filename=self._filename, uid=info.uid(),
-                             filesize=info.filesize(),
-                             checksum=info.checksum(),
-                             uploaded_by=info.uploaded_by(),
-                             uploaded_when=info.datetime(),
-                             compression=info.compression_type(),
-                             aclrules=info.aclrules())
-
-        if resolved_acl is not None:
-            filemeta.resolve_acl(resolved_acl=resolved_acl)
-
-        return filemeta
+        return FileInfo._get_filemeta(filename=self._filename,
+                                      version=self._version_info(version),
+                                      resolved_acl=resolved_acl)
 
     def _version_info(self, version=None):
         """Return the version info object of the latest version of
@@ -388,6 +397,7 @@ class FileInfo:
            for each file
         """
         from Acquire.Storage import DriveInfo as _DriveInfo
+        from Acquire.Storage import FileMeta as _FileMeta
 
         if not isinstance(drive, _DriveInfo):
             raise TypeError("The drive must be of type DriveInfo")
@@ -403,13 +413,35 @@ class FileInfo:
         version_root = "%s/%s/%s/" % (
                 _version_root, drive.uid(), encoded_filename)
 
-        version_keys = _ObjectStore.get_all_object_names(
+        versions = []
+
+        if include_metadata:
+            objs = _ObjectStore.get_all_objects_from_json(
                                             bucket=metadata_bucket,
                                             prefix=version_root)
 
-        # should now interpret these keys into versions and FileMeta
-        # object data
-        return version_keys
+            for data in objs.values():
+                version = VersionInfo.from_data(data)
+                filemeta = FileInfo._get_filemeta(filename=filename,
+                                                  version=version)
+                versions.append(filemeta)
+        else:
+            from Acquire.ObjectStore import string_to_datetime \
+                as _string_to_datetime
+            keys = _ObjectStore.get_all_object_names(
+                                            bucket=metadata_bucket,
+                                            prefix=version_root)
+
+            for key in keys:
+                parts = key.split("/")
+                uid = parts[-1]
+                uploaded_when = _string_to_datetime(parts[-2])
+                filemeta = _FileMeta(filename=filename,
+                                     uploaded_when=uploaded_when,
+                                     uid=uid)
+                versions.append(filemeta)
+
+        return versions
 
     @staticmethod
     def load(drive, filename, version=None):
