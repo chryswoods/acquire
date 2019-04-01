@@ -440,6 +440,7 @@ class ACLRule:
             data["is_owner"] = self._is_owner
             data["is_readable"] = self._is_readable
             data["is_writeable"] = self._is_writeable
+            data["is_executable"] = self._is_executable
             return data
 
     @staticmethod
@@ -486,6 +487,13 @@ class ACLRule:
             elif data["is_writeable"] is not None:
                 is_writeable = False
 
+        if "is_executable" in data:
+            if data["is_executable"]:
+                is_executable = True
+            elif data["is_executable"] is not None:
+                is_executable = False
+
         return ACLRule(is_owner=is_owner,
                        is_writeable=is_writeable,
-                       is_readable=is_readable)
+                       is_readable=is_readable,
+                       is_executable=is_executable)
