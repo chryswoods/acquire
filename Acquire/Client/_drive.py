@@ -159,6 +159,56 @@ class Drive:
         else:
             return self._storage_service
 
+    def bulkupload(self, max_size=None, aclrules=None):
+        """Start the bulk upload of a large number of files to this
+           drive, assuming we have write access to this drive. This
+           will return a bulk upload PAR that can be used to write to a bucket.
+           All of the files written to this bucket will be copied into
+           this drive using the (optionally) supplied aclrules
+           to control access (or "inherit" if no rules are supplied).
+
+            Once you have finished uploading, you must call the
+            "close" function on the BulkUploadPAR so that the files
+            are correctly copied. The filenames as they are written
+            to the PAR will be used, creating new files (and subdrives)
+            as needed
+        """
+        if self.is_null():
+            raise PermissionError(
+                "Cannot perform a bulk upload of files to a null drive")
+
+        from Acquire.Client import Authorisation as _Authorisation
+        from Acquire.Client import PAR as _PAR
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+
+        authorisation = _Authorisation(
+                            resource="bulk_upload %s" % self._drive_uid,
+                            user=self._user)
+
+        # we need a new private key to secure access to this PAR
+        privkey = _PrivateKey()
+
+        args = {"drive_uid": self._drive_uid,
+                "authorisation": authorisation.to_data(),
+                "encrypt_key": privkey.public_key().to_data()}
+
+        if aclrules is not None:
+            args["aclrules"] = aclrules.to_data()
+
+        if max_size is not None:
+            args["max_size"] = max_size
+
+        # will eventually need to authorise payment...
+
+        response = self.storage_service().call_function(
+                                function="bulk_upload", args=args)
+
+        par = _PAR.from_data(response["bulk_upload_par"])
+
+        par._set_private_key(privkey)
+
+        return par
+
     def upload(self, filename, uploaded_name=None, aclrules=None):
         """Upload the file at 'filename' to this drive, assuming we have
            write access to this drive. The local file 'filename' will be
