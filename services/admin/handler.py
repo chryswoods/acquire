@@ -179,7 +179,7 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
 
 
 def create_async_handler(additional_functions=None):
-    """Function that creates the handler functions for all standard functions,
+    """Function that creates the async handler functions for all standard functions,
        plus the passed additional_functions
     """
     async def async_handler(ctx, data=None, loop=None):
@@ -190,6 +190,9 @@ def create_async_handler(additional_functions=None):
 
 
 def create_handler(additional_functions=None):
+    """Function that creates the handler functions for all standard functions,
+       plus the passed additional_functions
+    """
     def handler(ctx, data=None, loop=None):
         return _base_handler(additional_functions=additional_functions,
                              ctx=ctx, data=data, loop=loop)

@@ -8,7 +8,13 @@ __all__ = ["AccessService"]
 
 
 class AccessService(_Service):
-    """This is a specialisation of Service for Access Services"""
+    """This is a specialisation of Service for Access Services
+       
+       Where Service represents a service in the system. Services
+       will either be identity services, access services,
+       storage services or accounting services
+    """
+
     def __init__(self, other=None):
         if isinstance(other, _Service):
             self.__dict__ = _copy(other.__dict__)
@@ -27,11 +33,17 @@ class AccessService(_Service):
         """
         from access.route import access_functions as _access_functions
         from admin.handler import create_handler as _create_handler
+        
         handler = _create_handler(_access_functions)
+
         return handler(function, args)
 
     def get_trusted_storage_service(self):
-        """Return a trusted storage service"""
+        """Return a trusted storage service
+
+            Gets a dictionary of trust services and returns the
+            first trusted storage service
+        """
         from Acquire.Service import get_trusted_services \
             as _get_trusted_services
 

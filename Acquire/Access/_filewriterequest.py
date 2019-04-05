@@ -11,6 +11,19 @@ __all__ = ["FileWriteRequest"]
 def _get_key(root_key, filename):
     """Return the object store key for 'filename', using 'root_key' as
        the root
+
+       Parameters
+       ----------
+       root_key : key ?
+               Key from ...
+        filename : str
+            Name of file we want to place in the object store
+
+        Returns
+        -------
+        string
+            root_key/basename if root_key else empty string
+        
     """
     basename = _os.path.basename(filename)
 
@@ -21,7 +34,23 @@ def _get_key(root_key, filename):
 
 
 def _clean_key(root_key, filekey):
-    """Return the cleaned key 'filekey', using 'root_key' as the root"""
+    """Return the cleaned key 'filekey', using 'root_key' as the root
+        
+       Appears to be unused
+
+       Parameters
+       ----------
+       root_key : key ?
+               Key from ...
+        filekey : ?
+            Name of file we want to place in the object store
+
+        Returns
+        -------
+        string
+            root_key/basename if we have root_key else filekey
+        
+    """
     if root_key:
         return "%s/%s" % (str(root_key), str(filekey))
     else:
@@ -29,8 +58,18 @@ def _clean_key(root_key, filekey):
 
 
 def _get_filesize_and_checksum(filename):
-    """Return a tuple of the size in bytes of the passed file and the
-       file's md5 checksum
+    """Calculates the size in bytes of the file and
+        the MD5 hash
+       
+       Parameters
+       ----------
+       filename : str
+            Name of file to calculate size and hash
+
+        Returns
+        -------
+        tuple(int, string)
+            Returns the size of the file in bytes and the MD5 hash
     """
     from hashlib import md5 as _md5
     md5 = _md5()
@@ -45,10 +84,26 @@ def _get_filesize_and_checksum(filename):
 
 
 def _list_all_files(directory, ignore_hidden=True):
-    """Return a list of the path relative to 'directory' of
+    """Create a list of the path relative to 'directory' of
        all files contained in 'directory'. If is_hidden is True, then include
        all hidden files - otherwise these are ignored
+
+       Parameters
+       ----------
+       directory : path
+            Path of directory to traverse
+
+        ignore_hidden : bool
+            If True add hidden files to list
+            If False ignore hidden files
+
+        Returns
+        -------
+        list
+            List of files in the directory
+
     """
+
     if not _os.path.isdir(directory):
         return []
 
@@ -68,10 +123,22 @@ def _list_all_files(directory, ignore_hidden=True):
 
 
 def _clean_path(path):
-    """This function cleans the passed path so that doesn't contain
+    """This function cleans the passed path so that it doesn't contain
        redundant slashes or '..' etc., so that all backslashes are forwards
        slashes, and that the trailing slash is removed
+
+        Parameters
+        ----------
+        path : path
+            Path to clean
+
+        Returns
+        -------
+        path
+            Path cleaned of extraneous characters
+
     """
+
     if path is None:
         return ""
 
@@ -94,7 +161,26 @@ def _expand_source_destination(source, destination=None,
     """This function expands the 'source' and 'destination' into a pair
        of lists - the source files and the destination keys in the
        object store.
+
+        Parameters
+        ----------
+        source : path
+            Path of directory to traverse
+        destinaton : path
+            Path of destination
+        root: atype
+            TODO : what does this do?
+        ignore_hidden : bool
+            If True add hidden files to list
+            If False ignore hidden files
+
+        Returns
+        -------
+        list
+            List of files in the directory
+
     """
+
     if source is None:
         return ([], [])
 
