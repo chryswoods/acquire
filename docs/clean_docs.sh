@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Remove the old rst files
-rm -rf source/Acquire.* source/modules.rst source/conf.rst
+rm -rf Acquire.* conf.rst modules.rst 
 # Remove the old build files
-rm -rf build/*
+rm -rf _build/*
 
