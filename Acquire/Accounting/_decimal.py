@@ -9,6 +9,7 @@ def get_decimal_context():
        (i.e. everything up to just under one quadrillion - I doubt we will
         ever have an account that has more than a trillion units in it!)
     """
+
     from decimal import Context as _Context
     return _Context(prec=24)
 
@@ -18,6 +19,7 @@ def create_decimal(value):
        has 6 decimal places and is clamped between
        -1 quadrillion < value < 1 quadrillion
     """
+    
     from decimal import Decimal as _Decimal
 
     try:

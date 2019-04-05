@@ -17,6 +17,7 @@ class Cheque:
        upon which a CreditNote will be returned. Once receipted,
        payment will be complete.
     """
+
     def __init__(self):
         self._cheque = None
         self._accounting_service_url = None
@@ -44,6 +45,7 @@ class Cheque:
            when the cheque is cashed (or it breaks spending limits)
            then the cheque will bounce.
         """
+
         from Acquire.Client import Account as _Account
 
         if not isinstance(account, _Account):
@@ -114,6 +116,7 @@ class Cheque:
            be used to pay for, and the time by which you promise to receipt
            the cheque after cashing
         """
+        
         if self._cheque is None:
             raise PaymentError("You cannot read a null cheque")
 
