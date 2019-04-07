@@ -26,8 +26,18 @@ def _clean_key(key):
        for use both as a key and a directory/file path
        e.g. it removes double-slashes
     """
-    return _os.path.normpath(key)
+    key = _os.path.normpath(key)
 
+    if len(key) > 1024:
+        from Acquire.ObjectStore import ObjectStoreError
+        raise ObjectStoreError(
+            "The object store does not support keys with longer than "
+            "1024 characters (%s) - %s" % (len(key), key))
+
+        # if this becomes a problem then we will implement a 'tinyurl'
+        # to shorten keys and use this function to lookup long keys
+
+    return key
 
 def _get_object_url_for_region(region, uri):
     """Internal function used to get the full URL to the passed PAR URI
@@ -520,3 +530,20 @@ class OCI_ObjectStore:
                                            key)
         except:
             pass
+
+    @staticmethod
+    def get_size_and_checksum(bucket, key):
+        """Return the object size (in bytes) and MD5 checksum of the
+           object in the passed bucket at the specified key
+        """
+        key = _clean_key(key)
+
+        try:
+            response = bucket["client"].get_object(bucket["namespace"],
+                                                   bucket["bucket_name"],
+                                                   key)
+        except:
+            from Acquire.ObjectStore import ObjectStoreError
+            raise ObjectStoreError("No data at key '%s'" % key)
+
+        raise TypeError(str(response.header))
