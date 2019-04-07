@@ -491,6 +491,9 @@ class OCI_ObjectStore:
     @staticmethod
     def set_object(bucket, key, data):
         """Set the value of 'key' in 'bucket' to binary 'data'"""
+        if data is None:
+            data = 0
+
         f = _io.BytesIO(data)
 
         key = _clean_key(key)
