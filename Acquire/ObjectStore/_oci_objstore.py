@@ -547,6 +547,13 @@ class OCI_ObjectStore:
             raise ObjectStoreError("No data at key '%s'" % key)
 
         content_length = response.headers["Content-Length"]
-        md5sum = response.headers["Content-MD5"]
+        checksum = response.headers["Content-MD5"]
+
+        # the checksum is a base64 encoded Content-MD5 header
+        # described as standard part of HTTP RFC 2616. Need to
+        # convert this back to a hexdigest
+        import binascii as _binascii
+        import base64 as _base64
+        md5sum = _binascii.hexlify(_base64.b64decode(checksum))
 
         return (int(content_length), md5sum)
