@@ -546,4 +546,4 @@ class OCI_ObjectStore:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError("No data at key '%s'" % key)
 
-        raise TypeError(str(response.header))
+        raise TypeError(str(response.headers))
