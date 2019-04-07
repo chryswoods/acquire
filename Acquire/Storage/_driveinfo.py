@@ -144,7 +144,7 @@ class DriveInfo:
 
         # SHOULD HERE RECEIPT THE STORAGE TRANSACTION
 
-        _ObjectStore.delete_par(bucket=file_bucket, par=par)
+        _ObjectStore.close_par(bucket=file_bucket, par=par)
         _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
 
     def upload(self, filehandle, authorisation, encrypt_key=None):
@@ -296,7 +296,7 @@ class DriveInfo:
 
                 # probably should delete the broken object here...
 
-        _ObjectStore.delete_par(bucket=file_bucket, par=par)
+        _ObjectStore.close_par(bucket=file_bucket, par=par)
         _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
 
     def download(self, filename, authorisation,

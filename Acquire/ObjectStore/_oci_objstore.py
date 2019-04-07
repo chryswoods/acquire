@@ -43,6 +43,43 @@ def _get_object_url_for_region(region, uri):
     return "%s/%s" % (server, uri)
 
 
+def _get_driver_details_from_par(par):
+    """Internal function used to get the OCI driver details from the
+       passed PAR
+    """
+    from Acquire.ObjectStore import datetime_to_string \
+        as _datetime_to_string
+
+    import copy as _copy
+    details = _copy.copy(par._driver_details)
+
+    if details is None:
+        return {}
+    else:
+        # fix any non-string/number objects
+        details["created_datetime"] = _datetime_to_string(
+                                        details["created_datetime"])
+
+    return details
+
+
+def _get_driver_details_from_data(data):
+    """Internal function used to get the OCI driver details from the
+       passed data
+    """
+    from Acquire.ObjectStore import string_to_datetime \
+        as _string_to_datetime
+
+    import copy as _copy
+    details = _copy.copy(data)
+
+    if "created_datetime" in details:
+        details["created_datetime"] = _string_to_datetime(
+                                            details["created_datetime"])
+
+    return details
+
+
 class OCI_ObjectStore:
     """This is the backend that abstracts using the Oracle Cloud
        Infrastructure object store
@@ -158,7 +195,7 @@ class OCI_ObjectStore:
 
     @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
-                   writeable=False, duration=3600):
+                   writeable=False, duration=3600, cleanup_function=None):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
            This will return a PAR object that will contain a URL that can
@@ -170,7 +207,7 @@ class OCI_ObjectStore:
         from Acquire.Crypto import PublicKey as _PublicKey
 
         if not isinstance(encrypt_key, _PublicKey):
-            from Acqure.Client import PARError
+            from Acquire.Client import PARError
             raise PARError(
                 "You must supply a valid PublicKey to encrypt the "
                 "returned PAR")
@@ -202,41 +239,50 @@ class OCI_ObjectStore:
 
         oci_par = None
 
+        request = _CreatePreauthenticatedRequestDetails()
+
+        if is_bucket:
+            request.access_type = "AnyObjectWrite"
+        elif readable and writeable:
+            request.access_type = "ObjectReadWrite"
+        elif readable:
+            request.access_type = "ObjectRead"
+        elif writeable:
+            request.access_type = "ObjectWrite"
+        else:
+            from Acquire.ObjectStore import ObjectStoreError
+            raise ObjectStoreError(
+                "Unsupported permissions model for PAR!")
+
+        request.name = str(_uuid.uuid4())
+
+        if not is_bucket:
+            request.object_name = _clean_key(key)
+
+        request.time_expires = expires_datetime
+
+        client = bucket["client"]
+
         try:
-            request = _CreatePreauthenticatedRequestDetails()
-
-            if is_bucket:
-                request.access_type = "AnyObjectWrite"
-            elif readable and writeable:
-                request.access_type = "ObjectReadWrite"
-            elif readable:
-                request.access_type = "ObjectRead"
-            elif writeable:
-                request.access_type = "ObjectWrite"
-            else:
-                from Acquire.ObjectStore import ObjectStoreError
-                raise ObjectStoreError(
-                    "Unsupported permissions model for PAR!")
-
-            request.name = str(_uuid.uuid4())
-
-            if not is_bucket:
-                request.object_name = _clean_key(key)
-
-            request.time_expires = expires_datetime
-
-            client = bucket["client"]
-
-            oci_par = client.create_preauthenticated_request(
+            response = client.create_preauthenticated_request(
                                         client.get_namespace().data,
                                         bucket["bucket_name"],
-                                        request).data
+                                        request)
+
         except Exception as e:
             # couldn't create the preauthenticated request
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
-                "Unable to create the preauthenticated request '%s': %s" %
+                "Unable to create the PAR '%s': %s" %
                 (str(request), str(e)))
+
+        if response.status != 200:
+            from Acquire.ObjectStore import ObjectStoreError
+            raise ObjectStoreError(
+                "Unable to create the PAR '%s': Status %s, Error %s" %
+                (str(request), response.status, str(response.data)))
+
+        oci_par = response.data
 
         if oci_par is None:
             from Acquire.ObjectStore import ObjectStoreError
@@ -254,70 +300,87 @@ class OCI_ObjectStore:
         url = _get_object_url_for_region(bucket["region"],
                                          oci_par.access_uri)
 
+        # get the checksum for this URL - used to validate the close
+        # request
         from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import PARRegistry as _PARRegistry
+        url_checksum = _PAR.checksum(url)
+
+        driver_details = {"driver": "oci",
+                          "bucket": bucket,
+                          "created_datetime": created_datetime,
+                          "par_id": oci_par.id,
+                          "par_name": oci_par.name}
+
         par = _PAR(url=url, encrypt_key=encrypt_key,
                    key=oci_par.object_name,
-                   created_datetime=created_datetime,
                    expires_datetime=expires_datetime,
                    is_readable=readable,
                    is_writeable=writeable,
-                   par_id=str(oci_par.id),
-                   par_name=str(oci_par.name),
-                   driver="oci")
+                   driver_details=driver_details)
+
+        _PARRegistry.register(par=par,
+                              url_checksum=url_checksum,
+                              details_function=_get_driver_details_from_par,
+                              cleanup_function=cleanup_function)
 
         return par
 
     @staticmethod
-    def get_object_as_file(bucket, key, filename):
-        """Get the object contained in the key 'key' in the passed 'bucket'
-           and writing this to the file called 'filename'"""
+    def close_par(par=None, par_uid=None, url_checksum=None):
+        """Close the passed PAR, which provides access to data in the
+           passed bucket
+        """
+        from Acquire.ObjectStore import PARRegistry as _PARRegistry
 
-        key = _clean_key(key)
+        if par is None:
+            par = _PARRegistry.get(
+                            par_uid=par_uid,
+                            details_function=_get_driver_details_from_data,
+                            url_checksum=url_checksum)
+
+        from Acquire.Client import PAR as _PAR
+        if not isinstance(par, _PAR):
+            raise TypeError("The PAR must be of type PAR")
+
+        if par.driver() != "oci":
+            raise ValueError("Cannot delete a PAR that was not created "
+                             "by the OCI object store")
+
+        # delete the PAR
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        par_bucket = par.driver_details()["bucket"]
+        par_id = par.driver_details()["par_id"]
+
+        bucket = _get_service_account_bucket()
+
+        # now get the bucket accessed by the PAR...
+        bucket = OCI_ObjectStore.get_bucket(bucket=bucket,
+                                            bucket_name=par_bucket)
+
+        client = bucket["client"]
 
         try:
-            response = bucket["client"].get_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   key)
-            is_chunked = False
-        except:
-            try:
-                response = bucket["client"].get_object(bucket["namespace"],
-                                                       bucket["bucket_name"],
-                                                       "%s/1" % key)
-                is_chunked = True
-            except:
-                is_chunked = False
-                pass
+            response = client.create_preauthenticated_request(
+                                            client.get_namespace().data,
+                                            bucket["bucket_name"],
+                                            par_id)
+        except Exception as e:
+            from Acquire.ObjectStore import ObjectStoreError
+            raise ObjectStoreError(
+                "Unable to delete a PAR '%s' : Error %s" %
+                (par_id, str(e)))
 
-            if not is_chunked:
-                from Acquire.ObjectStore import ObjectStoreError
-                raise ObjectStoreError("No object at key '%s'" % key)
+        if response.status != 200:
+            from Acquire.ObjectStore import ObjectStoreError
+            raise ObjectStoreError(
+                "Unable to delete a PAR '%s' : Status %s, Error %s" %
+                (par_id, response.status, str(response.data)))
 
-        if not is_chunked:
-            with open(filename, 'wb') as f:
-                for chunk in response.data.raw.stream(1024 * 1024,
-                                                      decode_content=False):
-                    f.write(chunk)
-
-            return filename
-
-        # the data is chunked - get this out chunk by chunk
-        with open(filename, 'wb') as f:
-            next_chunk = 1
-            while True:
-                for chunk in response.data.raw.stream(1024 * 1024,
-                                                      decode_content=False):
-                    f.write(chunk)
-
-                # now get and write the rest of the chunks
-                next_chunk += 1
-
-                try:
-                    response = bucket["client"].get_object(
-                        bucket["namespace"], bucket["bucket_name"],
-                        "%s/%d" % (key, next_chunk))
-                except:
-                    break
+        # close the PAR - this will trigger any close_function(s)
+        _PARRegistry.close(par=par)
 
     @staticmethod
     def get_object(bucket, key):
@@ -381,27 +444,19 @@ class OCI_ObjectStore:
         return data
 
     @staticmethod
-    def get_string_object(bucket, key):
-        """Return the string in 'bucket' associated with 'key'"""
-        key = _clean_key(key)
-        return OCI_ObjectStore.get_object(bucket, key).decode("utf-8")
-
-    @staticmethod
-    def get_object_from_json(bucket, key):
-        """Return an object constructed from json stored at 'key' in
-           the passed bucket. This returns None if there is no data
-           at this key
+    def take_object(bucket, key):
+        """Take (delete) the object from the object store, returning
+           the object
         """
-        data = None
-
-        key = _clean_key(key)
+        # ideally the get and delete should be atomic... would like this API
+        data = OCI_ObjectStore.get_object(bucket, key)
 
         try:
-            data = OCI_ObjectStore.get_string_object(bucket, key)
+            OCI_ObjectStore.delete_object(bucket, key)
         except:
-            return None
+            pass
 
-        return _json.loads(data)
+        return data
 
     @staticmethod
     def get_all_object_names(bucket, prefix=None):
@@ -434,54 +489,6 @@ class OCI_ObjectStore:
         return names
 
     @staticmethod
-    def get_all_objects(bucket, prefix=None):
-        """Return all of the objects in the passed bucket"""
-        if prefix is not None:
-            prefix = _clean_key(prefix)
-
-        objects = {}
-        names = OCI_ObjectStore.get_all_object_names(bucket, prefix)
-
-        for name in names:
-            objects[name] = OCI_ObjectStore.get_object(bucket, name)
-
-        return objects
-
-    @staticmethod
-    def get_all_objects_from_json(bucket, prefix=None):
-        """Return all of the json objects in the passed bucket as
-           json-deserialised objects
-        """
-        objects = OCI_ObjectStore.get_all_objects(bucket, prefix)
-
-        names = list(objects.keys())
-
-        for name in names:
-            try:
-                s = objects[name].decode("utf-8")
-                objects[name] = _json.loads(s)
-            except:
-                del objects[name]
-
-        return objects
-
-    @staticmethod
-    def get_all_strings(bucket, prefix=None):
-        """Return all of the strings in the passed bucket"""
-        objects = OCI_ObjectStore.get_all_objects(bucket, prefix)
-
-        names = list(objects.keys())
-
-        for name in names:
-            try:
-                s = objects[name].decode("utf-8")
-                objects[name] = s
-            except:
-                del objects[name]
-
-        return objects
-
-    @staticmethod
     def set_object(bucket, key, data):
         """Set the value of 'key' in 'bucket' to binary 'data'"""
         f = _io.BytesIO(data)
@@ -490,29 +497,6 @@ class OCI_ObjectStore:
         bucket["client"].put_object(bucket["namespace"],
                                     bucket["bucket_name"],
                                     key, f)
-
-    @staticmethod
-    def set_object_from_file(bucket, key, filename):
-        """Set the value of 'key' in 'bucket' to equal the contents
-           of the file located by 'filename'"""
-        key = _clean_key(key)
-        with open(filename, 'rb') as f:
-            bucket["client"].put_object(bucket["namespace"],
-                                        bucket["bucket_name"],
-                                        key, f)
-
-    @staticmethod
-    def set_string_object(bucket, key, string_data):
-        """Set the value of 'key' in 'bucket' to the string 'string_data'"""
-        key = _clean_key(key)
-        OCI_ObjectStore.set_object(bucket, key, string_data.encode("utf-8"))
-
-    @staticmethod
-    def set_object_from_json(bucket, key, data):
-        """Set the value of 'key' in 'bucket' to equal to contents
-           of 'data', which has been encoded to json"""
-        key = _clean_key(key)
-        OCI_ObjectStore.set_string_object(bucket, key, _json.dumps(data))
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
@@ -533,23 +517,3 @@ class OCI_ObjectStore:
                                            key)
         except:
             pass
-
-    @staticmethod
-    def clear_all_except(bucket, keys):
-        """Removes all objects from the passed 'bucket' except those
-           whose keys are or start with any key in 'keys'"""
-        names = OCI_ObjectStore.get_all_object_names(bucket)
-
-        for name in names:
-            remove = True
-
-            for key in keys:
-                key = _clean_key(key)
-                if name.startswith(key):
-                    remove = False
-                    break
-
-            if remove:
-                bucket["client"].delete_object(bucket["namespace"],
-                                               bucket["bucket_name"],
-                                               name)

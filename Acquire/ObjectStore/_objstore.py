@@ -56,7 +56,7 @@ class ObjectStore:
 
     @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
-                   writeable=False, duration=3600):
+                   writeable=False, duration=3600, cleanup_function=None):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
            This will return a PAR object that will contain a URL that can
@@ -70,8 +70,10 @@ class ObjectStore:
         """
         from Acquire.Client import PAR as _PAR
 
-        par = _objstore_backend.create_par(bucket, encrypt_key, key, readable,
-                                           writeable, duration)
+        par = _objstore_backend.create_par(
+                    bucket=bucket, encrypt_key=encrypt_key, key=key,
+                    readable=readable, writeable=writeable,
+                    duration=duration, cleanup_function=cleanup_function)
 
         if not isinstance(par, _PAR):
             raise TypeError("A create_par request should always return an "
@@ -80,17 +82,13 @@ class ObjectStore:
         return par
 
     @staticmethod
-    def delete_par(bucket, par):
-        """Delete the passed PAR, which provides access to data in the
+    def close_par(par=None, par_uid=None, url_checksum=None):
+        """Close the passed PAR, which provides access to data in the
            passed bucket
         """
-        _objstore_backend.delete_par(bucket=bucket, par=par)
-
-    @staticmethod
-    def get_object_as_file(bucket, key, filename):
-        """Get the object contained in the key 'key' in the passed 'bucket'
-           and writing this to the file called 'filename'"""
-        return _objstore_backend.get_object_as_file(bucket, key, filename)
+        _objstore_backend.close_par(par=par,
+                                    par_uid=par_uid,
+                                    url_checksum=url_checksum)
 
     @staticmethod
     def get_object(bucket, key):
@@ -99,9 +97,19 @@ class ObjectStore:
         return _objstore_backend.get_object(bucket, key)
 
     @staticmethod
+    def get_object_as_file(bucket, key, filename):
+        """Get the object contained in the key 'key' in the passed 'bucket'
+           and writing this to the file called 'filename'"""
+        data = ObjectStore.get_object(bucket, key)
+
+        with open(filename, "wb") as FILE:
+            FILE.write(data)
+
+    @staticmethod
     def get_string_object(bucket, key):
         """Return the string in 'bucket' associated with 'key'"""
-        return _objstore_backend.get_string_object(bucket, key)
+        data = ObjectStore.get_object(bucket, key)
+        return data.decode("utf-8")
 
     @staticmethod
     def get_object_from_json(bucket, key):
@@ -109,7 +117,42 @@ class ObjectStore:
            the passed bucket. This returns None if there is no data
            at this key
         """
-        return _objstore_backend.get_object_from_json(bucket, key)
+        data = ObjectStore.get_string_object(bucket, key)
+        return _json.loads(data)
+
+    @staticmethod
+    def take_object(bucket, key):
+        """Take (delete) the object from the object store, returning
+           the object
+        """
+        return _objstore_backend.take_object(bucket, key)
+
+    @staticmethod
+    def take_string_object(bucket, key):
+        """Take (delete) the string object from the object store, returning
+           the object
+        """
+        data = ObjectStore.take_object(bucket, key)
+        return data.decode("utf-8")
+
+    @staticmethod
+    def take_object_as_file(bucket, key, filename):
+        """Take (delete) the object contained in the
+           key 'key' in the passed 'bucket'
+           and writing this to the file called 'filename'
+        """
+        data = ObjectStore.take_object(bucket, key)
+
+        with open(filename, "wb") as FILE:
+            FILE.write(data)
+
+    @staticmethod
+    def take_object_from_json(bucket, key):
+        """Take (delete) the object from the object store, returning
+           the json-deserialised object
+        """
+        data = ObjectStore.take_string_object(bucket, key)
+        return _json.loads(data)
 
     @staticmethod
     def get_all_object_names(bucket, prefix=None):
@@ -119,19 +162,47 @@ class ObjectStore:
     @staticmethod
     def get_all_objects(bucket, prefix=None):
         """Return all of the objects in the passed bucket"""
-        return _objstore_backend.get_all_objects(bucket, prefix)
+        objects = {}
+        names = ObjectStore.get_all_object_names(bucket, prefix)
+
+        for name in names:
+            objects[name] = ObjectStore.get_object(bucket, name)
+
+        return objects
 
     @staticmethod
     def get_all_objects_from_json(bucket, prefix=None):
         """Return all of the objects in the passed bucket as
            json-deserialised objects
         """
-        return _objstore_backend.get_all_objects_from_json(bucket, prefix)
+        objects = ObjectStore.get_all_objects(bucket, prefix)
+
+        names = list(objects.keys())
+
+        for name in names:
+            try:
+                s = objects[name].decode("utf-8")
+                objects[name] = _json.loads(s)
+            except:
+                del objects[name]
+
+        return objects
 
     @staticmethod
     def get_all_strings(bucket, prefix=None):
         """Return all of the strings in the passed bucket"""
-        return _objstore_backend.get_all_strings(bucket, prefix)
+        objects = ObjectStore.get_all_objects(bucket, prefix)
+
+        names = list(objects.keys())
+
+        for name in names:
+            try:
+                s = objects[name].decode("utf-8")
+                objects[name] = s
+            except:
+                del objects[name]
+
+        return objects
 
     @staticmethod
     def set_object(bucket, key, data):
@@ -142,7 +213,8 @@ class ObjectStore:
     def set_object_from_file(bucket, key, filename):
         """Set the value of 'key' in 'bucket' to equal the contents
            of the file located by 'filename'"""
-        _objstore_backend.set_object_from_file(bucket, key, filename)
+        ObjectStore.set_object(bucket, key,
+                               open(filename, 'rb').read())
 
     @staticmethod
     def set_ins_object_from_json(bucket, key, data):
@@ -204,13 +276,14 @@ class ObjectStore:
     @staticmethod
     def set_string_object(bucket, key, string_data):
         """Set the value of 'key' in 'bucket' to the string 'string_data'"""
-        _objstore_backend.set_string_object(bucket, key, string_data)
+        ObjectStore.set_object(bucket, key,
+                               string_data.encode("utf-8"))
 
     @staticmethod
     def set_object_from_json(bucket, key, data):
         """Set the value of 'key' in 'bucket' to equal to contents
            of 'data', which has been encoded to json"""
-        _objstore_backend.set_object_from_json(bucket, key, data)
+        ObjectStore.set_string_object(bucket, key, _json.dumps(data))
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
@@ -225,8 +298,20 @@ class ObjectStore:
     @staticmethod
     def clear_all_except(bucket, keys):
         """Removes all objects from the passed 'bucket' except those
-           whose keys are or start with any key in 'keys'"""
-        _objstore_backend.clear_all_except(bucket, keys)
+           whose keys are or start with any key in 'keys'
+        """
+        names = ObjectStore.get_all_object_names(bucket)
+
+        for name in names:
+            remove = True
+
+            for key in keys:
+                if name.startswith(key):
+                    remove = False
+                    break
+
+            if remove:
+                ObjectStore.delete_object(bucket, key)
 
     @staticmethod
     def get_size_and_checksum(bucket, key):

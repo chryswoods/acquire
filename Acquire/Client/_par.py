@@ -19,14 +19,13 @@ class PAR:
        The PAR is created encrypted, so can only be used by the
        person or service that has access to the decryption key
     """
-    def __init__(self, url=None, key=None, encrypt_key=None,
-                 created_datetime=None,
+    def __init__(self, url=None, key=None,
+                 encrypt_key=None,
                  expires_datetime=None,
                  is_readable=False,
                  is_writeable=False,
                  is_executable=False,
-                 par_id=None, par_name=None,
-                 driver=None):
+                 driver_details=None):
         """Construct a PAR result by passing in the URL at which the
            object can be accessed, the UTC datetime when this expires,
            whether this is readable, writeable or executable, and
@@ -44,16 +43,10 @@ class PAR:
 
            Otherwise no access is possible.
 
-           This also records the type of object store behind this PAR
-           in the free-form string 'driver'. You can optionally supply
-           the ID of the PAR by passing in 'par_id', the user-supplied name,
-           of the PAR by passing in 'par_name', and the time it
-           was created using 'created_datetime' (in the same format
-           as 'expires_datetime' - should be a UTC datetime with UTC tzinfo)
-
-           This also sets the URL of the service that created
-           the PAR. This is needed so that the service can be
-           told when the PAR is closed, so that it can be deleted.
+           driver_details is provided by the machinery that creates
+           the PAR, and supplies extra details that are used by the
+           driver to create, register and manage PARs... You should
+           not do anything with driver_details yourself
         """
         service_url = None
 
@@ -85,12 +78,14 @@ class PAR:
 
         self._url = url
         self._key = key
-        self._created_datetime = created_datetime
         self._expires_datetime = expires_datetime
-        self._driver = driver
-        self._par_id = par_id
-        self._par_name = par_name
         self._service_url = service_url
+
+        if driver_details is not None:
+            if not isinstance(driver_details, dict):
+                raise TypeError("The driver details must be a dictionary")
+
+        self._driver_details = driver_details
 
         if is_readable:
             self._is_readable = True
@@ -179,6 +174,10 @@ class PAR:
         """
         from hashlib import md5 as _md5
         md5 = _md5()
+
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+
         md5.update(data)
         return md5.hexdigest()
 
@@ -215,18 +214,24 @@ class PAR:
         """Return the UID of this PAR"""
         return self._uid
 
-    def par_id(self):
-        """Return the ID of the PAR, if this was supplied by the underlying
-           driver. This could be useful for PAR management by the server
+    def driver_details(self):
+        """Return the driver details for this PAR. This is used only
+           on the service that created the PAR, and returns an empty
+           dictionary if the details are not available
         """
-        return self._par_id
+        if self._driver_details is None:
+            return {}
+        else:
+            return self._driver_details
 
-    def par_name(self):
-        """Return the user-supplied name of the PAR, if this was supplied
-           by the user and supported by the underlying driver. This could
-           be useful for PAR management by the server
+    def driver(self):
+        """Return the driver behind this PAR - this is only available on
+           the service
         """
-        return self._par_name
+        try:
+            return self.driver_details()["driver"]
+        except:
+            return None
 
     def fingerprint(self):
         """Return a fingerprint for this PAR that can be used
@@ -263,9 +268,12 @@ class PAR:
         """Return whether or not this PAR is for a single object"""
         return self._key is not None
 
-    def driver(self):
-        """Return the underlying object store driver used for this PAR"""
-        return self._driver
+    def expires_when(self):
+        """Return when this PAR expires (or expired)"""
+        if self.is_null():
+            return None
+        else:
+            return self._expires_datetime
 
     def seconds_remaining(self, buffer=30):
         """Return the number of seconds remaining before this PAR expires.
@@ -325,7 +333,7 @@ class PAR:
 
         return ComputeRunner(self, self._get_privkey(decrypt_key))
 
-    def close(self, storage_url=None, storage_service=None, decrypt_key=None):
+    def close(self, decrypt_key=None):
         """Close this PAR - this closes and deletes the PAR. You must
            pass in the decryption key so that you can validate that
            you have permission to read (and thus close) this PAR
@@ -343,7 +351,7 @@ class PAR:
             args = {"par_uid": self._uid,
                     "url_checksum": PAR.checksum(url)}
 
-            service.call_function(func="close_par", args=args)
+            service.call_function(function="close_par", args=args)
 
         # now that the PAR is closed, set it into a null state
         import copy as _copy
@@ -367,11 +375,7 @@ class PAR:
         data["url"] = _bytes_to_string(self._url)
         data["uid"] = self._uid
         data["key"] = self._key
-        data["created_datetime"] = _datetime_to_string(self._created_datetime)
         data["expires_datetime"] = _datetime_to_string(self._expires_datetime)
-        data["driver"] = self._driver
-        data["par_id"] = self._par_id
-        data["par_name"] = self._par_name
         data["is_readable"] = self._is_readable
         data["is_writeable"] = self._is_writeable
         data["is_executable"] = self._is_executable
@@ -390,6 +394,9 @@ class PAR:
         if privkey is not None:
             if passphrase is not None:
                 data["privkey"] = privkey.to_data(passphrase)
+
+        # note that we don't save the driver details as these
+        # are stored separately on the service
 
         return data
 
@@ -415,11 +422,7 @@ class PAR:
         if par._key is not None:
             par._key = str(par._key)
 
-        par._created_datetime = _string_to_datetime(data["created_datetime"])
         par._expires_datetime = _string_to_datetime(data["expires_datetime"])
-        par._driver = data["driver"]
-        par._par_id = data["par_id"]
-        par._par_name = data["par_name"]
         par._is_readable = data["is_readable"]
         par._is_writeable = data["is_writeable"]
         par._is_executable = data["is_executable"]
@@ -432,6 +435,9 @@ class PAR:
                 from Acquire.Crypto import PrivateKey as _PrivateKey
                 par._privkey = _PrivateKey.from_data(data["privkey"],
                                                      passphrase)
+
+        # note that we don't load the driver details as this
+        # is stored and loaded separately on the service
 
         return par
 
