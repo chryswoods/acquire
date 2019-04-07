@@ -122,7 +122,7 @@ def test_drives(authenticated_user, tempdir):
 
     assert(versions[0] == filemeta)
 
-    new_filemeta = drive.upload(filename=__file__)
+    new_filemeta = drive.upload(filename=__file__, force_par=True)
 
     versions = drive.list_versions(filename=filemeta.filename())
 
@@ -150,3 +150,15 @@ def test_drives(authenticated_user, tempdir):
     # should be in upload order
     assert(versions[0] == filemeta)
     assert(versions[1] == new_filemeta)
+
+    (filename, new_filemeta) = drive.download(filemeta.filename(),
+                                              dir=tempdir, force_par=True)
+
+    # make sure that the two files are identical
+    with open(filename, "rb") as FILE:
+        data1 = FILE.read()
+
+    # remove this tmp file
+    os.unlink(filename)
+
+    assert(data1 == data2)

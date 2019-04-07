@@ -8,7 +8,9 @@ by most of the other modules.
 """
 
 from ._objstore import *
+from ._parregistry import *
 from ._encoding import *
+from ._function import *
 from ._mutex import *
 from ._errors import *
 
