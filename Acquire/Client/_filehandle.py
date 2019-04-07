@@ -133,6 +133,7 @@ class FileHandle:
         if self._compressed_filename is not None:
             import os as _os
             _os.unlink(self._compressed_filename)
+            self._compressed_filename = None
 
     def __str__(self):
         """Return a string representation of the file"""

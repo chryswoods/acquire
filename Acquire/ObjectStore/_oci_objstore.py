@@ -363,7 +363,7 @@ class OCI_ObjectStore:
         client = bucket["client"]
 
         try:
-            response = client.create_preauthenticated_request(
+            response = client.delete_preauthenticated_request(
                                             client.get_namespace().data,
                                             bucket["bucket_name"],
                                             par_id)

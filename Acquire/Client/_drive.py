@@ -247,35 +247,40 @@ class Drive:
                                  aclrules=aclrules,
                                  local_cutoff=local_cutoff)
 
-        authorisation = _Authorisation(
+        try:
+            authorisation = _Authorisation(
                             resource="upload %s" % filehandle.fingerprint(),
                             user=self._user)
 
-        args = {"filehandle": filehandle.to_data(),
-                "authorisation": authorisation.to_data()}
+            args = {"filehandle": filehandle.to_data(),
+                    "authorisation": authorisation.to_data()}
 
-        if not filehandle.is_localdata():
-            # we will need to upload against a PAR, so need to tell
-            # the service how to encrypt the PAR...
-            privkey = self._user.session_key()
-            args["encryption_key"] = privkey.public_key().to_data()
+            if not filehandle.is_localdata():
+                # we will need to upload against a PAR, so need to tell
+                # the service how to encrypt the PAR...
+                privkey = self._user.session_key()
+                args["encryption_key"] = privkey.public_key().to_data()
 
-        # will eventually need to authorise payment...
+            # will eventually need to authorise payment...
 
-        response = self.storage_service().call_function(
-                                function="upload", args=args)
+            response = self.storage_service().call_function(
+                                    function="upload", args=args)
 
-        filemeta = _FileMeta.from_data(response["filemeta"])
+            filemeta = _FileMeta.from_data(response["filemeta"])
 
-        # if this was a large file, then we will receive a PAR back
-        # which must be used to upload the file
-        if not filehandle.is_localdata():
-            par = _PAR.from_data(response["upload_par"])
-            par.write(privkey).set_object_from_file(
-                                    filehandle.local_filename())
-            par.close(privkey)
+            # if this was a large file, then we will receive a PAR back
+            # which must be used to upload the file
+            if not filehandle.is_localdata():
+                par = _PAR.from_data(response["upload_par"])
+                par.write(privkey).set_object_from_file(
+                                        filehandle.local_filename())
+                par.close(privkey)
 
-        return filemeta
+            return filemeta
+        except:
+            # ensure that any temporary files are removed
+            filehandle.__del__()
+            raise
 
     def download(self, filename, downloaded_name=None, version=None,
                  dir=None, **kwargs):
