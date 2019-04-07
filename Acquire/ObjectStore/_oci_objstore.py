@@ -492,7 +492,7 @@ class OCI_ObjectStore:
     def set_object(bucket, key, data):
         """Set the value of 'key' in 'bucket' to binary 'data'"""
         if data is None:
-            data = 0
+            data = b'0'
 
         f = _io.BytesIO(data)
 
