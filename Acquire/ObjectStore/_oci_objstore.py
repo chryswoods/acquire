@@ -554,6 +554,6 @@ class OCI_ObjectStore:
         # convert this back to a hexdigest
         import binascii as _binascii
         import base64 as _base64
-        md5sum = _binascii.hexlify(_base64.b64decode(checksum))
+        md5sum = _binascii.hexlify(_base64.b64decode(checksum)).decode("utf-8")
 
         return (int(content_length), md5sum)
