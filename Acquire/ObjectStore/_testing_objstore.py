@@ -279,13 +279,15 @@ class Testing_ObjectStore:
         with _rlock:
             try:
                 with open(filename, 'wb') as FILE:
-                    FILE.write(data)
+                    if data is not None:
+                        FILE.write(data)
                     FILE.flush()
             except:
                 dir = "/".join(filename.split("/")[0:-1])
                 _os.makedirs(dir, exist_ok=True)
                 with open(filename, 'wb') as FILE:
-                    FILE.write(data)
+                    if data is not None:
+                        FILE.write(data)
                     FILE.flush()
 
     @staticmethod

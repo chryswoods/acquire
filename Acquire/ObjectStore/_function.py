@@ -66,7 +66,9 @@ class Function:
         f = Function()
 
         if data is not None and len(data) > 0:
-            f._func = getattr(__import__(data["module"]), data["function"])
+            import importlib as _importlib
+            m = _importlib.import_module(data["module"])
+            f._func = getattr(m, data["function"])
 
             if "args" in data:
                 if args_from_data is None:

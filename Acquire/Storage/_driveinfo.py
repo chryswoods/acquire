@@ -12,6 +12,17 @@ def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
         objsize and checksum match with what was promised
     """
     from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.Service import get_service_account_bucket \
+        as _get_service_account_bucket
+    from Acquire.Service import get_this_service as _get_this_service
+
+    service = _get_this_service()
+    bucket = _get_service_account_bucket()
+
+    file_bucket = _ObjectStore.get_bucket(
+                        bucket=bucket, bucket_name=file_bucket,
+                        compartment=service.storage_compartment(),
+                        create_if_needed=True)
 
     # check that the file uploaded matches what was promised
     (real_objsize, real_checksum) = _ObjectStore.get_size_and_checksum(
@@ -216,7 +227,8 @@ class DriveInfo:
         return (fileinfo.get_filemeta(resolved_acl=file_acl), par)
 
     def download(self, filename, authorisation,
-                 version=None, encrypt_key=None):
+                 version=None, encrypt_key=None,
+                 **kwargs):
         """Download the file called filename. This will return a
            FileHandle that describes the file. If the file is
            sufficiently small, then the filedata will be embedded
@@ -264,16 +276,17 @@ class DriveInfo:
                 "permissions are %s" % str(file_acl))
 
         file_bucket = self._get_file_bucket()
-        metadata_bucket = self._get_metadata_bucket()
 
         file_key = fileinfo.latest_version()._file_key()
         filedata = None
         par = None
 
-        if fileinfo.filesize() < 1048576:
-            # one-trip download of files that are less than 1 MB
-            filedata = _ObjectStore.get_object(file_bucket, file_key)
+        if "force_par" in kwargs:
+            force_par = kwargs["force_par"]
         else:
+            force_par = None
+
+        if force_par or fileinfo.filesize() > 1048576:
             # the file is too large to include in the download so
             # we need to use a PAR to download
             par = _ObjectStore.create_par(bucket=file_bucket,
@@ -281,6 +294,9 @@ class DriveInfo:
                                           key=file_key,
                                           readable=True,
                                           writeable=False)
+        else:
+            # one-trip download of files that are less than 1 MB
+            filedata = _ObjectStore.get_object(file_bucket, file_key)
 
         # return the filemeta, and either the filedata or par
         return (fileinfo.get_filemeta(resolved_acl=file_acl), filedata, par)

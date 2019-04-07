@@ -36,6 +36,14 @@ def run(args):
     else:
         version = None
 
+    if "force_par" in args:
+        force_par = args["force_par"]
+    else:
+        force_par = None
+
+    if force_par:
+        force_par = True
+
     drive = DriveInfo(drive_uid=drive_uid,
                       user_guid=authorisation.user_guid())
 
@@ -44,7 +52,8 @@ def run(args):
     (filemeta, filedata, par) = drive.download(filename=filename,
                                                version=version,
                                                authorisation=authorisation,
-                                               encrypt_key=public_key)
+                                               encrypt_key=public_key,
+                                               force_par=force_par)
 
     if filemeta is not None:
         return_value["filemeta"] = filemeta.to_data()

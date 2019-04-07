@@ -209,7 +209,8 @@ class Drive:
 
         return par
 
-    def upload(self, filename, uploaded_name=None, aclrules=None):
+    def upload(self, filename, uploaded_name=None, aclrules=None,
+               **kwargs):
         """Upload the file at 'filename' to this drive, assuming we have
            write access to this drive. The local file 'filename' will be
            uploaded to the drive as the file called 'filename' (just the
@@ -233,11 +234,18 @@ class Drive:
         from Acquire.Client import PAR as _PAR
         from Acquire.Client import FileMeta as _FileMeta
 
+        local_cutoff = None
+
+        if "force_par" in kwargs:
+            if kwargs["force_par"]:
+                local_cutoff = 0
+
         filehandle = _FileHandle(filename=filename,
                                  remote_filename=uploaded_name,
                                  drive_uid=self.uid(),
                                  user_guid=self._user.guid(),
-                                 aclrules=aclrules)
+                                 aclrules=aclrules,
+                                 local_cutoff=local_cutoff)
 
         authorisation = _Authorisation(
                             resource="upload %s" % filehandle.fingerprint(),
@@ -265,12 +273,12 @@ class Drive:
             par = _PAR.from_data(response["upload_par"])
             par.write(privkey).set_object_from_file(
                                     filehandle.local_filename())
-            par.close()
+            par.close(privkey)
 
         return filemeta
 
     def download(self, filename, downloaded_name=None, version=None,
-                 dir=None):
+                 dir=None, **kwargs):
         """Download the file called 'filename' from this drive into
            the local directory, or 'dir' if specified,
            ideally called 'filename'
@@ -313,6 +321,9 @@ class Drive:
                 "authorisation": authorisation.to_data(),
                 "encryption_key": privkey.public_key().to_data()}
 
+        if "force_par" in kwargs:
+            args["force_par"] = kwargs["force_par"]
+
         if version is not None:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
@@ -348,9 +359,9 @@ class Drive:
                 FILE.flush()
         else:
             from Acquire.Client import PAR as _PAR
-            par = _PAR.from_data(response["upload_par"])
+            par = _PAR.from_data(response["download_par"])
             par.read(privkey).get_object_as_file(downloaded_name)
-            par.close()
+            par.close(privkey)
 
             # validate that the size and checksum are correct
             filemeta.assert_correct_data(filename=downloaded_name)
