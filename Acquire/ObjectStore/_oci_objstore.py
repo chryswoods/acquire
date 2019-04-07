@@ -307,7 +307,7 @@ class OCI_ObjectStore:
         url_checksum = _PAR.checksum(url)
 
         driver_details = {"driver": "oci",
-                          "bucket": bucket,
+                          "bucket": bucket["bucket_name"],
                           "created_datetime": created_datetime,
                           "par_id": oci_par.id,
                           "par_name": oci_par.name}
