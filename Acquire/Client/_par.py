@@ -26,7 +26,6 @@ class PAR:
                  is_writeable=False,
                  is_executable=False,
                  par_id=None, par_name=None,
-                 storage_url=None,
                  driver=None):
         """Construct a PAR result by passing in the URL at which the
            object can be accessed, the UTC datetime when this expires,
@@ -52,10 +51,12 @@ class PAR:
            was created using 'created_datetime' (in the same format
            as 'expires_datetime' - should be a UTC datetime with UTC tzinfo)
 
-           This also sets the URL of the storage service that created
-           the PAR. This is needed so that the storage service can be
+           This also sets the URL of the service that created
+           the PAR. This is needed so that the service can be
            told when the PAR is closed, so that it can be deleted.
         """
+        service_url = None
+
         if url is None:
             is_readable = True
             self._uid = None
@@ -75,6 +76,13 @@ class PAR:
             from Acquire.ObjectStore import create_uuid as _create_uuid
             self._uid = _create_uuid()
 
+            try:
+                from Acquire.Service import get_this_service \
+                    as _get_this_service
+                service_url = _get_this_service().canonical_url()
+            except:
+                pass
+
         self._url = url
         self._key = key
         self._created_datetime = created_datetime
@@ -82,7 +90,7 @@ class PAR:
         self._driver = driver
         self._par_id = par_id
         self._par_name = par_name
-        self._storage_url = storage_url
+        self._service_url = service_url
 
         if is_readable:
             self._is_readable = True
@@ -185,6 +193,23 @@ class PAR:
                 "The URL behind this PAR has expired and is no longer valid")
 
         return self._get_privkey(decrypt_key).decrypt(self._url)
+
+    def service_url(self):
+        """Return the URL of the service that created this PAR"""
+        if self.is_null():
+            return None
+        else:
+            return self._service_url
+
+    def service(self):
+        """Return the service that created this PAR"""
+        service_url = self.service_url()
+
+        if service_url is not None:
+            from Acquire.Client import Wallet as _Wallet
+            return _Wallet.get_service(service_url=service_url)
+        else:
+            return None
 
     def uid(self):
         """Return the UID of this PAR"""
@@ -308,27 +333,17 @@ class PAR:
         if self.is_null():
             return
 
-        if storage_url is None:
-            if storage_service is not None:
-                storage_url = storage_service.canonical_url()
-            elif self._storage_url is not None:
-                storage_url = self._storage_url
+        service = self.service()
 
-        if storage_url is None:
-            # This is a PAR created on a local bucket - we can't close
-            # this directly
-            pass
-        else:
-            if storage_service is None:
-                from Acquire.Client import Wallet as _Wallet
-                storage_service = _Wallet.get_service(storage_url)
-
+        if service is not None:
+            # we confirm we have permission to close this PAR by sending
+            # a checksum of the url (which only we would know)
             url = self.url(decrypt_key=decrypt_key)
 
             args = {"par_uid": self._uid,
                     "url_checksum": PAR.checksum(url)}
 
-            storage_service.call_function(func="close_par", args=args)
+            service.call_function(func="close_par", args=args)
 
         # now that the PAR is closed, set it into a null state
         import copy as _copy
@@ -360,7 +375,12 @@ class PAR:
         data["is_readable"] = self._is_readable
         data["is_writeable"] = self._is_writeable
         data["is_executable"] = self._is_executable
-        data["storage_url"] = self._storage_url
+
+        try:
+            if self._service_url is not None:
+                data["service_url"] = self._service_url
+        except:
+            pass
 
         try:
             privkey = self._privkey
@@ -404,8 +424,8 @@ class PAR:
         par._is_writeable = data["is_writeable"]
         par._is_executable = data["is_executable"]
 
-        if "storage_url" in data:
-            par._storage_url = data["storage_url"]
+        if "service_url" in data:
+            par._service_url = data["service_url"]
 
         if "privkey" in data:
             if passphrase is not None:
