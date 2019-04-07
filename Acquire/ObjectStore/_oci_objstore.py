@@ -546,7 +546,7 @@ class OCI_ObjectStore:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError("No data at key '%s'" % key)
 
-        content_length = response["Content-Length"]
-        md5sum = response["Content-MD5"]
+        content_length = response.headers["Content-Length"]
+        md5sum = response.headers["Content-MD5"]
 
         return (int(content_length), md5sum)
