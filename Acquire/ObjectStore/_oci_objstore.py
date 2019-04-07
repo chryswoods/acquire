@@ -373,7 +373,7 @@ class OCI_ObjectStore:
                 "Unable to delete a PAR '%s' : Error %s" %
                 (par_id, str(e)))
 
-        if response.status != 200:
+        if response.status not in [200, 204]:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unable to delete a PAR '%s' : Status %s, Error %s" %

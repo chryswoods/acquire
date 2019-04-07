@@ -61,11 +61,15 @@ class PARRegistry:
 
             data["cleanup_function"] = cleanup_function.to_data()
 
-        key = "%s/%s/%s" % (_registry_key, par.uid(),
-                            _datetime_to_string(par.expires_when()))
+        expire_string = _datetime_to_string(par.expires_when())
+
+        key = "%s/uid/%s/%s" % (_registry_key, par.uid(), expire_string)
 
         bucket = _get_service_account_bucket()
         _ObjectStore.set_object_from_json(bucket, key, data)
+
+        key = "%s/expire/%s/%s" % (_registry_key, expire_string, par.uid())
+        _ObjectStore.set_object_from_json(bucket, key, par.uid())
 
     @staticmethod
     def get(par_uid, details_function, url_checksum=None):
@@ -96,7 +100,7 @@ class PARRegistry:
         from Acquire.ObjectStore import string_to_datetime \
             as _string_to_datetime
 
-        key = "%s/%s" % (_registry_key, par_uid)
+        key = "%s/uid/%s" % (_registry_key, par_uid)
 
         bucket = _get_service_account_bucket()
 
@@ -160,10 +164,17 @@ class PARRegistry:
         if par.is_null():
             return
 
-        key = "%s/%s/%s" % (_registry_key, par.uid(),
-                            _datetime_to_string(par.expires_when()))
+        expire_string = _datetime_to_string(par.expires_when())
 
         bucket = _get_service_account_bucket()
+
+        key = "%s/expire/%s/%s" % (_registry_key, expire_string, par.uid())
+        try:
+            _ObjectStore.delete_object(bucket=bucket, key=key)
+        except:
+            pass
+
+        key = "%s/uid/%s/%s" % (_registry_key, par.uid(), expire_string)
 
         try:
             data = _ObjectStore.take_object_from_json(bucket=bucket, key=key)
