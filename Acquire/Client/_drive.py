@@ -265,17 +265,7 @@ class Drive:
             par = _PAR.from_data(response["upload_par"])
             par.write(privkey).set_object_from_file(
                                     filehandle.local_filename())
-
-            authorisation = _Authorisation(
-                                resource="uploaded %s" % par.uid(),
-                                user=self._user)
-
-            args = {"drive_uid": self.uid(),
-                    "authorisation": authorisation.to_data(),
-                    "par_uid": par.uid()}
-
-            self.storage_service().call_function(
-                                       function="uploaded", args=args)
+            par.close()
 
         return filemeta
 
@@ -360,6 +350,7 @@ class Drive:
             from Acquire.Client import PAR as _PAR
             par = _PAR.from_data(response["upload_par"])
             par.read(privkey).get_object_as_file(downloaded_name)
+            par.close()
 
             # validate that the size and checksum are correct
             filemeta.assert_correct_data(filename=downloaded_name)
@@ -370,18 +361,6 @@ class Drive:
                 _uncompress(inputfile=downloaded_name,
                             outputfile=downloaded_name,
                             compression_type=filemeta.compression_type())
-
-            # everything is ok, so we don't need the PAR any more
-            authorisation = _Authorisation(
-                                resource="downloaded %s" % par.uid(),
-                                user=self._user)
-
-            args = {"drive_uid": self.uid(),
-                    "authorisation": authorisation.to_data(),
-                    "par_uid": par.uid()}
-
-            self.storage_service().call_function(
-                                       function="downloaded", args=args)
 
         filemeta._set_drive(self)
 

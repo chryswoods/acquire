@@ -20,7 +20,7 @@ def run(args):
                call step 2...
 
        Step 2: downloaded - after you have downloaded the file from the PAR
-               call downloaded so that the service knows that the PAR
+               call PAR.close() so that the service knows that the PAR
                is no longer needed and can be deleted
     """
 

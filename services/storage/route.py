@@ -10,9 +10,6 @@ def storage_functions(function, args):
     elif function == "download":
         from storage.download import run as _download
         return _download(args)
-    elif function == "downloaded":
-        from storage.downloaded import run as _downloaded
-        return _downloaded(args)
     elif function == "list_files":
         from storage.list_files import run as _list_files
         return _list_files(args)
@@ -31,9 +28,6 @@ def storage_functions(function, args):
     elif function == "upload":
         from storage.upload import run as _upload
         return _upload(args)
-    elif function == "uploaded":
-        from storage.uploaded import run as _uploaded
-        return _uploaded(args)
     else:
         return None
 

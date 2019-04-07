@@ -5,7 +5,30 @@ _drive_root = "storage/drive"
 
 _fileinfo_root = "storage/file"
 
-_par_root = "storage/file_pars"
+
+def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
+    """Call this function to signify that the file associated with
+        this PAR has been uploaded. This will check that the
+        objsize and checksum match with what was promised
+    """
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+
+    # check that the file uploaded matches what was promised
+    (real_objsize, real_checksum) = _ObjectStore.get_size_and_checksum(
+                                                file_bucket, file_key)
+
+    if real_objsize != objsize or real_checksum != checksum:
+        # probably should delete the broken object here...
+
+        from Acquire.Storage import FileValidationError
+        raise FileValidationError(
+            "The file uploaded does not match what was promised. "
+            "size: %s versus %s, checksum: %s versus %s. Please try "
+            "to upload the file again." %
+            (real_objsize, objsize,
+             real_checksum, checksum))
+
+    # SHOULD HERE RECEIPT THE STORAGE TRANSACTION
 
 
 class DriveInfo:
@@ -68,6 +91,12 @@ class DriveInfo:
             raise RequestBucketError(
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
 
+    def _get_file_bucketname(self):
+        """Return the name of the bucket that will contain all of the
+           files for this drive
+        """
+        return "user_files"
+
     def _get_file_bucket(self):
         """Return the bucket that contains all of the files for this
            drive
@@ -79,7 +108,7 @@ class DriveInfo:
 
         service = _get_this_service()
         bucket = _get_service_account_bucket()
-        bucket_name = "user_files"
+        bucket_name = self._get_file_bucketname()
 
         try:
             return _ObjectStore.get_bucket(
@@ -91,69 +120,15 @@ class DriveInfo:
             raise RequestBucketError(
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
 
-    def upload_complete(self, par_uid, authorisation):
-        """Call this function to signify that the file associated with
-           the PAR with UID 'par_uid' has been uploaded (must have matching
-           authorisation)
-        """
-        from Acquire.Client import PAR as _PAR
-        from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.Client import FileMeta as _FileMeta
-
-        if not isinstance(authorisation, _Authorisation):
-            raise TypeError("The authorisation must be of type Authorisation")
-
-        authorisation.verify("uploaded %s" % par_uid)
-
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-
-        par_key = "%s/%s" % (_par_root, par_uid)
-        file_bucket = self._get_file_bucket()
-        metadata_bucket = self._get_metadata_bucket()
-
-        data = _ObjectStore.get_object_from_json(metadata_bucket, par_key)
-
-        par = _PAR.from_data(data["par"])
-        file_key = data["file_key"]
-        user_guid = data["user_guid"]
-        expected_objsize = data["filesize"]
-        expected_checksum = data["checksum"]
-
-        # the same user who requested the PAR must signify that the upload
-        # has completed
-        if authorisation.user_guid() != user_guid:
-            raise PermissionError(
-                "Only the user with GUID %s can signify that the "
-                "upload is complete. Not user with GUID %s" %
-                (user_guid, authorisation.user_guid()))
-
-        # check that the file uploaded matches what was promised
-        (objsize, checksum) = _ObjectStore.get_size_and_checksum(file_bucket,
-                                                                 file_key)
-
-        if expected_objsize != objsize or expected_checksum != checksum:
-            from Acquire.Storage import FileValidationError
-            raise FileValidationError(
-                "The file uploaded does not match what was promised. "
-                "size: %s versus %s, checksum: %s versus %s. Please try "
-                "to upload the file again." %
-                (expected_objsize, objsize,
-                 expected_checksum, checksum))
-
-            # probably should delete the broken object here...
-
-        # SHOULD HERE RECEIPT THE STORAGE TRANSACTION
-
-        _ObjectStore.close_par(bucket=file_bucket, par=par)
-        _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
-
     def upload(self, filehandle, authorisation, encrypt_key=None):
         """Upload the file associated with the passed filehandle.
            If the filehandle has the data embedded, then this uploads
            the file data directly and returns a FileMeta for the
            result. Otherwise, this returns a PAR which should
            be used to upload the data. The PAR will be encrypted
-           using 'encrypt_key'
+           using 'encrypt_key'. Remember to close the PAR once the
+           file has been uploaded, so that it can be validated
+           as correct
         """
         from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Storage import FileInfo as _FileInfo
@@ -200,7 +175,6 @@ class DriveInfo:
                 "permissions are %s" % str(file_acl))
 
         file_bucket = self._get_file_bucket()
-        metadata_bucket = self._get_metadata_bucket()
 
         file_key = fileinfo.latest_version()._file_key()
 
@@ -218,23 +192,20 @@ class DriveInfo:
         if filedata is None:
             # the file is too large to include in the filehandle so
             # we need to use a PAR to upload
+            from Acquire.ObjectStore import Function as _Function
+
+            f = _Function(function=_validate_file_upload,
+                          file_bucket=self._get_file_bucketname(),
+                          file_key=file_key,
+                          objsize=fileinfo.filesize(),
+                          checksum=fileinfo.checksum())
+
             par = _ObjectStore.create_par(bucket=file_bucket,
                                           encrypt_key=encrypt_key,
                                           key=file_key,
                                           readable=False,
-                                          writeable=True)
-
-            par_key = "%s/%s" % (_par_root, par.uid())
-
-            data = {"par": par.to_data(),
-                    "file_key": file_key,
-                    "user_guid": user_guid,
-                    "objsize": fileinfo.filesize(),
-                    "checksum": fileinfo.checksum()}
-
-            _ObjectStore.set_object_from_json(bucket=metadata_bucket,
-                                              key=par_key,
-                                              data=data)
+                                          writeable=True,
+                                          cleanup_function=f)
         else:
             par = None
 
@@ -244,61 +215,6 @@ class DriveInfo:
         # return the PAR if we need to have a second-stage of upload
         return (fileinfo.get_filemeta(resolved_acl=file_acl), par)
 
-    def download_complete(self, par_uid, authorisation):
-        """Call this function to signify that the file associated with
-           the PAR with UID 'par_uid' has been downloaded (must have matching
-           authorisation)
-        """
-        from Acquire.Client import PAR as _PAR
-        from Acquire.Client import Authorisation as _Authorisation
-
-        if not isinstance(authorisation, _Authorisation):
-            raise TypeError("The authorisation must be of type Authorisation")
-
-        authorisation.verify("downloaded %s" % par_uid)
-
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-
-        par_key = "%s/%s" % (_par_root, par_uid)
-        file_bucket = self._get_file_bucket()
-        metadata_bucket = self._get_metadata_bucket()
-
-        data = _ObjectStore.get_object_from_json(metadata_bucket, par_key)
-
-        par = _PAR.from_data(data["par"])
-        file_key = data["file_key"]
-        user_guid = data["user_guid"]
-
-        # the same user who requested the PAR must signify that the upload
-        # has completed
-        if authorisation.user_guid() != user_guid:
-            raise PermissionError(
-                "Only the user with GUID %s can signify that the "
-                "upload is complete. Not user with GUID %s" %
-                (user_guid, authorisation.user_guid()))
-
-        if par.is_writeable():
-            expected_objsize = data["filesize"]
-            expected_checksum = data["checksum"]
-
-            # check that use of the PAR has not changed the file...
-            (objsize, checksum) = _ObjectStore.get_size_and_checksum(
-                                            file_bucket, file_key)
-
-            if expected_objsize != objsize or expected_checksum != checksum:
-                from Acquire.Storage import FileValidationError
-                raise FileValidationError(
-                    "The file downloaded does not match what was promised. "
-                    "size: %s versus %s, checksum: %s versus %s. This "
-                    "suggests that the PAR has been used incorrectly!" %
-                    (expected_objsize, objsize,
-                     expected_checksum, checksum))
-
-                # probably should delete the broken object here...
-
-        _ObjectStore.close_par(bucket=file_bucket, par=par)
-        _ObjectStore.delete_object(bucket=metadata_bucket, key=par_key)
-
     def download(self, filename, authorisation,
                  version=None, encrypt_key=None):
         """Download the file called filename. This will return a
@@ -306,7 +222,9 @@ class DriveInfo:
            sufficiently small, then the filedata will be embedded
            into this handle. Otherwise a PAR will be generated and
            also returned to allow the file to be downloaded
-           separately. The PAR will be encrypted with 'encrypt_key'
+           separately. The PAR will be encrypted with 'encrypt_key'.
+           Remember to close the PAR once you have finished
+           downloading the file...
         """
         from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Storage import FileInfo as _FileInfo
@@ -363,18 +281,6 @@ class DriveInfo:
                                           key=file_key,
                                           readable=True,
                                           writeable=False)
-
-            par_key = "%s/%s" % (_par_root, par.uid())
-
-            data = {"par": par.to_data(),
-                    "file_key": file_key,
-                    "user_guid": user_guid,
-                    "objsize": fileinfo.filesize(),
-                    "checksum": fileinfo.checksum()}
-
-            _ObjectStore.set_object_from_json(bucket=metadata_bucket,
-                                              key=par_key,
-                                              data=data)
 
         # return the filemeta, and either the filedata or par
         return (fileinfo.get_filemeta(resolved_acl=file_acl), filedata, par)

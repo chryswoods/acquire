@@ -21,8 +21,8 @@ def run(args):
                If the file is large, then we now returns a PAR
                that can be used for this upload (Step 2)
 
-       Step 2: uploaded - after the user has used the PAR to upload
-               the file, they should call this function to notify
+       Step 2: after the user has used the PAR to upload
+               the file, they should call PAR.close() to notify
                the service that the file has been successfully uploaded.
                This will verify that the file has been uploaded correctly,
                will receipt the storage cost and will delete the PAR
