@@ -30,7 +30,15 @@ class AccessService(_Service):
     def _call_local_function(self, function, args):
         """Internal function called to short-cut local 'remote'
            function calls
+
+           Args:
+                function: function to route
+                args: arguments to be passed into function
+
+            Returns:
+                function: function object
         """
+
         from access.route import access_functions as _access_functions
         from admin.handler import create_handler as _create_handler
         
@@ -41,8 +49,12 @@ class AccessService(_Service):
     def get_trusted_storage_service(self):
         """Return a trusted storage service
 
-            Gets a dictionary of trust services and returns the
-            first trusted storage service
+            Args:
+                None
+            Returns:
+                dict: containing the first storage
+                device on the trusted service
+
         """
         from Acquire.Service import get_trusted_services \
             as _get_trusted_services

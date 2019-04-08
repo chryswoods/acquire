@@ -10,7 +10,7 @@ class JobSheet:
         if job is not None:
             from Acquire.Identity import Authorisation as _Authorisation
             if not isinstance(authorisation, _Authorisation):
-                raise TypeError("You can only authorise a reqeust with "
+                raise TypeError("You can only authorise a request with "
                                 "a valid Authorisation object")
             authorisation.verify(job.fingerprint())
             from Acquire.ObjectStore import create_uuid as _create_uuid
@@ -21,16 +21,37 @@ class JobSheet:
             self._uid = None
 
     def is_null(self):
-        """Return whether or not this JobSheet is null"""
+        """Return whether or not this JobSheet is null
+        
+        Args:
+            None
+        Returns:
+            bool: True if uid is set, False otherwise
+        
+        """
         return self._uid is None
 
     def uid(self):
-        """Return the UID of this JobSheet"""
+        """Return the UID of this JobSheet
+
+            Args:
+                None
+            Returns:
+                str: UID of the object
+        
+        """
         return self._uid
 
     def total_cost(self):
         """Return the total maximum quoted cost for this job. The
            total cost to run the job must not exceed this
+
+           TODO - should this just return constants?
+
+           Args:
+                None
+            Returns:
+                int: 0 if no uid is set, else 10
         """
         if self.is_null():
             return 0
@@ -38,14 +59,28 @@ class JobSheet:
             return 10
 
     def job(self):
-        """Return the original job request"""
+        """Return the original job request
+
+            Args:
+                None
+            Returns:
+                None or Request: If no uid set None, else job request
+        
+        """
         if self.is_null():
             return None
         else:
             return self._job
 
     def authorisation(self):
-        """Return the original authorisation for this job"""
+        """Return the original authorisation for this job
+
+            Args:
+                None
+            Returns:
+                None or Authorisation: If no uid set None, else Authorisation
+        
+        """
         if self.is_null():
             return None
         else:
@@ -55,6 +90,12 @@ class JobSheet:
         """Pass in and cash that contains the source of value of
            paying for this job. This will cash the cheque and store
            the value within credit notes held in this job sheet
+
+           Args:
+                cheque (Cheque): transfer method for paying for service
+            Returns:
+                None
+
         """
         if self.is_null():
             from Acquire.Accounting import PaymentError
@@ -90,9 +131,10 @@ class JobSheet:
            will contract a compute service and a storage service to run
            the job.
 
-           The storage service will provide (1) a file upload PAR to enable
-           the user to upload the input, and (2) a bucket write PAR to
-           enable the compute service to write the output
+           The storage service will provide (1) a file upload pre-authenticated
+           request (PAR) to enable the user to upload the input,
+           and (2) a bucket write PAR to enable the compute service
+           to write the output
 
            The compute service will be supplied with the bucket write PAR
            from the storage service and will supply a run calculation PAR
@@ -103,6 +145,12 @@ class JobSheet:
            input to trigger the start of the calculation, and the expiry
            date when both of these PARs will become invalid (i.e. the user
            must trigger both of them before that date)
+
+           Args:
+                None
+            Returns:
+                tuple (PAR, PAR, datetime) : file upload PAR, bucket write PAR
+                and a datetime object set to 1 hour in the future
         """
         # make the requests, make the payments
 
@@ -116,7 +164,14 @@ class JobSheet:
         return (_PAR(), _PAR(), _get_datetime_future(hours=1))
 
     def save(self):
-        """Save this JobSheet to the object store"""
+        """Save this JobSheet to the object store
+
+            Args:
+                None
+            Returns:
+                None
+        
+        """
         from Acquire.Service import assert_running_service \
             as _assert_running_service
 
@@ -139,6 +194,12 @@ class JobSheet:
     def load(uid):
         """Return the JobSheet with specified uid loaded from the
            ObjectStore
+
+           Args:
+                None
+            Returns:
+                JobSheet: an instance of a JobSheet with the specified uid
+
         """
         from Acquire.Service import assert_running_service \
             as _assert_running_service
@@ -160,7 +221,14 @@ class JobSheet:
         return JobSheet.from_data(data)
 
     def to_data(self):
-        """Return this converted to a json-serialisable dictionary"""
+        """Get a JSON-serialisable dictionary of this object
+
+            Args:
+                None
+            Returns:
+                dict: this JobSheet converted into a JSON serialisable
+                dictionary
+        """
         data = {}
 
         if self.is_null():
@@ -177,8 +245,13 @@ class JobSheet:
 
     @staticmethod
     def from_data(data):
-        """Return a JobSheet constructed from the passed json-deserialised
+        """Return a JobSheet constructed from the passed JSON-deserialised
            dictionary
+
+           Args:
+                data (str): JSON data from which to create object
+            Returns:
+                JobSheet: object created from JSON data
         """
         j = JobSheet()
 

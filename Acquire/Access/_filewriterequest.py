@@ -12,17 +12,11 @@ def _get_key(root_key, filename):
     """Return the object store key for 'filename', using 'root_key' as
        the root
 
-       Parameters
-       ----------
-       root_key : key ?
-               Key from ...
-        filename : str
-            Name of file we want to place in the object store
-
-        Returns
-        -------
-        string
-            root_key/basename if root_key else empty string
+        Args:
+            root_key (str): root_key for accessing object store
+            filename (str): filename to access in object store
+        Returns:
+            str: Location to access the file
         
     """
     basename = _os.path.basename(filename)
@@ -36,19 +30,11 @@ def _get_key(root_key, filename):
 def _clean_key(root_key, filekey):
     """Return the cleaned key 'filekey', using 'root_key' as the root
         
-       Appears to be unused
-
-       Parameters
-       ----------
-       root_key : key ?
-               Key from ...
-        filekey : ?
-            Name of file we want to place in the object store
-
-        Returns
-        -------
-        string
-            root_key/basename if we have root_key else filekey
+      Args:
+            root_key (str): root_key for accessing object store
+            filekey (str): filename to access in object store
+        Returns:
+            str: Location to access the file
         
     """
     if root_key:
@@ -61,15 +47,10 @@ def _get_filesize_and_checksum(filename):
     """Calculates the size in bytes of the file and
         the MD5 hash
        
-       Parameters
-       ----------
-       filename : str
-            Name of file to calculate size and hash
-
-        Returns
-        -------
-        tuple(int, string)
-            Returns the size of the file in bytes and the MD5 hash
+       Args:
+            filename (str): name of file to calculate hash for
+        Returns:
+            tuple (int, str): size of file in bytes, md5 hash of file
     """
     from hashlib import md5 as _md5
     md5 = _md5()
@@ -85,22 +66,15 @@ def _get_filesize_and_checksum(filename):
 
 def _list_all_files(directory, ignore_hidden=True):
     """Create a list of the path relative to 'directory' of
-       all files contained in 'directory'. If is_hidden is True, then include
-       all hidden files - otherwise these are ignored
+       all files contained in 'directory'.
 
-       Parameters
-       ----------
-       directory : path
-            Path of directory to traverse
+       Args:
+            directory (str): path of directory to traverse
+            ignore_hidden (bool): Default=True, if True then include all
+            hidden files, else ignore hidden files
 
-        ignore_hidden : bool
-            If True add hidden files to list
-            If False ignore hidden files
-
-        Returns
-        -------
-        list
-            List of files in the directory
+        Returns:
+            list: a list of all files in the directory
 
     """
 
@@ -127,15 +101,10 @@ def _clean_path(path):
        redundant slashes or '..' etc., so that all backslashes are forwards
        slashes, and that the trailing slash is removed
 
-        Parameters
-        ----------
-        path : path
-            Path to clean
-
-        Returns
-        -------
-        path
-            Path cleaned of extraneous characters
+       Args:
+            path (str): the path string to clean
+        Returns:
+            str: the path string cleaned of extra characters
 
     """
 
@@ -162,23 +131,17 @@ def _expand_source_destination(source, destination=None,
        of lists - the source files and the destination keys in the
        object store.
 
-        Parameters
-        ----------
-        source : path
-            Path of directory to traverse
-        destinaton : path
-            Path of destination
-        root: atype
-            TODO : what does this do?
-        ignore_hidden : bool
-            If True add hidden files to list
-            If False ignore hidden files
+       Args:
+            source (str): source directory to traverse
+            destination (str, optional): destination directory
+            root (str): root key to use in object store
+            ignore_hidden (bool): If True ignore hidden files in folders, else
+            include hidden files
 
-        Returns
-        -------
-        list
-            List of files in the directory
-
+        Returns:
+            tuple (list, list): lists of files in the source and destination
+            directories
+        
     """
 
     if source is None:
@@ -252,6 +215,18 @@ class FileWriteRequest(_Request):
 
            You must pass the 'account' from which payment will be taken to
            write files to the object store.
+
+            Args:
+                source (str): source directory to traverse
+                destination (str, optional): destination directory
+                root (str): root key to use in object store
+                ignore_hidden (bool): If True ignore hidden files in folders, 
+                else include hidden files
+                account (Account): instance of Account class
+                testing_key (str): passed to enable testing of class
+            Returns:
+                None
+
         """
         super().__init__()
 
