@@ -19,6 +19,13 @@ def run(args):
        debt for the user. Once the debt exceeds a certain value, then the
        backend-payment system will charge the user's real account to
        recover the funds
+
+       Args:
+            args (dict): data for deposit of funds into the account
+
+        Returns:
+            dict: contains status, status message and details regarding
+                the deposit into the account and invoice data
     """
 
     status = 0

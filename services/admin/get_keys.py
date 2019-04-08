@@ -14,7 +14,16 @@ class InvalidSessionError(Exception):
 def run(args):
     """This function will allow anyone to obtain the public
        keys for the passed login session of a user with
-       a specified login UID"""
+       a specified login UID
+       
+       Args:
+            args (dict): contains the session_uid and username
+            that we want the keys for
+
+        Returns:
+            dict: contains status, status message, key and login data
+       
+       """
 
     public_key = None
     public_cert = None

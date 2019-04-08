@@ -14,6 +14,14 @@ class AccountError(Exception):
 def run(args):
     """This function is called to handle requests for information about
        particular accounts
+
+       Args:
+            args (dict): data for account query
+
+        Returns:
+            dict: contains status, status message and details regarding
+                the account including balance (if available), overdraft
+                limit and a description of the account
     """
 
     status = 0

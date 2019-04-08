@@ -2,6 +2,14 @@
 def accounting_functions(function, args):
     """This function routes calls to all of the accounting service's
        extra functions
+
+       Args:
+            function (str): for selection of function to call
+            args: arguments to be passed to the selected function
+
+        Returns:
+            function: If valid function selected, function with args passed
+            else None
     """
     if function == "cash_cheque":
         from accounting.cash_cheque import run as _cash_cheque

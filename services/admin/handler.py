@@ -14,7 +14,14 @@ def _one_hot_spare():
        to spin up another hot spare ready to process another request.
        This ensures that, if a user makes a request while this
        thread is busy, then the cold-start time to spin up another
-       thread has been mitigated."""
+       thread has been mitigated.
+
+       Args:
+            None
+        Returns:
+            None
+       
+       """
     devnull = open(os.devnull, "w")
     subprocess.Popen(["nohup", sys.executable, "one_hot_spare.py"],
                      stdout=devnull,
@@ -27,6 +34,12 @@ def _route_function(function, args, additional_functions=None):
        If 'additional_functions' is supplied then this will also
        pass the function through 'additional_functions' to find a
        match
+
+       Args:
+        function (str): select the function to call
+        args: arguments to be passed to the function
+        additional_functions (function, optional): another function used to
+        process the function and arguments
     """
     if function is None:
         from admin.root import run as _root
@@ -95,7 +108,13 @@ def _handle(additional_functions=None, args={}):
        to add additional functions then add them via the
        'additional_functions' argument. This should accept 'function'
        and 'args', returning some output if the function is found,
-       or 'None' if the function is not available"""
+       or 'None' if the function is not available
+
+       Args:
+        additional_functions (function, optional): function to route
+        args (dict): arguments to be routed with function
+       
+       """
 
     from Acquire.Service import start_profile, end_profile
 
@@ -122,9 +141,17 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
        to add additional functions then add them via the
        'additional_functions' argument. This should accept 'function'
        and 'args', returning some output if the function is found,
-       or 'None' if the function is not available"""
+       or 'None' if the function is not available
+       
+       Args:
+        additional_functions (function): function to be routed
+        ctx: unused
+        data: 
+       
+       
+       """
 
-    # make sure we set the flag to say that this code is running
+    # Make sure we set the flag to say that this code is running
     # as part of a service
     from Acquire.Service import push_is_running_service, \
         pop_is_running_service, unpack_arguments, \

@@ -18,6 +18,14 @@ def run(args):
        data in the object store. The user can request read-only
        or read-write access. Access is granted based on a permission
        list
+
+       Args:
+            args (dict): contains data for accessing identity service
+
+        Returns:
+            dict: a dictionary containing the status, message and access
+                    token (if valid)
+
     """
 
     status = 0

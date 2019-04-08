@@ -16,6 +16,13 @@ def run(args):
        the CreditNote to the caller so they can see that the funds have
        been reserved, and can receipt the transaction once goods/services
        have been delivered.
+
+       Args:
+            args (dict): information for payment for service
+
+        Returns:
+            dict: contains status, status message and credit note if valid
+
     """
 
     status = 0

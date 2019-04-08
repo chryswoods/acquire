@@ -10,7 +10,16 @@ class CreateAccountError(Exception):
 
 
 def run(args):
-    """This function is called to handle creating accounts for users"""
+    """This function is called to handle creating accounts for users
+
+        Args:
+            args (dict): data for creation of account including name etc.
+
+        Returns:
+            dict: contains status, status message and details regarding
+                the created account
+    
+    """
 
     status = 0
     message = None

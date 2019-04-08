@@ -13,7 +13,17 @@ class InvalidSessionError(Exception):
 
 def run(args):
     """This function will allow anyone to query the current login
-       status of the session with passed UID"""
+       status of the session with passed UID
+       
+       Args:
+            args (dict): contains contains the session_uid and username
+            we require status information on
+
+        Returns:
+            dict: contains status and status message and session status
+            information
+       
+       """
 
     status = 0
     message = None
