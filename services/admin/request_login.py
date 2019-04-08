@@ -17,7 +17,20 @@ def prune_expired_sessions(bucket, user_account, root, sessions, log=[]):
     """This function will scan through all open requests and
        login sessions and will prune away old, expired or otherwise
        weird sessions. It will also use the ipaddress of the source
-       to rate limit or blacklist sources"""
+       to rate limit or blacklist sources
+       
+       Args:
+        bucket (dict): containing JSON data relating to session
+        user_account (UserAccount) : class object containing all information
+        about a user's account
+        root (str): root key for session
+        sessions (list): list of current sessions
+        log (list, optional): list to log activity
+
+        Returns:
+            None
+       
+       """
 
     for name in sessions:
         key = "%s/%s" % (root, name)
@@ -83,6 +96,12 @@ def run(args):
        that will be validated by the passed public key and public
        signing certificate. This will return a URL that the user
        must connect to to then log in and validate that request.
+
+        Args:
+            args (dict): containing login data such as username, password etc
+
+        Returns:
+            dict: containing status of login attempt
     """
 
     status = 0

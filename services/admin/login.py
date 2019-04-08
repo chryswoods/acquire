@@ -15,7 +15,18 @@ from Acquire.Client import LoginError
 
 def run(args):
     """This function is called by the user to log in and validate
-       that a session is authorised to connect"""
+       that a session is authorised to connect. Username,
+       password, UID and OTP (one-time password) code are taken from a
+       passed in dict
+       
+       Args:
+        args (dict): contains identifying information about the user,
+                     short_UID, username, password and OTP code
+    
+        Returns:
+            dict: contains a URI and a UID for this login
+
+       """
 
     status = 0
     message = None

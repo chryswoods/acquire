@@ -13,6 +13,13 @@ def run(args):
        This specifies the password you want to use, and it returns the
        provisioning_uri that you will need to generate one-time-codes
        to log in as the admin user
+
+       Args:
+            args (dict): containing data such as username, password and
+            service_type requested, for setting up of the service
+
+       Returns:
+         dict: containing status of the service and provisioning URI
     """
 
     status = 0

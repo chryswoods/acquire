@@ -2,7 +2,17 @@
 
 def identity_functions(function, args):
     """This function routes calls to sub-functions, thereby allowing
-       a single identity function to stay hot for longer"""
+       a single identity function to stay hot for longer
+       
+        Args:
+            function (str): for selection of function to call
+            args: arguments to be passed to the selected function
+
+        Returns:
+            function: If valid function selected, function with args passed
+            else None
+    """
+    
     if function == "request_login":
         from admin.request_login import run as _request_login
         return _request_login(args)

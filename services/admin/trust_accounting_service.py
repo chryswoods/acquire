@@ -15,7 +15,15 @@ def run(args):
        Note that we must have already trusted the passed accounting
        service as a service before we can trust it as an accounting
        service...
+
+       Args:
+            args (dict): containing data on the service we want
+            to trust
+
+       Returns:
+            dict: containing status, status message and passed in args
     """
+    
     status = 0
     message = None
 

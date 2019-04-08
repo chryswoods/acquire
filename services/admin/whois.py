@@ -17,7 +17,17 @@ class InvalidSessionError(Exception):
 
 def run(args):
     """This function will allow anyone to query who matches
-       the passed UID or username (map from one to the other)"""
+       the passed UID or username (map from one to the other)
+       
+       Args:
+            args (dict): containing data on user to get info
+            about
+
+        Returns:
+            dict: containing username, public key, login data etc
+            for user
+       
+    """
 
     status = 0
     message = None

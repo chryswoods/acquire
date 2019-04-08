@@ -40,6 +40,10 @@ def _route_function(function, args, additional_functions=None):
         args: arguments to be passed to the function
         additional_functions (function, optional): another function used to
         process the function and arguments
+
+        Returns:
+            function : selected function
+
     """
     if function is None:
         from admin.root import run as _root
@@ -112,7 +116,11 @@ def _handle(additional_functions=None, args={}):
 
        Args:
         additional_functions (function, optional): function to route
-        args (dict): arguments to be routed with function
+        args (dict): arguments to be routed with function\
+
+        Returns:
+            function: the routed function
+
        
        """
 
@@ -145,10 +153,14 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
        
        Args:
         additional_functions (function): function to be routed
-        ctx: unused
-        data: 
-       
-       
+        ctx: currently unused
+        data (str): to be passed as arguments to other functions
+        TODO - expand this
+        loop: currently unused
+
+        Returns:
+            dict: JSON serialisable dict
+
        """
 
     # Make sure we set the flag to say that this code is running
@@ -206,8 +218,16 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
 
 
 def create_async_handler(additional_functions=None):
-    """Function that creates the async handler functions for all standard functions,
-       plus the passed additional_functions
+    """Function that creates the async handler functions for all standard
+        functions, plus the passed additional_functions
+
+        Args:
+            additional_functions (optional): other function for which to
+            create an async handler
+
+        Returns:
+            function: an async instance of the _base_handler function
+
     """
     async def async_handler(ctx, data=None, loop=None):
         return _base_handler(additional_functions=additional_functions,
@@ -219,6 +239,13 @@ def create_async_handler(additional_functions=None):
 def create_handler(additional_functions=None):
     """Function that creates the handler functions for all standard functions,
        plus the passed additional_functions
+
+       Args:
+            additional_functions (optional): other function for which to
+            create a handler
+
+        Returns:
+            function: an instance of the _base_handler function
     """
     def handler(ctx, data=None, loop=None):
         return _base_handler(additional_functions=additional_functions,

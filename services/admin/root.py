@@ -4,7 +4,15 @@ from Acquire.Service import get_this_service
 
 
 def run(args):
-    """This function return the status and service info"""
+    """This function returns the status and service info
+    
+    Args:
+        args: unused
+
+       Returns:
+         dict: containing information about the service
+    
+    """
     status = 0
     message = None
     service = None
