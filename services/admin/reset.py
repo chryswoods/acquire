@@ -16,7 +16,7 @@ def run(args):
             args: unused
 
        Returns:
-         dict: containing status of reset 
+         dict: containing status of reset
     """
 
     status = 0

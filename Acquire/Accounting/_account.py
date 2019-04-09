@@ -13,7 +13,16 @@ def _account_root():
 
 
 def _get_key_from_date(start, datetime):
-    """Return a key encoding the passed date, starting the key with 'start'"""
+    """Return a key encoding the passed date, starting the key with 'start'
+
+        Args:
+            start (str): String with which to start the key
+            datetime (datetime): datetime to be used to produce the key
+        Returns:
+            str: Contains the string 'start' and the current datetime
+            in the ISO format
+    
+    """
     from Acquire.ObjectStore import datetime_to_datetime \
         as _datetime_to_datetime
     datetime = _datetime_to_datetime(datetime)
@@ -21,7 +30,13 @@ def _get_key_from_date(start, datetime):
 
 
 def _get_date_from_key(key):
-    """Return the date that is encoded in the passed key"""
+    """Return the date that is encoded in the passed key
+    
+        Args:
+            key (str): Key to search for date
+        Return:
+            datetime: datetime object with date read from key
+    """
     m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)", key)
 
     if m:
@@ -38,7 +53,14 @@ def _get_date_from_key(key):
 
 
 def _get_datetime_from_key(key):
-    """Return the datetime that is encoded in the passed key"""
+    """Return the datetime that is encoded in the passed key
+    
+        Args:
+            key (str): Key to search for datetime
+        Returns:
+            datetime: detailed datetime object read from key
+    
+    """
     m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)\.(\d+)",
                    key)
 
@@ -61,8 +83,14 @@ def _get_datetime_from_key(key):
 
 def _sum_transactions(keys):
     """Internal function that sums all of the transactions identified
-        by the passed keys. This returns a tuple of
-        (balance, liability, receivable, spent_today)
+        by the passed keys. 
+        
+        Args:
+            keys (list): List of keys to parse
+        Returns:
+            tuple (Decimal, Decimal, Decimal, Decimal): balance, liability, 
+            receivable, spent_today
+            
     """
     from Acquire.Accounting import create_decimal as _create_decimal
     from Acquire.Accounting import TransactionInfo as _TransactionInfo
@@ -114,7 +142,17 @@ class Account:
     """
     def __init__(self, name=None, description=None, uid=None, bucket=None):
         """Construct the account. If 'uid' is specified, then load the account
-           from the object store (so 'name' and 'description' should be "None")
+           from the object store (so 'name' and 'description' should be "None")\
+            
+            Args:
+                name (str, default=None): Name on the account
+                description (str, default=None): Description of account
+                uid (UID): Unique ID for account, if used do not pass name or
+                description
+                bucket (dict): contains data for bucket
+
+            Returns:
+                None
         """
         if uid is not None:
             self._uid = str(uid)
@@ -195,6 +233,14 @@ class Account:
            into the object store of the object that holds the starting
            balance for the account on the day of the passed datetime.
            If datetime is None, then today's key is returned
+
+           Args:
+                datetime (datetime, default=None): datetime to use to 
+                find starting balance at that point
+
+            Returns:
+                str: Key for balance at the time datetime if passed, else
+                today
         """
         if self.is_null():
             return None
@@ -218,6 +264,18 @@ class Account:
            'liability' and starting outstanding accounts receivable at
            'receivable' If 'datetime' is none, then the balance
            for today is set.
+
+           Args:
+                balance (int): Balance for the day
+                liability (int): Outstanding liabilities
+                receivable (int): Outstanding accounts receivable
+                datetime (datetime, default=None): Datetime to get balance for,
+                if None today's balance used
+                TODO - update bucket listings
+                bucket (dict, default=None): data regarding bucket
+
+            Returns:
+                None
         """
         if self.is_null():
             return
@@ -256,6 +314,12 @@ class Account:
            This ensures that every line item transaction is summed up
            so that the starting balance for each day is recorded into
            the object store
+
+           Args:
+                bucket (dict, default=None): Data regarding bucket
+            Returns:
+                None
+
         """
         if self.is_null():
             return
@@ -346,21 +410,29 @@ class Account:
             _ObjectStore.set_object_from_json(bucket, balance_key, data)
 
     def _get_daily_balance(self, bucket=None, datetime=None):
-        """Get the daily starting balance for the passed datetime. This
-           returns a tuple of
-           (balance, liability, receivable).
+        """Get the daily starting balance for the passed datetime. 
 
            where 'balance' is the current real balance of the account,
            neglecting any outstanding liabilities or accounts receivable,
            where 'liability' is the current total liabilities,
            where 'receivable' is the current total accounts receivable, and
 
-           If datetime is None then todays daily balance is returned. The
+           If datetime is None then today's daily balance is returned. The
            daily balance is the balance at the start of the day. The
            actual balance at a particular time will be this starting
            balance plus/minus all of the transactions between the start
            of that day and the specified datetime
+
+           Args:
+                bucket (dict, default=None): Data for bucket
+                datetime (datetime, default=None): Datetime to get balance
+                for, else today's balance
+
+            Returns:
+                tuple (Decimal, Decimal, Decimal): balance, liability, 
+                receivable
         """
+
         if self.is_null():
             return
 
@@ -384,7 +456,7 @@ class Account:
         data = _ObjectStore.get_object_from_json(bucket, balance_key)
 
         if data is None:
-            # there is no balance for this day. This means that we haven'y
+            # there is no balance for this day. This means that we haven't
             # yet calculated that day's balance. Do the accounting necessary
             # to construct that day's starting balance
             self._reconcile_daily_accounts(bucket)
@@ -403,17 +475,16 @@ class Account:
                 _create_decimal(data["receivable"]))
 
     def _get_balance(self, bucket=None, datetime=None):
-        """Get the balance of the account for the passed datetime. This
-           returns a tuple of
+        """Get the balance of the account for the passed datetime.
 
-           (balance, liability, receivable)
-
-           where 'balance' is the current real balance of the account,
+           Where 'balance' is the current real balance of the account,
            neglecting any outstanding liabilities or accounts receivable,
            where 'liability' is the current total liabilities,
            where 'receivable' is the current total accounts receivable
 
            If datetime is None then the balance "now" is returned
+
+            NOT CURRENTLY IMPLEMENTED
         """
         if datetime is None:
             return self._get_current_balance(bucket)
@@ -423,9 +494,18 @@ class Account:
     def _get_transaction_keys_between(self, start_datetime, end_datetime,
                                       bucket=None):
         """Return all of the object store keys for transactions in this
-           account beteen 'start_datetime' and 'end_datetime' (inclusive, e.g.
+           account between 'start_datetime' and 'end_datetime' (inclusive, e.g.
            start_datetime <= transaction <= end_datetime). This will return an
            empty list if there were no transactions in this time
+
+            Args:
+                start_datetime (datetime): Date to start search
+                end_datetime (datetime): Date to end search
+                bucket (dict, default=None): Bucket data for keys
+
+            Returns:
+                list: List of object store keys for transactions between dates, 
+                empty list if no transactions
         """
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
@@ -464,7 +544,7 @@ class Account:
             day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
 
             for day_key in day_keys:
-                # the key is Ttime/rest_of_key
+                # the key is time/rest_of_key
                 day_key = day_key[len_prefix:]
                 time = day_key.split("/")[0]
 
@@ -478,6 +558,15 @@ class Account:
     def _recalculate_current_balance(self, bucket, now):
         """Internal function that implements _get_current_balance
            by recalculating the total from today from scratch
+
+           Args:
+                bucket (dict): Bucket to use for calculations
+                now (datetime): Datetime to use for balance calculations
+
+            Returns:
+                tuple (Decimal, Decimal, Decimal, Decimal): balance, liability,
+                receivable, spent_today
+
         """
         # where were we at the start of today?
         from Acquire.ObjectStore import datetime_to_datetime \
@@ -507,6 +596,9 @@ class Account:
     def last_update_datetime(self):
         """Return the last time the balance was updated, as a datetime
            object
+
+           Returns:
+                datetime: last time the balance was updated
         """
         if self._last_update_datetime is None:
             # this is the earliest datetime possible
@@ -520,6 +612,15 @@ class Account:
         """Internal function that implements _get_current_balance
            by updating the balance etc. from transactions that have
            occurred since the last update
+
+           Args:
+                bucket (dict): Bucket to use for calculations
+                now (datetime): Datetime to use for balance calculations
+
+            Returns:
+                tuple (Decimal, Decimal, Decimal, Decimal): balance, liability,
+                receivable, spent_today
+
         """
         (balance, liability, receivable, spent_today) = self._last_update
 
@@ -554,6 +655,13 @@ class Account:
            where 'receivable' is the current total accounts receivable, and
            where 'spent_today' is how much has been spent today (from midnight
            until now)
+
+           Args:
+                bucket (dict, default=None): Bucket to use for calculations
+
+            Returns:
+                tuple (Decimal, Decimal, Decimal, Decimal): balance, liability,
+                receivable, spent_today
         """
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
