@@ -350,7 +350,7 @@ class ACLRules:
             return "inherit"
 
         s = []
-        for rule in rules:
+        for rule in self._rules:
             s.append("%s" % rule)
 
         if self._default_rule is not None:
