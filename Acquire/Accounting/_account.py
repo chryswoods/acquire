@@ -686,36 +686,69 @@ class Account:
             return self._update_current_balance(bucket, now)
 
     def is_null(self):
-        """Return whether or not this is a null account"""
+        """Return whether or not this is a null account
+
+            Returns:
+                bool: False if null, else True
+
+        """
+            
         return self._uid is None
 
     def name(self):
-        """Return the name of this account"""
+        """Return the name of this account
+        
+            Returns:
+                str or None: Name of account if account not null, else None
+
+        
+        """
         if self.is_null():
             return None
 
         return self._name
 
     def description(self):
-        """Return the description of this account"""
+        """Return the description of this account
+        
+            Returns:
+                str or None: Description of account if account not null,
+                else None
+        """
         if self.is_null():
             return None
 
         return self._description
 
     def uid(self):
-        """Return the UID for this account."""
+        """Return the UID for this account.
+
+            Returns:
+                str: UID
+        
+        """
         return self._uid
 
     def _key(self):
-        """Return the key for this account in the object store"""
+        """Return the key for this account in the object store
+        
+            Returns:
+                str: Key for account in object store
+        """
         if self.is_null():
             return None
 
         return "%s/%s" % (_account_root(), self.uid())
 
     def _load_account(self, bucket=None):
-        """Load the current state of the account from the object store"""
+        """Load the current state of the account from the object store
+        
+            Args:
+                bucket (dict, default=None): Bucket to load data from
+
+            Returns:
+                None
+        """
         if self.is_null():
             return
 
@@ -729,7 +762,16 @@ class Account:
         self.__dict__ = _copy(Account.from_data(data).__dict__)
 
     def _save_account(self, bucket=None):
-        """Save this account back to the object store"""
+        """Save this account back to the object store
+        
+            Args:
+                bucket (dict, default=None): Bucket to load data from
+
+            Returns:
+                None
+
+        """
+
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
                 as _get_service_account_bucket
@@ -739,7 +781,11 @@ class Account:
         _ObjectStore.set_object_from_json(bucket, self._key(), self.to_data())
 
     def to_data(self):
-        """Return a dictionary that can be encoded to json from this object"""
+        """Return a dictionary that can be encoded to json from this object\
+        
+            Returns:
+                dict: JSON serialisable dictionary of object
+        """
         data = {}
 
         if not self.is_null():
@@ -755,6 +801,14 @@ class Account:
     def from_data(data):
         """Construct and return an Account from the passed dictionary that has
            been decoded from json
+
+           Args:
+                data (dict): Dictionary containing data from which
+                to create Account object
+
+            Returns:
+                Account: Account object created from the data
+        
         """
         account = Account()
 
@@ -773,6 +827,13 @@ class Account:
     def assert_valid_authorisation(self, authorisation):
         """Assert that the passed authorisation is valid for this
            account
+
+           Args:
+                authorisation (Authorisation): authorisation
+                object to be used for account
+            
+            Returns:
+                None
         """
         from Acquire.Identity import Authorisation as _Authorisation
         if not isinstance(authorisation, _Authorisation):
@@ -783,12 +844,17 @@ class Account:
         """This function returns the current time. It avoids dangerous
            times (when the system may be updating) by sleeping through
            those times
+
+           Returns:
+                datetime: The current time
+
         """
         from Acquire.ObjectStore import get_datetime_now \
             as _get_datetime_now
+        
         now = _get_datetime_now()
 
-        # don't allow any transactions in the last 30 seconds of the day, as we
+        # Don't allow any transactions in the last 30 seconds of the day, as we
         # will sum up the day balance at midnight, and don't want to risk any
         # late transactions from messing up the accounting
         while now.hour == 23 and now.minute == 59 and now.second >= 30:
@@ -802,6 +868,12 @@ class Account:
            record. This is unsafe and should only be called from
            DebitNote.return_value or CreditNote.return_value (which
            themselves are only called from Ledger)
+
+           Args:
+                note (DebitNote or CreditNote): Note to delete
+            Returns:
+                None
+
         """
         if note is None:
             return
@@ -845,6 +917,15 @@ class Account:
         """Credit the value of the passed 'refund' to this account. The
            refund must be for a previous completed debit, hence the
            original debitted value is returned to the account.
+
+           Args:
+                debit_note (DebitNote): Note to be used for
+                refund
+                refund (Refund): Refund holding value to be refunded
+                bucket (dict, default=None): Bucket to load data from
+
+            Returns:
+                tuple (str, datetime): Return the UID and current time
         """
         from Acquire.Accounting import Refund as _Refund
         from Acquire.Accounting import DebitNote as _DebitNote
@@ -903,6 +984,13 @@ class Account:
            that this value has been spent, so this is one of the only
            functions that allows a balance to drop below an overdraft or
            other limit (as the refund should always succeed).
+
+            Args:
+                refund (Refund): Refund note to be processed
+                bucket (dict, default=None): Bucket to load data from
+
+            Returns:
+                tuple (str, datetime): UID and current time
         """
         from Acquire.Accounting import Refund as _Refund
 
@@ -948,6 +1036,17 @@ class Account:
         """Credit the value of the passed 'receipt' to this account. The
            receipt must be for a previous provisional credit, hence the
            money is awaiting transfer from accounts receivable.
+
+           Args:
+                debit_note (DebitNote): Holds the value of the credit
+                to be applied to the account, value must match that of receipt
+                receipt (Receipt): Receipt holding the value of the credit
+                that is to be applied to account
+                TODO - improve bucket docs
+                bucket (dict, default=None): Bucket to load data from
+
+            Returns:
+                tuple (str, datetime): UID and current time
         """
         from Acquire.Accounting import Receipt as _Receipt
         from Acquire.Accounting import DebitNote as _DebitNote
@@ -978,7 +1077,7 @@ class Account:
                                     _TransactionCode.SENT_RECEIPT,
                                     receipt.value(), receipt.receipted_value())
 
-        # create a UID and datetime for this credit and record
+        # Create a UID and datetime for this credit and record
         # it in the account
         now = self._get_safe_now()
 
@@ -1003,6 +1102,15 @@ class Account:
         """Debit the value of the passed 'receipt' from this account. The
            receipt must be for a previous provisional debit, hence
            the money should be available.
+
+           Args:
+                receipt (Receipt): holds the value
+                to be debited from the account
+                TODO - improve bucket docs
+                bucket (dict, default=None): Bucket to load data from
+
+           Returns:
+                tuple (str, datetime): UID and current time
         """
         from Acquire.Accounting import Receipt as _Receipt
 
@@ -1051,6 +1159,15 @@ class Account:
            as accounts receivable. This will record the credit with the
            same UID as the debit identified in the debit_note, so that
            we can reconcile all credits against matching debits.
+
+           Args:
+                debit_note (DebitNote): Holds the value to be credited
+                to this account
+                TODO - improve bucket docs
+                bucket (dict, default=None): Bucket to load data from
+            
+            Returns:
+                tuple (str, datetime): UID and current time
         """
         from Acquire.Accounting import DebitNote as _DebitNote
 
@@ -1123,7 +1240,24 @@ class Account:
 
            Note that this function is private as it should only be called
            by the DebitNote class
+
+           Args:
+                transaction (Transaction): Holds the value to be debited
+                from this account
+                authorisation (Authorisation): Authorisation for the
+                transaction
+                is_provisional (bool): If True the transaction will be
+                recorded as a liability
+                receipt_by (datetime): Datetime by which the transaction
+                should be receipted
+                TODO - improve bucket docs
+                bucket (dict, default=None): Bucket to load data from
+            
+            Returns:
+                tuple (str, datetime, datetime): uid, now, receipt_by
+
         """
+
         if self.is_null() or transaction.value() <= 0:
             return None
 
@@ -1223,6 +1357,12 @@ class Account:
         """Return the available balance of this account. This is the amount
            of value that can be spent (e.g. includes overdraft and fixed daily
            spend limits, and except any outstanding liabilities)
+
+           Args:
+                bucket (dict, default=None): Bucket to read data from
+
+            Returns:
+                int: Available balance
         """
         result = self._get_current_balance(bucket)
 
@@ -1238,22 +1378,57 @@ class Account:
             return available
 
     def balance(self, bucket=None):
-        """Return the current balance of this account"""
+        """Return the current balance of this account
+        
+            Args:
+                TODO
+                bucket (dict, default=None): 
+
+            Returns:
+                Decimal: Current balance of the account
+        """
         result = self._get_current_balance(bucket)
         return result[0]
 
     def liability(self, bucket=None):
-        """Return the current total liability of this account"""
+        """Return the current total liability of this account
+
+            Args:
+                TODO
+                bucket (dict, default=None): 
+
+            Returns:
+                Decimal: Current liability of the account
+        
+        """
         result = self._get_current_balance(bucket)
         return result[1]
 
     def receivable(self, bucket=None):
-        """Return the current total accounts receivable of this account"""
+        """Return the current total accounts receivable of this account
+
+            Args:
+                TODO
+                bucket (dict, default=None): 
+
+            Returns:
+                Decimal: Current receivable of the account
+        
+        """
         result = self._get_current_balance(bucket)
         return result[2]
 
     def spent_today(self, bucket=None):
-        """Return the current amount spent today on this account"""
+        """Return the current amount spent today on this account
+        
+            Args:
+                TODO
+                bucket (dict, default=None): 
+
+            Returns:
+                Decimal: Amount spent today on account
+        
+        """
         result = self._get_current_balance(bucket)
         return result[3]
 
@@ -1261,6 +1436,14 @@ class Account:
         """Return the overall balance status as a dictionary
            with keys 'balance', 'liability', 'receivable' and
            'spent_today'
+
+            Args:
+                TODO
+                bucket (dict, default=None): 
+
+            Returns:
+                dict: Balance status of account
+
         """
         result = self._get_current_balance(bucket)
         d = {}
@@ -1271,14 +1454,28 @@ class Account:
         return d
 
     def get_overdraft_limit(self):
-        """Return the overdraft limit of this account"""
+        """Return the overdraft limit of this account
+        
+            Returns:
+                Decimal: Overdraft limit
+        """
         if self.is_null():
             return 0
 
         return self._overdraft_limit
 
     def set_overdraft_limit(self, limit, bucket=None):
-        """Set the overdraft limit of this account to 'limit'"""
+        """Set the overdraft limit of this account to 'limit'
+        
+            Args:
+                limit (int): Limit to set overdraft to
+                TODO
+                bucket (dict, default=None): 
+
+            Returns:
+                None
+        
+        """
         if self.is_null():
             return
 
@@ -1307,6 +1504,12 @@ class Account:
     def is_beyond_overdraft_limit(self, bucket=None):
         """Return whether or not the current balance is beyond
            the overdraft limit
+
+           Args:
+                TODO
+                bucket (dict, default=None):
+            Returns:
+                bool: True if over overdraft limit, else False
         """
         result = self._get_current_balance(bucket)
 

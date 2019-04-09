@@ -245,7 +245,7 @@ def create_handler(additional_functions=None):
             create a handler
 
         Returns:
-            function: an instance of the _base_handler function
+            function: A handler function
     """
     def handler(ctx, data=None, loop=None):
         return _base_handler(additional_functions=additional_functions,

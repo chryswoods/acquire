@@ -23,25 +23,42 @@ class Accounts:
         return "Accounts(group=%s)" % self.group()
 
     def _root(self):
-        """Return the root key for this group in the object store"""
+        """Return the root key for this group in the object store
+
+            Returns:
+                string: Root key for group
+        """
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
         return "accounting/account_groups/%s" % \
             _string_to_encoded(self._group)
 
     def _account_key(self, name):
-        """Return the key for the account called 'name' in this group"""
+        """Return the key for the account called 'name' in this group
+
+            Args:
+                name (str): Name of the account
+
+            Returns:
+                str: Key for the account 'name'
+        """
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
         return "%s/%s" % (self._root(),
                           _string_to_encoded(str(name)))
 
     def group(self):
-        """Return the name of the group that this set of accounts refers to"""
+        """Return the name of the group that this set of accounts refers to
+        
+            Returns:
+                string: Name of the group
+        """
         return self._group
 
     def list_accounts(self, bucket=None):
-        """Return the names of all of the accounts in this group"""
+        """Return the names of all of the accounts in this group
+        
+        """
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
                 as _get_service_account_bucket
