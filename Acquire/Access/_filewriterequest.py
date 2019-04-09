@@ -287,7 +287,11 @@ class FileWriteRequest(_Request):
                                     user=account.owner())
 
     def is_null(self):
-        """Return whether or not this is a null request"""
+        """Return whether or not this is a null request
+            
+            Returns:
+                bool: True if UID set, else False
+        """
         return self._uid is None
 
     def __str__(self):
@@ -308,6 +312,11 @@ class FileWriteRequest(_Request):
     def resource_key(self):
         """Function to return a string that can be used as a
            summary key for this resource request
+
+           
+            Returns:
+                None or str : None if instance is null, else string containing
+                uid and checksum
         """
         if self.is_null():
             return None
@@ -315,11 +324,20 @@ class FileWriteRequest(_Request):
             return "%s %s" % (self._uid, ":".join(self._checksums))
 
     def uid(self):
-        """Return the UID of this request"""
+        """Get the UID of this request
+        
+        Returns:
+            str: UID of this request
+        
+        """
         return self._uid
 
     def authorisation(self):
-        """Return the authorisation behind this request"""
+        """Return the authorisation behind this request
+        
+            Returns:
+                Authorisation: the authorisation behind this request
+        """
         return self._authorisation
 
     def source_filenames(self):
@@ -328,27 +346,48 @@ class FileWriteRequest(_Request):
            created the request - it is not saved when this object is
            serialised to json as we don't want to leak potentially
            sensitive data to the object store
+
+           Returns:
+                list: list of files to be copied
         """
         return self._source_filenames
 
     def destination_keys(self):
         """Return the object store keys to which the files will be
            written
+
+           Returns:
+                list: object store keys to which the files will be written
+
         """
         return _copy.copy(self._destination_keys)
 
     def filesizes(self):
-        """Return the sizes of the files that are requested to be written"""
+        """Return the sizes of the files that are requested to be written
+
+            Returns:
+                list: size of the files to be written
+        
+        """
         return _copy.copy(self._file_sizes)
 
     def checksums(self):
         """Return the checksums of the files that are requested
-           to be written"""
+           to be written
+           
+           Returns:
+                list: checksums of the files to be written
+           
+           """
         return _copy.copy(self._checksums)
 
     def account_uid(self):
         """Return the UID of the account from which payment should be
            taken for the file storage
+
+           Returns:
+                str or None: returns the UID of the account if valid
+                else None
         """
         try:
             return self._account_uid
@@ -364,19 +403,36 @@ class FileWriteRequest(_Request):
            store. This returns a pair of lists - the lists match the
            absolute path of the local file to the desired full key
            of the file in the object store
+
+           Args:
+                source (list): list of source objects
+                destination (list): list of destinations for objects
+                root (str, optional, default=None): root key for objects
+                ignore_hidden (bool, optional, default=True): ignore
+                hidden files
         """
         return _expand_source_destination(source, destination, root,
                                           ignore_hidden)
 
     def accounting_service_url(self):
-        """Return the canonical URL of the service holding the account"""
+        """Return the canonical URL of the service holding the account
+        
+            Returns:
+                str or None: If _accounting_service_url valid return
+                return it else return None
+        """
         try:
             return self._accounting_service_url
         except:
             return None
 
     def to_data(self):
-        """Return this request as a json-serialisable dictionary"""
+        """Return this request as a json-serialisable dictionary
+
+            Returns:
+                dict: a JSON-serialisable dictionary of this request
+        
+        """
         if self.is_null():
             return {}
 
@@ -397,6 +453,15 @@ class FileWriteRequest(_Request):
 
     @staticmethod
     def from_data(data):
+        """ Create a request from a JSON object
+
+            Args:  
+                data (str) : an object serialised as a JSON object
+            Returns:
+                FileWriteRequest: a FileWriteRequest object created from
+                the JSON data
+
+        """
         if (data and len(data) > 0):
             from Acquire.Identity import Authorisation as _Authorisation
             f = FileWriteRequest()

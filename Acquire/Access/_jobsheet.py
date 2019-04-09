@@ -23,8 +23,6 @@ class JobSheet:
     def is_null(self):
         """Return whether or not this JobSheet is null
         
-        Args:
-            None
         Returns:
             bool: True if uid is set, False otherwise
         
@@ -34,8 +32,6 @@ class JobSheet:
     def uid(self):
         """Return the UID of this JobSheet
 
-            Args:
-                None
             Returns:
                 str: UID of the object
         
@@ -48,9 +44,7 @@ class JobSheet:
 
            TODO - should this just return constants?
 
-           Args:
-                None
-            Returns:
+           Returns:
                 int: 0 if no uid is set, else 10
         """
         if self.is_null():
@@ -61,8 +55,6 @@ class JobSheet:
     def job(self):
         """Return the original job request
 
-            Args:
-                None
             Returns:
                 None or Request: If no uid set None, else job request
         
@@ -75,8 +67,6 @@ class JobSheet:
     def authorisation(self):
         """Return the original authorisation for this job
 
-            Args:
-                None
             Returns:
                 None or Authorisation: If no uid set None, else Authorisation
         
@@ -146,9 +136,7 @@ class JobSheet:
            date when both of these PARs will become invalid (i.e. the user
            must trigger both of them before that date)
 
-           Args:
-                None
-            Returns:
+           Returns:
                 tuple (PAR, PAR, datetime) : file upload PAR, bucket write PAR
                 and a datetime object set to 1 hour in the future
         """
@@ -166,8 +154,6 @@ class JobSheet:
     def save(self):
         """Save this JobSheet to the object store
 
-            Args:
-                None
             Returns:
                 None
         
@@ -195,8 +181,6 @@ class JobSheet:
         """Return the JobSheet with specified uid loaded from the
            ObjectStore
 
-           Args:
-                None
             Returns:
                 JobSheet: an instance of a JobSheet with the specified uid
 
@@ -223,8 +207,6 @@ class JobSheet:
     def to_data(self):
         """Get a JSON-serialisable dictionary of this object
 
-            Args:
-                None
             Returns:
                 dict: this JobSheet converted into a JSON serialisable
                 dictionary
@@ -251,7 +233,7 @@ class JobSheet:
            Args:
                 data (str): JSON data from which to create object
             Returns:
-                JobSheet: object created from JSON data
+                JobSheet: a JobSheet object created from the JSON data
         """
         j = JobSheet()
 

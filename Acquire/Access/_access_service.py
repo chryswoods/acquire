@@ -49,8 +49,6 @@ class AccessService(_Service):
     def get_trusted_storage_service(self):
         """Return a trusted storage service
 
-            Args:
-                None
             Returns:
                 dict: containing the first storage
                 device on the trusted service
