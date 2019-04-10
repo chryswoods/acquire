@@ -8,6 +8,11 @@ def get_decimal_context():
        to support any value between 0 and 999,999,999,999,999.999,999,999
        (i.e. everything up to just under one quadrillion - I doubt we will
         ever have an account that has more than a trillion units in it!)
+
+        Returns:
+            Context: The context (specifying precision etc.) of the decimals
+            used in transactions
+
     """
 
     from decimal import Context as _Context
@@ -18,6 +23,12 @@ def create_decimal(value):
     """Create a decimal from the passed value. This is a decimal that
        has 6 decimal places and is clamped between
        -1 quadrillion < value < 1 quadrillion
+
+       Args:
+            value: Value to convert to Decimal
+        Returns:
+            Decimal: Decimal version of value
+
     """
     
     from decimal import Decimal as _Decimal

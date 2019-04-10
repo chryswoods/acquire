@@ -50,7 +50,7 @@ class AccessService(_Service):
         """Return a trusted storage service
 
             Returns:
-                dict: containing the first storage
+                :obj:`dict`: containing the first storage
                 device on the trusted service
 
         """

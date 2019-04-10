@@ -57,6 +57,12 @@ class Accounts:
 
     def list_accounts(self, bucket=None):
         """Return the names of all of the accounts in this group
+
+            Args:
+                bucket (dict, default=None): Bucket from which to load data
+            
+            Returns:
+                :obj:`list`: List of names of the accounts in this group
         
         """
         if bucket is None:
@@ -90,7 +96,15 @@ class Accounts:
         return accounts
 
     def get_account(self, name, bucket=None):
-        """Return the account called 'name' from this group"""
+        """Return the account called 'name' from this group
+        
+            Args:
+                name (:obj:`str`): Name of account to retrieve
+                bucket (:obj:`dict`): Bucket to load data from
+
+            Returns:
+                :obj:`Account`: Account object        
+        """
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
                 as _get_service_account_bucket
@@ -117,7 +131,14 @@ class Accounts:
         return _Account(uid=account_uid, bucket=bucket)
 
     def contains(self, account, bucket=None):
-        """Return whether or not this group contains the passed account"""
+        """Return whether or not this group contains the passed account
+        
+            Args:
+                account (:obj:`Account`): Account to check against group
+                bucket (dict, default=None): Bucket to load data from
+            Returns:
+                bool : True if account in group, else False
+        """
         from Acquire.Accounting import Account as _Account
         if not isinstance(account, _Account):
             raise TypeError("The passed account must be of type Account")
@@ -142,6 +163,15 @@ class Accounts:
                        overdraft_limit=None, bucket=None):
         """Create a new account called 'name' in this group. This will
            return the existing account if it already exists
+
+           Args:
+                name (str): Name of account to create
+                description (default=None): Description of account
+                overdraft_limit (int, default=None): Limit of overdraft
+                bucket (dict, default=None): Bucket to load data from
+
+            Returns:
+                Account: New Account object
         """
         if name is None:
             raise ValueError("You must pass a name of the new account")

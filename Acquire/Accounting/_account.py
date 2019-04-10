@@ -16,10 +16,10 @@ def _get_key_from_date(start, datetime):
     """Return a key encoding the passed date, starting the key with 'start'
 
         Args:
-            start (str): String with which to start the key
+            start (:obj:`str`): String with which to start the key
             datetime (datetime): datetime to be used to produce the key
         Returns:
-            str: Contains the string 'start' and the current datetime
+            :obj:`str`: Contains the string 'start' and the current datetime
             in the ISO format
     
     """
@@ -33,7 +33,7 @@ def _get_date_from_key(key):
     """Return the date that is encoded in the passed key
     
         Args:
-            key (str): Key to search for date
+            key (:obj:`str`): Key to search for date
         Return:
             datetime: datetime object with date read from key
     """
@@ -56,7 +56,7 @@ def _get_datetime_from_key(key):
     """Return the datetime that is encoded in the passed key
     
         Args:
-            key (str): Key to search for datetime
+            key (st:obj:`str`): Key to search for datetime
         Returns:
             datetime: detailed datetime object read from key
     
@@ -86,9 +86,9 @@ def _sum_transactions(keys):
         by the passed keys. 
         
         Args:
-            keys (list): List of keys to parse
+            keys (:obj:`list`): List of keys to parse
         Returns:
-            tuple (Decimal, Decimal, Decimal, Decimal): balance, liability, 
+            tuple (:obj:`Decimal`, Decimal, Decimal, Decimal): balance, liability, 
             receivable, spent_today
             
     """
@@ -145,8 +145,8 @@ class Account:
            from the object store (so 'name' and 'description' should be "None")\
             
             Args:
-                name (str, default=None): Name on the account
-                description (str, default=None): Description of account
+                name (:obj:`str`, default=None): Name on the account
+                description (:obj:`str`, default=None): Description of account
                 uid (UID): Unique ID for account, if used do not pass name or
                 description
                 bucket (dict): contains data for bucket
@@ -802,10 +802,10 @@ class Account:
         """Construct and return an Account from the passed dictionary that has
            been decoded from json
 
-           Args:
+            Args:
                 data (dict): Dictionary containing data from which
                 to create Account object
-
+            
             Returns:
                 Account: Account object created from the data
         
@@ -827,8 +827,8 @@ class Account:
     def assert_valid_authorisation(self, authorisation):
         """Assert that the passed authorisation is valid for this
            account
-
-           Args:
+            
+            Args:
                 authorisation (Authorisation): authorisation
                 object to be used for account
             
@@ -869,7 +869,7 @@ class Account:
            DebitNote.return_value or CreditNote.return_value (which
            themselves are only called from Ledger)
 
-           Args:
+            Args:
                 note (DebitNote or CreditNote): Note to delete
             Returns:
                 None
@@ -918,7 +918,7 @@ class Account:
            refund must be for a previous completed debit, hence the
            original debitted value is returned to the account.
 
-           Args:
+            Args:
                 debit_note (DebitNote): Note to be used for
                 refund
                 refund (Refund): Refund holding value to be refunded
@@ -1037,7 +1037,7 @@ class Account:
            receipt must be for a previous provisional credit, hence the
            money is awaiting transfer from accounts receivable.
 
-           Args:
+            Args:
                 debit_note (DebitNote): Holds the value of the credit
                 to be applied to the account, value must match that of receipt
                 receipt (Receipt): Receipt holding the value of the credit
@@ -1103,13 +1103,13 @@ class Account:
            receipt must be for a previous provisional debit, hence
            the money should be available.
 
-           Args:
+            Args:
                 receipt (Receipt): holds the value
                 to be debited from the account
                 TODO - improve bucket docs
                 bucket (dict, default=None): Bucket to load data from
 
-           Returns:
+            Returns:
                 tuple (str, datetime): UID and current time
         """
         from Acquire.Accounting import Receipt as _Receipt
@@ -1160,7 +1160,7 @@ class Account:
            same UID as the debit identified in the debit_note, so that
            we can reconcile all credits against matching debits.
 
-           Args:
+            Args:
                 debit_note (DebitNote): Holds the value to be credited
                 to this account
                 TODO - improve bucket docs
@@ -1241,7 +1241,7 @@ class Account:
            Note that this function is private as it should only be called
            by the DebitNote class
 
-           Args:
+            Args:
                 transaction (Transaction): Holds the value to be debited
                 from this account
                 authorisation (Authorisation): Authorisation for the
@@ -1358,7 +1358,7 @@ class Account:
            of value that can be spent (e.g. includes overdraft and fixed daily
            spend limits, and except any outstanding liabilities)
 
-           Args:
+            Args:
                 bucket (dict, default=None): Bucket to read data from
 
             Returns:
@@ -1505,7 +1505,7 @@ class Account:
         """Return whether or not the current balance is beyond
            the overdraft limit
 
-           Args:
+            Args:
                 TODO
                 bucket (dict, default=None):
             Returns:

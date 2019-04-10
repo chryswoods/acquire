@@ -86,8 +86,7 @@ class RunRequest(_Request):
         
         Returns:
             bool: True if UID is set, else False
-            
-            
+                
         """
         return self._uid is None
 
