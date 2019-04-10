@@ -76,7 +76,7 @@ def run(args):
     except Exception as e:
         from Acquire.Service import exception_to_string
         raise TypeError(
-            "Unable to interpret the receipt_by date.\n\nCAUSE: %s"
+            "Unable to interpret the receipt_by date.\n\nCAUSE: %s" \
                 % exception_to_string(e))
 
     # now read the cheque - this will only succeed if the cheque
@@ -111,12 +111,14 @@ def run(args):
             "Cannot find the account to which funds will be creditted:"
             "\n\nCAUSE: %s" % exception_to_string(e))
 
-    user_uid = info["authorisation"].user_uid()
+    user_guid = info["authorisation"].user_guid()
 
     # validate that this account is in a group that can be authorised
-    # by the user
-    if not Accounts(user_uid).contains(account=debit_account,
-                                       bucket=bucket):
+    # by the user (this should eventually go as the ACLs now allow users
+    # to authorised payments from many accounts)
+    accounts = Accounts(user_guid=user_guid)
+    if not accounts.contains(account=debit_account,
+                             bucket=bucket):
         raise PermissionError(
             "The user with UID '%s' cannot authorise transactions from "
             "the account '%s' as they do not own this account." %

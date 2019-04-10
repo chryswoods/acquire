@@ -7,7 +7,7 @@ from Acquire.Accounting import Account, Transaction, TransactionRecord, \
                                Ledger, Receipt, Refund, \
                                create_decimal
 
-from Acquire.Identity import Authorisation
+from Acquire.Identity import Authorisation, ACLRule
 
 from Acquire.Service import get_service_account_bucket, \
     push_is_running_service, pop_is_running_service
@@ -38,7 +38,7 @@ def bucket(tmpdir_factory):
 @pytest.fixture(scope="session")
 def account1(bucket):
     account = Account("Testing Account", "This is the test account",
-                      bucket=bucket)
+                      bucket=bucket, upstream=ACLRule.owner())
     uid = account.uid()
     assert(uid is not None)
     assert(account.balance() == 0)
@@ -53,7 +53,7 @@ def account1(bucket):
 @pytest.fixture(scope="session")
 def account2(bucket):
     account = Account("Testing Account", "This is a second testing account",
-                      bucket=bucket)
+                      bucket=bucket, upstream=ACLRule.owner())
     uid = account.uid()
     assert(uid is not None)
     assert(account.balance() == 0)
@@ -87,7 +87,8 @@ def test_account(bucket):
     name = "test account"
     description = "This is a test account"
 
-    account = Account(name, description, bucket=bucket)
+    account = Account(name, description, bucket=bucket,
+                      upstream=ACLRule.owner())
 
     assert(account.name() == name)
     assert(account.description() == description)
@@ -105,6 +106,7 @@ def test_account(bucket):
 
 
 def test_transactions(random_transaction, bucket):
+
     (transaction, account1, account2) = random_transaction
 
     starting_balance1 = account1.balance()

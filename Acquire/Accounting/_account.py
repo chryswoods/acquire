@@ -111,10 +111,20 @@ class Account:
        account to ensure that updates occur atomically
 
        All data for this account is stored in the object store
+
+       The account has a set of ACLRules that specify who can
+       read and write to the account (writing implies has spend
+       authority), and who owns the account (can change ACLRules)
     """
-    def __init__(self, name=None, description=None, uid=None, bucket=None):
+    def __init__(self, name=None, description=None, uid=None, bucket=None,
+                 aclrules=None, **kwargs):
         """Construct the account. If 'uid' is specified, then load the account
            from the object store (so 'name' and 'description' should be "None")
+
+           You can also supply the ACLRules that will be used to control
+           access to this account. If these are not specified then
+           ACLRules.inherit() will be used, and the rules should inherit
+           from "upstream" provided in kwargs
         """
         if uid is not None:
             self._uid = str(uid)
@@ -122,6 +132,7 @@ class Account:
             self._description = None
             self._last_update_datetime = None
             self._load_account(bucket)
+            self._kwargs = kwargs
 
             if name:
                 if name != self.name():
@@ -139,7 +150,8 @@ class Account:
 
         elif name is not None:
             self._uid = None
-            self._create_account(name, description)
+            self._create_account(name, description, aclrules)
+            self._kwargs = kwargs
         else:
             self._uid = None
             self._last_update_datetime = None
@@ -160,7 +172,7 @@ class Account:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def _create_account(self, name, description):
+    def _create_account(self, name, description, aclrules):
         """Create the account from scratch"""
         if name is None or description is None:
             from Acquire.Accounting import AccountError
@@ -172,6 +184,12 @@ class Account:
             from Acquire.Accounting import AccountError
             raise AccountError("You cannot create an account twice!")
 
+        from Acquire.Identity import ACLRules as _ACLRules
+        if aclrules is None:
+            aclrules = _ACLRules.inherit()
+        elif not isinstance(aclrules, _ACLRules):
+            raise TypeError("The aclrules must be type ACLRules")
+
         from Acquire.Accounting import create_decimal as _create_decimal
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
@@ -182,6 +200,7 @@ class Account:
         self._overdraft_limit = _create_decimal(0)
         self._maximum_daily_limit = 0
         self._last_update_datetime = None
+        self._aclrules = aclrules
 
         # initialise the account with a balance of zero
         bucket = _get_service_account_bucket()
@@ -672,6 +691,7 @@ class Account:
             data["description"] = self._description
             data["overdraft_limit"] = str(self._overdraft_limit)
             data["maximum_daily_limit"] = str(self._maximum_daily_limit)
+            data["aclrules"] = self._aclrules.to_data()
 
         return data
 
@@ -684,6 +704,7 @@ class Account:
 
         if (data and len(data) > 0):
             from Acquire.Accounting import create_decimal as _create_decimal
+            from Acquire.Identity import ACLRules as _ACLRules
 
             account._uid = data["uid"]
             account._name = data["name"]
@@ -692,9 +713,14 @@ class Account:
             account._maximum_daily_limit = _create_decimal(
                                                 data["maximum_daily_limit"])
 
+            if "aclrules" in data:
+                account._aclrules = _ACLRules.from_data(data["aclrules"])
+            else:
+                account._aclrules = _ACLRules.inherit()
+
         return account
 
-    def assert_valid_authorisation(self, authorisation):
+    def assert_valid_authorisation(self, authorisation, resource=None):
         """Assert that the passed authorisation is valid for this
            account
         """
@@ -702,6 +728,22 @@ class Account:
         if not isinstance(authorisation, _Authorisation):
             raise TypeError("The passed authorisation must be an "
                             "Authorisation")
+
+        if not authorisation.is_null():
+            authorisation.verify(resource=resource)
+            import copy as _copy
+            kwargs = _copy.copy(self._kwargs)
+            kwargs["user_guid"] = authorisation.user_guid()
+        else:
+            kwargs = self._kwargs
+
+        aclrule = self._aclrules.resolve(must_resolve=True,
+                                         **kwargs)
+
+        if not aclrule.is_writeable():
+            raise PermissionError(
+                "You do not have permission to write (draw funds) from "
+                "this account!")
 
     def _get_safe_now(self):
         """This function returns the current time. It avoids dangerous
@@ -1056,7 +1098,8 @@ class Account:
         if not isinstance(transaction, _Transaction):
             raise TypeError("The passed transaction must be a Transaction!")
 
-        self.assert_valid_authorisation(authorisation)
+        self.assert_valid_authorisation(authorisation,
+                                        resource=transaction.fingerprint())
 
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \

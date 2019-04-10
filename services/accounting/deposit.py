@@ -33,12 +33,7 @@ def run(args):
     except:
         authorisation = None
 
-    try:
-        transaction = Transaction.from_data(args["transaction"])
-    except:
-        transaction = Transaction(
-                        args["value"],
-                        "Deposit on %s" % datetime.datetime.now())
+    transaction = Transaction.from_data(args["transaction"])
 
     if authorisation is None:
         raise PermissionError("You must supply a valid authorisation "
@@ -49,29 +44,30 @@ def run(args):
                          "represents the deposit")
 
     if transaction.value() > 0:
-        authorisation.verify()
-        user_uid = authorisation.user_uid()
+        user_guid = authorisation.user_guid()
 
         # load the account from which the transaction will be performed
         bucket = get_service_account_bucket()
-        accounts = Accounts(user_uid)
+        accounts = Accounts(user_guid=user_guid)
 
         # deposits are made by transferring funds from the user's
         # 'billing' account to their 'deposits' account.
         deposit_account = accounts.create_account(
                             "deposits", "Deposit account",
-                            bucket=bucket)
+                            bucket=bucket,
+                            superuser_access=True)
 
         billing_account = accounts.create_account(
                             "billing", "Billing account",
-                            overdraft_limit=150, bucket=bucket)
+                            overdraft_limit=150, bucket=bucket,
+                            superuser_access=True)
 
         billing_balance = billing_account.balance() - transaction.value()
 
         if billing_balance < -50.0:
             # there are sufficient funds that need to be transferred that
             # it is worth really charging the user
-            invoice_user = user_uid
+            invoice_user = user_guid
             invoice_value = billing_balance
 
         # we have enough information to perform the transaction

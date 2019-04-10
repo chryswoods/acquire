@@ -233,8 +233,6 @@ class Cheque:
 
         info["receipt_by"] = receipt_by
 
-        print(info)
-
         # everything now checks out - return the read cheque
         return info
 

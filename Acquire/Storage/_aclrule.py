@@ -350,6 +350,11 @@ class ACLRule:
 
         upstream = kwargs["upstream"]
 
+        from Acquire.Storage import ACLRules as _ACLRules
+        if isinstance(upstream, _ACLRules):
+            del kwargs["upstream"]
+            upstream = upstream.resolve(**kwargs)
+
         if not upstream.is_fully_resolved():
             del kwargs["upstream"]
             upstream = upstream.resolve(must_resolve=must_resolve, **kwargs)

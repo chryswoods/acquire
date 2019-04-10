@@ -10,7 +10,8 @@ class Authorisation:
        and provider to verify that the authorisation is for the
        correct resource
     """
-    def __init__(self, resource=None, user=None, testing_key=None):
+    def __init__(self, resource=None, user=None,
+                 testing_key=None, testing_user_guid=None):
         """Create an authorisation for the passed resource
            that is authorised by the passed user (who must be authenticated)
 
@@ -72,6 +73,11 @@ class Authorisation:
             self._identity_uid = "some identity uid"
             self._auth_datetime = _get_datetime_now()
             self._is_testing = True
+
+            if testing_user_guid is not None:
+                parts = testing_user_guid.split("@")
+                self._user_uid = parts[0]
+                self._identity_uid = parts[1]
 
             message = self._get_message(resource)
             self._signature = testing_key.sign(message)
@@ -155,7 +161,7 @@ class Authorisation:
 
     def user_guid(self):
         """Return the global UID for this user"""
-        return "%s@%s" % (self.identity_uid(), self.user_uid())
+        return "%s@%s" % (self.user_uid(), self.identity_uid())
 
     def session_uid(self):
         """Return the login session that authenticated the user"""
