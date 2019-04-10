@@ -38,7 +38,10 @@ def test_example_data(bucket):
     for account in user2_accounts.list_accounts():
         accounts.append(user2_accounts.get_account(account))
 
-    for account in accounts:
-        print(account.name(), account.balance())
+    # make sure that the ledger is balanced
+    balance_sum = 0
 
-    assert(False)
+    for account in accounts:
+        balance_sum += account.balance()
+
+    assert(balance_sum == 0)
