@@ -133,6 +133,7 @@ def run(args):
                                          debit_account=debit_account,
                                          credit_account=credit_account,
                                          authorisation=info["authorisation"],
+                                         authorisation_resource=resource,
                                          is_provisional=True,
                                          receipt_by=receipt_by,
                                          bucket=bucket)

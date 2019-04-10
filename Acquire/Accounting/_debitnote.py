@@ -8,7 +8,8 @@ class DebitNote:
     """
     def __init__(self, transaction=None, account=None, authorisation=None,
                  is_provisional=False, receipt_by=None,
-                 receipt=None, refund=None, bucket=None):
+                 receipt=None, refund=None, authorisation_resource=None,
+                 bucket=None):
         """Create a debit note for the passed transaction will debit value
            from the passed account. The note will create a unique ID (uid)
            for the debit, plus the datetime of the time that value was drawn
@@ -39,8 +40,13 @@ class DebitNote:
                 raise ValueError("You need to supply the account from "
                                  "which the transaction will be taken")
 
-            self._create_from_transaction(transaction, account, authorisation,
-                                          is_provisional, receipt_by, bucket)
+            self._create_from_transaction(
+                        transaction=transaction,
+                        account=account,
+                        authorisation=authorisation,
+                        authorisation_resource=authorisation_resource,
+                        is_provisional=is_provisional,
+                        receipt_by=receipt_by, bucket=bucket)
 
     def __str__(self):
         if self.is_null():
@@ -270,6 +276,7 @@ class DebitNote:
             raise
 
     def _create_from_transaction(self, transaction, account, authorisation,
+                                 authorisation_resource,
                                  is_provisional, receipt_by, bucket):
         """Function used to construct a debit note by extracting the
            specified transaction value from the passed account. This
@@ -302,9 +309,11 @@ class DebitNote:
         self._is_provisional = is_provisional
 
         (uid, datetime, receipt_by) = account._debit(
-                                        transaction, authorisation,
-                                        is_provisional, receipt_by,
-                                        bucket=bucket)
+                        transaction=transaction,
+                        authorisation=authorisation,
+                        authorisation_resource=authorisation_resource,
+                        is_provisional=is_provisional,
+                        receipt_by=receipt_by, bucket=bucket)
 
         from Acquire.ObjectStore import datetime_to_datetime \
             as _datetime_to_datetime

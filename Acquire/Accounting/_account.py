@@ -1069,7 +1069,8 @@ class Account:
         return (uid, now)
 
     def _debit(self, transaction, authorisation,
-               is_provisional, receipt_by, bucket=None):
+               is_provisional, receipt_by,
+               authorisation_resource=None, bucket=None):
         """Debit the value of the passed transaction from this account based
            on the authorisation contained
            in 'authorisation'. This will create a unique ID (UID) for
@@ -1098,8 +1099,11 @@ class Account:
         if not isinstance(transaction, _Transaction):
             raise TypeError("The passed transaction must be a Transaction!")
 
+        if authorisation_resource is None:
+            authorisation = transaction.fingerprint()
+
         self.assert_valid_authorisation(authorisation,
-                                        resource=transaction.fingerprint())
+                                        resource=authorisation_resource)
 
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
