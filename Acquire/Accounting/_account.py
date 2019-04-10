@@ -344,7 +344,11 @@ class Account:
         while last_data is None:
             daytime = _datetime.datetime.fromordinal(day)
             key = self._get_balance_key(daytime)
-            last_data = _ObjectStore.get_object_from_json(bucket, key)
+
+            try:
+                last_data = _ObjectStore.get_object_from_json(bucket, key)
+            except:
+                last_data = None
 
             if last_data is None:
                 day -= 1
@@ -358,8 +362,12 @@ class Account:
             # find the latest day by reading the keys in the object
             # store directly
             root = "%s/balance/" % self._key()
-            keys = _ObjectStore.get_all_object_names(
-                        bucket, root)
+
+            try:
+                keys = _ObjectStore.get_all_object_names(
+                            bucket, root)
+            except:
+                keys = None
 
             if keys is None or len(keys) == 0:
                 from Acquire.Accounting import AccountError
@@ -371,13 +379,17 @@ class Account:
             # last key must be the latest balance
             keys.sort()
 
-            last_data = _ObjectStore.get_object_from_json(
-                            bucket, keys[-1])
-            day = _get_date_from_key(keys[-1]).toordinal()
+            try:
+                last_data = _ObjectStore.get_object_from_json(
+                                bucket, keys[-1])
+            except:
+                last_data = None
 
             if last_data is None:
                 raise AccountError("How can there be no data for key %s?" %
                                    keys[-1])
+
+            day = _get_date_from_key(keys[-1]).toordinal()
 
         # what was the balance on the last day?
         from Acquire.Accounting import create_decimal as _create_decimal
@@ -453,7 +465,11 @@ class Account:
         balance_key = self._get_balance_key(datetime)
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        data = _ObjectStore.get_object_from_json(bucket, balance_key)
+
+        try:
+            data = _ObjectStore.get_object_from_json(bucket, balance_key)
+        except:
+            data = None
 
         if data is None:
             # there is no balance for this day. This means that we haven't
@@ -461,7 +477,10 @@ class Account:
             # to construct that day's starting balance
             self._reconcile_daily_accounts(bucket)
 
-            data = _ObjectStore.get_object_from_json(bucket, balance_key)
+            try:
+                data = _ObjectStore.get_object_from_json(bucket, balance_key)
+            except:
+                data = None
 
             if data is None:
                 from Acquire.Accounting import AccountError
@@ -541,7 +560,10 @@ class Account:
             prefix = "%s/%s" % (self._key(), day_string)
             len_prefix = len(prefix)
 
-            day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
+            try:
+                day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
+            except:
+                day_keys = []
 
             for day_key in day_keys:
                 # the key is time/rest_of_key
@@ -758,7 +780,17 @@ class Account:
             bucket = _get_service_account_bucket()
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        data = _ObjectStore.get_object_from_json(bucket, self._key())
+
+        try:
+            data = _ObjectStore.get_object_from_json(bucket, self._key())
+        except:
+            data = None
+
+        if data is None:
+            from Acquire.Accounting import AccountError
+            raise AccountError(
+                "There is no account data for this account? %s" % self._key())
+
         self.__dict__ = _copy(Account.from_data(data).__dict__)
 
     def _save_account(self, bucket=None):

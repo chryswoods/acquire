@@ -60,6 +60,10 @@ def test_par(bucket):
     with pytest.raises(PARPermissionsError):
         par.write(privkey).set_string_object(value)
 
+    # close the PAR and then assert a closed PAR is null
+    par.close()
+    assert(par.is_null())
+
     par = ObjectStore.create_par(bucket, key=key, readable=True,
                                  writeable=True, encrypt_key=pubkey)
 

@@ -13,6 +13,37 @@ _rlock = threading.RLock()
 __all__ = ["Testing_ObjectStore"]
 
 
+def _get_driver_details_from_par(par):
+    from Acquire.ObjectStore import datetime_to_string \
+        as _datetime_to_string
+
+    import copy as _copy
+    details = _copy.copy(par._driver_details)
+
+    if details is None:
+        return {}
+    else:
+        # fix any non-string/number objects
+        details["created_datetime"] = _datetime_to_string(
+                                        details["created_datetime"])
+
+    return details
+
+
+def _get_driver_details_from_data(data):
+    from Acquire.ObjectStore import string_to_datetime \
+        as _string_to_datetime
+
+    import copy as _copy
+    details = _copy.copy(data)
+
+    if "created_datetime" in details:
+        details["created_datetime"] = _string_to_datetime(
+                                            details["created_datetime"])
+
+    return details
+
+
 class Testing_ObjectStore:
     """This is a dummy object store that writes objects to
        the standard posix filesystem when running tests
@@ -75,7 +106,7 @@ class Testing_ObjectStore:
 
     @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
-                   writeable=False, duration=3600):
+                   writeable=False, duration=3600, cleanup_function=None):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
            This will return a PAR object that will contain a URL that can
@@ -127,21 +158,39 @@ class Testing_ObjectStore:
                 "due to a limitation in the underlying platform")
 
         from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import PARRegistry as _PARRegistry
 
-        return _PAR(url=url, key=key, encrypt_key=encrypt_key,
-                    created_datetime=created_datetime,
-                    expires_datetime=expires_datetime,
-                    is_readable=readable, is_writeable=writeable,
-                    par_id=str(_uuid.uuid4()),
-                    driver="testing_objstore")
+        url_checksum = _PAR.checksum(url)
+
+        driver_details = {"driver": "testing_objstore",
+                          "bucket": bucket,
+                          "created_datetime": created_datetime}
+
+        par = _PAR(url=url, key=key, encrypt_key=encrypt_key,
+                   expires_datetime=expires_datetime,
+                   is_readable=readable, is_writeable=writeable,
+                   driver_details=driver_details)
+
+        _PARRegistry.register(par=par, url_checksum=url_checksum,
+                              details_function=_get_driver_details_from_par,
+                              cleanup_function=cleanup_function)
+
+        return par
 
     @staticmethod
-    def delete_par(bucket, par):
-        """Delete the passed PAR, which provides access to data in the
+    def close_par(par=None, par_uid=None, url_checksum=None):
+        """Close the passed PAR, which provides access to data in the
            passed bucket
         """
-        from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import PARRegistry as _PARRegistry
 
+        if par is None:
+            par = _PARRegistry.get(
+                        par_uid=par_uid,
+                        url_checksum=url_checksum,
+                        details_function=_get_driver_details_from_data)
+
+        from Acquire.Client import PAR as _PAR
         if not isinstance(par, _PAR):
             raise TypeError("The PAR must be of type PAR")
 
@@ -149,16 +198,10 @@ class Testing_ObjectStore:
             raise ValueError("Cannot delete a PAR that was not created "
                              "by the testing object store")
 
-    @staticmethod
-    def get_object_as_file(bucket, key, filename):
-        """Get the object contained in the key 'key' in the passed 'bucket'
-           and writing this to the file called 'filename'"""
+        # delete the PAR (no need to do this on testing)
 
-        if not _os.path.exists("%s/%s._data" % (bucket, key)):
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError("No object at key '%s'" % key)
-
-        _shutil.copy("%s/%s._data" % (bucket, key), filename)
+        # close the PAR - this will trigger any close_function(s)
+        _PARRegistry.close(par=par)
 
     @staticmethod
     def get_object(bucket, key):
@@ -166,32 +209,27 @@ class Testing_ObjectStore:
            passed bucket"""
 
         with _rlock:
-            if _os.path.exists("%s/%s._data" % (bucket, key)):
-                return open("%s/%s._data" % (bucket, key), "rb").read()
+            filepath = "%s/%s._data" % (bucket, key)
+            if _os.path.exists(filepath):
+                return open(filepath, "rb").read()
             else:
                 from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError("No object at key '%s'" % key)
 
     @staticmethod
-    def get_string_object(bucket, key):
-        """Return the string in 'bucket' associated with 'key'"""
-        return Testing_ObjectStore.get_object(bucket, key).decode("utf-8")
-
-    @staticmethod
-    def get_object_from_json(bucket, key):
-        """Return an object constructed from json stored at 'key' in
-           the passed bucket. This returns None if there is no data
-           at this key
+    def take_object(bucket, key):
+        """Take (delete) the object from the object store, returning
+           the object
         """
-
-        data = None
-
-        try:
-            data = Testing_ObjectStore.get_string_object(bucket, key)
-        except:
-            return None
-
-        return _json.loads(data)
+        with _rlock:
+            filepath = "%s/%s._data" % (bucket, key)
+            if _os.path.exists(filepath):
+                data = open(filepath, "rb").read()
+                _os.remove(filepath)
+                return data
+            else:
+                from Acquire.ObjectStore import ObjectStoreError
+                raise ObjectStoreError("No object at key '%s'" % key)
 
     @staticmethod
     def get_all_object_names(bucket, prefix=None):
@@ -233,51 +271,6 @@ class Testing_ObjectStore:
         return object_names
 
     @staticmethod
-    def get_all_objects(bucket, prefix=None):
-        """Return all of the objects in the passed bucket"""
-        objects = {}
-        names = Testing_ObjectStore.get_all_object_names(bucket, prefix)
-
-        for name in names:
-            objects[name] = Testing_ObjectStore.get_object(bucket, name)
-
-        return objects
-
-    @staticmethod
-    def get_all_objects_from_json(bucket, prefix=None):
-        """Return all of the json objects in the passed bucket as
-           json-deserialised objects
-        """
-        objects = Testing_ObjectStore.get_all_objects(bucket, prefix)
-
-        names = list(objects.keys())
-
-        for name in names:
-            try:
-                s = objects[name].decode("utf-8")
-                objects[name] = _json.loads(s)
-            except:
-                del objects[name]
-
-        return objects
-
-    @staticmethod
-    def get_all_strings(bucket, prefix=None):
-        """Return all of the strings in the passed bucket"""
-        objects = Testing_ObjectStore.get_all_objects(bucket, prefix)
-
-        names = list(objects.keys())
-
-        for name in names:
-            try:
-                s = objects[name].decode("utf-8")
-                objects[name] = s
-            except:
-                del objects[name]
-
-        return objects
-
-    @staticmethod
     def set_object(bucket, key, data):
         """Set the value of 'key' in 'bucket' to binary 'data'"""
 
@@ -286,34 +279,16 @@ class Testing_ObjectStore:
         with _rlock:
             try:
                 with open(filename, 'wb') as FILE:
-                    FILE.write(data)
+                    if data is not None:
+                        FILE.write(data)
                     FILE.flush()
             except:
                 dir = "/".join(filename.split("/")[0:-1])
                 _os.makedirs(dir, exist_ok=True)
                 with open(filename, 'wb') as FILE:
-                    FILE.write(data)
+                    if data is not None:
+                        FILE.write(data)
                     FILE.flush()
-
-    @staticmethod
-    def set_object_from_file(bucket, key, filename):
-        """Set the value of 'key' in 'bucket' to equal the contents
-           of the file located by 'filename'"""
-
-        Testing_ObjectStore.set_object(bucket, key,
-                                       open(filename, 'rb').read())
-
-    @staticmethod
-    def set_string_object(bucket, key, string_data):
-        """Set the value of 'key' in 'bucket' to the string 'string_data'"""
-        Testing_ObjectStore.set_object(bucket, key,
-                                       string_data.encode("utf-8"))
-
-    @staticmethod
-    def set_object_from_json(bucket, key, data):
-        """Set the value of 'key' in 'bucket' to equal to contents
-           of 'data', which has been encoded to json"""
-        Testing_ObjectStore.set_string_object(bucket, key, _json.dumps(data))
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
@@ -330,24 +305,6 @@ class Testing_ObjectStore:
             _os.remove("%s/%s._data" % (bucket, key))
         except:
             pass
-
-    @staticmethod
-    def clear_all_except(bucket, keys):
-        """Removes all objects from the passed 'bucket' except those
-           whose keys are or start with any key in 'keys'"""
-
-        names = Testing_ObjectStore.get_all_object_names(bucket)
-
-        for name in names:
-            remove = True
-
-            for key in keys:
-                if name.startswith(key):
-                    remove = False
-                    break
-
-            if remove:
-                Testing_ObjectStore.delete_object(bucket, key)
 
     @staticmethod
     def get_size_and_checksum(bucket, key):

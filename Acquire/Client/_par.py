@@ -19,14 +19,13 @@ class PAR:
        The PAR is created encrypted, so can only be used by the
        person or service that has access to the decryption key
     """
-    def __init__(self, url=None, key=None, encrypt_key=None,
-                 created_datetime=None,
+    def __init__(self, url=None, key=None,
+                 encrypt_key=None,
                  expires_datetime=None,
                  is_readable=False,
                  is_writeable=False,
                  is_executable=False,
-                 par_id=None, par_name=None,
-                 driver=None):
+                 driver_details=None):
         """Construct a PAR result by passing in the URL at which the
            object can be accessed, the UTC datetime when this expires,
            whether this is readable, writeable or executable, and
@@ -44,18 +43,23 @@ class PAR:
 
            Otherwise no access is possible.
 
-           This also records the type of object store behind this PAR
-           in the free-form string 'driver'. You can optionally supply
-           the ID of the PAR by passing in 'par_id', the user-supplied name,
-           of the PAR by passing in 'par_name', and the time it
-           was created using 'created_datetime' (in the same format
-           as 'expires_datetime' - should be a UTC datetime with UTC tzinfo)
+           driver_details is provided by the machinery that creates
+           the PAR, and supplies extra details that are used by the
+           driver to create, register and manage PARs... You should
+           not do anything with driver_details yourself
         """
+        service_url = None
+
         if url is None:
             is_readable = True
             self._uid = None
         else:
             from Acquire.Crypto import PublicKey as _PublicKey
+            from Acquire.Crypto import PrivateKey as _PrivateKey
+
+            if isinstance(encrypt_key, _PrivateKey):
+                encrypt_key = encrypt_key.public_key()
+
             if not isinstance(encrypt_key, _PublicKey):
                 raise TypeError(
                     "You must supply a valid PublicKey to encrypt a PAR")
@@ -65,13 +69,23 @@ class PAR:
             from Acquire.ObjectStore import create_uuid as _create_uuid
             self._uid = _create_uuid()
 
+            try:
+                from Acquire.Service import get_this_service \
+                    as _get_this_service
+                service_url = _get_this_service().canonical_url()
+            except:
+                pass
+
         self._url = url
         self._key = key
-        self._created_datetime = created_datetime
         self._expires_datetime = expires_datetime
-        self._driver = driver
-        self._par_id = par_id
-        self._par_name = par_name
+        self._service_url = service_url
+
+        if driver_details is not None:
+            if not isinstance(driver_details, dict):
+                raise TypeError("The driver details must be a dictionary")
+
+        self._driver_details = driver_details
 
         if is_readable:
             self._is_readable = True
@@ -112,11 +126,62 @@ class PAR:
             return "PAR( key=%s, seconds_remaining=%s )" % \
                 (self.key(), self.seconds_remaining(buffer=0))
 
+    def _set_private_key(self, privkey):
+        """Call this function to set the private key for this
+           PAR. This is the private key that is used to
+           decrypt the PAR, and is provided here if you want
+           to use the PAR without having to always supply
+           the key (by definition, you are the only person
+           who has the key)
+        """
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+
+        if not isinstance(privkey, _PrivateKey):
+            raise TypeError("The private key must be type PrivateKey")
+
+        self._privkey = privkey
+
+    def _get_privkey(self, decrypt_key=None):
+        """Return the private key used to decrypt the PAR, passing in
+           the user-supplied key if needed
+        """
+        try:
+            if self._privkey is not None:
+                return self._privkey
+        except:
+            pass
+
+        if decrypt_key is None:
+            raise PermissionError(
+                "You must supply a private key to decrypt this PAR")
+
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        if not isinstance(decrypt_key, _PrivateKey):
+            raise TypeError("The supplied private key must be type PrivateKey")
+
+        return decrypt_key
+
     def is_null(self):
         """Return whether or not this is null"""
         return self._uid is None
 
-    def url(self, encrypt_key):
+    @staticmethod
+    def checksum(data):
+        """Return the checksum of the passed data. This is used either
+           for validating data, and is also used to create a checksum
+           of the URL so that the user can demonstrate that they can
+           decrypt this PAR
+        """
+        from hashlib import md5 as _md5
+        md5 = _md5()
+
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+
+        md5.update(data)
+        return md5.hexdigest()
+
+    def url(self, decrypt_key=None):
         """Return the URL at which the bucket/object can be accessed. This
            will raise a PARTimeoutError if the url has less than 30 seconds
            of validity left. Note that you must pass in the key used to
@@ -126,24 +191,47 @@ class PAR:
             raise PARTimeoutError(
                 "The URL behind this PAR has expired and is no longer valid")
 
-        return encrypt_key.decrypt(self._url)
+        return self._get_privkey(decrypt_key).decrypt(self._url)
+
+    def service_url(self):
+        """Return the URL of the service that created this PAR"""
+        if self.is_null():
+            return None
+        else:
+            return self._service_url
+
+    def service(self):
+        """Return the service that created this PAR"""
+        service_url = self.service_url()
+
+        if service_url is not None:
+            from Acquire.Client import Wallet as _Wallet
+            return _Wallet.get_service(service_url=service_url)
+        else:
+            return None
 
     def uid(self):
         """Return the UID of this PAR"""
         return self._uid
 
-    def par_id(self):
-        """Return the ID of the PAR, if this was supplied by the underlying
-           driver. This could be useful for PAR management by the server
+    def driver_details(self):
+        """Return the driver details for this PAR. This is used only
+           on the service that created the PAR, and returns an empty
+           dictionary if the details are not available
         """
-        return self._par_id
+        if self._driver_details is None:
+            return {}
+        else:
+            return self._driver_details
 
-    def par_name(self):
-        """Return the user-supplied name of the PAR, if this was supplied
-           by the user and supported by the underlying driver. This could
-           be useful for PAR management by the server
+    def driver(self):
+        """Return the driver behind this PAR - this is only available on
+           the service
         """
-        return self._par_name
+        try:
+            return self.driver_details()["driver"]
+        except:
+            return None
 
     def fingerprint(self):
         """Return a fingerprint for this PAR that can be used
@@ -180,9 +268,12 @@ class PAR:
         """Return whether or not this PAR is for a single object"""
         return self._key is not None
 
-    def driver(self):
-        """Return the underlying object store driver used for this PAR"""
-        return self._driver
+    def expires_when(self):
+        """Return when this PAR expires (or expired)"""
+        if self.is_null():
+            return None
+        else:
+            return self._expires_datetime
 
     def seconds_remaining(self, buffer=30):
         """Return the number of seconds remaining before this PAR expires.
@@ -207,7 +298,7 @@ class PAR:
         else:
             return delta
 
-    def read(self, encrypt_key):
+    def read(self, decrypt_key=None):
         """Return an object that can be used to read data from this PAR"""
         if not self.is_readable():
             from Acquire.Client import PARPermissionsError
@@ -215,11 +306,11 @@ class PAR:
                 "You do not have permission to read from this PAR: %s" % self)
 
         if self.is_bucket():
-            return BucketReader(self, encrypt_key)
+            return BucketReader(self, self._get_privkey(decrypt_key))
         else:
-            return ObjectReader(self, encrypt_key)
+            return ObjectReader(self, self._get_privkey(decrypt_key))
 
-    def write(self, encrypt_key):
+    def write(self, decrypt_key=None):
         """Return an object that can be used to write data to this PAR"""
         if not self.is_writeable():
             from Acquire.Client import PARPermissionsError
@@ -227,11 +318,11 @@ class PAR:
                 "You do not have permission to write to this PAR: %s" % self)
 
         if self.is_bucket():
-            return BucketWriter(self, encrypt_key)
+            return BucketWriter(self, self._get_privkey(decrypt_key))
         else:
-            return ObjectWriter(self, encrypt_key)
+            return ObjectWriter(self, self._get_privkey(decrypt_key))
 
-    def execute(self, encrypt_key):
+    def execute(self, decrypt_key=None):
         """Return an object that can be used to control execution of
            this PAR
         """
@@ -240,13 +331,34 @@ class PAR:
             raise PARPermissionsError(
                 "You do not have permission to execute this PAR: %s" % self)
 
-        return ComputeRunner(self, encrypt_key)
+        return ComputeRunner(self, self._get_privkey(decrypt_key))
 
-    def close(self):
-        """Close this PAR - this closes and deletes the PAR"""
-        pass
+    def close(self, decrypt_key=None):
+        """Close this PAR - this closes and deletes the PAR. You must
+           pass in the decryption key so that you can validate that
+           you have permission to read (and thus close) this PAR
+        """
+        if self.is_null():
+            return
 
-    def to_data(self):
+        service = self.service()
+
+        if service is not None:
+            # we confirm we have permission to close this PAR by sending
+            # a checksum of the url (which only we would know)
+            url = self.url(decrypt_key=decrypt_key)
+
+            args = {"par_uid": self._uid,
+                    "url_checksum": PAR.checksum(url)}
+
+            service.call_function(function="close_par", args=args)
+
+        # now that the PAR is closed, set it into a null state
+        import copy as _copy
+        par = PAR()
+        self.__dict__ = _copy.copy(par.__dict__)
+
+    def to_data(self, passphrase=None):
         """Return a json-serialisable dictionary that contains all data
            for this object
         """
@@ -263,19 +375,33 @@ class PAR:
         data["url"] = _bytes_to_string(self._url)
         data["uid"] = self._uid
         data["key"] = self._key
-        data["created_datetime"] = _datetime_to_string(self._created_datetime)
         data["expires_datetime"] = _datetime_to_string(self._expires_datetime)
-        data["driver"] = self._driver
-        data["par_id"] = self._par_id
-        data["par_name"] = self._par_name
         data["is_readable"] = self._is_readable
         data["is_writeable"] = self._is_writeable
         data["is_executable"] = self._is_executable
 
+        try:
+            if self._service_url is not None:
+                data["service_url"] = self._service_url
+        except:
+            pass
+
+        try:
+            privkey = self._privkey
+        except:
+            privkey = None
+
+        if privkey is not None:
+            if passphrase is not None:
+                data["privkey"] = privkey.to_data(passphrase)
+
+        # note that we don't save the driver details as these
+        # are stored separately on the service
+
         return data
 
     @staticmethod
-    def from_data(data):
+    def from_data(data, passphrase=None):
         """Return a PAR constructed from the passed json-deserliased
            dictionary
         """
@@ -296,14 +422,22 @@ class PAR:
         if par._key is not None:
             par._key = str(par._key)
 
-        par._created_datetime = _string_to_datetime(data["created_datetime"])
         par._expires_datetime = _string_to_datetime(data["expires_datetime"])
-        par._driver = data["driver"]
-        par._par_id = data["par_id"]
-        par._par_name = data["par_name"]
         par._is_readable = data["is_readable"]
         par._is_writeable = data["is_writeable"]
         par._is_executable = data["is_executable"]
+
+        if "service_url" in data:
+            par._service_url = data["service_url"]
+
+        if "privkey" in data:
+            if passphrase is not None:
+                from Acquire.Crypto import PrivateKey as _PrivateKey
+                par._privkey = _PrivateKey.from_data(data["privkey"],
+                                                     passphrase)
+
+        # note that we don't load the driver details as this
+        # is stored and loaded separately on the service
 
         return par
 
@@ -428,7 +562,7 @@ class BucketReader:
     """This class provides functions to enable reading data from a
        bucket via a PAR
     """
-    def __init__(self, par=None, encrypt_key=None):
+    def __init__(self, par=None, decrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -444,7 +578,7 @@ class BucketReader:
                     "read permissions: %s" % par)
 
             self._par = par
-            self._url = par.url(encrypt_key)
+            self._url = par.url(decrypt_key)
         else:
             self._par = None
 
@@ -560,7 +694,7 @@ class BucketWriter:
     """This class provides functions to enable writing data to a
        bucket via a PAR
     """
-    def __init__(self, par=None, encrypt_key=None):
+    def __init__(self, par=None, decrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -576,7 +710,7 @@ class BucketWriter:
                     "write permissions: %s" % par)
 
             self._par = par
-            self._url = par.url(encrypt_key)
+            self._url = par.url(decrypt_key)
         else:
             self._par = None
 
@@ -620,7 +754,7 @@ class BucketWriter:
 
 class ObjectReader:
     """This class provides functions for reading an object via a PAR"""
-    def __init__(self, par=None, encrypt_key=None):
+    def __init__(self, par=None, decrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -636,7 +770,7 @@ class ObjectReader:
                     "read permissions: %s" % par)
 
             self._par = par
-            self._url = par.url(encrypt_key)
+            self._url = par.url(decrypt_key)
         else:
             self._par = None
 
@@ -686,7 +820,7 @@ class ObjectWriter(ObjectReader):
     """This is an extension of ObjectReader that also allows writing to
        the object via the PAR
     """
-    def __init__(self, par=None, encrypt_key=None):
+    def __init__(self, par=None, decrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -702,7 +836,7 @@ class ObjectWriter(ObjectReader):
                     "write permissions: %s" % par)
 
             self._par = par
-            self._url = par.url(encrypt_key)
+            self._url = par.url(decrypt_key)
         else:
             self._par = None
 
@@ -742,7 +876,7 @@ class ComputeRunner:
     """This class provides functions for executing a calculation
        pre-authorised by the passed PAR
     """
-    def __init__(self, par=None, encrypt_key=None):
+    def __init__(self, par=None, decrypt_key=None):
         if par:
             if not isinstance(par, PAR):
                 raise TypeError(
@@ -753,6 +887,6 @@ class ComputeRunner:
                     "represents an executable calculation: %s" % par)
 
             self._par = par
-            self._url = par.url(encrypt_key)
+            self._url = par.url(decrypt_key)
         else:
             self._par = None

@@ -33,3 +33,7 @@ def test_create_par(aaai_services):
 
     assert(val != value)
     assert(val == newval)
+
+    par.close(privkey)
+
+    assert(par.is_null())
