@@ -342,13 +342,18 @@ class ACLRule:
         else:
             unresolved = False
 
-        if "upstream" not in kwargs:
+        if ("upstream" not in kwargs) or kwargs["upstream"] is None:
             if must_resolve:
                 return self._force_resolve(unresolved=unresolved)
             else:
                 return self
 
         upstream = kwargs["upstream"]
+
+        from Acquire.Storage import ACLRules as _ACLRules
+        if isinstance(upstream, _ACLRules):
+            del kwargs["upstream"]
+            upstream = upstream.resolve(**kwargs)
 
         if not upstream.is_fully_resolved():
             del kwargs["upstream"]

@@ -246,6 +246,7 @@ class Ledger:
 
     @staticmethod
     def perform(transactions, debit_account, credit_account, authorisation,
+                authorisation_resource=None,
                 is_provisional=False, receipt_by=None, bucket=None):
         """Perform the passed transaction(s) between 'debit_account' and
            'credit_account', recording the 'authorisation' for this
@@ -310,9 +311,13 @@ class Ledger:
         debit_notes = []
         try:
             for transaction in transactions:
-                debit_notes.append(_DebitNote(transaction, debit_account,
-                                              authorisation, is_provisional,
-                                              receipt_by, bucket=bucket))
+                debit_notes.append(_DebitNote(
+                    transaction=transaction,
+                    account=debit_account,
+                    authorisation=authorisation,
+                    authorisation_resource=authorisation_resource,
+                    is_provisional=is_provisional,
+                    receipt_by=receipt_by, bucket=bucket))
 
                 # ensure the receipt_by date for all notes is the same
                 if is_provisional and (receipt_by is None):

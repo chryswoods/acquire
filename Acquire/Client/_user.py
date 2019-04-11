@@ -193,7 +193,7 @@ class User:
            user with the UID of the identity service that
            primarily identifies the user
         """
-        return "%s@%s" % (self.identity_service().uid(), self.uid())
+        return "%s@%s" % (self.uid(), self.identity_service().uid())
 
     def status(self):
         """Return the current status of this user"""
