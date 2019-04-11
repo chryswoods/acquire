@@ -39,6 +39,10 @@ class TransactionInfo:
            different, e.g.
 
            RR000100.005000T000090.000000
+
+           Args:
+                key: Object store key
+                
         """
         from Acquire.Accounting import create_decimal as _create_decimal
 
@@ -68,7 +72,7 @@ class TransactionInfo:
                 value = _create_decimal(part[2:])
 
                 self._code = code
-                self._value = value
+                self._value = valuetransaction
                 self._receipted_value = value
                 return
             except:
@@ -93,7 +97,15 @@ class TransactionInfo:
 
     @staticmethod
     def _get_code(code):
-        """Return the TransactionCode matching 'code'"""
+        """Return the TransactionCode matching 'code'
+
+           Args:
+                code (TransactionInfo): TransactionInfo
+                to access TransactionCode
+           Returns:
+                TransactionCode
+
+        """
         return TransactionCode(code)
 
     @staticmethod
@@ -102,6 +114,14 @@ class TransactionInfo:
            be used as part of an object store key. If 'receipted_value' is
            passed, then encode the receipted value of the provisional
            transaction too
+
+           Args:
+                code (TransactionCode): TransactionCode to encode
+                value (Decimal): Value to use for encoding
+                receipted_value (Decimal): Total receipted value
+
+            Returns:
+                str: String to use as part of object store key
         """
         if receipted_value is None:
             return "%2s%013.6f" % (code.value, value)
@@ -109,44 +129,87 @@ class TransactionInfo:
             return "%2s%013.6fT%013.6f" % (code.value, value, receipted_value)
 
     def value(self):
-        """Return the value of the transaction"""
+        """Return the value of the transaction
+           
+           Returns:
+                Decimal: Value of the object
+        """
         return self._value
 
     def receipted_value(self):
         """Return the receipted value of the transaction. This may be
            different to value() when the transaction was provisional,
            and the receipted value is less than the provisional value
+
+           Returns:
+                Decimal: Receipted value of Transaction
         """
         return self._receipted_value
 
     def is_credit(self):
-        """Return whether or not this is a credit"""
+        """Return whether or not this is a credit
+
+           Returns:
+                bool: True if this is a credit, else False
+        """
         return self._code == TransactionCode.CREDIT
 
     def is_debit(self):
-        """Return whether or not this is a debit"""
+        """Return whether or not this is a debit
+        
+           Returns:
+                bool: True if this is a debit, else False
+        
+        """
         return self._code == TransactionCode.DEBIT
 
     def is_liability(self):
-        """Return whether or not this is a liability"""
+        """Return whether or not this is a liability
+        
+           Returns:
+                bool: True if this is a liability, else False
+                
+        """
         return self._code == TransactionCode.CURRENT_LIABILITY
 
     def is_accounts_receivable(self):
-        """Return whether or not this is accounts receivable"""
+        """Return whether or not this is accounts receivable
+        
+           Returns:
+                bool: True if this is accounts receivable, else False
+
+        """
         return self._code == TransactionCode.ACCOUNT_RECEIVABLE
 
     def is_sent_receipt(self):
-        """Return whether or not this is a sent receipt"""
+        """Return whether or not this is a sent receipt
+        
+           Returns:
+                bool: True if this is accounts receivable, else False
+
+        """
         return self._code == TransactionCode.SENT_RECEIPT
 
     def is_received_receipt(self):
-        """Return whether or not this is a received receipt"""
+        """Return whether or not this is a received receipt
+        
+           Returns:
+                bool: True if this is a received receipt, else False
+        """
         return self._code == TransactionCode.RECEIVED_RECEIPT
 
     def is_sent_refund(self):
-        """Return whether or not this is a sent refund"""
+        """Return whether or not this is a sent refund
+        
+           Returns:
+                bool: True if this is a sent refund, else False
+        """
         return self._code == TransactionCode.SENT_REFUND
 
     def is_received_refund(self):
-        """Return whether or not this is a received refund"""
+        """Return whether or not this is a received refund
+        
+           Returns:
+                bool: True if this is a received refund, else False
+        """
         return self._code == TransactionCode.RECEIVED_REFUND

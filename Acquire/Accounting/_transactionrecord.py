@@ -37,6 +37,10 @@ class TransactionRecord:
     def __init__(self, uid=None, bucket=None):
         """Load the transaction record from the object store using the
            passed UID
+
+           Args:
+                uid (str, default=None): UID for transaction record
+                bucket (dict, default=None): Bucket to load data from
         """
         if uid:
             self._load_transaction(uid, bucket)
@@ -72,36 +76,60 @@ class TransactionRecord:
     def reload(self):
         """Reload this transaction record from the object store. This is
            necessary if, e.g., the state of the record has been updated
+
+           Returns:
+                None
         """
         self._load_transaction(self.uid())
 
     def is_null(self):
-        """Return whether or not this is a null record"""
+        """Return whether or not this is a null record
+        
+           Returns:
+            bool: True if this record is null, else False
+        """
         return self._debit_note is None
 
     def description(self):
-        """Return the description of this transaction"""
+        """Return the description of this transaction
+        
+           Returns:
+                str: Description of this transaction
+        """
         if self.is_null():
             return None
         else:
             return self.transaction().description()
 
     def value(self):
-        """Return the value of this transaction"""
+        """Return the value of this transaction
+        
+           Returns:
+                Decimal: Value of this transaction
+        """
         if self.is_null():
             return 0
         else:
             return self.transaction().value()
 
     def uid(self):
-        """Return the UID for this transaction record"""
+        """Return the UID for this transaction record
+        
+           Returns:
+                str: UID for this transaction record
+        """
         if self.is_null():
             return None
         else:
             return self.debit_note().uid()
 
     def transaction(self):
-        """Return the transaction underlying this record"""
+        """Return the transaction underlying this record
+
+           Returns:
+                Transaction: Transaction underlying this TransactionRecord
+           
+        """
         if self.is_null():
             return None
         else:
