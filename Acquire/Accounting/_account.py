@@ -724,6 +724,9 @@ class Account:
         """Assert that the passed authorisation is valid for this
            account
         """
+        if authorisation is None:
+            raise PermissionError("You need to supply a valid authorisation!")
+
         from Acquire.Identity import Authorisation as _Authorisation
         if not isinstance(authorisation, _Authorisation):
             raise TypeError("The passed authorisation must be an "
@@ -1100,7 +1103,7 @@ class Account:
             raise TypeError("The passed transaction must be a Transaction!")
 
         if authorisation_resource is None:
-            authorisation = transaction.fingerprint()
+            authorisation_resource = transaction.fingerprint()
 
         self.assert_valid_authorisation(authorisation,
                                         resource=authorisation_resource)

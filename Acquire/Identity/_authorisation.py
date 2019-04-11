@@ -372,6 +372,8 @@ class Authorisation:
         except PermissionError:
             raise
         except Exception as e:
+            print(self.to_data())
+            print(resource)
             if resource:
                 raise PermissionError(
                     "Cannot verify the authorisation for resource %s: %s" %

@@ -313,7 +313,7 @@ class Ledger:
             for transaction in transactions:
                 debit_notes.append(_DebitNote(
                     transaction=transaction,
-                    debit_account=debit_account,
+                    account=debit_account,
                     authorisation=authorisation,
                     authorisation_resource=authorisation_resource,
                     is_provisional=is_provisional,

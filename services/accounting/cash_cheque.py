@@ -34,7 +34,7 @@ def run(args):
         from Acquire.Service import exception_to_string
         raise TypeError(
             "Unable to interpret the cheque.\n\nCAUSE: %s"
-                % exception_to_string(e))
+            % exception_to_string(e))
 
     try:
         spend = args["spend"]
@@ -48,7 +48,7 @@ def run(args):
             from Acquire.Service import exception_to_string
             raise TypeError(
                 "Unable to interpret the spend.\n\nCause: %s"
-                    % exception_to_string(e))
+                % exception_to_string(e))
 
     try:
         resource = str(args["resource"])
@@ -76,8 +76,8 @@ def run(args):
     except Exception as e:
         from Acquire.Service import exception_to_string
         raise TypeError(
-            "Unable to interpret the receipt_by date.\n\nCAUSE: %s" \
-                % exception_to_string(e))
+            "Unable to interpret the receipt_by date.\n\nCAUSE: %s"
+            % exception_to_string(e))
 
     # now read the cheque - this will only succeed if the cheque
     # is valid, has been signed, has been sent from the right
@@ -122,21 +122,22 @@ def run(args):
         raise PermissionError(
             "The user with UID '%s' cannot authorise transactions from "
             "the account '%s' as they do not own this account." %
-            (user_uid, str(debit_account)))
+            (user_guid, str(debit_account)))
 
     transaction = Transaction(value=info["spend"],
                               description=description)
 
     # we have enough information to perform the transaction
     # - this is provisional as the service must receipt everything
-    transaction_records = Ledger.perform(transactions=transaction,
-                                         debit_account=debit_account,
-                                         credit_account=credit_account,
-                                         authorisation=info["authorisation"],
-                                         authorisation_resource=resource,
-                                         is_provisional=True,
-                                         receipt_by=receipt_by,
-                                         bucket=bucket)
+    transaction_records = Ledger.perform(
+                                transactions=transaction,
+                                debit_account=debit_account,
+                                credit_account=credit_account,
+                                authorisation=info["authorisation"],
+                                authorisation_resource=info["auth_resource"],
+                                is_provisional=True,
+                                receipt_by=receipt_by,
+                                bucket=bucket)
 
     # extract all of the credit notes to return to the user,
     # and also to record so that we can check if they have not
