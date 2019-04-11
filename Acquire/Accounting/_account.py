@@ -117,14 +117,14 @@ class Account:
        authority), and who owns the account (can change ACLRules)
     """
     def __init__(self, name=None, description=None, uid=None, bucket=None,
-                 aclrules=None, group_name=None, **kwargs):
+                 aclrules=None, group_name=None):
         """Construct the account. If 'uid' is specified, then load the account
            from the object store (so 'name' and 'description' should be "None")
 
            You can also supply the ACLRules that will be used to control
            access to this account. If these are not specified then
-           ACLRules.inherit() will be used, and the rules should inherit
-           from "upstream" provided in kwargs
+           ACLRules.inherit() will be used, with rules inherited from the
+           Accounts group that contains this Account
         """
         if uid is not None:
             self._uid = str(uid)
@@ -132,8 +132,6 @@ class Account:
             self._description = None
             self._last_update_datetime = None
             self._load_account(bucket)
-            self._group_name = group_name
-            self._kwargs = kwargs
 
             if name:
                 if name != self.name():
@@ -153,7 +151,6 @@ class Account:
             self._uid = None
             self._create_account(name=name, description=description,
                                  group_name=group_name, aclrules=aclrules)
-            self._kwargs = kwargs
         else:
             self._uid = None
             self._last_update_datetime = None
@@ -744,7 +741,8 @@ class Account:
 
         return account
 
-    def assert_valid_authorisation(self, authorisation, resource=None):
+    def assert_valid_authorisation(self, authorisation, resource=None,
+                                   accept_partial_match=False):
         """Assert that the passed authorisation is valid for this
            account
         """
@@ -759,25 +757,21 @@ class Account:
         user_guid = None
 
         if not authorisation.is_null():
-            authorisation.verify(resource=resource)
+            authorisation.verify(resource=resource,
+                                 accept_partial_match=accept_partial_match)
             user_guid = authorisation.user_guid()
 
-        upstream_acl = None
+        upstream = None
 
         if self.group_name() is not None:
-            try:
-                from Acquire.Accounting import Accounts as _Accounts
-                group = _Accounts(user_guid=user_guid, group=self.group_name())
-                upstream_acl = group.resolve(must_resolve=False,
-                                             user_guid=user_guid,
-                                             **(self._kwargs))
-            except:
-                pass
+            from Acquire.Accounting import Accounts as _Accounts
+            group = _Accounts(user_guid=user_guid, group=self.group_name())
+            upstream = group.aclrules().resolve(must_resolve=False,
+                                                user_guid=user_guid)
 
         aclrule = self._aclrules.resolve(must_resolve=True,
-                                         upstream=upstream_acl,
-                                         user_guid=user_guid,
-                                         **(self._kwargs))
+                                         upstream=upstream,
+                                         user_guid=user_guid)
 
         if not aclrule.is_writeable():
             raise PermissionError(
@@ -1140,9 +1134,14 @@ class Account:
 
         if authorisation_resource is None:
             authorisation_resource = transaction.fingerprint()
+            accept_partial_match = True
+        else:
+            accept_partial_match = False
 
-        self.assert_valid_authorisation(authorisation,
-                                        resource=authorisation_resource)
+        self.assert_valid_authorisation(
+                                    authorisation=authorisation,
+                                    resource=authorisation_resource,
+                                    accept_partial_match=accept_partial_match)
 
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \

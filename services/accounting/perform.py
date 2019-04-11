@@ -73,20 +73,21 @@ def run(args):
                               "to perform transactions between accounts")
 
     authorisation.verify(resource=debit_account_uid)
-    user_uid = authorisation.user_uid()
+    user_guid = authorisation.user_guid()
 
     # load the account from which the transaction will be performed
     bucket = get_service_account_bucket()
     debit_account = Account(uid=debit_account_uid, bucket=bucket)
 
     # validate that this account is in a group that can be authorised
-    # by the user
-    if not Accounts(user_uid).contains(account=debit_account,
-                                       bucket=bucket):
+    # by the user - This should eventually go as this is all
+    # handled by the ACLs
+    if not Accounts(user_guid).contains(account=debit_account,
+                                        bucket=bucket):
         raise PermissionError(
-            "The user with UID '%s' cannot authorise transactions from "
+            "The user with GUID '%s' cannot authorise transactions from "
             "the account '%s' as they do not own this account." %
-            (user_uid, str(debit_account)))
+            (user_guid, str(debit_account)))
 
     # now load the two accounts involved in the transaction
     credit_account = Account(uid=credit_account_uid, bucket=bucket)

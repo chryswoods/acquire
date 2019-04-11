@@ -360,7 +360,8 @@ class Account:
 
         service = self.accounting_service()
 
-        auth = _Authorisation(resource=self._account_uid, user=self._user)
+        auth = _Authorisation(resource="get_info %s" % self._account_uid,
+                              user=self._user)
 
         args = {"authorisation": auth.to_data(),
                 "account_name": self.name()}

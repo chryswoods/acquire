@@ -73,6 +73,7 @@ class Authorisation:
             self._identity_uid = "some identity uid"
             self._auth_datetime = _get_datetime_now()
             self._is_testing = True
+            self._testing_key = testing_key
 
             if testing_user_guid is not None:
                 parts = testing_user_guid.split("@")
@@ -90,15 +91,23 @@ class Authorisation:
         """Return whether or not this authorisation is null"""
         return self._signature is None
 
-    def _get_message(self, resource=None):
+    def _get_message(self, resource=None, matched_resource=False):
         """Internal function that is used to generate the message for
            the resource that is signed. This message
            encodes information about the user and identity service that
            signed the message, as well as the resource. This helps
-           prevent tamporing with the data in this authorisation
+           prevent tamporing with the data in this authorisation.
+
+           If 'matched_resource' is True then this will return the
+           message based on the previously-verified resource
+           (as we have already determined that the user knows what
+           the resource is)
         """
         from Acquire.ObjectStore import datetime_to_string \
             as _datetime_to_string
+
+        if matched_resource:
+            resource = self._last_verified_resource
 
         if resource is None:
             return "%s|%s|%s|%s" % (
@@ -206,6 +215,16 @@ class Authorisation:
         else:
             return self._last_validated_datetime
 
+    def last_verified_resource(self):
+        """Return the resource that was used for the last successful
+           verification of this authorisation. This returns None
+           if this has not been verified before
+        """
+        try:
+            return self._last_verified_resource
+        except:
+            return None
+
     def signature(self):
         """Return the actual signature"""
         if self.is_null():
@@ -228,8 +247,7 @@ class Authorisation:
 
         return ((now - self._auth_datetime).seconds > stale_time)
 
-    def is_verified(self, resource=None, refresh_time=3600,
-                    stale_time=7200, testing_key=None):
+    def is_verified(self, refresh_time=3600, stale_time=7200):
         """Return whether or not this authorisation has been verified. Note
            that this will cache any verification for 'refresh_time' (in
            seconds)
@@ -246,16 +264,7 @@ class Authorisation:
 
         now = _get_datetime_now()
 
-        try:
-            if self._last_verified_resource != resource:
-                return False
-        except:
-            pass
-
         if self._last_validated_datetime is not None:
-            if self._last_verified_key != testing_key:
-                return False
-
             if (now - self._last_validated_datetime).seconds < refresh_time:
                 # no need to re-validate
                 return not self.is_stale(stale_time)
@@ -263,7 +272,7 @@ class Authorisation:
         return False
 
     def verify(self, resource=None, refresh_time=3600, stale_time=7200,
-               force=False, testing_key=None):
+               force=False, accept_partial_match=False):
         """Verify that this is a valid authorisation provided by the
            user for the passed 'resource'. This will
            cache the verification for 'refresh_time' (in seconds), but
@@ -274,22 +283,48 @@ class Authorisation:
            By default this is 7200 seconds (2 hours), meaning that the
            authorisation must be used within 2 hours to be valid.
 
+           If 'accept_partial_match' is True, then if this Authorisation
+           has been previously validated, then this previous authorisation
+           is valid if the previously-verified resource contains
+           'resource', e.g. if you have previously verified that
+           "create ABC123" is the verified resource, then this will
+           still verify if "ABC123" if the partially-accepted match
+
            If 'testing_key' is passed, then this object is being
            tested as part of the unit tests
         """
-
         if self.is_null():
             raise PermissionError("Cannot verify a null Authorisation")
 
         if self.is_stale(stale_time):
             raise PermissionError("Cannot verify a stale Authorisation")
 
+        matched_resource = False
+
+        try:
+            last_resource = self._last_verified_resource
+        except:
+            last_resource = None
+
+        if last_resource is not None:
+            if accept_partial_match:
+                if resource is None:
+                    matched_resource = True
+                else:
+                    matched_resource = (last_resource.find(resource) != -1)
+            else:
+                matched_resource = (resource == last_resource)
+
         if not force:
-            if self.is_verified(resource=resource,
-                                refresh_time=refresh_time,
-                                stale_time=stale_time,
-                                testing_key=testing_key):
-                return
+            if self.is_verified(refresh_time=refresh_time,
+                                stale_time=stale_time):
+                if matched_resource:
+                    return
+
+        try:
+            testing_key = self._testing_key
+        except:
+            testing_key = None
 
         if testing_key is not None:
             if not self._is_testing:
@@ -297,7 +332,8 @@ class Authorisation:
                     "You cannot pass a test key to a non-testing "
                     "Authorisation")
 
-            message = self._get_message(resource)
+            message = self._get_message(resource=resource,
+                                        matched_resource=matched_resource)
 
             try:
                 testing_key.verify(self._signature, message)
@@ -360,7 +396,8 @@ class Authorisation:
                         "out. This means that the authorisation is not valid. "
                         "Please log in again and create a new authorisation.")
 
-            message = self._get_message(resource)
+            message = self._get_message(resource=resource,
+                                        matched_resource=matched_resource)
 
             from Acquire.Crypto import PublicKey as _PublicKey
             pubcert = _PublicKey.from_data(response["public_cert"])

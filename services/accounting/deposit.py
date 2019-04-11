@@ -54,13 +54,11 @@ def run(args):
         # 'billing' account to their 'deposits' account.
         deposit_account = accounts.create_account(
                             "deposits", "Deposit account",
-                            bucket=bucket,
-                            superuser_access=True)
+                            bucket=bucket)
 
         billing_account = accounts.create_account(
                             "billing", "Billing account",
-                            overdraft_limit=150, bucket=bucket,
-                            superuser_access=True)
+                            overdraft_limit=150, bucket=bucket)
 
         billing_balance = billing_account.balance() - transaction.value()
 

@@ -342,7 +342,7 @@ class ACLRule:
         else:
             unresolved = False
 
-        if "upstream" not in kwargs:
+        if ("upstream" not in kwargs) or kwargs["upstream"] is None:
             if must_resolve:
                 return self._force_resolve(unresolved=unresolved)
             else:

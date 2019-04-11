@@ -4,7 +4,7 @@ import random
 import datetime
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
-                               Ledger, Receipt, Refund, \
+                               Accounts, Ledger, Receipt, Refund, \
                                create_decimal
 
 from Acquire.Identity import Authorisation, ACLRule
@@ -12,10 +12,17 @@ from Acquire.Identity import Authorisation, ACLRule
 from Acquire.Service import get_service_account_bucket, \
     push_is_running_service, pop_is_running_service
 
+from Acquire.Crypto import PrivateKey
+
 from Acquire.ObjectStore import get_datetime_now
 
 account1_overdraft_limit = 1500000
 account2_overdraft_limit = 2500000
+
+account1_user = "account1@local"
+account2_user = "account2@local"
+
+testing_key = PrivateKey()
 
 
 def assert_packable(obj):
@@ -37,8 +44,11 @@ def bucket(tmpdir_factory):
 
 @pytest.fixture(scope="session")
 def account1(bucket):
-    account = Account("Testing Account", "This is the test account",
-                      bucket=bucket, upstream=ACLRule.owner())
+    accounts = Accounts(user_guid=account1_user)
+    account = Account(name="Testing Account",
+                      description="This is the test account",
+                      group_name=accounts.name(),
+                      bucket=bucket)
     uid = account.uid()
     assert(uid is not None)
     assert(account.balance() == 0)
@@ -52,8 +62,11 @@ def account1(bucket):
 
 @pytest.fixture(scope="session")
 def account2(bucket):
-    account = Account("Testing Account", "This is a second testing account",
-                      bucket=bucket, upstream=ACLRule.owner())
+    accounts = Accounts(user_guid=account2_user)
+    account = Account(name="Testing Account",
+                      description="This is a second testing account",
+                      group_name=accounts.name(),
+                      bucket=bucket)
     uid = account.uid()
     assert(uid is not None)
     assert(account.balance() == 0)
@@ -87,8 +100,7 @@ def test_account(bucket):
     name = "test account"
     description = "This is a test account"
 
-    account = Account(name, description, bucket=bucket,
-                      upstream=ACLRule.owner())
+    account = Account(name, description, bucket=bucket)
 
     assert(account.name() == name)
     assert(account.description() == description)
@@ -117,8 +129,15 @@ def test_transactions(random_transaction, bucket):
     starting_liability2 = account2.liability()
     starting_receivable2 = account2.receivable()
 
-    records = Ledger.perform(transaction, account1, account2,
-                             Authorisation(), is_provisional=False,
+    authorisation = Authorisation(resource=transaction.fingerprint(),
+                                  testing_key=testing_key,
+                                  testing_user_guid=account1.group_name())
+
+    records = Ledger.perform(transactions=transaction,
+                             debit_account=account1,
+                             credit_account=account2,
+                             authorisation=authorisation,
+                             is_provisional=False,
                              bucket=bucket)
 
     assert(len(records) == 1)
@@ -167,12 +186,14 @@ def test_transactions(random_transaction, bucket):
 
     # now test refunding this transaction
     # now receipt a random amount of the transaction
-    auth = Authorisation()
+    authorisation = Authorisation(resource=credit_note.fingerprint(),
+                                  testing_key=testing_key,
+                                  testing_user_guid=account2.group_name())
 
-    refund = Refund(credit_note, auth)
+    refund = Refund(credit_note, authorisation)
 
     assert(not refund.is_null())
-    assert(refund.authorisation() == auth)
+    assert(refund.authorisation() == authorisation)
     assert(refund.value() == transaction.value())
     assert(refund.credit_note() == credit_note)
     assert_packable(refund)
@@ -226,8 +247,15 @@ def test_pending_transactions(random_transaction):
     starting_liability2 = account2.liability()
     starting_receivable2 = account2.receivable()
 
-    records = Ledger.perform(transaction, account1, account2,
-                             Authorisation(), is_provisional=True)
+    authorisation = Authorisation(resource=transaction.fingerprint(),
+                                  testing_key=testing_key,
+                                  testing_user_guid=account1.group_name())
+
+    records = Ledger.perform(transactions=transaction,
+                             debit_account=account1,
+                             credit_account=account2,
+                             authorisation=authorisation,
+                             is_provisional=True)
 
     assert(len(records) == 1)
     record = records[0]
@@ -275,23 +303,25 @@ def test_pending_transactions(random_transaction):
     assert_packable(credit_note)
 
     # now receipt a random amount of the transaction
-    auth = Authorisation()
+    authorisation = Authorisation(resource=credit_note.fingerprint(),
+                                  testing_key=testing_key,
+                                  testing_user_guid=account2.group_name())
 
     with pytest.raises(ValueError):
-        receipt = Receipt(credit_note, auth,
+        receipt = Receipt(credit_note, authorisation,
                           create_decimal(random.random()) +
                           credit_note.value())
 
     if random.randint(0, 1):
         value = credit_note.value()
-        receipt = Receipt(credit_note, auth)
+        receipt = Receipt(credit_note, authorisation)
     else:
         value = create_decimal(create_decimal(random.random()) *
                                credit_note.value())
-        receipt = Receipt(credit_note, auth, value)
+        receipt = Receipt(credit_note, authorisation, value)
 
     assert(not receipt.is_null())
-    assert(receipt.authorisation() == auth)
+    assert(receipt.authorisation() == authorisation)
     assert(receipt.receipted_value() == value)
     assert(receipt.credit_note() == credit_note)
     assert_packable(receipt)

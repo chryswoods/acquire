@@ -99,12 +99,8 @@ def run(args):
     # the cheque is valid
     bucket = get_service_account_bucket()
 
-    # now get the account...
-
-
     try:
         debit_account = Account(uid=info["account_uid"],
-                                user_guid=user_guid,
                                 bucket=bucket)
     except Exception as e:
         from Acquire.Service import exception_to_string

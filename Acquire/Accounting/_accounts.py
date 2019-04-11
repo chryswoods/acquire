@@ -77,6 +77,10 @@ class Accounts:
 
         self._aclrules = aclrules
 
+    def aclrules(self):
+        """Return the ACL rules for this group of accounts"""
+        return self._aclrules
+
     def _account_key(self, name):
         """Return the key for the account called 'name' in this group"""
         from Acquire.ObjectStore import string_to_encoded \
@@ -99,65 +103,29 @@ class Accounts:
         """Return the name of the group that this set of accounts refers to"""
         return self._group
 
-    def _assert_is_readable(self, **kwargs):
+    def _assert_is_readable(self):
         """Assert that we have permission to read these accounts"""
-        # make sure that the user cannot specify the ACLs themselves
-        try:
-            del kwargs["aclrules"]
-        except:
-            pass
-
-        if self._user_guid is not None:
-            kwargs["user_guid"] = self._user_guid
-
-        try:
-            if kwargs["superuser_access"]:
-                del kwargs["superuser_access"]
-                return kwargs
-        except:
-            pass
-
-        aclrule = self._aclrules.resolve(must_resolve=True, **kwargs)
+        aclrule = self._aclrules.resolve(must_resolve=True,
+                                         user_guid=self._user_guid)
 
         if not aclrule.is_readable():
             raise PermissionError(
                 "You do not have permission to access the accounts "
                 "in this group")
 
-        kwargs["upstream"] = aclrule
-        return kwargs
-
-    def _assert_is_writeable(self, **kwargs):
+    def _assert_is_writeable(self):
         """Assert that we have permission to write these accounts"""
-        # make sure that the user cannot specify the ACLs themselves
-        try:
-            del kwargs["aclrules"]
-        except:
-            pass
-
-        if self._user_guid is not None:
-            kwargs["user_guid"] = self._user_guid
-
-        try:
-            if kwargs["superuser_access"]:
-                del kwargs["superuser_access"]
-                return kwargs
-        except:
-            pass
-
-        aclrule = self._aclrules.resolve(must_resolve=True, **kwargs)
+        aclrule = self._aclrules.resolve(must_resolve=True,
+                                         user_guid=self._user_guid)
 
         if not aclrule.is_writeable():
             raise PermissionError(
                 "You do not have permission to write to the accounts "
                 "in this group")
 
-        kwargs["upstream"] = aclrule
-        return kwargs
-
-    def list_accounts(self, bucket=None, **kwargs):
+    def list_accounts(self, bucket=None):
         """Return the names of all of the accounts in this group"""
-        kwargs = self._assert_is_readable(**kwargs)
+        self._assert_is_readable()
 
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
@@ -189,9 +157,9 @@ class Accounts:
 
         return accounts
 
-    def get_account(self, name, bucket=None, **kwargs):
+    def get_account(self, name, bucket=None):
         """Return the account called 'name' from this group"""
-        kwargs = self._assert_is_readable(**kwargs)
+        self._assert_is_readable()
 
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
@@ -216,11 +184,11 @@ class Accounts:
                                "group '%s'" % (name, self.group()))
 
         from Acquire.Accounting import Account as _Account
-        return _Account(uid=account_uid, bucket=bucket, **kwargs)
+        return _Account(uid=account_uid, bucket=bucket)
 
-    def contains(self, account, bucket=None, **kwargs):
+    def contains(self, account, bucket=None):
         """Return whether or not this group contains the passed account"""
-        kwargs = self._assert_is_readable(**kwargs)
+        self._assert_is_readable()
 
         from Acquire.Accounting import Account as _Account
         if not isinstance(account, _Account):
@@ -244,7 +212,7 @@ class Accounts:
 
     def create_account(self, name, description=None,
                        overdraft_limit=None, bucket=None,
-                       authorisation=None, **kwargs):
+                       authorisation=None):
         """Create a new account called 'name' in this group. This will
            return the existing account if it already exists
         """
@@ -253,21 +221,20 @@ class Accounts:
 
         from Acquire.Identity import Authorisation as _Authorisation
 
-        try:
-            testing_key = kwargs["testing_key"]
-        except:
-            testing_key = None
-
         if authorisation is not None:
             if not isinstance(authorisation, _Authorisation):
                 raise TypeError("The authorisation must be type Authorisation")
 
-            authorisation.verify("create_account %s" % name,
-                                 testing_key=testing_key)
-            kwargs["user_guid"] = authorisation.user_guid()
+            if self._user_guid is not None:
+                if self._user_guid != authorisation.user_guid():
+                    raise PermissionError(
+                        "The same user who opened this accounts group (%s) "
+                        "must create accounts in this group (%s)" %
+                        (self._user_guid, authorisation.user_guid()))
 
-        kwargs = self._assert_is_writeable(**kwargs)
-        kwargs["upstream"] = self._aclrules
+            authorisation.verify("create_account %s" % name)
+
+        self._assert_is_writeable()
 
         account_key = self._account_key(name)
 
@@ -286,14 +253,13 @@ class Accounts:
 
         if account_uid is not None:
             # this account already exists - just return it
-            account = _Account(uid=account_uid, bucket=bucket, **kwargs)
+            account = _Account(uid=account_uid, bucket=bucket)
 
             if account.group_name() != self.name():
                 account.set_group(self)
 
             if overdraft_limit is not None:
-                account.set_overdraft_limit(overdraft_limit, bucket=bucket,
-                                            **kwargs)
+                account.set_overdraft_limit(overdraft_limit, bucket=bucket)
 
             return account
 
@@ -338,8 +304,7 @@ class Accounts:
             account = _Account(name=name, description=description,
                                group_name=self.name(),
                                aclrules=_ACLRules.inherit(),
-                               bucket=bucket,
-                               **kwargs)
+                               bucket=bucket)
         except:
             try:
                 _ObjectStore.delete_object(bucket, account_key)

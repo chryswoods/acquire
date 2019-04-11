@@ -44,7 +44,7 @@ def run(args):
     account = accounts.get_account(account_name, bucket=bucket)
 
     # validate the authorisation for this account
-    authorisation.verify(resource=account.uid())
+    authorisation.verify(resource="get_info %s" % account.uid())
 
     balance_status = account.balance_status(bucket=bucket)
 
