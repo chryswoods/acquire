@@ -374,12 +374,12 @@ class DebitNote:
             assert(receipt_by is None)
 
     def to_data(self):
-            """Return this DebitNote as a dictionary that can be encoded as json
+        """Return this DebitNote as a dictionary that can be encoded as json
                
                Returns:
                     dict: Dictionary to be converted to JSON
 
-            """
+        """
         data = {}
 
         if not self.is_null():
