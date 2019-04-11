@@ -14,28 +14,23 @@ def test_authorisation():
 
     auth = Authorisation(resource=resource, testing_key=key)
 
-    auth.verify(resource=resource, testing_key=key.public_key())
-
-    wrong_key = PrivateKey()
-
-    with pytest.raises(PermissionError):
-        auth.verify(resource=resource,
-                    testing_key=wrong_key.public_key())
+    auth.verify(resource=resource)
 
     wrong_resource = uuid.uuid4()
 
     with pytest.raises(PermissionError):
-        auth.verify(resource=wrong_resource, testing_key=key.public_key())
+        auth.verify(resource=wrong_resource)
 
     data = auth.to_data()
 
     new_auth = Authorisation.from_data(data)
 
-    new_auth.verify(resource=resource, testing_key=key.public_key())
+    with pytest.raises(PermissionError):
+        new_auth.verify(resource=resource)
+
+    new_auth._testing_key = key
+
+    new_auth.verify(resource=resource)
 
     with pytest.raises(PermissionError):
-        new_auth.verify(resource=resource,
-                        testing_key=wrong_key.public_key())
-
-    with pytest.raises(PermissionError):
-        new_auth.verify(resource=wrong_resource, testing_key=key.public_key())
+        new_auth.verify(resource=wrong_resource)

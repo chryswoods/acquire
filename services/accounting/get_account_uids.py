@@ -30,9 +30,9 @@ def run(args):
         authorisation = None
 
     try:
-        user_uid = str(args["user_uid"])
+        user_guid = str(args["user_guid"])
     except:
-        user_uid = None
+        user_guid = None
 
     is_authorised = False
 
@@ -41,22 +41,22 @@ def run(args):
             raise TypeError("All authorisations must be of type "
                             "Authorisation")
 
-        if user_uid:
-            if user_uid == authorisation.user_uid():
-                authorisation.verify()
+        if user_guid:
+            if user_guid == authorisation.user_guid():
+                authorisation.verify(resource="get_account_uids")
                 is_authorised = True
         else:
-            authorisation.verify()
-            user_uid = authorisation.user_uid()
+            authorisation.verify(resource="get_account_uids")
+            user_guid = authorisation.user_guid()
             is_authorised = True
 
-    if user_uid is None:
+    if user_guid is None:
         raise ValueError("You must supply either an Authorisation or the "
-                         "user_uid")
+                         "user_guid")
 
     # try to create a 'main' account for this user
     account_uids = {}
-    accounts = Accounts(user_uid)
+    accounts = Accounts(user_guid=user_guid)
 
     if account_name is None:
         if not is_authorised:
@@ -79,7 +79,7 @@ def run(args):
                 # don't leak any information
                 raise ListAccountsError(
                     "No account called '%s' for user '%s'" %
-                    (account_name, user_uid))
+                    (account_name, user_guid))
         else:
             # allow the user to see the real exception if this
             # account doesn't exist

@@ -421,9 +421,7 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
     response = None
     try:
         from Acquire.Stubs import requests as _requests
-        #print("SENDING '%s'" % args_json)
         response = _requests.post(service_url, data=args_json, timeout=15.0)
-        #print("RECEIVED '%s'" % response)
     except Exception as e:
         from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
@@ -445,7 +443,6 @@ def call_function(service_url, function=None, args_key=None, response_key=None,
 
     if response.encoding == "utf-8" or response.encoding is None:
         result = response.content.decode("utf-8")
-        #print("RECEIVED DATA '%s'" % result)
     else:
         from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
