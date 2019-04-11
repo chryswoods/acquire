@@ -92,11 +92,20 @@ def run(args):
     except:
         description = info["resource"]
 
+    authorisation = info["authorisation"]
+    auth_resource = info["auth_resource"]
+    user_guid = authorisation.user_guid()
+
     # the cheque is valid
     bucket = get_service_account_bucket()
 
+    # now get the account...
+
+
     try:
-        debit_account = Account(uid=info["account_uid"], bucket=bucket)
+        debit_account = Account(uid=info["account_uid"],
+                                user_guid=user_guid,
+                                bucket=bucket)
     except Exception as e:
         from Acquire.Service import exception_to_string
         raise PaymentError(
@@ -110,8 +119,6 @@ def run(args):
         raise PaymentError(
             "Cannot find the account to which funds will be creditted:"
             "\n\nCAUSE: %s" % exception_to_string(e))
-
-    user_guid = info["authorisation"].user_guid()
 
     # validate that this account is in a group that can be authorised
     # by the user (this should eventually go as the ACLs now allow users
@@ -133,8 +140,8 @@ def run(args):
                                 transactions=transaction,
                                 debit_account=debit_account,
                                 credit_account=credit_account,
-                                authorisation=info["authorisation"],
-                                authorisation_resource=info["auth_resource"],
+                                authorisation=authorisation,
+                                authorisation_resource=auth_resource,
                                 is_provisional=True,
                                 receipt_by=receipt_by,
                                 bucket=bucket)

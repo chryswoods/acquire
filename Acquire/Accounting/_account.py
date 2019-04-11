@@ -117,7 +117,7 @@ class Account:
        authority), and who owns the account (can change ACLRules)
     """
     def __init__(self, name=None, description=None, uid=None, bucket=None,
-                 aclrules=None, **kwargs):
+                 aclrules=None, group_name=None, **kwargs):
         """Construct the account. If 'uid' is specified, then load the account
            from the object store (so 'name' and 'description' should be "None")
 
@@ -132,6 +132,7 @@ class Account:
             self._description = None
             self._last_update_datetime = None
             self._load_account(bucket)
+            self._group_name = group_name
             self._kwargs = kwargs
 
             if name:
@@ -150,11 +151,13 @@ class Account:
 
         elif name is not None:
             self._uid = None
-            self._create_account(name, description, aclrules)
+            self._create_account(name=name, description=description,
+                                 group_name=group_name, aclrules=aclrules)
             self._kwargs = kwargs
         else:
             self._uid = None
             self._last_update_datetime = None
+            self._group_name = None
 
     def __str__(self):
         if self._uid is None:
@@ -172,7 +175,7 @@ class Account:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def _create_account(self, name, description, aclrules):
+    def _create_account(self, name, description, group_name, aclrules):
         """Create the account from scratch"""
         if name is None or description is None:
             from Acquire.Accounting import AccountError
@@ -201,6 +204,11 @@ class Account:
         self._maximum_daily_limit = 0
         self._last_update_datetime = None
         self._aclrules = aclrules
+
+        if group_name is None:
+            self._group_name = None
+        else:
+            self._group_name = str(group_name)
 
         # initialise the account with a balance of zero
         bucket = _get_service_account_bucket()
@@ -629,6 +637,16 @@ class Account:
 
         return self._name
 
+    def group_name(self):
+        """Return the name of the Accounts group in which this
+           account belongs. An Account can only exist in a single
+           Accounts Group at a time
+        """
+        if self.is_null():
+            return None
+
+        return self._group_name
+
     def description(self):
         """Return the description of this account"""
         if self.is_null():
@@ -692,6 +710,7 @@ class Account:
             data["overdraft_limit"] = str(self._overdraft_limit)
             data["maximum_daily_limit"] = str(self._maximum_daily_limit)
             data["aclrules"] = self._aclrules.to_data()
+            data["group_name"] = self._group_name
 
         return data
 
@@ -718,6 +737,11 @@ class Account:
             else:
                 account._aclrules = _ACLRules.inherit()
 
+            if "group_name" in data:
+                account._group_name = data["group_name"]
+            else:
+                account._group_name = None
+
         return account
 
     def assert_valid_authorisation(self, authorisation, resource=None):
@@ -732,16 +756,28 @@ class Account:
             raise TypeError("The passed authorisation must be an "
                             "Authorisation")
 
+        user_guid = None
+
         if not authorisation.is_null():
             authorisation.verify(resource=resource)
-            import copy as _copy
-            kwargs = _copy.copy(self._kwargs)
-            kwargs["user_guid"] = authorisation.user_guid()
-        else:
-            kwargs = self._kwargs
+            user_guid = authorisation.user_guid()
+
+        upstream_acl = None
+
+        if self.group_name() is not None:
+            try:
+                from Acquire.Accounting import Accounts as _Accounts
+                group = _Accounts(user_guid=user_guid, group=self.group_name())
+                upstream_acl = group.resolve(must_resolve=False,
+                                             user_guid=user_guid,
+                                             **(self._kwargs))
+            except:
+                pass
 
         aclrule = self._aclrules.resolve(must_resolve=True,
-                                         **kwargs)
+                                         upstream=upstream_acl,
+                                         user_guid=user_guid,
+                                         **(self._kwargs))
 
         if not aclrule.is_writeable():
             raise PermissionError(
@@ -1250,6 +1286,19 @@ class Account:
             return 0
 
         return self._overdraft_limit
+
+    def set_group(self, group, bucket=None):
+        """Set the Accounts group to which this account belongs"""
+        if self.is_null():
+            return
+
+        from Acquire.Accounting import Accounts as _Accounts
+        if not isinstance(group, _Accounts):
+            raise TypeError("The Accounts group must be of type Accounts")
+
+        if self._group_name != group.name():
+            self._group_name = group.name()
+            self._save_account(bucket=bucket)
 
     def set_overdraft_limit(self, limit, bucket=None):
         """Set the overdraft limit of this account to 'limit'"""

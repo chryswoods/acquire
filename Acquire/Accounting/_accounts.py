@@ -95,6 +95,10 @@ class Accounts:
         """Return the name of the group that this set of accounts refers to"""
         return self._group
 
+    def name(self):
+        """Return the name of the group that this set of accounts refers to"""
+        return self._group
+
     def _assert_is_readable(self, **kwargs):
         """Assert that we have permission to read these accounts"""
         # make sure that the user cannot specify the ACLs themselves
@@ -284,6 +288,9 @@ class Accounts:
             # this account already exists - just return it
             account = _Account(uid=account_uid, bucket=bucket, **kwargs)
 
+            if account.group_name() != self.name():
+                account.set_group(self)
+
             if overdraft_limit is not None:
                 account.set_overdraft_limit(overdraft_limit, bucket=bucket,
                                             **kwargs)
@@ -302,7 +309,10 @@ class Accounts:
         if account_uid is not None:
             m.unlock()
             # this account already exists - just return it
-            account = _Account(uid=account_uid, bucket=bucket, **kwargs)
+            account = _Account(uid=account_uid, bucket=bucket)
+
+            if account.group_name() != self.name():
+                account.set_group(self)
 
             if overdraft_limit is not None:
                 account.set_overdraft_limit(overdraft_limit, bucket=bucket)
@@ -326,7 +336,9 @@ class Accounts:
         try:
             from Acquire.Identity import ACLRules as _ACLRules
             account = _Account(name=name, description=description,
-                               aclrules=_ACLRules.inherit(), bucket=bucket,
+                               group_name=self.name(),
+                               aclrules=_ACLRules.inherit(),
+                               bucket=bucket,
                                **kwargs)
         except:
             try:
