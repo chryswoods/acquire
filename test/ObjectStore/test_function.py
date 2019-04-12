@@ -12,13 +12,13 @@ def test_function():
 
     f = Function(_test_sum)
 
-    assert(f(a=1, b=3), 4)
+    assert(f(a=1, b=3) == 4)
 
     data = f.to_data()
 
     g = Function.from_data(data)
 
-    assert(g(a=1, b=3), 4)
+    assert(g(a=1, b=3) == 4)
 
     f = Function(_test_sum, b=10)
 
@@ -28,7 +28,7 @@ def test_function():
 
     g = Function.from_data(data)
 
-    assert(g(a=1), 11)
+    assert(g(a=1) == 11)
 
     f = Function(_test_sum, a=19, b=21)
 
@@ -38,7 +38,7 @@ def test_function():
 
     g = Function.from_data(data)
 
-    assert(g(), 40)
+    assert(g() == 40)
 
     assert(g(a=1) == 22)
     assert(g(b=1) == 20)

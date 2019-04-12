@@ -159,7 +159,7 @@ class Drive:
         else:
             return self._storage_service
 
-    def bulkupload(self, max_size=None, aclrules=None):
+    def bulk_upload(self, max_size=None, aclrules=None):
         """Start the bulk upload of a large number of files to this
            drive, assuming we have write access to this drive. This
            will return a bulk upload PAR that can be used to write to a bucket.
@@ -182,8 +182,8 @@ class Drive:
         from Acquire.Crypto import PrivateKey as _PrivateKey
 
         authorisation = _Authorisation(
-                            resource="bulk_upload %s" % self._drive_uid,
-                            user=self._user)
+                            resource="bulk_upload %s %s" %
+                            (self._drive_uid, max_size), user=self._user)
 
         # we need a new private key to secure access to this PAR
         privkey = _PrivateKey()

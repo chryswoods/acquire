@@ -8,8 +8,8 @@ _fileinfo_root = "storage/file"
 
 def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
     """Call this function to signify that the file associated with
-        this PAR has been uploaded. This will check that the
-        objsize and checksum match with what was promised
+       this PAR has been uploaded. This will check that the
+       objsize and checksum match with what was promised
     """
     from Acquire.ObjectStore import ObjectStore as _ObjectStore
     from Acquire.Service import get_service_account_bucket \
@@ -40,6 +40,50 @@ def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
              real_checksum, checksum))
 
     # SHOULD HERE RECEIPT THE STORAGE TRANSACTION
+
+
+def _validate_bulk_upload(par, bucket_uid, user_guid,
+                          drive_uid, aclrules, max_size):
+    """Call this internal function to signify that the bulk upload
+       is complete. The files have been uploaded to the bucket with
+       name 'bucket_uid', and were uploaded by the user with passed
+       user_guid. The files should be placed into the drive with
+       specified drive_uid, using the passed ACLRules, and they
+       should not have a total size greater than 'max_size'
+    """
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.Service import get_service_account_bucket \
+        as _get_service_account_bucket
+    from Acquire.Service import get_this_service as _get_this_service
+    from Acquire.Storage import DriveInfo as _DriveInfo
+
+    service = _get_this_service()
+    bucket = _get_service_account_bucket()
+
+    drive = _DriveInfo(drive_uid=drive_uid, user_guid=user_guid)
+
+    tmpbucket = _ObjectStore.get_bucket(
+                                bucket=bucket,
+                                bucket_name=bucket_uid,
+                                compartment=service.storage_compartment(),
+                                create_if_needed=False)
+
+    try:
+        total_size = drive.copy_from(bucket=tmpbucket, aclrules=aclrules)
+    except Exception as e:
+        # delete the bucket and force the user to upload again...
+        _ObjectStore.delete_bucket(bucket=tmpbucket, force=True)
+        raise e
+
+    if total_size > max_size:
+        # should be cross with the user - give them time to make up
+        # the difference in cost, or else we will delete this data
+        pass
+
+    # SHOULD NOW RECEIPT THE STORAGE TRANSACTION
+
+    # the tmpbucket should now be empty, and all files transferred
+    _ObjectStore.delete_bucket(bucket=tmpbucket, force=True)
 
 
 class DriveInfo:
@@ -130,6 +174,98 @@ class DriveInfo:
             from Acquire.ObjectStore import RequestBucketError
             raise RequestBucketError(
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
+
+    def bulk_upload(self, authorisation, encrypt_key, max_size=None,
+                    aclrules=None):
+        """Start the process of a bulk upload of a set of files
+           to this Drive. This will return a Bucket-Write PAR to
+           a temporary bucket to which the files can be uploaded.
+           Once the PAR is closed the files will be copied to the
+           Drive and the temporary bucket deleted.
+
+           You need to provide authorisation for this action,
+           a public key to encrypt the PAR, and optionally
+           specify the maximum size of the data to be uploaded
+           and the ACLs. If the maximum size is not set then
+           you will be limited to a maximum of 100MB upload.
+           If the ACLs are not set, then they will inherit
+           from the Drive (or from previous versions of the
+           file if they exist)
+        """
+        from Acquire.Identity import Authorisation as _Authorisation
+        from Acquire.Crypto import PublicKey as _PublicKey
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import string_to_encoded \
+            as _string_to_encoded
+        from Acquire.Storage import ACLRules as _ACLRules
+
+        if not isinstance(authorisation, _Authorisation):
+            raise TypeError("The authorisation must be of type Authorisation")
+
+        if not isinstance(encrypt_key, _PublicKey):
+            raise TypeError("The encryption key must be of type PublicKey")
+
+        if aclrules is not None:
+            if not isinstance(aclrules, _ACLRules):
+                raise TypeError("The ACLRules must be of type ACLRules")
+        else:
+            aclrules = _ACLRules.inherit()
+
+        if max_size is None:
+            max_size = 100*1024*1024 # default 100 MB
+
+        try:
+            max_size = int(max_size)
+        except:
+            raise TypeError("max_size must be an interger!")
+
+        authorisation.verify("bulk_upload %s %s" % (self.uid(), max_size))
+
+        user_guid = authorisation.user_guid()
+
+        drive_acl = self.aclrules().resolve(user_guid=user_guid)
+
+        if not drive_acl.is_writeable():
+            raise PermissionError(
+                "You do not have permission to write to this drive. "
+                "Your permissions are %s" % str(drive_acl))
+
+        from Acquire.ObjectStore import create_uuid as _create_uuid
+        from Acquire.ObjectStore import Function as _Function
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+        from Acquire.Service import get_this_service as _get_this_service
+
+        # construct a bucket for this bulk upload, given a unique name
+        bucket_uid = _create_uuid()
+
+        func = _Function(function=_validate_bulk_upload,
+                         bucket_uid=bucket_uid,
+                         user_guid=user_guid,
+                         drive_uid=self.uid(),
+                         aclrules=aclrules.to_data(),
+                         max_size=max_size)
+
+        service = _get_this_service()
+        bucket = _get_service_account_bucket()
+
+        tmpbucket = _ObjectStore.create_bucket(
+                                    bucket=bucket,
+                                    bucket_name=bucket_uid,
+                                    compartment=service.storage_compartment())
+
+        try:
+            par = _ObjectStore.create_par(bucket=tmpbucket,
+                                          encrypt_key=encrypt_key,
+                                          key=None,
+                                          readable=False,
+                                          writeable=True,
+                                          cleanup_function=func)
+        except:
+            _ObjectStore.delete_bucket(bucket=tmpbucket, force=True)
+            raise
+
+        return par
 
     def upload(self, filehandle, authorisation, encrypt_key=None):
         """Upload the file associated with the passed filehandle.

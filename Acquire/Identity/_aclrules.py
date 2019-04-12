@@ -490,6 +490,11 @@ class ACLRules:
                                 default_rule=default_rule,
                                 rule=_ACLRule.inherit())
 
+    @staticmethod
+    def inherit():
+        """Return the ACLRules that just inherit (simple inherit)"""
+        return ACLRules()
+
     def is_simple_inherit(self):
         """Return whether or not this set of rules is a simple
            'inherit all'
