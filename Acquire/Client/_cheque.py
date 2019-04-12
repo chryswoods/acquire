@@ -167,6 +167,10 @@ class Cheque:
         auth = _Authorisation.from_data(cheque_data["authorisation"])
         info = cheque_data["info"]
 
+        # the json.dumps version is the resource used to verify
+        # the above authorisation
+        auth_resource = info
+
         # validate that the user authorised this cheque
         try:
             auth.verify(resource=info)
@@ -207,6 +211,7 @@ class Cheque:
                     "this cheque has been signed")
 
         info["resource"] = resource
+        info["auth_resource"] = auth_resource
 
         try:
             max_spend = info["max_spend"]
@@ -253,9 +258,13 @@ class Cheque:
 
         info["receipt_by"] = receipt_by
 
+<<<<<<< HEAD
         # print(info)
 
         # Everything now checks out - return the read cheque
+=======
+        # everything now checks out - return the read cheque
+>>>>>>> devel
         return info
 
     def cash(self, spend, resource, receipt_within=3600):

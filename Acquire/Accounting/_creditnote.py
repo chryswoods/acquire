@@ -159,6 +159,10 @@ class CreditNote:
         """
         return self._value
 
+    def fingerprint(self):
+        """Return a fingerprint for this credit note"""
+        return "%s|%s" % (self._debit_note_uid, self._uid)
+
     def is_provisional(self):
         """Return whether or not this credit note is provisional
            (i.e. the value will only be transferred on completion

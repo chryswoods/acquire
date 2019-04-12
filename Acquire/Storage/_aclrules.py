@@ -135,6 +135,9 @@ class ACLGroupRules:
             s.append("%s => %s" % (group, rule))
         return "Group{%s}" % ", ".join(s)
 
+    def __repr__(self):
+        return self.__str__()
+
     def resolve(self, must_resolve=True, **kwargs):
         """Resolve the rule for the user with specified group_guid.
            This returns None if there are no rules for this group
@@ -356,7 +359,24 @@ class ACLRules:
         if self._default_rule is not None:
             s.append("DEFAULT %s" % self._default_rule)
 
-        return s
+        return "ACLRules{\n%s\n}" % "\n".join(s)
+
+    @staticmethod
+    def owner(user_guid):
+        """Return the ACLRules for "user_guid" is the owner"""
+        from Acquire.Storage import ACLRule as _ACLRule
+
+        if user_guid is None:
+            return ACLRules(default_rule=_ACLRule.owner())
+        else:
+            user_rule = ACLUserRules()
+            user_rule.add_user_rule(user_guid=user_guid, rule=_ACLRule.owner())
+            return ACLRules(rule=user_rule, default_rule=_ACLRule.denied())
+
+    @staticmethod
+    def inherit():
+        """Return the ACLRules for simple inherit"""
+        return ACLRules()
 
     def is_simple_inherit(self):
         """Return whether or not this set of rules is a simple

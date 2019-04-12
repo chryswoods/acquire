@@ -69,12 +69,12 @@ def _get_account_uid(user, account_name, accounting_service=None,
                             "a valid accounting service")
         service = accounting_service
 
-    args = {"user_uid": user.uid(),
+    args = {"user_guid": user.guid(),
             "account_name": str(account_name)}
 
     if user.is_logged_in():
         from Acquire.Client import Authorisation as _Authorisation
-        auth = _Authorisation(user=user)
+        auth = _Authorisation(user=user, resource="get_account_uids")
         args["authorisation"] = auth.to_data()
 
     result = service.call_function(function="get_account_uids", args=args)
@@ -118,7 +118,7 @@ def _get_account_uids(user, accounting_service=None, accounting_url=None):
             "if they have authenticated their login")
 
     from Acquire.Client import Authorisation as _Authorisation
-    auth = _Authorisation(user=user)
+    auth = _Authorisation(user=user, resource="get_account_uids")
     args = {"authorisation": auth.to_data()}
 
     result = service.call_function(function="get_account_uids", args=args)
@@ -198,7 +198,8 @@ def create_account(user, account_name, description=None,
             (account_name, user.name()))
 
     from Acquire.Client import Authorisation as _Authorisation
-    authorisation = _Authorisation(user=user)
+    authorisation = _Authorisation(user=user,
+                                   resource="create_account %s" % account_name)
 
     args = {"account_name": str(account_name),
             "authorisation": authorisation.to_data()}
@@ -238,9 +239,6 @@ def deposit(user, value, description=None,
             TODO - return value here
 
     """
-    from Acquire.Client import Authorisation as _Authorisation
-    authorisation = _Authorisation(user=user)
-
     if accounting_service is None:
         service = _get_accounting_service(accounting_url)
     else:
@@ -249,14 +247,18 @@ def deposit(user, value, description=None,
                             "accounting service!")
         service = accounting_service
 
-    args = {"authorisation": authorisation.to_data()}
-
     if description is None:
-        from Acquire.Accounting import create_decimal as _create_decimal
-        args["value"] = str(_create_decimal(value))
-    else:
-        from Acquire.Accounting import Transaction as _Transaction
-        args["transaction"] = _Transaction(value, description).to_data()
+        description = "Deposit"
+
+    from Acquire.Accounting import Transaction as _Transaction
+    transaction = _Transaction(value=value, description=description)
+
+    from Acquire.Client import Authorisation as _Authorisation
+    authorisation = _Authorisation(user=user,
+                                   resource=transaction.fingerprint())
+
+    args = {"authorisation": authorisation.to_data(),
+            "transaction": transaction.to_data()}
 
     result = service.call_function(function="deposit", args=args)
 
@@ -463,7 +465,8 @@ class Account:
 
         service = self.accounting_service()
 
-        auth = _Authorisation(resource=self._account_uid, user=self._user)
+        auth = _Authorisation(resource="get_info %s" % self._account_uid,
+                              user=self._user)
 
         args = {"authorisation": auth.to_data(),
                 "account_name": self.name()}

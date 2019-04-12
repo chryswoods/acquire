@@ -50,12 +50,11 @@ def run(args):
         raise TypeError("The passed authorisation must be of type "
                         "Authorisation")
 
-    authorisation.verify()
-
     # try to create a 'main' account for this user
-    accounts = Accounts(authorisation.user_uid())
+    accounts = Accounts(user_guid=authorisation.user_guid())
     account = accounts.create_account(name=account_name,
-                                      description=description)
+                                      description=description,
+                                      authorisation=authorisation)
 
     account_uid = account.uid()
 

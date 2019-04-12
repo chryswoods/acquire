@@ -12,6 +12,8 @@ from ._authorisation import *
 from ._useraccount import *
 from ._errors import *
 
+from Acquire.Storage import ACLRule, ACLRules
+
 try:
     if __IPYTHON__:
         def _set_printer(C):

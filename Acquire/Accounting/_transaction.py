@@ -149,6 +149,12 @@ class Transaction:
         """
         return self._description
 
+    def fingerprint(self):
+        """Return a fingerprint that can be used to verify this
+           transaction
+        """
+        return "%s %s" % (self.description(), self.value())
+
     @staticmethod
     def maximum_transaction_value():
         """Return the maximum value for a single transaction. Currently this
