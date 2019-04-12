@@ -12,17 +12,17 @@ def _account_root():
     return "accounting/accounts"
 
 
-def _get_key_from_date(start, datetime):
+def _get_key_from_hour(start, datetime):
     """Return a key encoding the passed date, starting the key with 'start'"""
     from Acquire.ObjectStore import datetime_to_datetime \
         as _datetime_to_datetime
     datetime = _datetime_to_datetime(datetime)
-    return "%s/%s" % (start, datetime.date().isoformat())
+    return "%s/%sT%02d" % (start, datetime.date().isoformat(), datetime.hour)
 
 
-def _get_date_from_key(key):
+def _get_hour_from_key(key):
     """Return the date that is encoded in the passed key"""
-    m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)", key)
+    m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d)", key)
 
     if m:
         from Acquire.ObjectStore import date_and_time_to_datetime \
@@ -31,7 +31,8 @@ def _get_date_from_key(key):
         return _date_and_time_to_datetime(
                     _datetime.date(year=int(m.groups()[0]),
                                    month=int(m.groups()[1]),
-                                   day=int(m.groups()[2])))
+                                   day=int(m.groups()[2])),
+                    _datetime.time(hour=int(m.groups()[3])))
     else:
         from Acquire.Accounting import AccountError
         raise AccountError("Could not find a date in the key '%s'" % key)
@@ -62,7 +63,7 @@ def _get_datetime_from_key(key):
 def _sum_transactions(keys):
     """Internal function that sums all of the transactions identified
         by the passed keys. This returns a tuple of
-        (balance, liability, receivable, spent_today)
+        (balance, liability, receivable, spent)
     """
     from Acquire.Accounting import create_decimal as _create_decimal
     from Acquire.Accounting import TransactionInfo as _TransactionInfo
@@ -70,7 +71,7 @@ def _sum_transactions(keys):
     balance = _create_decimal(0)
     liability = _create_decimal(0)
     receivable = _create_decimal(0)
-    spent_today = _create_decimal(0)
+    spent = _create_decimal(0)
 
     for key in keys:
         if isinstance(key, _TransactionInfo):
@@ -82,10 +83,10 @@ def _sum_transactions(keys):
             balance += v.value()
         elif v.is_debit():
             balance -= v.value()
-            spent_today += v.value()
+            spent += v.value()
         elif v.is_liability():
             liability += v.value()
-            spent_today += v.value()
+            spent += v.value()
         elif v.is_accounts_receivable():
             receivable += v.value()
         elif v.is_received_receipt():
@@ -99,7 +100,7 @@ def _sum_transactions(keys):
         elif v.is_sent_refund():
             balance -= v.value()
 
-    return (balance, liability, receivable, spent_today)
+    return (balance, liability, receivable, spent)
 
 
 class Account:
@@ -209,7 +210,7 @@ class Account:
 
         # initialise the account with a balance of zero
         bucket = _get_service_account_bucket()
-        self._record_daily_balance(0, 0, 0, bucket=bucket)
+        self._record_hourly_balance(0, 0, 0, bucket=bucket)
 
         # make sure that this is saved to the object store
         self._save_account(bucket)
@@ -217,8 +218,8 @@ class Account:
     def _get_balance_key(self, datetime=None):
         """Return the balance key for the passed time. This is the key
            into the object store of the object that holds the starting
-           balance for the account on the day of the passed datetime.
-           If datetime is None, then today's key is returned
+           balance for the account on the hour of the passed datetime.
+           If datetime is None, then the key for now is returned
         """
         if self.is_null():
             return None
@@ -232,16 +233,15 @@ class Account:
                 as _datetime_to_datetime
             datetime = _datetime_to_datetime(datetime)
 
-        return _get_key_from_date("%s/balance" % self._key(),
-                                  datetime)
+        return _get_key_from_hour("%s/balance" % self._key(), datetime)
 
-    def _record_daily_balance(self, balance, liability, receivable,
-                              datetime=None, bucket=None):
-        """Record the starting balance for the day containing 'datetime'
+    def _record_hourly_balance(self, balance, liability, receivable,
+                               datetime=None, bucket=None):
+        """Record the starting balance for the hour containing 'datetime'
            as 'balance' with the starting outstanding liabilities at
            'liability' and starting outstanding accounts receivable at
            'receivable' If 'datetime' is none, then the balance
-           for today is set.
+           for now is set.
         """
         if self.is_null():
             return
@@ -272,14 +272,29 @@ class Account:
                 "liability": str(liability),
                 "receivable": str(receivable)}
 
+        last_balance_key = "%s/last_hourly_balance" % self._key()
+
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         _ObjectStore.set_object_from_json(bucket, balance_key, data)
 
-    def _reconcile_daily_accounts(self, bucket=None):
-        """Internal function used to reconcile the daily accounts.
+        # also record the key for the last recorded balance so we
+        # can quickly work out where to start calculating balances
+        _ObjectStore.set_string_object(bucket, last_balance_key,
+                                       balance_key)
+
+    def _recalculate_all_balances(self):
+        """Internal function that recalculates all of the daily/hourly
+           balances from scratch. This is used to recover an account
+           that is in a very strange state
+        """
+        raise NotImplementedError("NEED TO IMPLEMENT RECALC!")
+
+    def _reconcile_hourly_accounts(self, bucket=None):
+        """Internal function used to reconcile the hourly accounts.
            This ensures that every line item transaction is summed up
-           so that the starting balance for each day is recorded into
-           the object store
+           so that the starting balance for the last hour is recorded into
+           the object store. This will write balances for hours in which
+           the balance has changed.
         """
         if self.is_null():
             return
@@ -289,13 +304,35 @@ class Account:
                 as _get_service_account_bucket
             bucket = _get_service_account_bucket()
 
-        # work back from today to the first day of the account to calculate
-        # all of the daily balances... We need to record every day of the
-        # account to support quick lookups
         from Acquire.ObjectStore import get_datetime_now \
             as _get_datetime_now
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
+        # first, find the last point the balance was calculated and
+        # the last time a transaction was performed
+        last_balance_key = "%s/last_hourly_balance" % self._key()
+        last_transaction_key = "%s/last_transaction" % self._key()
+
+        try:
+            last_balance_key = _ObjectStore.get_string_object(
+                                                        bucket=bucket,
+                                                        key=last_balance_key)
+        except:
+            last_balance_key = None
+
+        try:
+            last_transaction_key = _ObjectStore.get_string_object(
+                                                    bucket=bucket,
+                                                    key=last_transaction_key)
+        except:
+            last_transaction_key = None
+
+        if last_balance_key is None or last_transaction_key is None:
+            # need to do everything from scratch
+            self._recalculate_all_balances()
+            return
+
+        # ALL OF THE BELOW CODE NEEDS CHANGING
         today = _get_datetime_now().toordinal()
         day = today
         last_data = None
@@ -381,8 +418,8 @@ class Account:
 
             _ObjectStore.set_object_from_json(bucket, balance_key, data)
 
-    def _get_daily_balance(self, bucket=None, datetime=None):
-        """Get the daily starting balance for the passed datetime. This
+    def _get_hourly_balance(self, bucket=None, datetime=None):
+        """Get the hourly starting balance for the passed datetime. This
            returns a tuple of
            (balance, liability, receivable).
 
@@ -391,11 +428,11 @@ class Account:
            where 'liability' is the current total liabilities,
            where 'receivable' is the current total accounts receivable, and
 
-           If datetime is None then todays daily balance is returned. The
-           daily balance is the balance at the start of the day. The
+           If datetime is None then the hourly balance for now is returned. The
+           hourly balance is the balance at the start of the hour. The
            actual balance at a particular time will be this starting
            balance plus/minus all of the transactions between the start
-           of that day and the specified datetime
+           of this hour and the specified datetime
         """
         if self.is_null():
             return
@@ -424,10 +461,10 @@ class Account:
             data = None
 
         if data is None:
-            # there is no balance for this day. This means that we haven'y
+            # there is no balance for this day. This means that we haven't
             # yet calculated that day's balance. Do the accounting necessary
             # to construct that day's starting balance
-            self._reconcile_daily_accounts(bucket)
+            self._reconcile_hourly_accounts(bucket)
 
             try:
                 data = _ObjectStore.get_object_from_json(bucket, balance_key)
@@ -436,7 +473,7 @@ class Account:
 
             if data is None:
                 from Acquire.Accounting import AccountError
-                raise AccountError("The daily balance for account at date %s "
+                raise AccountError("The hourly balance for account at %s "
                                    "is not available" % str(datetime))
 
         from Acquire.Accounting import create_decimal as _create_decimal
@@ -456,7 +493,7 @@ class Account:
            where 'liability' is the current total liabilities,
            where 'receivable' is the current total accounts receivable
 
-           If datetime is None then the balance "now" is returned
+           If datetime is None then the balance for now is returned
         """
         if datetime is None:
             return self._get_current_balance(bucket)
@@ -523,22 +560,21 @@ class Account:
 
     def _recalculate_current_balance(self, bucket, now):
         """Internal function that implements _get_current_balance
-           by recalculating the total from today from scratch
+           by recalculating the total from the start of this hour from scratch
         """
-        # where were we at the start of today?
         from Acquire.ObjectStore import datetime_to_datetime \
             as _datetime_to_datetime
         now = _datetime_to_datetime(now)
 
-        (balance, liability, receivable) = self._get_daily_balance(bucket,
-                                                                   now)
+        (balance, liability, receivable) = self._get_hourly_balance(bucket,
+                                                                    now)
 
-        # now sum up all of the transactions from today
+        # now sum up all of the transactions from the start of this hour
         from Acquire.ObjectStore import date_and_time_to_datetime \
-            as _date_and_time_to_datetime
-        start_today = _date_and_time_to_datetime(now.date())
+            as _date_and_hour_to_datetime
+        start_hour = _date_and_hour_to_datetime(now.date(), now.hour)
 
-        transaction_keys = self._get_transaction_keys_between(start_today, now)
+        transaction_keys = self._get_transaction_keys_between(start_hour, now)
 
         total = _sum_transactions(transaction_keys)
 
@@ -567,7 +603,7 @@ class Account:
            by updating the balance etc. from transactions that have
            occurred since the last update
         """
-        (balance, liability, receivable, spent_today) = self._last_update
+        (balance, liability, receivable) = self._last_update
 
         from Acquire.ObjectStore import datetime_to_datetime \
             as _datetime_to_datetime
@@ -581,8 +617,7 @@ class Account:
 
         total = _sum_transactions(transaction_keys)
 
-        result = (balance+total[0], liability+total[1], receivable+total[2],
-                  spent_today+total[3])
+        result = (balance+total[0], liability+total[1], receivable+total[2])
 
         self._last_update_datetime = now
         self._last_update = result
@@ -592,14 +627,12 @@ class Account:
     def _get_current_balance(self, bucket=None):
         """Get the balance of the account now (the current balance). This
            returns a tuple of
-           (balance, liability, receivable, spent_today).
+           (balance, liability, receivable).
 
            where 'balance' is the current real balance of the account,
            neglecting any outstanding liabilities or accounts receivable,
            where 'liability' is the current total liabilities,
            where 'receivable' is the current total accounts receivable, and
-           where 'spent_today' is how much has been spent today (from midnight
-           until now)
         """
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
@@ -613,14 +646,15 @@ class Account:
 
         last_update_datetime = self.last_update_datetime()
 
-        if last_update_datetime.date() != now.date():
-            # we are on a new day since the last update, so recalculate
+        if last_update_datetime.date() != now.date() or \
+           last_update_datetime.hour != now.hour:
+            # we are on a new hour since the last update, so recalculate
             # the balance from scratch
             return self._recalculate_current_balance(bucket, now)
         else:
-            # we have calculated the total before today. Get the transactions
-            # since the last update and use these to update the daily spend
-            # etc.
+            # we have calculated the total before the end of this hour.
+            # Get the transactions since the last update and use these
+            # to update the daily spend
             return self._update_current_balance(bucket, now)
 
     def is_null(self):
@@ -705,7 +739,6 @@ class Account:
             data["name"] = self._name
             data["description"] = self._description
             data["overdraft_limit"] = str(self._overdraft_limit)
-            data["maximum_daily_limit"] = str(self._maximum_daily_limit)
             data["aclrules"] = self._aclrules.to_data()
             data["group_name"] = self._group_name
 
@@ -726,8 +759,6 @@ class Account:
             account._name = data["name"]
             account._description = data["description"]
             account._overdraft_limit = _create_decimal(data["overdraft_limit"])
-            account._maximum_daily_limit = _create_decimal(
-                                                data["maximum_daily_limit"])
 
             if "aclrules" in data:
                 account._aclrules = _ACLRules.from_data(data["aclrules"])
@@ -791,11 +822,12 @@ class Account:
             as _get_datetime_now
         now = _get_datetime_now()
 
-        # don't allow any transactions in the last 30 seconds of the day, as we
-        # will sum up the day balance at midnight, and don't want to risk any
-        # late transactions from messing up the accounting
-        while now.hour == 23 and now.minute == 59 and now.second >= 30:
-            _time.sleep(5)
+        # don't allow any transactions in the last 2 seconds of the hour, as
+        # we will sum up the day balance at the top of each hour, and
+        # don't want to risk any late transactions from messing up the
+        # accounting
+        while now.minute == 59 and now.second >= 58:
+            _time.sleep(1)
             now = _get_datetime_now()
 
         return now
@@ -890,8 +922,8 @@ class Account:
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.Accounting import LineItem as _LineItem
 
-        day_key = _datetime_to_string(now)
-        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+        datetime_key = _datetime_to_string(now)
+        uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
         l = _LineItem(debit_note.uid(), refund.authorisation())
@@ -926,22 +958,29 @@ class Account:
         encoded_value = _TransactionInfo.encode(_TransactionCode.SENT_REFUND,
                                                 refund.value())
 
-        # create a UID and datetime for this debit and record
-        # it in the account
-        now = self._get_safe_now()
+        while True:
+            # create a UID and datetime for this debit and record
+            # it in the account
+            now = self._get_safe_now()
 
-        # and to create a key to find this debit later. The key is made
-        # up from the date and  of the debit and a random string
-        from Acquire.ObjectStore import datetime_to_string \
-            as _datetime_to_string
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.Accounting import LineItem as _LineItem
+            # and to create a key to find this debit later. The key is made
+            # up from the date and  of the debit and a random string
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Accounting import LineItem as _LineItem
 
-        day_key = _datetime_to_string(now)
-        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+            datetime_key = _datetime_to_string(now)
+            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
 
-        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
-        l = _LineItem(uid, refund.authorisation())
+            item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+            l = _LineItem(uid, refund.authorisation())
+
+            now2 = self._get_safe_now()
+
+            if now2.hour == now.hour:
+                # we have not moved into the next hour
+                break
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
@@ -981,22 +1020,29 @@ class Account:
                                     _TransactionCode.SENT_RECEIPT,
                                     receipt.value(), receipt.receipted_value())
 
-        # create a UID and datetime for this credit and record
-        # it in the account
-        now = self._get_safe_now()
+        while True:
+            # create a UID and datetime for this credit and record
+            # it in the account
+            now = self._get_safe_now()
 
-        # and to create a key to find this credit later. The key is made
-        # up from the isoformat datetime of the credit and a random string
-        from Acquire.ObjectStore import datetime_to_string \
-            as _datetime_to_string
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.Accounting import LineItem as _LineItem
+            # and to create a key to find this credit later. The key is made
+            # up from the isoformat datetime of the credit and a random string
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Accounting import LineItem as _LineItem
 
-        day_key = _datetime_to_string(now)
-        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+            datetime_key = _datetime_to_string(now)
+            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
 
-        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
-        l = _LineItem(debit_note.uid(), receipt.authorisation())
+            item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+            l = _LineItem(debit_note.uid(), receipt.authorisation())
+
+            now2 = self._get_safe_now()
+
+            if now2.hour == now.hour:
+                # we have not moved into another hour
+                break
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
@@ -1029,20 +1075,27 @@ class Account:
 
         # create a UID and datetime for this debit and record
         # it in the account
-        now = self._get_safe_now()
+        while True:
+            now = self._get_safe_now()
 
-        # and to create a key to find this debit later. The key is made
-        # up from the isoformat datetime of the debit and a random string
-        from Acquire.ObjectStore import datetime_to_string \
-            as _datetime_to_string
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.Accounting import LineItem as _LineItem
+            # and to create a key to find this debit later. The key is made
+            # up from the isoformat datetime of the debit and a random string
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Accounting import LineItem as _LineItem
 
-        day_key = _datetime_to_string(now)
-        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+            datetime_key = _datetime_to_string(now)
+            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
 
-        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
-        l = _LineItem(uid, receipt.authorisation())
+            item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+            l = _LineItem(uid, receipt.authorisation())
+
+            now2 = self._get_safe_now()
+
+            if now2.hour == now.hour:
+                # we are safely in the same hour
+                break
 
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
@@ -1082,19 +1135,26 @@ class Account:
 
         # create a UID and datetime for this credit and record
         # it in the account
-        now = self._get_safe_now()
+        while True:
+            now = self._get_safe_now()
 
-        # and to create a key to find this credit later. The key is made
-        # up from the isoformat datetime of the credit and a random string
-        from Acquire.ObjectStore import datetime_to_string \
-            as _datetime_to_string
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.Accounting import LineItem as _LineItem
+            # and to create a key to find this credit later. The key is made
+            # up from the isoformat datetime of the credit and a random string
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Accounting import LineItem as _LineItem
 
-        day_key = _datetime_to_string(now)
-        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+            datetime_key = _datetime_to_string(now)
+            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
 
-        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+            item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+
+            now2 = self._get_safe_now()
+
+            if now2.hour == now.hour:
+                # we are safely in the same hour
+                break
 
         # the line item records the UID of the debit note, so we can
         # find this debit note in the system and, from this, get the
@@ -1104,6 +1164,14 @@ class Account:
         _ObjectStore.set_object_from_json(bucket, item_key, l.to_data())
 
         return (uid, now)
+
+    def _rescind(self, line_item):
+        """This function is internal and should only be called by
+           _debit. It rescinds the passed line_item which was a debit,
+           as this debit has caused the account to drop below the
+           minimum value
+        """
+        raise NotImplementedError("NEED TO IMPLEMENT RESCIND")
 
     def _debit(self, transaction, authorisation,
                is_provisional, receipt_by,
@@ -1159,10 +1227,6 @@ class Account:
                 "are insufficient funds in this account." %
                 (transaction, str(self)))
 
-        # create a UID and datetime for this debit and record
-        # it in the account
-        now = self._get_safe_now()
-
         from Acquire.ObjectStore import datetime_to_string \
             as _datetime_to_string
         from Acquire.ObjectStore import datetime_to_datetime \
@@ -1175,56 +1239,68 @@ class Account:
         from Acquire.Accounting import TransactionInfo as _TransactionInfo
         from Acquire.Accounting import TransactionCode as _TransactionCode
 
-        if is_provisional:
-            if receipt_by is None:
-                receipt_by = _get_datetime_future(days=7)
+        while True:
+            # create a UID and datetime for this debit and record
+            # it in the account
+            now = self._get_safe_now()
+
+            if is_provisional:
+                if receipt_by is None:
+                    receipt_by = _get_datetime_future(days=7)
+                else:
+                    receipt_by = _datetime_to_datetime(receipt_by)
+
+                delta = (receipt_by - now).total_seconds()
+                if delta < 3600:
+                    from Acquire.Accounting import AccountError
+                    raise AccountError(
+                        "You cannot request a receipt to be provided less "
+                        "than 1 hour into the future! %s versus %s is only "
+                        "%s second(s) in the future!" %
+                        (_datetime_to_string(receipt_by),
+                         _datetime_to_string(now), delta))
             else:
-                receipt_by = _datetime_to_datetime(receipt_by)
+                receipt_by = None
 
-            delta = (receipt_by - now).total_seconds()
-            if delta < 3600:
-                from Acquire.Accounting import AccountError
-                raise AccountError(
-                    "You cannot request a receipt to be provided less "
-                    "than 1 hour into the future! %s versus %s is only "
-                    "%s second(s) in the future!" %
-                    (_datetime_to_string(receipt_by),
-                     _datetime_to_string(now), delta))
-        else:
-            receipt_by = None
+            # and to create a key to find this debit later. The key is made
+            # up from the isoformat datetime of the debit and a random string
+            datetime_key = _datetime_to_string(now)
+            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
 
-        # and to create a key to find this debit later. The key is made
-        # up from the isoformat datetime of the debit and a random string
-        day_key = _datetime_to_string(now)
-        uid = "%s/%s" % (day_key, str(_uuid.uuid4())[0:8])
+            # the key in the object store is a combination of the key for this
+            # account plus the uid for the debit plus the actual debit value.
+            # We record the debit value in the key so that we can accumulate
+            # the balance from just the key names
+            if is_provisional:
+                encoded_value = _TransactionInfo.encode(
+                                    _TransactionCode.CURRENT_LIABILITY,
+                                    transaction.value())
+            else:
+                encoded_value = _TransactionInfo.encode(
+                                    _TransactionCode.DEBIT,
+                                    transaction.value())
 
-        # the key in the object store is a combination of the key for this
-        # account plus the uid for the debit plus the actual debit value.
-        # We record the debit value in the key so that we can accumulate
-        # the balance from just the key names
-        if is_provisional:
-            encoded_value = _TransactionInfo.encode(
-                                _TransactionCode.CURRENT_LIABILITY,
-                                transaction.value())
-        else:
-            encoded_value = _TransactionInfo.encode(
-                                _TransactionCode.DEBIT,
-                                transaction.value())
+            item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
 
-        item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
+            # create a line_item for this debit and save it to the object store
+            line_item = _LineItem(uid, authorisation)
 
-        # create a line_item for this debit and save it to the object store
-        line_item = _LineItem(uid, authorisation)
+            # validate that we have not stepped into another hour...
+            now2 = self._get_safe_now()
+
+            if now.hour == now2.hour:
+                # we are still in the same hour, so it is safe to
+                # record the transaction
+                break
 
         _ObjectStore.set_object_from_json(bucket, item_key,
                                           line_item.to_data())
 
         if self.is_beyond_overdraft_limit(bucket):
             # This transaction has helped push the account beyond the
-            # overdraft limit. Delete the transaction and raise
-            # an InsufficientFundsError
-
-            _ObjectStore.delete_object(bucket, item_key)
+            # overdraft limit. This can only happen if two debits
+            # take place at the same time - both should be refunded
+            self._rescind(line_item)
             raise InsufficientFundsError(
                 "You cannot debit '%s' from account %s as there "
                 "are insufficient funds in this account." %
@@ -1233,22 +1309,18 @@ class Account:
         return (uid, now, receipt_by)
 
     def available_balance(self, bucket=None):
-        """Return the available balance of this account. This is the amount
-           of value that can be spent (e.g. includes overdraft and fixed daily
-           spend limits, and except any outstanding liabilities)
+        """Return the available balance of this account. This is the
+           total balance on the account, minus liabilities, plus
+           any overdraft limit
         """
         result = self._get_current_balance(bucket)
 
         balance = result[0]
         liabilities = result[1]
-        spent_today = result[2]
 
         available = balance - liabilities + self.get_overdraft_limit()
 
-        if self._maximum_daily_limit:
-            return min(available, self._maximum_daily_limit - spent_today)
-        else:
-            return available
+        return available
 
     def balance(self, bucket=None):
         """Return the current balance of this account"""
@@ -1265,11 +1337,6 @@ class Account:
         result = self._get_current_balance(bucket)
         return result[2]
 
-    def spent_today(self, bucket=None):
-        """Return the current amount spent today on this account"""
-        result = self._get_current_balance(bucket)
-        return result[3]
-
     def balance_status(self, bucket=None):
         """Return the overall balance status as a dictionary
            with keys 'balance', 'liability', 'receivable' and
@@ -1280,7 +1347,7 @@ class Account:
         d["balance"] = result[0]
         d["liability"] = result[1]
         d["receivable"] = result[2]
-        d["spent_today"] = result[3]
+        d["overdraft_limit"] = self.get_overdraft_limit()
         return d
 
     def get_overdraft_limit(self):

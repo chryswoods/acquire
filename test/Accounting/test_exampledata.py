@@ -40,8 +40,15 @@ def test_example_data(bucket):
 
     # make sure that the ledger is balanced
     balance_sum = 0
+    some_nonzero = False
 
     for account in accounts:
-        balance_sum += account.balance()
+        balance = account.balance()
 
+        if balance != 0:
+            some_nonzero = True
+
+        balance_sum += balance
+
+    assert(some_nonzero)
     assert(balance_sum == 0)
