@@ -1,6 +1,6 @@
 # Acquire
 
-[![Build Status](https://dev.azure.com/bristolrse/Acquire/_apis/build/status/chryswoods.acquire?branchName=master)](https://dev.azure.com/bristolrse/Acquire/_build/latest?definitionId=1&branchName=master)
+[![Build Status](https://dev.azure.com/bristolrse/Acquire/_apis/build/status/chryswoods.acquire?branchName=devel)](https://dev.azure.com/bristolrse/Acquire/_build/latest?definitionId=1&branchName=devel)
 
 (C) Christopher Woods 2018 - Released under the [Apache 2 License](LICENSE)
 
@@ -31,18 +31,18 @@ has been provided it is receipted and funds transferred. In this way, users
 have control over their spending, with a full audit trail providing
 financial and usage accounting for their use of a system.
 
-4. Storage : Enables users to store and share data. Users create Drives which 
+4. Storage : Enables users to store and share data. Users create Drives which
 are located on storage services and can pay up-front for short- and long-term
 storage of data in those Drives. Access Control Lists allow individual files
 or Drives to be shared with any user or group identifiable via the Identity
 service, or via permanent publicly-visible URLs. Files are versioned, and can
-be moved between "hot" (quick) and "cold" (slow but cheap) storage. This 
+be moved between "hot" (quick) and "cold" (slow but cheap) storage. This
 provides a thin-wrapper over the object store capabilities of each cloud.
 
 5. Compute : Enables users to request access to compute on-demand, e.g.
-via single instances or elastic clusters such as 
+via single instances or elastic clusters such as
 [cluster in the cloud](http://cluster-in-the-cloud.readthedocs.io).
-Compute is paid for up front and is provided via any cloud that runs 
+Compute is paid for up front and is provided via any cloud that runs
 a Compute Service that accepts payment via the Accounting Service, and
 runs jobs securely authorised by users identified via the Identity Service.
 The service is completely elastic, meaning that users only pay up-front
