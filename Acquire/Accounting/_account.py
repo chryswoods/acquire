@@ -756,9 +756,13 @@ class Account:
 
         user_guid = None
 
+        identifiers = None
+
         if not authorisation.is_null():
-            authorisation.verify(resource=resource,
-                                 accept_partial_match=accept_partial_match)
+            identifiers = authorisation.verify(
+                                 resource=resource,
+                                 accept_partial_match=accept_partial_match,
+                                 return_identifiers=True)
             user_guid = authorisation.user_guid()
 
         upstream = None
@@ -767,11 +771,11 @@ class Account:
             from Acquire.Accounting import Accounts as _Accounts
             group = _Accounts(user_guid=user_guid, group=self.group_name())
             upstream = group.aclrules().resolve(must_resolve=False,
-                                                user_guid=user_guid)
+                                                identifiers=identifiers)
 
         aclrule = self._aclrules.resolve(must_resolve=True,
                                          upstream=upstream,
-                                         user_guid=user_guid)
+                                         identifiers=identifiers)
 
         if not aclrule.is_writeable():
             raise PermissionError(
