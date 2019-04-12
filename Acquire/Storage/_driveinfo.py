@@ -42,7 +42,7 @@ def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
     # SHOULD HERE RECEIPT THE STORAGE TRANSACTION
 
 
-def _validate_bulk_upload(par, bucket_uid, user_guid,
+def _validate_bulk_upload(par, bucket_uid, identifiers,
                           drive_uid, aclrules, max_size):
     """Call this internal function to signify that the bulk upload
        is complete. The files have been uploaded to the bucket with
@@ -60,7 +60,7 @@ def _validate_bulk_upload(par, bucket_uid, user_guid,
     service = _get_this_service()
     bucket = _get_service_account_bucket()
 
-    drive = _DriveInfo(drive_uid=drive_uid, user_guid=user_guid)
+    drive = _DriveInfo(drive_uid=drive_uid)
 
     tmpbucket = _ObjectStore.get_bucket(
                                 bucket=bucket,
@@ -175,6 +175,39 @@ class DriveInfo:
             raise RequestBucketError(
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
 
+    def _resolve_acl(self, authorisation=None, resource=None,
+                     accept_partial_match=False):
+        """Internal function used to authorise access to this drive,
+           returning the ACLRule of the access
+        """
+        if authorisation is not None:
+            from Acquire.Client import Authorisation as _Authorisation
+            if not isinstance(authorisation, _Authorisation):
+                raise TypeError(
+                    "The authorisation must be of type Authorisation")
+
+            identifiers = authorisation.verify(
+                            resource=resource,
+                            accept_partial_match=accept_partial_match,
+                            return_identifiers=True)
+        else:
+            try:
+                identifiers = self._identifiers
+            except:
+                identifiers = None
+
+        try:
+            upstream = self._upstream
+        except:
+            upstream = None
+
+        drive_acl = self.aclrules().resolve(identifiers=identifiers,
+                                            upstream=upstream,
+                                            must_resolve=True,
+                                            unresolved=False)
+
+        return (drive_acl, identifiers)
+
     def bulk_upload(self, authorisation, encrypt_key, max_size=None,
                     aclrules=None):
         """Start the process of a bulk upload of a set of files
@@ -192,15 +225,11 @@ class DriveInfo:
            from the Drive (or from previous versions of the
            file if they exist)
         """
-        from Acquire.Identity import Authorisation as _Authorisation
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
         from Acquire.Storage import ACLRules as _ACLRules
-
-        if not isinstance(authorisation, _Authorisation):
-            raise TypeError("The authorisation must be of type Authorisation")
 
         if not isinstance(encrypt_key, _PublicKey):
             raise TypeError("The encryption key must be of type PublicKey")
@@ -212,18 +241,16 @@ class DriveInfo:
             aclrules = _ACLRules.inherit()
 
         if max_size is None:
-            max_size = 100*1024*1024 # default 100 MB
+            max_size = 100*1024*1024  # default 100 MB
 
         try:
             max_size = int(max_size)
         except:
             raise TypeError("max_size must be an interger!")
 
-        authorisation.verify("bulk_upload %s %s" % (self.uid(), max_size))
-
-        user_guid = authorisation.user_guid()
-
-        drive_acl = self.aclrules().resolve(user_guid=user_guid)
+        (drive_acl, identifiers) = self._resolve_acl(
+                        authorisation=authorisation,
+                        resource="bulk_upload %s %s" % (self.uid(), max_size))
 
         if not drive_acl.is_writeable():
             raise PermissionError(
@@ -241,7 +268,7 @@ class DriveInfo:
 
         func = _Function(function=_validate_bulk_upload,
                          bucket_uid=bucket_uid,
-                         user_guid=user_guid,
+                         identifiers=identifiers,
                          drive_uid=self.uid(),
                          aclrules=aclrules.to_data(),
                          max_size=max_size)
@@ -279,7 +306,6 @@ class DriveInfo:
         """
         from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Storage import FileInfo as _FileInfo
-        from Acquire.Identity import Authorisation as _Authorisation
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.ObjectStore import string_to_encoded \
@@ -288,19 +314,13 @@ class DriveInfo:
         if not isinstance(filehandle, _FileHandle):
             raise TypeError("The fileinfo must be of type FileInfo")
 
-        if not isinstance(authorisation, _Authorisation):
-            raise TypeError("The authorisation must be of type Authorisation")
-
         if encrypt_key is not None:
             if not isinstance(encrypt_key, _PublicKey):
                 raise TypeError("The encryption key must be of type PublicKey")
 
-        identifiers = authorisation.verify(
-                        resource="upload %s" % filehandle.fingerprint(),
-                        return_identifiers=True)
-
-        drive_acl = self.aclrules().resolve(identifiers=identifiers,
-                                            must_resolve=True)
+        (drive_acl, identifiers) = self._resolve_acl(
+                        authorisation=authorisation,
+                        resource="upload %s" % filehandle.fingerprint())
 
         if not drive_acl.is_writeable():
             raise PermissionError(
@@ -381,24 +401,17 @@ class DriveInfo:
         """
         from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Storage import FileInfo as _FileInfo
-        from Acquire.Identity import Authorisation as _Authorisation
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
 
-        if not isinstance(authorisation, _Authorisation):
-            raise TypeError("The authorisation must be of type Authorisation")
-
         if not isinstance(encrypt_key, _PublicKey):
             raise TypeError("The encryption key must be of type PublicKey")
 
-        identifiers = authorisation.verify(
-                    resource="download %s %s" % (self._drive_uid, filename),
-                    return_identifiers=True)
-
-        drive_acl = self.aclrules().resolve(identifiers=identifiers,
-                                            must_resolve=True)
+        (drive_acl, identifiers) = self._resolve_acl(
+                    authorisation=authorisation,
+                    resource="download %s %s" % (self._drive_uid, filename))
 
         # even if the drive_acl is not readable by this user, they
         # may have read permission for the file...
@@ -407,7 +420,7 @@ class DriveInfo:
         fileinfo = _FileInfo.load(drive=self,
                                   filename=filename,
                                   version=version,
-                                  identifiers=self._identifiers,
+                                  identifiers=identifiers,
                                   upstream=drive_acl)
 
         # resolve the ACL for the file from this FileHandle
@@ -444,13 +457,21 @@ class DriveInfo:
         """Return whether or not this drive was opened and authorised
            by one of the drive owners
         """
-        if self._identifiers is None or (not self._is_authorised):
+        try:
+            identifiers = self._identifiers
+        except:
+            identifiers = None
+
+        if identifiers is None or (not self._is_authorised):
             return False
 
         try:
-            return self.aclrules().resolve(identifiers=identifiers).is_owner()
+            upstream = self._upstream
         except:
-            return False
+            upstream = None
+
+        return self.aclrules().resolve(identifiers=identifiers,
+                                       upstream=upstream).is_owner()
 
     def aclrules(self):
         """Return the acl rules for this drive"""
@@ -494,19 +515,9 @@ class DriveInfo:
            in this Drive. The passed authorisation is needed in case
            the list contents of this drive is not public
         """
-        if authorisation is not None:
-            from Acquire.Client import Authorisation as _Authorisation
-            if not isinstance(authorisation, _Authorisation):
-                raise TypeError(
-                    "The authorisation must be of type Authorisation")
-
-            identifiers = authorisation.verify(resource="list_files",
-                                               return_identifiers=True)
-        else:
-            identifiers = self._identifiers
-
-        drive_acl = self.aclrules().resolve(identifiers=identifiers,
-                                            must_resolve=True)
+        (drive_acl, identifiers) = self._resolve_acl(
+                                        authorisation=authorisation,
+                                        resource="list_files")
 
         if not drive_acl.is_readable():
             raise PermissionError(
@@ -555,20 +566,9 @@ class DriveInfo:
            a sorted list of FileMeta objects. The passed authorisation
            is needed in case the version info is not public
         """
-        identifiers = None
-
-        if authorisation is not None:
-            from Acquire.Client import Authorisation as _Authorisation
-            if not isinstance(authorisation, _Authorisation):
-                raise TypeError(
-                    "The authorisation must be of type Authorisation")
-
-            identifiers = authorisation.verify(
-                            resource="list_versions %s" % filename,
-                            return_identifiers=True)
-
-        drive_acl = self.aclrules().resolve(identifiers=identifiers,
-                                            must_resolve=True)
+        (drive_acl, identifiers) = self._resolve_acl(
+                                    authorisation=authorisation,
+                                    resource="list_versions %s" % filename)
 
         if not drive_acl.is_readable():
             raise PermissionError(

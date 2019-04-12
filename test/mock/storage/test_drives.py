@@ -12,7 +12,7 @@ def tempdir(tmpdir_factory):
     return str(d)
 
 
-def test_bulk_upload(authenticated_user, tempdir):
+def _test_bulk_upload(authenticated_user, tempdir):
     drive_name = "bulk upload"
     drive = Drive(user=authenticated_user, name=drive_name,
                   storage_url="storage")
@@ -40,7 +40,8 @@ def test_bulk_upload(authenticated_user, tempdir):
     files = drive.list_files()
     assert(len(files) == 2)
 
-    (filename, filemeta) = drive.download()
+    # (filename, filemeta) = drive.download()
+
 
 def test_drives(authenticated_user, tempdir):
 

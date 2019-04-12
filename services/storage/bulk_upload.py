@@ -52,8 +52,7 @@ def run(args):
 
     par = None
 
-    drive = DriveInfo(drive_uid=drive_uid,
-                      user_guid=authorisation.user_guid())
+    drive = DriveInfo(drive_uid=drive_uid)
 
     par = drive.bulk_upload(authorisation=authorisation,
                             encrypt_key=encrypt_key,
