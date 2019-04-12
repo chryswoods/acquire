@@ -90,7 +90,7 @@ class DriveInfo:
     """This class provides a service-side handle to the information
        about a particular cloud drive
     """
-    def __init__(self, drive_uid=None, user_guid=None,
+    def __init__(self, drive_uid=None, identifiers=None,
                  is_authorised=False, parent_drive_uid=None):
         """Construct a DriveInfo for the drive with UID 'drive_uid',
            and optionally the GUID of the user making the request
@@ -100,7 +100,7 @@ class DriveInfo:
         """
         self._drive_uid = drive_uid
         self._parent_drive_uid = parent_drive_uid
-        self._user_guid = user_guid
+        self._identifiers = identifiers
         self._is_authorised = is_authorised
 
         if self._drive_uid is not None:
@@ -295,11 +295,12 @@ class DriveInfo:
             if not isinstance(encrypt_key, _PublicKey):
                 raise TypeError("The encryption key must be of type PublicKey")
 
-        authorisation.verify("upload %s" % filehandle.fingerprint())
+        identifiers = authorisation.verify(
+                        resource="upload %s" % filehandle.fingerprint(),
+                        return_identifiers=True)
 
-        user_guid = authorisation.user_guid()
-
-        drive_acl = self.aclrules().resolve(user_guid=user_guid)
+        drive_acl = self.aclrules().resolve(identifiers=identifiers,
+                                            must_resolve=True)
 
         if not drive_acl.is_writeable():
             raise PermissionError(
@@ -309,11 +310,12 @@ class DriveInfo:
         # now generate a FileInfo for this FileHandle
         fileinfo = _FileInfo(drive_uid=self._drive_uid,
                              filehandle=filehandle,
-                             user_guid=authorisation.user_guid())
+                             identifiers=identifiers,
+                             upstream=drive_acl)
 
         # resolve the ACL for the file from this FileHandle
-        file_acl = fileinfo.aclrules().resolve(upstream=drive_acl,
-                                               user_guid=user_guid)
+        filemeta = fileinfo.get_filemeta()
+        file_acl = filemeta.acl()
 
         if not file_acl.is_writeable():
             raise PermissionError(
@@ -358,13 +360,16 @@ class DriveInfo:
 
         # now save the fileinfo to the object store
         fileinfo.save()
+        filemeta = fileinfo.get_filemeta()
+
+        assert(filemeta.acl().is_owner())
 
         # return the PAR if we need to have a second-stage of upload
-        return (fileinfo.get_filemeta(resolved_acl=file_acl), par)
+        return (filemeta, par)
 
     def download(self, filename, authorisation,
                  version=None, encrypt_key=None,
-                 **kwargs):
+                 force_par=False):
         """Download the file called filename. This will return a
            FileHandle that describes the file. If the file is
            sufficiently small, then the filedata will be embedded
@@ -388,23 +393,26 @@ class DriveInfo:
         if not isinstance(encrypt_key, _PublicKey):
             raise TypeError("The encryption key must be of type PublicKey")
 
-        authorisation.verify("download %s %s" % (self._drive_uid,
-                                                 filename))
+        identifiers = authorisation.verify(
+                    resource="download %s %s" % (self._drive_uid, filename),
+                    return_identifiers=True)
 
-        user_guid = authorisation.user_guid()
-
-        drive_acl = self.aclrules().resolve(user_guid=user_guid)
+        drive_acl = self.aclrules().resolve(identifiers=identifiers,
+                                            must_resolve=True)
 
         # even if the drive_acl is not readable by this user, they
         # may have read permission for the file...
 
         # now get the FileInfo for this FileHandle
         fileinfo = _FileInfo.load(drive=self,
-                                  filename=filename, version=version)
+                                  filename=filename,
+                                  version=version,
+                                  identifiers=self._identifiers,
+                                  upstream=drive_acl)
 
         # resolve the ACL for the file from this FileHandle
-        file_acl = fileinfo.aclrules().resolve(upstream=drive_acl,
-                                               user_guid=user_guid)
+        filemeta = fileinfo.get_filemeta()
+        file_acl = filemeta.acl()
 
         if not file_acl.is_readable():
             raise PermissionError(
@@ -416,11 +424,6 @@ class DriveInfo:
         file_key = fileinfo.latest_version()._file_key()
         filedata = None
         par = None
-
-        if "force_par" in kwargs:
-            force_par = kwargs["force_par"]
-        else:
-            force_par = None
 
         if force_par or fileinfo.filesize() > 1048576:
             # the file is too large to include in the download so
@@ -435,17 +438,17 @@ class DriveInfo:
             filedata = _ObjectStore.get_object(file_bucket, file_key)
 
         # return the filemeta, and either the filedata or par
-        return (fileinfo.get_filemeta(resolved_acl=file_acl), filedata, par)
+        return (filemeta, filedata, par)
 
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised
            by one of the drive owners
         """
-        if self._user_guid is None or (not self._is_authorised):
+        if self._identifiers is None or (not self._is_authorised):
             return False
 
         try:
-            return self._acls[self._user_guid].is_owner()
+            return self.aclrules().resolve(identifiers=identifiers).is_owner()
         except:
             return False
 
@@ -467,8 +470,8 @@ class DriveInfo:
         if self.is_null():
             return
 
-        from Acquire.Storage import create_aclrules as _create_aclrules
-        aclrules = _create_aclrules(aclrule=aclrule, user_guid=user_guid)
+        from Acquire.Identity import ACLRules as _ACLRules
+        aclrules = _ACLRules.create(user_guid=user_guid, rule=aclrule)
 
         # make sure we have the latest version
         self.load()
@@ -491,19 +494,19 @@ class DriveInfo:
            in this Drive. The passed authorisation is needed in case
            the list contents of this drive is not public
         """
-        user_guid = None
-
         if authorisation is not None:
             from Acquire.Client import Authorisation as _Authorisation
             if not isinstance(authorisation, _Authorisation):
                 raise TypeError(
                     "The authorisation must be of type Authorisation")
 
-            authorisation.verify("list_files")
+            identifiers = authorisation.verify(resource="list_files",
+                                               return_identifiers=True)
+        else:
+            identifiers = self._identifiers
 
-            user_guid = authorisation.user_guid()
-
-        drive_acl = self.aclrules().resolve(user_guid=user_guid)
+        drive_acl = self.aclrules().resolve(identifiers=identifiers,
+                                            must_resolve=True)
 
         if not drive_acl.is_readable():
             raise PermissionError(
@@ -529,10 +532,11 @@ class DriveInfo:
             for name in names:
                 data = _ObjectStore.get_object_from_json(metadata_bucket,
                                                          name)
-                fileinfo = _FileInfo.from_data(data)
+                fileinfo = _FileInfo.from_data(data,
+                                               identifiers=identifiers,
+                                               upstream=drive_acl)
                 filemeta = fileinfo.get_filemeta()
-                file_acl = filemeta.resolve_acl(upstream=drive_acl,
-                                                user_guid=user_guid)
+                file_acl = filemeta.acl()
 
                 if file_acl.is_readable() or file_acl.is_writeable():
                     files.append(filemeta)
@@ -544,14 +548,14 @@ class DriveInfo:
         return files
 
     def list_versions(self, filename, authorisation=None,
-                      include_metadata=False, **kwargs):
+                      include_metadata=False):
         """Return the list of versions of the file with specified
            filename. If 'include_metadata' is true then this will
            load full metadata for each version. This will return
            a sorted list of FileMeta objects. The passed authorisation
            is needed in case the version info is not public
         """
-        user_guid = None
+        identifiers = None
 
         if authorisation is not None:
             from Acquire.Client import Authorisation as _Authorisation
@@ -559,11 +563,12 @@ class DriveInfo:
                 raise TypeError(
                     "The authorisation must be of type Authorisation")
 
-            authorisation.verify("list_versions %s" % filename)
+            identifiers = authorisation.verify(
+                            resource="list_versions %s" % filename,
+                            return_identifiers=True)
 
-            user_guid = authorisation.user_guid()
-
-        drive_acl = self.aclrules().resolve(user_guid=user_guid, **kwargs)
+        drive_acl = self.aclrules().resolve(identifiers=identifiers,
+                                            must_resolve=True)
 
         if not drive_acl.is_readable():
             raise PermissionError(
@@ -572,15 +577,19 @@ class DriveInfo:
         from Acquire.Storage import FileInfo as _FileInfo
         versions = _FileInfo.list_versions(drive=self,
                                            filename=filename,
+                                           identifiers=identifiers,
+                                           upstream=drive_acl,
                                            include_metadata=include_metadata)
 
         result = []
 
         for version in versions:
-            if version.aclrules() is not None:
-                acl = version.resolve_acl(upstream=drive_acl,
-                                          user_guid=user_guid,
-                                          **kwargs)
+            aclrules = version.aclrules()
+            if aclrules is not None:
+                acl = aclrules.resolve(upstream=drive_acl,
+                                       identifiers=identifiers,
+                                       must_resolve=True,
+                                       unresolved=False)
 
                 if acl.is_readable() or acl.is_writeable():
                     result.append(version)
@@ -588,9 +597,9 @@ class DriveInfo:
                 result.append(version)
 
         # return the versions sorted in upload order
-        versions.sort(key=lambda x: x.uploaded_when())
+        result.sort(key=lambda x: x.uploaded_when())
 
-        return versions
+        return result
 
     def load(self):
         """Load the metadata about this drive from the object store"""
@@ -611,7 +620,13 @@ class DriveInfo:
             data = None
 
         if data is None:
-            if self._user_guid is None:
+            # by default this user is the drive's owner
+            try:
+                user_guid = self._identifiers["user_guid"]
+            except:
+                user_guid = None
+
+            if user_guid is None:
                 # we cannot create the drive as we don't know who
                 # requested it
                 raise PermissionError(
@@ -625,12 +640,10 @@ class DriveInfo:
                     "original request was not authorised by the user")
 
             # create a new drive and save it...
-            from Acquire.Storage import ACLRule as _ACLRule
-            from Acquire.Storage import create_aclrules as _create_aclrules
+            from Acquire.Identity import ACLRule as _ACLRule
+            from Acquire.Identity import ACLRules as _ACLRules
 
-            # by default this user is the drive's owner
-            self._aclrules = _create_aclrules(user_guid=self._user_guid,
-                                              aclrule=_ACLRule.owner())
+            self._aclrules = _ACLRules.owner(user_guid=user_guid)
 
             data = self.to_data()
 
@@ -640,12 +653,12 @@ class DriveInfo:
         from copy import copy as _copy
         other = DriveInfo.from_data(data)
 
-        user_guid = self._user_guid
+        identifiers = self._identifiers
         is_authorised = self._is_authorised
 
         self.__dict__ = _copy(other.__dict__)
 
-        self._user_guid = user_guid
+        self._identifiers = identifiers
         self._is_authorised = is_authorised
 
     def save(self):

@@ -326,33 +326,28 @@ class ACLRule:
         return ACLRule(is_owner=is_owner, is_writeable=is_writeable,
                        is_readable=is_readable, is_executable=is_executable)
 
-    def resolve(self, must_resolve=True, **kwargs):
+    def resolve(self, must_resolve=True, identifiers=None,
+                upstream=None, unresolved=False):
         """Resolve these rules based on the information supplied
-           in 'kwargs'. Notably, if any of our rules are 'inherit',
-           the this will look for an ACLRule called "upstream" to
+           in 'identifiers'. Notably, if any of our rules are 'inherit',
+           the this will look into 'upstream' to
            inherit the rule. If 'must_resolve' is true, then
-           this function must always return
-           a fully-resolved ACLRule
+           this function must always return a fully-resolved ACLRule
+           (in which any unresolved parts are set equal to 'unresolved')
         """
         if self.is_fully_resolved():
             return self
 
-        if "unresolved" in kwargs:
-            unresolved = kwargs["unresolved"]
-        else:
-            unresolved = False
-
-        if "upstream" not in kwargs:
+        if upstream is None:
             if must_resolve:
                 return self._force_resolve(unresolved=unresolved)
             else:
                 return self
 
-        upstream = kwargs["upstream"]
-
-        if not upstream.is_fully_resolved():
-            del kwargs["upstream"]
-            upstream = upstream.resolve(must_resolve=must_resolve, **kwargs)
+        from Acquire.Identity import ACLRules as _ACLRules
+        if isinstance(upstream, _ACLRules):
+            upstream = upstream.resolve(must_resolve=False,
+                                        identifiers=identifiers)
 
         if must_resolve and (not upstream.is_fully_resolved()):
             upstream = upstream._force_resolve(unresolved=unresolved)
@@ -374,8 +369,13 @@ class ACLRule:
         if is_executable is None:
             is_executable = upstream._is_executable
 
-        return ACLRule(is_owner=is_owner, is_writeable=is_writeable,
-                       is_readable=is_readable, is_executable=is_executable)
+        result = ACLRule(is_owner=is_owner, is_writeable=is_writeable,
+                         is_readable=is_readable, is_executable=is_executable)
+
+        if must_resolve:
+            result = result._force_resolve(unresolved=unresolved)
+
+        return result
 
     def set_owner(self, is_owner=True):
         """Set the user as an owner of the bucket"""

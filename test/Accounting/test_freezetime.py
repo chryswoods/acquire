@@ -12,7 +12,7 @@ from Acquire.Identity import Authorisation
 
 from Acquire.ObjectStore import get_datetime_now
 
-from Acquire.Service import get_service_account_bucket
+from Acquire.Service import get_service_account_bucket, push_is_running_service
 
 try:
     from freezegun import freeze_time
@@ -32,6 +32,7 @@ def bucket(tmpdir_factory):
         return get_service_account_bucket()
     except:
         d = tmpdir_factory.mktemp("objstore")
+        push_is_running_service()
         return get_service_account_bucket(str(d))
 
 

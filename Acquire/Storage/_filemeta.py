@@ -151,35 +151,21 @@ class FileMeta:
         except:
             return None
 
-    def resolve_acl(self, **kwargs):
+    def resolve_acl(self, identifiers=None, upstream=None,
+                    must_resolve=None, unresolved=False):
         """Resolve the ACL for this file based on the passed arguments
            (same as for ACLRules.resolve()). This returns the resolved
            ACL, which is set as self.acl()
         """
-        if "resolved_acl" in kwargs:
-            acl = kwargs["resolved_acl"]
-            from Acquire.Storage import ACLRule as _ACLRule
-            if not isinstance(acl, _ACLRule):
-                raise TypeError(
-                    "The resolved ACL must be type ACLRule")
-
-            self._acl = acl.resolve(must_resolve=True, **kwargs)
-
-            if not self._acl.is_owner():
-                # only owners can see the ACLs
-                self._aclrules = None
-
-            if self._acl.denied_all():
-                # not allowed to know anythign about the file
-                self._set_denied()
-
-            return self._acl
-
-        if self._aclrules is None:
+        aclrules = self.aclrules()
+        if aclrules is None:
             raise PermissionError(
                 "You do not have permission to resolve the ACLs for this file")
 
-        self._acl = self._aclrules.resolve(**kwargs)
+        self._acl = aclrules.resolve(must_resolve=must_resolve,
+                                     identifiers=identifiers,
+                                     upstream=upstream,
+                                     unresolved=unresolved)
 
         if not self._acl.is_owner():
             # only owners can see the ACLs

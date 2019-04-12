@@ -111,10 +111,20 @@ class Account:
        account to ensure that updates occur atomically
 
        All data for this account is stored in the object store
+
+       The account has a set of ACLRules that specify who can
+       read and write to the account (writing implies has spend
+       authority), and who owns the account (can change ACLRules)
     """
-    def __init__(self, name=None, description=None, uid=None, bucket=None):
+    def __init__(self, name=None, description=None, uid=None, bucket=None,
+                 aclrules=None, group_name=None):
         """Construct the account. If 'uid' is specified, then load the account
            from the object store (so 'name' and 'description' should be "None")
+
+           You can also supply the ACLRules that will be used to control
+           access to this account. If these are not specified then
+           ACLRules.inherit() will be used, with rules inherited from the
+           Accounts group that contains this Account
         """
         if uid is not None:
             self._uid = str(uid)
@@ -139,10 +149,12 @@ class Account:
 
         elif name is not None:
             self._uid = None
-            self._create_account(name, description)
+            self._create_account(name=name, description=description,
+                                 group_name=group_name, aclrules=aclrules)
         else:
             self._uid = None
             self._last_update_datetime = None
+            self._group_name = None
 
     def __str__(self):
         if self._uid is None:
@@ -160,7 +172,7 @@ class Account:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def _create_account(self, name, description):
+    def _create_account(self, name, description, group_name, aclrules):
         """Create the account from scratch"""
         if name is None or description is None:
             from Acquire.Accounting import AccountError
@@ -172,6 +184,12 @@ class Account:
             from Acquire.Accounting import AccountError
             raise AccountError("You cannot create an account twice!")
 
+        from Acquire.Identity import ACLRules as _ACLRules
+        if aclrules is None:
+            aclrules = _ACLRules.inherit()
+        elif not isinstance(aclrules, _ACLRules):
+            raise TypeError("The aclrules must be type ACLRules")
+
         from Acquire.Accounting import create_decimal as _create_decimal
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
@@ -182,6 +200,12 @@ class Account:
         self._overdraft_limit = _create_decimal(0)
         self._maximum_daily_limit = 0
         self._last_update_datetime = None
+        self._aclrules = aclrules
+
+        if group_name is None:
+            self._group_name = None
+        else:
+            self._group_name = str(group_name)
 
         # initialise the account with a balance of zero
         bucket = _get_service_account_bucket()
@@ -280,7 +304,11 @@ class Account:
         while last_data is None:
             daytime = _datetime.datetime.fromordinal(day)
             key = self._get_balance_key(daytime)
-            last_data = _ObjectStore.get_object_from_json(bucket, key)
+
+            try:
+                last_data = _ObjectStore.get_object_from_json(bucket, key)
+            except:
+                last_data = None
 
             if last_data is None:
                 day -= 1
@@ -294,8 +322,12 @@ class Account:
             # find the latest day by reading the keys in the object
             # store directly
             root = "%s/balance/" % self._key()
-            keys = _ObjectStore.get_all_object_names(
-                        bucket, root)
+
+            try:
+                keys = _ObjectStore.get_all_object_names(
+                            bucket, root)
+            except:
+                keys = None
 
             if keys is None or len(keys) == 0:
                 from Acquire.Accounting import AccountError
@@ -307,13 +339,17 @@ class Account:
             # last key must be the latest balance
             keys.sort()
 
-            last_data = _ObjectStore.get_object_from_json(
-                            bucket, keys[-1])
-            day = _get_date_from_key(keys[-1]).toordinal()
+            try:
+                last_data = _ObjectStore.get_object_from_json(
+                                bucket, keys[-1])
+            except:
+                last_data = None
 
             if last_data is None:
                 raise AccountError("How can there be no data for key %s?" %
                                    keys[-1])
+
+            day = _get_date_from_key(keys[-1]).toordinal()
 
         # what was the balance on the last day?
         from Acquire.Accounting import create_decimal as _create_decimal
@@ -381,7 +417,11 @@ class Account:
         balance_key = self._get_balance_key(datetime)
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        data = _ObjectStore.get_object_from_json(bucket, balance_key)
+
+        try:
+            data = _ObjectStore.get_object_from_json(bucket, balance_key)
+        except:
+            data = None
 
         if data is None:
             # there is no balance for this day. This means that we haven'y
@@ -389,7 +429,10 @@ class Account:
             # to construct that day's starting balance
             self._reconcile_daily_accounts(bucket)
 
-            data = _ObjectStore.get_object_from_json(bucket, balance_key)
+            try:
+                data = _ObjectStore.get_object_from_json(bucket, balance_key)
+            except:
+                data = None
 
             if data is None:
                 from Acquire.Accounting import AccountError
@@ -461,7 +504,10 @@ class Account:
             prefix = "%s/%s" % (self._key(), day_string)
             len_prefix = len(prefix)
 
-            day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
+            try:
+                day_keys = _ObjectStore.get_all_object_names(bucket, prefix)
+            except:
+                day_keys = []
 
             for day_key in day_keys:
                 # the key is Ttime/rest_of_key
@@ -588,6 +634,16 @@ class Account:
 
         return self._name
 
+    def group_name(self):
+        """Return the name of the Accounts group in which this
+           account belongs. An Account can only exist in a single
+           Accounts Group at a time
+        """
+        if self.is_null():
+            return None
+
+        return self._group_name
+
     def description(self):
         """Return the description of this account"""
         if self.is_null():
@@ -617,7 +673,17 @@ class Account:
             bucket = _get_service_account_bucket()
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        data = _ObjectStore.get_object_from_json(bucket, self._key())
+
+        try:
+            data = _ObjectStore.get_object_from_json(bucket, self._key())
+        except:
+            data = None
+
+        if data is None:
+            from Acquire.Accounting import AccountError
+            raise AccountError(
+                "There is no account data for this account? %s" % self._key())
+
         self.__dict__ = _copy(Account.from_data(data).__dict__)
 
     def _save_account(self, bucket=None):
@@ -640,6 +706,8 @@ class Account:
             data["description"] = self._description
             data["overdraft_limit"] = str(self._overdraft_limit)
             data["maximum_daily_limit"] = str(self._maximum_daily_limit)
+            data["aclrules"] = self._aclrules.to_data()
+            data["group_name"] = self._group_name
 
         return data
 
@@ -652,6 +720,7 @@ class Account:
 
         if (data and len(data) > 0):
             from Acquire.Accounting import create_decimal as _create_decimal
+            from Acquire.Identity import ACLRules as _ACLRules
 
             account._uid = data["uid"]
             account._name = data["name"]
@@ -660,16 +729,58 @@ class Account:
             account._maximum_daily_limit = _create_decimal(
                                                 data["maximum_daily_limit"])
 
+            if "aclrules" in data:
+                account._aclrules = _ACLRules.from_data(data["aclrules"])
+            else:
+                account._aclrules = _ACLRules.inherit()
+
+            if "group_name" in data:
+                account._group_name = data["group_name"]
+            else:
+                account._group_name = None
+
         return account
 
-    def assert_valid_authorisation(self, authorisation):
+    def assert_valid_authorisation(self, authorisation, resource=None,
+                                   accept_partial_match=False):
         """Assert that the passed authorisation is valid for this
            account
         """
+        if authorisation is None:
+            raise PermissionError("You need to supply a valid authorisation!")
+
         from Acquire.Identity import Authorisation as _Authorisation
         if not isinstance(authorisation, _Authorisation):
             raise TypeError("The passed authorisation must be an "
                             "Authorisation")
+
+        user_guid = None
+
+        identifiers = None
+
+        if not authorisation.is_null():
+            identifiers = authorisation.verify(
+                                 resource=resource,
+                                 accept_partial_match=accept_partial_match,
+                                 return_identifiers=True)
+            user_guid = authorisation.user_guid()
+
+        upstream = None
+
+        if self.group_name() is not None:
+            from Acquire.Accounting import Accounts as _Accounts
+            group = _Accounts(user_guid=user_guid, group=self.group_name())
+            upstream = group.aclrules().resolve(must_resolve=False,
+                                                identifiers=identifiers)
+
+        aclrule = self._aclrules.resolve(must_resolve=True,
+                                         upstream=upstream,
+                                         identifiers=identifiers)
+
+        if not aclrule.is_writeable():
+            raise PermissionError(
+                "You do not have permission to write (draw funds) from "
+                "this account!")
 
     def _get_safe_now(self):
         """This function returns the current time. It avoids dangerous
@@ -995,7 +1106,8 @@ class Account:
         return (uid, now)
 
     def _debit(self, transaction, authorisation,
-               is_provisional, receipt_by, bucket=None):
+               is_provisional, receipt_by,
+               authorisation_resource=None, bucket=None):
         """Debit the value of the passed transaction from this account based
            on the authorisation contained
            in 'authorisation'. This will create a unique ID (UID) for
@@ -1024,7 +1136,16 @@ class Account:
         if not isinstance(transaction, _Transaction):
             raise TypeError("The passed transaction must be a Transaction!")
 
-        self.assert_valid_authorisation(authorisation)
+        if authorisation_resource is None:
+            authorisation_resource = transaction.fingerprint()
+            accept_partial_match = True
+        else:
+            accept_partial_match = False
+
+        self.assert_valid_authorisation(
+                                    authorisation=authorisation,
+                                    resource=authorisation_resource,
+                                    accept_partial_match=accept_partial_match)
 
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
@@ -1168,6 +1289,19 @@ class Account:
             return 0
 
         return self._overdraft_limit
+
+    def set_group(self, group, bucket=None):
+        """Set the Accounts group to which this account belongs"""
+        if self.is_null():
+            return
+
+        from Acquire.Accounting import Accounts as _Accounts
+        if not isinstance(group, _Accounts):
+            raise TypeError("The Accounts group must be of type Accounts")
+
+        if self._group_name != group.name():
+            self._group_name = group.name()
+            self._save_account(bucket=bucket)
 
     def set_overdraft_limit(self, limit, bucket=None):
         """Set the overdraft limit of this account to 'limit'"""

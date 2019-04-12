@@ -23,7 +23,8 @@ class UserDrives:
                     "You can only authorise UserDrives with a valid "
                     "Authorisation object")
 
-            authorisation.verify(resource="UserDrives")
+            self._identifiers = authorisation.verify(resource="UserDrives",
+                                                     return_identifiers=True)
 
             self._is_authorised = True
 
@@ -37,6 +38,7 @@ class UserDrives:
         else:
             self._user_guid = str(user_guid)
             self._is_authorised = False
+            self._identifiers = None
 
     def is_null(self):
         """Return whether or not this is null"""
@@ -115,7 +117,8 @@ class UserDrives:
 
         if drive_uid is not None:
             from Acquire.Storage import DriveInfo as _DriveInfo
-            drive = _DriveInfo(drive_uid=drive_uid, user_guid=self._user_guid,
+            drive = _DriveInfo(drive_uid=drive_uid,
+                               identifiers=self._identifiers,
                                is_authorised=self._is_authorised)
         else:
             drive = None
@@ -133,7 +136,7 @@ class UserDrives:
 
                 from Acquire.Storage import DriveInfo as _DriveInfo
                 drive = _DriveInfo(drive_uid=drive_uid,
-                                   user_guid=self._user_guid,
+                                   identifiers=self._identifiers,
                                    is_authorised=self._is_authorised)
 
         return drive
@@ -180,8 +183,9 @@ class UserDrives:
 
         if drive_uid is not None:
             from Acquire.Storage import DriveInfo as _DriveInfo
-            drive = _DriveInfo(drive_uid=drive_uid, user_guid=self._user_guid,
-                               is_authorised=self._is_authorised)
+            drive = _DriveInfo(drive_uid=drive_uid,
+                               is_authorised=self._is_authorised,
+                               identifiers=self._identifiers)
         else:
             drive = None
 
@@ -198,7 +202,7 @@ class UserDrives:
 
                 from Acquire.Storage import DriveInfo as _DriveInfo
                 drive = _DriveInfo(drive_uid=drive_uid,
-                                   user_guid=self._user_guid,
+                                   identifiers=self._identifiers,
                                    is_authorised=self._is_authorised)
 
         if drive is None:
@@ -225,6 +229,10 @@ class UserDrives:
 
         from Acquire.Storage import DriveMeta as _DriveMeta
 
-        return _DriveMeta(name=drive_name, uid=drive.uid(),
-                          container=container,
-                          aclrules=drive.aclrules())
+        drivemeta = _DriveMeta(name=drive_name, uid=drive.uid(),
+                               container=container,
+                               aclrules=drive.aclrules())
+
+        drivemeta.resolve_acl(identifiers=self._identifiers)
+
+        return drivemeta

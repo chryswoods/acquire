@@ -40,11 +40,11 @@ def run(args):
 
     # load the account
     bucket = get_service_account_bucket()
-    account = Accounts(authorisation.user_uid()).get_account(account_name,
-                                                             bucket=bucket)
+    accounts = Accounts(user_guid=authorisation.user_guid())
+    account = accounts.get_account(account_name, bucket=bucket)
 
     # validate the authorisation for this account
-    authorisation.verify(resource=account.uid())
+    authorisation.verify(resource="get_info %s" % account.uid())
 
     balance_status = account.balance_status(bucket=bucket)
 
