@@ -32,9 +32,8 @@ class VersionInfo:
                     "uploading this version of the file!")
 
             if aclrules is None:
-                from Acquire.Storage import create_aclrules as _create_aclrules
-                from Acquire.Storage import ACLRule as _ACLRule
-                aclrules = _create_aclrules(aclrule=_ACLRule.inherit())
+                from Acquire.Identity import ACLRules as _ACLRules
+                aclrules = _ACLRules.inherit()
             else:
                 if not isinstance(aclrules, _ACLRules):
                     raise TypeError("The aclrules must be type ACLRules")

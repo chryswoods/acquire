@@ -331,8 +331,8 @@ class DriveInfo:
         if self.is_null():
             return
 
-        from Acquire.Storage import create_aclrules as _create_aclrules
-        aclrules = _create_aclrules(aclrule=aclrule, user_guid=user_guid)
+        from Acquire.Identity import ACLRules as _ACLRules
+        aclrules = _ACLRules.create(user_guid=user_guid, rule=aclrule)
 
         # make sure we have the latest version
         self.load()
@@ -489,12 +489,11 @@ class DriveInfo:
                     "original request was not authorised by the user")
 
             # create a new drive and save it...
-            from Acquire.Storage import ACLRule as _ACLRule
-            from Acquire.Storage import create_aclrules as _create_aclrules
+            from Acquire.Identity import ACLRule as _ACLRule
+            from Acquire.Identity import ACLRules as _ACLRules
 
             # by default this user is the drive's owner
-            self._aclrules = _create_aclrules(user_guid=self._user_guid,
-                                              aclrule=_ACLRule.owner())
+            self._aclrules = _ACLRules.owner(user_guid=self._user_guid)
 
             data = self.to_data()
 

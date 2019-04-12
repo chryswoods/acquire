@@ -1,7 +1,7 @@
 
 import pytest
 
-from Acquire.Storage import ACLRule, ACLRules, ACLGroupRules, ACLUserRules
+from Acquire.Identity import ACLRule, ACLRules, ACLGroupRules, ACLUserRules
 
 
 def test_acls():
@@ -53,3 +53,6 @@ def test_acls():
 
     assert(rules.resolve(user_guid=user_guid).is_owner())
     assert(rules.resolve(user_guid=user_guid2).denied_all())
+
+    data = ACLRules.inherit().to_data()
+    assert(ACLRules.from_data(data).is_simple_inherit())

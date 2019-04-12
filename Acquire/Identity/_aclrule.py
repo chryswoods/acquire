@@ -350,7 +350,7 @@ class ACLRule:
 
         upstream = kwargs["upstream"]
 
-        from Acquire.Storage import ACLRules as _ACLRules
+        from Acquire.Identity import ACLRules as _ACLRules
         if isinstance(upstream, _ACLRules):
             del kwargs["upstream"]
             upstream = upstream.resolve(**kwargs)

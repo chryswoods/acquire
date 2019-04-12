@@ -78,8 +78,8 @@ class FileHandle:
                 # will be automatically set to 'inherit' on the service
                 self._aclrules = None
             else:
-                from Acquire.Storage import create_aclrules as _create_aclrules
-                self._aclrules = _create_aclrules(aclrules=aclrules)
+                from Acquire.Identity import ACLRules as _ACLRules
+                self._aclrules = _ACLRules.create(rule=aclrules)
 
             from Acquire.Access import get_filesize_and_checksum \
                 as _get_filesize_and_checksum
