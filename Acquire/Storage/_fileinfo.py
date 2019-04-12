@@ -11,7 +11,8 @@ _file_root = "storage/file"
 class VersionInfo:
     """This class holds specific info about a version of a file"""
     def __init__(self, filesize=None, checksum=None,
-                 aclrules=None, compression=None, user_guid=None):
+                 aclrules=None, compression=None,
+                 identifiers=None):
         """Construct the version of the file that has the passed
            size and checksum, was uploaded by the specified user,
            and that has the specified aclrules, and whether or not
@@ -25,6 +26,11 @@ class VersionInfo:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
             from Acquire.Storage import ACLRules as _ACLRules
+
+            try:
+                user_guid = identifiers["user_guid"]
+            except:
+                user_guid = None
 
             if user_guid is None:
                 raise PermissionError(
@@ -199,7 +205,8 @@ class FileInfo:
        Acquire.Client.FileHandle provide the client-side view
        of Acquire.Storage.FileInfo
     """
-    def __init__(self, drive_uid=None, filehandle=None, user_guid=None):
+    def __init__(self, drive_uid=None, filehandle=None,
+                 identifiers=None, upstream=None):
         """Construct from a passed filehandle of a file that will be
            uploaded
         """
@@ -227,11 +234,13 @@ class FileInfo:
 
             version = VersionInfo(filesize=filehandle.filesize(),
                                   checksum=filehandle.checksum(),
-                                  user_guid=user_guid,
+                                  identifiers=identifiers,
                                   compression=filehandle.compression_type(),
                                   aclrules=filehandle.aclrules())
 
             self._latest_version = version
+            self._identifiers = identifiers
+            self._upstream = upstream
 
     def is_null(self):
         """Return whether or not this is null"""
@@ -242,7 +251,7 @@ class FileInfo:
         return self._filename
 
     @staticmethod
-    def _get_filemeta(filename, version, resolved_acl=None):
+    def _get_filemeta(filename, version, identifiers, upstream):
         """Internal function used to create a FileMeta from the passed
            filename and VersionInfo object
         """
@@ -256,12 +265,14 @@ class FileInfo:
                              compression=version.compression_type(),
                              aclrules=version.aclrules())
 
-        if resolved_acl is not None:
-            filemeta.resolve_acl(resolved_acl=resolved_acl)
+        filemeta.resolve_acl(identifiers=identifiers,
+                             upstream=upstream,
+                             must_resolve=True,
+                             unresolved=False)
 
         return filemeta
 
-    def get_filemeta(self, version=None, resolved_acl=None):
+    def get_filemeta(self, version=None):
         """Return the metadata about the latest (or specified) version
            of this file. If 'resolved_acl' is specified, then
            return the
@@ -273,7 +284,8 @@ class FileInfo:
 
         return FileInfo._get_filemeta(filename=self._filename,
                                       version=self._version_info(version),
-                                      resolved_acl=resolved_acl)
+                                      identifiers=self._identifiers,
+                                      upstream=self._upstream)
 
     def _version_info(self, version=None):
         """Return the version info object of the latest version of
@@ -390,7 +402,8 @@ class FileInfo:
                                           data=self.to_data())
 
     @staticmethod
-    def list_versions(drive, filename, include_metadata=False, **kwargs):
+    def list_versions(drive, filename, identifiers=None,
+                      upstream=None, include_metadata=False):
         """List all of the versions of this file. If 'include_metadata'
            is True then this will load all of the associated metadata
            for each file
@@ -422,8 +435,12 @@ class FileInfo:
             for data in objs.values():
                 version = VersionInfo.from_data(data)
                 filemeta = FileInfo._get_filemeta(filename=filename,
-                                                  version=version)
-                versions.append(filemeta)
+                                                  version=version,
+                                                  identifiers=identifiers,
+                                                  upstream=upstream)
+
+                if not filemeta.acl().denied_all():
+                    versions.append(filemeta)
         else:
             from Acquire.ObjectStore import string_to_datetime \
                 as _string_to_datetime
@@ -443,9 +460,11 @@ class FileInfo:
         return versions
 
     @staticmethod
-    def load(drive, filename, version=None):
+    def load(drive, filename, version=None, identifiers=None,
+             upstream=None):
         """Load and return the FileInfo for the file called 'filename'
-           on the passed 'drive'. """
+           on the passed 'drive'.
+        """
         from Acquire.Storage import DriveInfo as _DriveInfo
 
         if not isinstance(drive, _DriveInfo):
@@ -477,6 +496,8 @@ class FileInfo:
 
         f = FileInfo.from_data(data)
         f._drive_uid = drive.uid()
+        f._identifiers = identifiers
+        f._upstream = upstream
 
         if version is not None:
             f._latest_version = f._version_info(version=version)
@@ -494,9 +515,11 @@ class FileInfo:
         return data
 
     @staticmethod
-    def from_data(data):
+    def from_data(data, identifiers=None, upstream=None):
         """Return this object constructed from the passed json-deserialised
-           dictionary
+           dictionary. If 'identifier' and 'upstream' are passed
+           then these set the user identifiers and upstream ACL
+           of the file object as it was opened.
         """
         f = FileInfo()
 
@@ -504,5 +527,7 @@ class FileInfo:
             f._filename = data["filename"]
             f._latest_version = VersionInfo.from_data(data["latest_version"])
             f._drive_uid = None
+            f._identifiers = identifiers
+            f._upstream = upstream
 
         return f

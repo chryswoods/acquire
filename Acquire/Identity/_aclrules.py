@@ -84,23 +84,46 @@ class ACLGroupRules:
     def __repr__(self):
         return self.__str__()
 
-    def resolve(self, must_resolve=True, **kwargs):
+    def resolve(self, identifiers=None, must_resolve=True,
+                upstream=None, unresolved=False):
         """Resolve the rule for the user with specified group_guid.
            This returns None if there are no rules for this group
         """
         try:
-            group_guid = kwargs["group_guid"]
+            group_guids = identifiers["group_guids"]
         except:
-            group_guid = None
+            group_guids = []
 
-        if group_guid in self._group_rules:
-            rule = self._group_rules[group_guid]
-            return rule.resolve(must_resolve=must_resolve, **kwargs)
-        elif must_resolve:
-            from Acquire.Identity import ACLRule as _ACLRule
-            return _ACLRule.inherit().resolve(must_resolve=True, **kwargs)
+        try:
+            group_guids.append(identifiers["group_guid"])
+        except:
+            pass
+
+        resolved = None
+
+        for group_guid in group_guids:
+            if group_guid in self._group_rules:
+                rule = self._group_rules[group_guid]
+                rule.resolve(must_resolve=must_resolve,
+                             identifers=identifiers,
+                             upstream=upstream,
+                             unresolved=unresolved)
+                if resolved is None:
+                    resolved = rule
+                else:
+                    resolved = resolved + rule
+
+        if resolved is None:
+            if must_resolve:
+                from Acquire.Identity import ACLRule as _ACLRule
+                return _ACLRule.inherit().resolve(must_resolve=True,
+                                                  identifiers=identifiers,
+                                                  upstream=upstream,
+                                                  unresolved=unresolved)
+            else:
+                return None
         else:
-            return None
+            return resolved
 
     def add_group_rule(self, group_guid, rule):
         """Add a rule for the used with passed 'group_guid'"""
@@ -149,23 +172,46 @@ class ACLUserRules:
             s.append("%s => %s" % (user, rule))
         return "User{%s}" % ", ".join(s)
 
-    def resolve(self, must_resolve=True, **kwargs):
+    def resolve(self, must_resolve=True, identifiers=None,
+                upstream=None, unresolved=False):
         """Resolve the rule for the user with specified user_guid.
            This returns None if there are no rules for this user
         """
         try:
-            user_guid = kwargs["user_guid"]
+            user_guids = identifiers["user_guids"]
         except:
-            user_guid = None
+            user_guids = []
 
-        if user_guid in self._user_rules:
-            rule = self._user_rules[user_guid]
-            return rule.resolve(must_resolve=must_resolve, **kwargs)
-        elif must_resolve:
-            from Acquire.Identity import ACLRule as _ACLRule
-            return _ACLRule.inherit().resolve(must_resolve=True, **kwargs)
+        try:
+            user_guids.append(identifiers["user_guid"])
+        except:
+            pass
+
+        resolved = None
+
+        for user_guid in user_guids:
+            if user_guid in self._user_rules:
+                rule = self._user_rules[user_guid]
+                rule.resolve(must_resolve=must_resolve,
+                             identifiers=identifiers,
+                             upstream=upstream,
+                             unresolved=unresolved)
+                if resolved is None:
+                    resolved = rule
+                else:
+                    resolved = resolved + rule
+
+        if resolved is None:
+            if must_resolve:
+                from Acquire.Identity import ACLRule as _ACLRule
+                return _ACLRule.inherit().resolve(must_resolve=True,
+                                                  identifiers=identifiers,
+                                                  upstream=upstream,
+                                                  unresolved=unresolved)
+            else:
+                return None
         else:
-            return None
+            return resolved
 
     def add_user_rule(self, user_guid, rule):
         """Add a rule for the used with passed 'user_guid'"""
@@ -536,17 +582,22 @@ class ACLRules:
 
             return r
 
-    def resolve(self, must_resolve=True, **kwargs):
-        """Resolve the rule based on the passed kwargs. This will
+    def resolve(self, must_resolve=True, identifiers=None,
+                upstream=None, unresolved=False):
+        """Resolve the rule based on the passed identifiers. This will
            resolve the rules in order the final ACLRule has been
            generated. If 'must_resolve' is True, then
-           this is guaranteed to return a fully-resolved simple ACLRule
+           this is guaranteed to return a fully-resolved simple ACLRule.
+           Anything unresolved is looked up from 'upstream', or set
+           equal to 'unresolved'
         """
         from Acquire.Identity import ACLRule as _ACLRule
 
         if self._is_simple_inherit:
             return _ACLRule.inherit().resolve(must_resolve=must_resolve,
-                                              **kwargs)
+                                              identifiers=identifiers,
+                                              upstream=upstream,
+                                              unresolved=unresolved)
 
         result = None
         must_break = False
@@ -560,7 +611,10 @@ class ACLRules:
                 op = self._default_operation
 
             # resolve the rule...
-            rule = rule.resolve(must_resolve=False, **kwargs)
+            rule = rule.resolve(must_resolve=False,
+                                identifiers=identifiers,
+                                upstream=upstream,
+                                unresolved=unresolved)
 
             if rule is not None:
                 if op is ACLRuleOperation.SET:
@@ -574,7 +628,10 @@ class ACLRules:
                     result = op.combine(result, rule)
 
         if (not must_break) and (self._default_rule is not None):
-            rule = self._default_rule.resolve(must_resolve=False, **kwargs)
+            rule = self._default_rule.resolve(must_resolve=False,
+                                              identifiers=identifiers,
+                                              upstream=upstream,
+                                              unresolved=unresolved)
             if result is None:
                 result = rule
             else:
@@ -589,9 +646,12 @@ class ACLRules:
                 "Did not fully resolve the ACLRule - got %s" % str(result))
 
         if not result.is_fully_resolved():
-            result = result.resolve(must_resolve=True, **kwargs)
+            # we have not been able to generate a fully-resolved ACL
+            result = result.resolve(must_resolve=True,
+                                    identifiers=identifiers,
+                                    upstream=upstream,
+                                    unresolved=unresolved)
 
-        # we have not been able to generate a fully-resolved ACL
         return result
 
     @staticmethod

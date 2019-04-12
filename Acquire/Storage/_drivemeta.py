@@ -63,7 +63,19 @@ class DriveMeta:
         """If known, return the ACL rules for this drive"""
         return self._aclrules
 
-    def resolve_acl(self, **kwargs):
+    def _set_denied(self):
+        """Call this function to remove all information that should
+           not be visible to someone who has denied access to the file
+        """
+        self._uid = None
+        self._aclrules = None
+        self._name = None
+        self._container = None
+        from Acquire.Storage import ACLRule as _ACLRule
+        self._acl = _ACLRule.denied()
+
+    def resolve_acl(self, identifiers=None, upstream=None,
+                    must_resolve=None, unresolved=False):
         """Resolve the ACL for this file based on the passed arguments
            (same as for ACLRules.resolve()). This returns the resolved
            ACL, which is set as self.acl()
@@ -73,11 +85,17 @@ class DriveMeta:
                 "You do not have permission to resolve the ACLs for "
                 "this drive")
 
-        self._acl = self._aclrules.resolve(**kwargs)
+        self._acl = self._aclrules.resolve(identifiers=identifiers,
+                                           upstream=upstream,
+                                           must_resolve=must_resolve,
+                                           unresolved=unresolved)
 
         if not self._acl.is_owner():
             # only owners can see the ACLs
             self._aclrules = None
+
+        if self._acl.denied_all():
+            self._set_denied()
 
         return self._acl
 
