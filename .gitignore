@@ -118,3 +118,6 @@ user/notebooks/.ipynb_checkpoints/
 *secret_key*
 
 .DS_Store
+
+# NetCDF files
+*.nc
