@@ -1,8 +1,29 @@
 
-import base64 as _base64
-import uuid as _uuid
-
 __all__ = ["UserAccount"]
+
+_user_root = "identity/users"
+
+
+def _sanitise_username(username):
+    """This function returns a sanitised version of
+        the username. This will ensure that the username
+        is valid (must be between 3 and 50 characters).
+        The sanitised username is the encoded version,
+        meaning that a user can use a unicode (emoji)
+        username if they so desire
+    """
+    if username is None:
+        return None
+
+    if len(username) < 3 or len(username) > 150:
+        from Acquire.Identity import UsernameError
+        raise UsernameError(
+            "The username must be between 3 and 150 characters!")
+
+    from Acquire.ObjectStore import string_to_encoded \
+        as _string_to_encoded
+
+    return _string_to_encoded(username)
 
 
 class UserAccount:
@@ -20,13 +41,69 @@ class UserAccount:
         self._sanitised_username = UserAccount.sanitise_username(username)
         self._privkey = None
         self._pubkey = None
-        self._otp_secret = None
-        self._uuid = None
+        self._uid = None
 
         if username is None:
             self._status = None
         else:
             self._status = "disabled"
+
+    @staticmethod
+    def create(username, password):
+        """Create a new account with username 'username', which will
+           be secured using the passed password. This will return
+           an OTP that must be returned to the user so that they
+           can setup their OTP generator.
+
+           Note that this will create an account with a specified
+           user UID, meaning that different users can have the same
+           username. We identify the right user via the combination
+           of username, password and OTP code
+        """
+        sanitised_username = _sanitise_username(username)
+
+        # create a UID for this new user
+        from Acquire.ObjectStore import create_uuid as _create_uuid
+        user_uid = _create_uuid()
+
+        # now create the primary password for this user and use
+        # this to encrypt the special keys for this user
+        from Acquire.Crypto import PrivateKey
+
+        privkey = PrivateKey(auto_generate=True)
+        primary_password = PrivateKey.random_passphrase()
+        privkey_data = privkey.to_data(passphrase=primary_password)
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+        from Acquire.Service import get_service_public_key \
+            as _get_service_public_key
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+
+        bucket = _get_service_account_bucket()
+
+        user_root = "%s/%s" % (_user_root, user_uid)
+
+        # save a recovery password for this user
+        service_pubkey = _get_service_public_key()
+        recovery_password = _bytes_to_string(
+                                service_pubkey.encrypt(primary_password))
+        _ObjectStore.set_string_object(bucket=bucket,
+                                       key="%s/recovery_password",
+                                       value=recovery_password)
+
+        data = {"username": username,
+                "private_key": privkey_data,
+                "public_key": privkey.public_key.to_data()
+                }
+
+        _ObjectStore.set_object_from_json(bucket=bucket,
+                                          key="%s/details",
+                                          value=data)
+
+        # now create the credentials used to validate a login
+
 
     def __str__(self):
         return "UserAccount( name : %s )" % self._username
@@ -43,13 +120,9 @@ class UserAccount:
         """Return the sanitised username"""
         return self._sanitised_username
 
-    def uuid(self):
-        """Return the globally unique ID for this account"""
-        return self._uuid
-
     def uid(self):
         """Return the globally unique ID for this account"""
-        return self.uuid()
+        return self._uid
 
     def max_open_sessions(self):
         """Return the maximum number of open login sessions
@@ -57,16 +130,16 @@ class UserAccount:
         return 10
 
     def login_request_timeout(self):
-        """Return the number of hours a login request will
+        """Return the number of seconds a login request will
            remain active. This should normally be short, e.g. 30 minutes"""
-        return 0.5
+        return 1800
 
     def login_timeout(self):
-        """Return the maximum number of hours a single login
+        """Return the maximum number of seconds a single login
            can remain active. This should normally be of the order
            of 1-7 days, as individual calculations or workflows
            should not normally take longer than this"""
-        return 7 * 24.0
+        return 7 * 24 * 3600
 
     def login_root_url(self):
         """Return the root URL used to log into this account"""
@@ -99,11 +172,7 @@ class UserAccount:
 
         return self._status
 
-    def otp_secret(self):
-        """Return the encrypted one-time-password secret"""
-        return self._otp_secret
-
-    def set_keys(self, privkey, pubkey, secret=None):
+    def generate
         """Set the private and public keys for this account. The
            keys can be set from files or from a binary read file..
         """
@@ -122,52 +191,28 @@ class UserAccount:
 
         self._privkey = privkey
         self._pubkey = pubkey
-        self._otp_secret = secret
 
-        if self._uuid is None:
-            # generate the uuid now, as this should not happen until
+        if self._uid is None:
+            # generate the uid now, as this should not happen until
             # the account has been first activated. After this point,
             # the uuid of the account should not change
-            self._uuid = str(_uuid.uuid4())
+            from Acquire.ObjectStore import create_uuid as _create_uuid
+            self._uid = _create_uuid()
 
         self._status = "active"
 
     def reset_password(self, password):
         """Call this function to reset the password of this account.
-           Note that this will reset the password, returning the
-           new OTP used to generate the 2FA one-time-codes
+           Note that this will reset the password
         """
         from Acquire.Crypto import PrivateKey as _PrivateKey
-        from Acquire.Crypto import OTP as _OTP
 
         privkey = _PrivateKey()
         pubkey = privkey.public_key()
-        otp = _OTP()
 
-        self.set_keys(privkey.bytes(password), pubkey.bytes(),
-                      otp.encrypt(pubkey))
+        self.set_keys(privkey.bytes(password), pubkey.bytes())
 
         return otp
-
-    @staticmethod
-    def sanitise_username(username):
-        """This function returns a sanitised version of
-           the username. This will ensure that the username
-           is valid (must be between 3 and 50 characters) and
-           will remove anything problematic for the object
-           store
-        """
-
-        if username is None:
-            return None
-
-        if len(username) < 3 or len(username) > 50:
-            from Acquire.Identity import UsernameError
-            raise UsernameError(
-                "The username must be between 3 and 50 characters!")
-
-        return "_".join(username.split()).replace("/", "") \
-                  .replace("@", "_AT_").replace(".", "_DOT_")
 
     def validate_password(self, password, otpcode, remember_device=False,
                           device_secret=None):

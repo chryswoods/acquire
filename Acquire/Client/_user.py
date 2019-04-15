@@ -13,8 +13,7 @@ try:
 except:
     _has_socket = False
 
-__all__ = ["User", "username_to_uid",
-           "uid_to_username", "get_session_keys"]
+__all__ = ["User", "get_session_keys", "get_random_sentence"]
 
 
 class _LoginStatus(_Enum):
@@ -58,30 +57,27 @@ def _get_identity_service(identity_url=None):
     return service
 
 
-def uid_to_username(user_uid, identity_url=None):
-    """Function to return the username for the passed uid"""
-    from Acquire.Client import Service as _Service
-    service = _get_identity_service(identity_url=identity_url)
+def get_random_sentence():
+    """This function generates and returns a random (nonsense)
+       sentence
+    """
+    adjs = ["white", "black", "fluffy", "small", "big"]
+    animals = ["cows", "sheep", "mice", "dogs", "cats"]
+    verbs = ["walk", "run", "stand", "climb", "sit"]
+    advs = ["slowly", "quickly", "quietly", "noisily", "happily"]
 
-    response = service.call_function(
-                function="whois", args={"user_uid": str(user_uid)})
+    import random as _random
 
-    return response["username"]
+    adj = adjs[_random.randint(0, len(adjs)-1)]
+    animal = animals[_random.randint(0, len(animals)-1)]
+    verb = verbs[_random.randint(0, len(verbs)-1)]
+    adv = advs[_random.randint(0, len(advs)-1)]
 
-
-def username_to_uid(username, identity_url=None):
-    """Function to return the uid for the passed username"""
-    from Acquire.Client import Service as _Service
-    service = _get_identity_service(identity_url=identity_url)
-
-    response = service.call_function(
-                function="whois", args={"username": str(username)})
-
-    return response["user_uid"]
+    return "%s %s %s %s" % (adj, animal, verb, adv)
 
 
 def get_session_keys(username=None, user_uid=None, session_uid=None,
-                     identity_url=None):
+                     scope=None, identity_url=None):
     """Function to return the session keys for the specified user"""
     if username is None and user_uid is None:
         raise ValueError("You must supply either the username or user_uid!")
@@ -93,7 +89,8 @@ def get_session_keys(username=None, user_uid=None, session_uid=None,
 
     args = {"username": username,
             "user_uid": user_uid,
-            "session_uid": session_uid}
+            "session_uid": session_uid,
+            "scope": scope}
 
     response = service.call_function(function="whois", args=args)
 
@@ -118,12 +115,15 @@ class User:
        This represents a single client login, and is the
        user-facing part of Acquire
     """
-    def __init__(self, username=None, user_uid=None,
-                 identity_url=None, identity_uid=None):
+    def __init__(self, username=None,
+                 identity_url=None, identity_uid=None,
+                 scope=None, permissions=None):
         """Construct a null user"""
         self._username = username
         self._status = _LoginStatus.EMPTY
         self._identity_service = None
+        self._scope = scope
+        self._permissions = permissions
 
         if identity_url:
             self._identity_url = identity_url
@@ -133,18 +133,7 @@ class User:
         else:
             self._identity_uid = None
 
-        if user_uid is not None:
-            username = uid_to_username(user_uid, identity_url)
-
-            if self._username is not None:
-                if username != self._username:
-                    from Acquire.Client import LoginError
-                    raise LoginError(
-                        "Disagreement of username for account with UID '%s'. "
-                        "%s versus %s" % (user_uid, username, self._username))
-
-            self._username = username
-
+        self._username = username
         self._user_uid = None
 
     def __str__(self):
@@ -173,6 +162,10 @@ class User:
         elif status == "logged_out":
             self._status = _LoginStatus.LOGGED_OUT
 
+    def is_null(self):
+        """Return whether or not this user is null"""
+        return self._username is None
+
     def username(self):
         """Return the username of the user"""
         return self._username
@@ -181,9 +174,13 @@ class User:
         """Return the UID of this user. This uniquely identifies the
            user across all systems
         """
+        if self.is_null():
+            return None
+
         if self._user_uid is None:
-            self._user_uid = username_to_uid(self.username(),
-                                             self.identity_service_url())
+            raise PermissionError(
+                "You cannot get the user UID until after you have logged in")
+
         return self._user_uid
 
     def guid(self):
@@ -297,12 +294,20 @@ class User:
     def login_qr_code(self):
         """Return a QR code of the login URL that the user must connect to
            to authenticate this login session"""
-        self._check_for_error()
+        from Acquire.Client import create_qrcode as _create_qrcode
+        return _create_qrcode(self._login_url)
 
-        try:
-            return self._login_qrcode
-        except:
-            return None
+    def scope(self):
+        """The scope under which this login was requested
+           (and is thus valid)
+        """
+        return self._scope
+
+    def permissions(self):
+        """The permissions with which this login was requested,
+           (and are thus provided)
+        """
+        return self._permissions
 
     def session_uid(self):
         """Return the UID of the current login session. Returns None
@@ -332,18 +337,14 @@ class User:
         if self.is_logged_in() or self.is_logging_in():
             service = self.identity_service()
 
-            # create a permission message that can be signed
-            # and then validated by the user
-            permission = "Log out request for %s" % self._session_uid
-            signature = self.signing_key().sign(permission)
-
-            from Acquire.ObjectStore import bytes_to_string \
-                as _bytes_to_string
+            from Acquire.Client import Authorisation as _Authorisation
+            authorisation = _Authorisation(
+                                resource="logout %s" % self._session_uid,
+                                user=self)
 
             args = {"username": self._username,
                     "session_uid": self._session_uid,
-                    "permission": permission,
-                    "signature": _bytes_to_string(signature)}
+                    "authorisation": authorisation.to_data()}
 
             result = service.call_function(function="logout", args=args)
 
@@ -356,14 +357,24 @@ class User:
            at 'identity_url', using the supplied 'password'. This will
            return a QR code that you must use immediately to add this
            user on the identity service to a QR code generator"""
-
-        if self._username is None:
+        if self.is_null():
             return None
+
+        if self._user_uid is not None:
+            raise PermissionError(
+                "You cannot try to register a user who is already "
+                "logged in!")
 
         service = self.identity_service()
 
+        from Acquire.Client import Credentials as _Credentials
+
+        credentials = _Credentials.encode_password(
+                                identity_uid=service.uid(),
+                                password=password)
+
         args = {"username": self._username,
-                "password": password}
+                "credentials": credentials}
 
         result = service.call_function(function="register", args=args)
 
@@ -380,7 +391,7 @@ class User:
         from Acquire.Client import create_qrcode as _create_qrcode
         return (provisioning_uri, _create_qrcode(provisioning_uri))
 
-    def request_login(self, login_message=None, _is_local=False):
+    def request_login(self, login_message=None):
         """Request to authenticate as this user. This returns a login URL that
            you must connect to to supply your login credentials
 
@@ -409,38 +420,30 @@ class User:
         args = {"username": self._username,
                 "public_key": session_key.public_key().to_data(),
                 "public_certificate": signing_key.public_key().to_data(),
-                "ipaddr": None}
+                "scope": self._scope,
+                "permissions": self._permissions
+                }
 
         # get information from the local machine to help
         # the user validate that the login details are correct
-        if _has_socket:
-            if _is_local:
-                args["ipaddr"] = "local"
-                args["hostname"] = "local"
-            else:
-                hostname = _socket.gethostname()
-                ipaddr = _socket.gethostbyname(hostname)
-                args["ipaddr"] = ipaddr
-                args["hostname"] = hostname
+        try:
+            hostname = _socket.gethostname()
+            ipaddr = _socket.gethostbyname(hostname)
+            args["hostname"] = hostname
+            args["ipaddr"] = ipaddr
+        except:
+            pass
 
-        if (login_message is None) and not (_is_local):
+        if login_message is None:
             try:
-                login_message = \
-                    "User '%s' in process '%s' wants to log in..." % \
-                    (_os.getlogin(), _os.getpid())
+                login_message = _get_random_sentence()
             except:
-                # os.getlogin() can fail - message is not needed
                 pass
 
-        args["message"] = login_message
+        if login_message is not None:
+            args["message"] = login_message
 
         identity_service = self.identity_service()
-
-        args = {"username": self._username,
-                "public_key": session_key.public_key().to_data(),
-                "public_certificate": signing_key.public_key().to_data(),
-                "ipaddr": None,
-                "message": login_message}
 
         result = identity_service.call_function(
                         function="request_login", args=args)
@@ -493,19 +496,11 @@ class User:
         self._status = _LoginStatus.LOGGING_IN
         self._user_uid = result["user_uid"]
 
-        qrcode = None
+        print("Login by visiting: %s" % self._login_url)
 
-        from Acquire.Client import has_qrcode as _has_qrcode
-
-        if _has_qrcode() and not _is_local:
-            try:
-                from Acquire.Client import create_qrcode as _create_qrcode
-                self._login_qrcode = _create_qrcode(self._login_url)
-                qrcode = self._login_qrcode
-            except:
-                pass
-
-        return (self._login_url, qrcode)
+        if login_message is not None:
+            print("(please check that this page displays the message '%s')"
+                  % login_message)
 
     def _poll_session_status(self):
         """Function used to query the identity service for this session
@@ -540,6 +535,13 @@ class User:
         status = result["session_status"]
         self._set_status(status)
 
+        if self.is_logged_in():
+            # also try and extract the user_uid
+            try:
+                self._user_uid = result["user_uid"]
+            except:
+                pass
+
     def wait_for_login(self, timeout=None, polling_delta=5):
         """Block until the user has logged in. If 'timeout' is set
            then we will wait for a maximum of that number of seconds
@@ -547,7 +549,6 @@ class User:
            This will check whether we have logged in by polling
            the identity service every 'polling_delta' seconds.
         """
-
         self._check_for_error()
 
         if not self.is_logging_in():
