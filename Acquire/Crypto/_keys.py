@@ -16,7 +16,7 @@ _padding = _lazy_import.lazy_module(
             "cryptography.hazmat.primitives.asymmetric.padding")
 _fernet = _lazy_import.lazy_module("cryptography.fernet")
 
-__all__ = ["PrivateKey", "PublicKey", "get_private_key"]
+__all__ = ["PrivateKey", "PublicKey", "SymmetricKey", "get_private_key"]
 
 
 def _bytes_to_string(b):
@@ -75,6 +75,11 @@ def _generate_private_key():
     return _rsa.generate_private_key(public_exponent=65537,
                                      key_size=2048,
                                      backend=_default_backend())
+
+
+def _generate_symmetric_key():
+    """Internal function that is used to generate the symmetric keys"""
+    return _fernet.Fernet.generate_key()
 
 
 _key_database = {}
@@ -288,7 +293,6 @@ class PrivateKey:
            is encrypted using 'passphrase' and return a PrivateKey
            object holding that key
         """
-
         passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
 
         private_key = None
@@ -523,5 +527,219 @@ class PrivateKey:
         elif (data and len(data) > 0):
             return PrivateKey.read_bytes(_string_to_bytes(data["bytes"]),
                                          passphrase, mangleFunction)
+        else:
+            return None
+
+
+class SymmetricKey:
+    """This is a holder for an in-memory symmetric key
+       (for symmetric encryption)
+    """
+    def __init__(self, symmetric_key=None, auto_generate=True):
+        """Construct the key either from a passed key, or by generating
+           a new key. The passed key will be converted into a
+           URL-safe base64-encoded 32byte key
+        """
+        if symmetric_key is not None:
+            from Acquire.Crypto import Hash as _Hash
+            from Acquire.ObjectStore import string_to_encoded \
+                as _string_to_encoded
+            self._symkey = _string_to_encoded(
+                                _Hash.md5(symmetric_key)).encode("utf-8")
+        else:
+            if auto_generate:
+                self._symkey = _generate_symmetric_key()
+
+    def __str__(self):
+        """Return a string representation of this key"""
+        return "SymmetricKey()"
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._symkey == other._symkey
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @staticmethod
+    def read_bytes(data, passphrase, mangleFunction=None):
+        """Read a SymmetricKey from the passed bytes 'data' that
+           is encrypted using 'passphrase' and return a SymmetricKey
+           object holding that key
+        """
+        passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
+
+        symmetric_key = SymmetricKey(auto_generate=False)
+
+        try:
+            s = SymmetricKey(symmetric_key=passphrase)
+            symmetric_key._symkey = s.decrypt(data)
+        except Exception as e:
+            from Acquire.Crypto import KeyManipulationError
+            raise KeyManipulationError("Cannot unlock key. %s" %
+                                       str(e))
+
+        try:
+            symmetric_key._symkey = symmetric_key._symkey.encode("utf-8")
+        except:
+            pass
+
+        return symmetric_key
+
+    @staticmethod
+    def read(filename, passphrase, mangleFunction=None):
+        """Read a private key from 'filename' that is encrypted using
+           'passphrase' and return a SymmetricKey object holding that
+           key"""
+
+        data = None
+
+        try:
+            with open(filename, "rb") as FILE:
+                data = FILE.read()
+        except IOError as e:
+            from Acquire.Crypto import KeyManipulationError
+            raise KeyManipulationError(
+                    "Cannot read the keyfile %s: %s" %
+                    (filename, str(e)))
+
+        return SymmetricKey.read_bytes(data, passphrase, mangleFunction)
+
+    @staticmethod
+    def random_passphrase():
+        """Randomly generate and return a passphrase that obeys the
+           password rules and could be used to serialise a SymmetricKey
+        """
+        import random as _random
+        import string as _string
+
+        # use the operating system as source of random numbers
+        rand = _random.SystemRandom()
+
+        # generate a random password comprised of a random set of
+        # upper, lower and digits characters
+        nvals = int(rand.uniform(20, 40))
+        nlower = int(rand.uniform(1, nvals-5))
+        nupper = int(rand.uniform(1, nvals-nlower-5))
+        ndigits = nvals - nupper - nlower
+
+        assert(nlower > 0)
+        assert(nupper > 0)
+        assert(ndigits > 0)
+
+        lower = [rand.choice(_string.ascii_lowercase)
+                 for _ in range(nlower)]
+        upper = [rand.choice(_string.ascii_uppercase)
+                 for _ in range(nupper)]
+        digits = [rand.choice(_string.digits)
+                  for _ in range(ndigits)]
+
+        passphrase = "".join(rand.sample(lower+upper+digits, nvals))
+        _assert_strong_passphrase(passphrase, mangleFunction=None)
+        return passphrase
+
+    def bytes(self, passphrase, mangleFunction=None):
+        """Return the raw bytes for this key, encoded by the passed
+           passphrase that has been optionally mangled by mangleFunction"""
+        if self._symkey is None:
+            return None
+
+        passphrase = _assert_strong_passphrase(passphrase, mangleFunction)
+
+        s = SymmetricKey(symmetric_key=passphrase)
+        return s.encrypt(self._symkey)
+
+    def write(self, filename, passphrase, mangleFunction=None):
+        """Write this key to 'filename', encrypted with 'passphrase'"""
+
+        if self._symkey is None:
+            return
+
+        symkey_bytes = self.bytes(passphrase, mangleFunction)
+
+        with open(_os.open(filename,
+                  _os.O_CREAT | _os.O_WRONLY, 0o700), 'wb') as FILE:
+            FILE.write(symkey_bytes)
+
+    def fingerprint(self):
+        """Return the fingerprint of this key - this is useful to help
+           work out which key to use to decrypt data
+        """
+        if self._symkey is None:
+            return None
+
+        from hashlib import md5 as _md5
+        md5 = _md5()
+        md5.update(self._symkey)
+        h = md5.hexdigest()
+        # return this signature as "AA:BB:CC:DD:EE:etc."
+        return ":".join([h[i:i+2] for i in range(0, len(h), 2)])
+
+    def encrypt(self, message):
+        """Encrypt and return the passed message"""
+        if self._symkey is None:
+            self._symkey = _generate_symmetric_key()
+
+        if isinstance(message, str):
+            message = message.encode("utf-8")
+
+        f = _fernet.Fernet(self._symkey)
+        token = f.encrypt(message)
+        return token
+
+    def decrypt(self, message):
+        """Decrypt and return the passed message"""
+        if self._symkey is None:
+            from Acquire.Crypto import DecryptionError
+            raise DecryptionError("You cannot decrypt a message "
+                                  "with a null key!")
+
+        f = _fernet.Fernet(self._symkey)
+
+        try:
+            try:
+                message = f.decrypt(message)
+            except:
+                message = f.decrypt(message.encode("utf-8"))
+        except Exception as e:
+            from Acquire.Crypto import DecryptionError
+            raise DecryptionError(
+                    "Cannot decrypt the message using the "
+                    "symmetric key: %s" % str(e))
+
+        try:
+            return message.decode("utf-8")
+        except:
+            return message
+
+    def to_data(self, passphrase, mangleFunction=None):
+        """Return the json-serialisable data for this key"""
+        data = {}
+
+        b = self.bytes(passphrase, mangleFunction)
+
+        if b is not None:
+            data["bytes"] = _bytes_to_string(b)
+
+        return data
+
+    @staticmethod
+    def from_data(data, passphrase, mangleFunction=None):
+        """Return a key constructed from the passed json-deserialised
+           dictionary
+        """
+
+        if isinstance(data, str):
+            return SymmetricKey.read_bytes(_string_to_bytes(data),
+                                           passphrase, mangleFunction)
+
+        elif isinstance(data, bytes):
+            return SymmetricKey.read_bytes(data, passphrase, mangleFunction)
+
+        elif (data and len(data) > 0):
+            return SymmetricKey.read_bytes(_string_to_bytes(data["bytes"]),
+                                           passphrase, mangleFunction)
         else:
             return None
