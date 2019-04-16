@@ -9,10 +9,6 @@ from Acquire.ObjectStore import ObjectStore, string_to_bytes
 from Acquire.Crypto import PublicKey
 
 
-class InvalidSessionError(Exception):
-    pass
-
-
 def run(args):
     """This function will allow the current user to authorise
        a logout from the current session - this will be authorised

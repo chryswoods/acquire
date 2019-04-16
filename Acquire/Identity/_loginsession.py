@@ -33,7 +33,7 @@ class LoginSession:
 
             self._uid = _create_uuid()
             self._request_datetime = _get_datetime_now()
-            self._status = "pending"
+            self._status = None
 
             self._ipaddr = ipaddr
             self._hostname = hostname
@@ -42,7 +42,7 @@ class LoginSession:
             self._permissions = permissions
 
             # make sure this session is saved to the object store
-            self.save()
+            self._set_status("pending")
         else:
             self._uid = None
 
@@ -198,14 +198,38 @@ class LoginSession:
         else:
             return self._status
 
-    def _set_status(self):
-        # delete the object from it's old location and
-        # add it to the new location
-        from WORKING HERE
+    def _set_status(self, status):
+        """Internal function to set the status of the session.
+           This ensures that the data for the session is saved
+           into the correct part of the object store
+        """
+        if self.is_null():
+            raise PermissionError(
+                "Cannot set the status of a null LoginSession")
+
+        if status not in ["approved", "pending", "denied",
+                          "suspicious", "logged_out"]:
+            raise ValueError("Cannot set an invalid status '%s'" % status)
+
+        if status == self._status:
+            return
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
         key = self._get_key()
-        _ObjectStore.delete_
+
+        try:
+            _ObjectStore.delete_object(bucket=bucket, key=key)
+        except:
+            pass
 
         self._status = "approved"
+        key = self._get_key()
+        _ObjectStore.set_object_from_json(bucket=bucket, key=key,
+                                          data=self.to_data())
 
     def set_suspicious(self):
         """Put this login session into a suspicious state. This
@@ -214,10 +238,13 @@ class LoginSession:
            in a suspicious state should not be granted any permissions.
         """
         if not self.is_null():
-            self._status = "suspicious"
+            self._set_status("suspicious")
 
-    def set_approved(self):
-        """Register that this request has been approved"""
+    def set_approved(self, user_uid=None, device_uid=None):
+        """Register that this request has been approved, optionally
+           providing data about the user who approved the session
+           and the device from which the session was approved
+        """
         if self.is_null():
             raise PermissionError(
                 "You cannot approve a null LoginSession!")
@@ -232,6 +259,8 @@ class LoginSession:
         from Acquire.ObjectStore import get_datetime_now \
             as _get_datetime_now
         self._login_datetime = _get_datetime_now()
+        self._user_uid = user_uid
+        self._device_uid = device_uid
 
         self._set_status("approved")
 
@@ -248,9 +277,9 @@ class LoginSession:
             raise PermissionError(
                 "You cannot deny a null LoginSession!")
 
-        self._status = "denied"
         self._clear_keys()
         self._pubcert = None
+        self._set_status("denied")
 
     def set_logged_out(self):
         """Register that this request has been closed as
@@ -263,9 +292,9 @@ class LoginSession:
         from Acquire.ObjectStore import get_datetime_now \
             as _get_datetime_now
 
-        self._status = "logged_out"
         self._logout_datetime = _get_datetime_now()
         self._clear_keys()
+        self._set_status("logged_out")
 
     def login(self):
         """Convenience function to set the session into the logged in state"""
@@ -327,6 +356,24 @@ class LoginSession:
         except:
             return None
 
+    def user_uid(self):
+        """If known, return the UID of the user who approved this
+           session
+        """
+        try:
+            return self._user_uid
+        except:
+            return None
+
+    def device_uid(self):
+        """If known, return the UID of the device from which the
+           user approved this session
+        """
+        try:
+            return self._device_uid
+        except:
+            return None
+
     def _get_key(self):
         return "%s/%s/%s/%s" % (_sessions_key, self.status(),
                                 self.short_uid(), self.uid())
@@ -377,9 +424,10 @@ class LoginSession:
             except:
                 from Acquire.Identity import LoginSessionError
                 raise LoginSessionError(
-                    "There is no valid session with UID %s" % uid)
+                    "There is no valid session with UID %s in "
+                    "state %s" % (uid, status))
 
-        prefix = "%s/%s/" % (_sessions_key, short_uid)
+        prefix = "%s/%s/%s/" % (_sessions_key, status, short_uid)
 
         try:
             keys = _ObjectStore.get_all_objects_from_json(bucket=bucket,
@@ -398,7 +446,8 @@ class LoginSession:
         if len(sessions) == 0:
             from Acquire.Identity import LoginSessionError
             raise LoginSessionError(
-                "There is no valid session with short UID %s" % short_uid)
+                "There is no valid session with short UID %s "
+                "in state %s" % (short_uid, status))
         elif len(sessions) == 1:
             return sessions[0]
         else:
@@ -458,6 +507,16 @@ class LoginSession:
         except:
             pass
 
+        try:
+            data["user_uid"] = self._user_uid
+        except:
+            pass
+
+        try:
+            data["device_uid"] = self._device_uid
+        except:
+            pass
+
         return data
 
     @staticmethod
@@ -514,6 +573,16 @@ class LoginSession:
 
             try:
                 l._permissions = data["permissions"]
+            except:
+                pass
+
+            try:
+                l._user_uid = data["user_uid"]
+            except:
+                pass
+
+            try:
+                l._device_uid = data["device_uid"]
             except:
                 pass
 

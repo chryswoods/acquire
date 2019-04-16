@@ -108,8 +108,7 @@ class UserAccount:
         return (user_uid, otp)
 
     @staticmethod
-    def login(username, short_uid, credentials, user_uid=None,
-              remember_device=False):
+    def login(credentials, user_uid=None, remember_device=False):
         """Login to the session with specified 'short_uid' with the
            user with passed 'username' and 'credentials',
            optionally specifying the user_uid
@@ -122,7 +121,7 @@ class UserAccount:
 
             bucket = _get_service_account_bucket()
 
-            encoded_name = _encode_username(username)
+            encoded_name = _encode_username(credentials.username())
             prefix = "%s/names/%s/" % (_user_root, encoded_name)
 
             try:
@@ -139,12 +138,11 @@ class UserAccount:
 
         if len(user_uids) == 0:
             from Acquire.Identity import UserValidationError
-            raise UserValidationError("No user with name '%s'" % username)
+            raise UserValidationError("No user with name '%s'" %
+                                      credentials.username())
 
         from Acquire.Identity import UserCredentials as _UserCredentials
-        return _UserCredentials.login(username=username,
-                                      short_uid=short_uid,
-                                      credentials=credentials,
+        return _UserCredentials.login(credentials=credentials,
                                       user_uids=user_uids,
                                       remember_device=remember_device)
 

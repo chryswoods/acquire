@@ -56,10 +56,9 @@ class UserCredentials:
         return otp
 
     @staticmethod
-    def login(username, short_uid, credentials, user_uids,
-              remember_device=False):
-        """Verify the passed credentials are correct for the specified
-           username and short_uid session. This will find the account
+    def login(credentials, user_uids, remember_device=False):
+        """Verify the passed credentials are correct.
+           This will find the account
            that matches these credentials. If one does, then this
            will validate the credentials are correct, and then return
            a tuple of the (user_uid, primary_password) for that
@@ -75,23 +74,14 @@ class UserCredentials:
         from Acquire.Crypto import RepeatedOTPCodeError \
             as _RepeatedOTPCodeError
 
-        # first, unpack the credentials
-        try:
-            credentials = _Credentials.unpackage(data=credentials,
-                                                 username=username,
-                                                 short_uid=short_uid)
-        except:
-            credentials = None
+        if not isinstance(credentials, _Credentials):
+            raise TypeError("The passed credentials must be type Credentials")
 
-        if credentials is None:
-            from Acquire.Identity import UserValidationError
-            raise UserValidationError(
-                "User '%s' is not associated with login session '%s'" %
-                (username, short_uid))
-
-        device_uid = credentials["device_uid"]
-        password = credentials["password"]
-        otpcode = credentials["otpcode"]
+        username = credentials.username()
+        short_uid = credentials.short_uid()
+        device_uid = credentials.device_uid()
+        password = credentials.password()
+        otpcode = credentials.otpcode()
 
         bucket = _get_service_account_bucket()
 

@@ -3,6 +3,67 @@ __all__ = ["Credentials"]
 
 
 class Credentials:
+    """This class holds user credentials that are sent to the
+       service to authenticate users
+    """
+    def __init__(self, username=None,
+                 short_uid=None, device_uid=None,
+                 password=None, otpcode=None):
+        """Construct to contain the passed credentials"""
+        self._username = username
+
+        if username is not None:
+            self._short_uid = short_uid
+            self._device_uid = device_uid
+            self._password = password
+            self._otpcode = otpcode
+
+    def is_null(self):
+        """Return whether or not these credentials are null"""
+        return self._username is None
+
+    def to_data(self, identity_uid):
+        """Package these credentials into a secure package that
+           can be encoded to json and sent to the service.
+           Note that you must supply the UID of the identity
+           service that you will send this package to...
+        """
+        if self.is_null():
+            return None
+
+        return Credentials.package(identity_uid=identity_uid,
+                                   short_uid=self._short_uid,
+                                   username=self._username,
+                                   password=self._password,
+                                   otpcode=self._otpcode)
+
+    @staticmethod
+    def from_data(data, username, short_uid, random_sleep=150):
+        """Unpackage the passed data that has been deserialised from
+           json and return the credentials. You need to pass in
+           the username and short_uid that you expect to see.
+           The random_sleep adds a random sleep to disrupt
+           timing attacks
+        """
+        result = Credentials.unpackage(data=data, username=username,
+                                       short_uid=short_uid,
+                                       random_sleep=random_sleep)
+
+        return Credentials(username=result["username"],
+                           short_uid=result["short_uid"],
+                           device_uid=result["device_uid"],
+                           password=result["password"],
+                           otpcode=result["otpcode"])
+
+    def assert_matching_username(self, username):
+        """Assert that the passed username matches that stored
+           in these credentials
+        """
+        if self.is_null() or self._username != username:
+            raise PermissionError(
+                "Disagreement for the username for the matched "
+                "credentials")
+
     @staticmethod
     def encode_password(password, identity_uid, device_uid=None):
         """Simple function that creates an MD5 hash of the password,

@@ -1,5 +1,5 @@
 
-from Acquire.Service import create_return_value
+from Acquire.Service import create_return_value, get_this_service
 
 from Acquire.Client import Credentials
 
@@ -11,7 +11,7 @@ def run(args):
        that a session is authorised to connect
     """
     short_uid = args["short_uid"]
-    credentials = Credentials.from_data(args["credentials"])
+    packed_credentials = args["credentials"]
 
     try:
         user_uid = args["user_uid"]
@@ -29,34 +29,44 @@ def run(args):
         remember_device = False
 
     # get the session referred to by the short_uid
-    sessions = LoginSession.load(short_uid=short_uid)
+    sessions = LoginSession.load(short_uid=short_uid, status="pending")
 
     if isinstance(sessions, LoginSession):
         # we have many sessions to test...
         sessions = [sessions]
 
     result = None
+    login_session = None
     last_error = None
+    credentials = None
 
     for session in sessions:
         try:
-            result = UserAccount.login(username=session.username(),
-                                       short_uid=short_uid,
-                                       credentials=credentials,
+            if credentials is None:
+                credentials = Credentials.from_data(
+                                    data=packed_credentials,
+                                    username=session.username(),
+                                    short_uid=short_uid)
+            else:
+                credentials.assert_matching_username(session.username())
+
+            result = UserAccount.login(credentials=credentials,
                                        user_uid=user_uid,
                                        remember_device=remember_device)
+            login_session = session
 
             # success!
             break
         except Exception as e:
             last_error = e
 
-    if result is None:
+    if result is None or login_session is None:
         # no valid logins
         raise last_error
 
     # we've successfully logged in
-    login_session.set_approved(result)
+    login_session.set_approved(user_uid=result["user"].uid(),
+                               device_uid=result["device_uid"])
 
     return_value = create_return_value()
 
@@ -64,12 +74,17 @@ def run(args):
 
     if remember_device:
         try:
-            return_value["device_uid"] = result["device_uid"]
-        except:
-            pass
+            service = get_this_service(need_private_access=False)
+            issuer = "%s@%s" % (service.service_type(), service.hostname())
+            username = result["user"].name()
+            device_uid = result["device_uid"]
 
-        try:
-            return_value["provisioning_uri"] = otp.provisioning_uri()
+            otp = result["otp"]
+            provisioning_uri = otp.provisioning_uri(username=username,
+                                                    issuer=issuer)
+
+            return_value["provisioning_uri"] = provisioning_uri
+            return_value["device_uid"] = device_uid
         except:
             pass
 
