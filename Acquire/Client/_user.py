@@ -441,7 +441,7 @@ class User:
                 pass
 
         if login_message is not None:
-            args["message"] = login_message
+            args["login_message"] = login_message
 
         identity_service = self.identity_service()
 

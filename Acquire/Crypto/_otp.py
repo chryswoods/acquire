@@ -82,9 +82,13 @@ class OTP:
         totp = self._totp()
         return totp.now()
 
-    def verify(self, code):
+    def verify(self, code, once_only=False):
         """Verify that the passed code is correct. This raises an exception
-           if the code is incorrect, or does nothing if the code is correct"""
+           if the code is incorrect, or does nothing if the code is correct
+
+           If 'once_only' is True, then this will attempt to store global
+           state to ensure that the passed code can be used only once.
+        """
 
         # the OTP is valid for 1 minute. We will extend this so that
         # it is valid for 3 minutes (1 minute before and after). This

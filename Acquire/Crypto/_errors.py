@@ -2,7 +2,8 @@
 
 __all__ = ["WeakPassphraseError", "KeyManipulationError",
            "SignatureVerificationError",
-           "DecryptionError", "OTPError"]
+           "DecryptionError", "OTPError",
+           "RepeatedOTPCodeError"]
 
 
 class WeakPassphraseError(Exception):
@@ -22,4 +23,8 @@ class DecryptionError(Exception):
 
 
 class OTPError(Exception):
+    pass
+
+
+class RepeatedOTPCodeError(OTPError):
     pass
