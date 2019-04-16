@@ -337,14 +337,22 @@ class User:
         if self.is_logged_in() or self.is_logging_in():
             service = self.identity_service()
 
-            from Acquire.Client import Authorisation as _Authorisation
-            authorisation = _Authorisation(
-                                resource="logout %s" % self._session_uid,
-                                user=self)
+            args = {"session_uid": self._session_uid}
 
-            args = {"username": self._username,
-                    "session_uid": self._session_uid,
-                    "authorisation": authorisation.to_data()}
+            if self.is_logged_in():
+                from Acquire.Client import Authorisation as _Authorisation
+                authorisation = _Authorisation(
+                                    resource="logout %s" % self._session_uid,
+                                    user=self)
+                args["authorisation"] = authorisation.to_data()
+            else:
+                # we are not fully logged in so cannot generate an
+                # authorisation for the logout
+                from Acquire.ObjectStore import bytes_to_string \
+                    as _bytes_to_string
+                resource = "logout %s" % self._session_uid
+                signature = self.signing_key().sign(resource)
+                args["signature"] = _bytes_to_string(signature)
 
             result = service.call_function(function="logout", args=args)
 
@@ -505,42 +513,24 @@ class User:
     def _poll_session_status(self):
         """Function used to query the identity service for this session
            to poll for the session status"""
+        from Acquire.ObjectStore import bytes_to_string \
+            as _bytes_to_string
 
         service = self.identity_service()
 
-        args = {"username": self._username,
-                "session_uid": self._session_uid}
+        args = {"session_uid": self._session_uid}
 
-        result = service.call_function(function="get_status", args=args)
-
-        # look for status = 0
-        try:
-            status = int(result["status"])
-        except:
-            status = -1
-
-        try:
-            message = result["message"]
-        except:
-            message = str(result)
-
-        if status != 0:
-            error = "Failed to query identity service. Error = %d. " \
-                    "Message = %s" % (status, message)
-            self._set_error_state(error)
-            from Acquire.Client import LoginError
-            raise LoginError(error)
+        result = service.call_function(function="get_session_info", args=args)
 
         # now update the status...
         status = result["session_status"]
         self._set_status(status)
 
         if self.is_logged_in():
-            # also try and extract the user_uid
-            try:
-                self._user_uid = result["user_uid"]
-            except:
-                pass
+            if self._user_uid is None:
+                user_uid = result["user_uid"]
+                assert(user_uid is not None)
+                self._user_uid = user_uid
 
     def wait_for_login(self, timeout=None, polling_delta=5):
         """Block until the user has logged in. If 'timeout' is set

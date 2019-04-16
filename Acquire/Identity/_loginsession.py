@@ -198,6 +198,28 @@ class LoginSession:
         else:
             return self._status
 
+    @staticmethod
+    def get_status(uid):
+        """Return the status of the LoginSession with specified UID"""
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+
+        try:
+            key = "%s/status/%s" % (_sessions_key, uid)
+            status = _ObjectStore.get_string_object(bucket=bucket, key=key)
+        except:
+            status = None
+
+        if status is None:
+            from Acquire.Identity import LoginSessionError
+            raise LoginSessionError(
+                "Cannot find a session with UID '%s'" % uid)
+
+        return status
+
     def _set_status(self, status):
         """Internal function to set the status of the session.
            This ensures that the data for the session is saved
@@ -226,10 +248,13 @@ class LoginSession:
         except:
             pass
 
-        self._status = "approved"
+        self._status = status
         key = self._get_key()
         _ObjectStore.set_object_from_json(bucket=bucket, key=key,
                                           data=self.to_data())
+        key = "%s/status/%s" % (_sessions_key, self._uid)
+        _ObjectStore.set_string_object(bucket=bucket, key=key,
+                                       string_data=status)
 
     def set_suspicious(self):
         """Put this login session into a suspicious state. This
@@ -281,13 +306,31 @@ class LoginSession:
         self._pubcert = None
         self._set_status("denied")
 
-    def set_logged_out(self):
+    def set_logged_out(self, authorisation=None, signature=None):
         """Register that this request has been closed as
-           the user has logged out
+           the user has logged out. If an authorisation is
+           passed then verify that this is correct
         """
         if self.is_null():
             raise PermissionError(
                 "You cannot logout from a null LoginSession!")
+
+        if authorisation is not None:
+            from Acquire.Identity import Authorisation as _Authorisation
+            if not isinstance(authorisation, _Authorisation):
+                raise TypeError("The authorisation must be type Authorisation")
+
+            authorisation.verify(resource="logout %s" % self.uid())
+
+            if authorisation.user_uid() != self.user_uid():
+                raise PermissionError(
+                    "The user '%s' does not have permission to logout "
+                    "a session owned by %s" % (authorisation.user_uid(),
+                                               self.user_uid()))
+
+        if signature is not None:
+            message = "logout %s" % self.uid()
+            self._pubcert.verify(signature=signature, message=message)
 
         from Acquire.ObjectStore import get_datetime_now \
             as _get_datetime_now
@@ -296,13 +339,14 @@ class LoginSession:
         self._clear_keys()
         self._set_status("logged_out")
 
-    def login(self):
+    def login(self, user_uid=None, device_uid=None):
         """Convenience function to set the session into the logged in state"""
-        self.set_approved()
+        self.set_approved(user_uid=user_uid, device_uid=device_uid)
 
-    def logout(self):
+    def logout(self, authorisation=None, signature=None):
         """Convenience function to set the session into the logged out state"""
-        self.set_logged_out()
+        self.set_logged_out(authorisation=authorisation,
+                            signature=signature)
 
     def is_suspicious(self):
         """Return whether or not this session is suspicious"""
@@ -396,7 +440,7 @@ class LoginSession:
                                           data=self.to_data())
 
     @staticmethod
-    def load(status="approved", short_uid=None, uid=None):
+    def load(status=None, short_uid=None, uid=None):
         """Load and return a LoginSession specified from either a
            short_uid or a long uid. Note that if more than one
            session matches the short_uid then you will get a list
@@ -410,6 +454,14 @@ class LoginSession:
             raise PermissionError(
                 "You must supply one of the short_uid or uid to load "
                 "a LoginSession!")
+
+        if status is None:
+            if uid is None:
+                raise PermissionError(
+                    "You must supply the full UID to get the status "
+                    "of a specific login session")
+
+            status = LoginSession.get_status(uid=uid)
 
         bucket = _get_service_account_bucket()
 

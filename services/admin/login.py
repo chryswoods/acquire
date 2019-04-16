@@ -70,8 +70,6 @@ def run(args):
 
     return_value = create_return_value()
 
-    return_value["user_uid"] = result["user"].uid()
-
     if remember_device:
         try:
             service = get_this_service(need_private_access=False)

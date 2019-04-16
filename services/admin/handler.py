@@ -40,9 +40,9 @@ def _route_function(function, args, additional_functions=None):
     elif function == "admin/get_keys":
         from admin.get_keys import run as _get_keys
         result = _get_keys(args)
-    elif function == "admin/get_status":
-        from admin.get_status import run as _get_status
-        result = _get_status(args)
+    elif function == "admin/get_session_info":
+        from admin.get_session_info import run as _get_session_info
+        result = _get_session_info(args)
     elif function == "admin/login":
         from admin.login import run as _login
         result = _login(args)
@@ -65,9 +65,6 @@ def _route_function(function, args, additional_functions=None):
     elif function == "admin/trust_service":
         from admin.trust_service import run as _trust_service
         result = _trust_service(args)
-    elif function == "admin/whois":
-        from admin.whois import run as _whois
-        result = _whois(args)
     elif function == "admin/test":
         from admin.test import run as _test
         result = _test(args)
