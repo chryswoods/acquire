@@ -121,3 +121,6 @@ user/notebooks/.ipynb_checkpoints/
 
 # NetCDF files
 *.nc
+# Directory currently used for testing
+# reading and writing to the object store
+test_tmp/
