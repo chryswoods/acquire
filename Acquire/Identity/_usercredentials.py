@@ -49,6 +49,8 @@ class UserCredentials:
         otpsecret = otp.encrypt(privkey.public_key())
         primary_password = privkey.encrypt(primary_password)
 
+        print("Create account: %s" % password)
+
         data = {"primary_password": _bytes_to_string(primary_password),
                 "private_key": privkey.to_data(passphrase=password),
                 "otpsecret": _bytes_to_string(otpsecret)
@@ -201,9 +203,11 @@ class UserCredentials:
         if device_uid is None and remember_device:
             # create a new OTP that is unique for this device
             from Acquire.ObjectStore import create_uuid as _create_uuid
-            from Acquire.Crypto import Hash as _Hash
+            from Acquire.Client import Credentials as _Credentials
             device_uid = _create_uuid()
-            device_password = _Hash.md5(password)
+            device_password = _Credentials.encode_device_uid(
+                                                encoded_password=password,
+                                                device_uid=device_uid)
 
             otp = UserCredentials.create(user_uid=user_uid,
                                          password=device_password,

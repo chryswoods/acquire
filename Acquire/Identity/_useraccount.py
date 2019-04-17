@@ -149,21 +149,35 @@ class UserAccount:
            optionally specifying the user_uid
         """
         if user_uid is None:
-            # find all of the user_uids of accounts with this username
+            # find all of the user_uids of accounts with this
+            # username+password combination
             from Acquire.ObjectStore import ObjectStore as _ObjectStore
             from Acquire.Service import get_service_account_bucket \
                 as _get_service_account_bucket
+            from Acquire.Client import Credentials as _Credentials
+            from Acquire.Identity import UserCredentials as _UserCredentials
+            from Acquire.Service import get_this_service as _get_this_service
+
+            if not isinstance(credentials, _Credentials):
+                raise TypeError("The credentials must be type Credentials")
 
             bucket = _get_service_account_bucket()
 
-            encoded_name = _encode_username(credentials.username())
-            prefix = "%s/names/%s/" % (_user_root, encoded_name)
+            encoded_password = _UserCredentials.hash(
+                                        username=credentials.username(),
+                                        password=credentials.password())
+
+            prefix = "%s/passwords/%s/" % (_user_root, encoded_password)
+
+            print(prefix)
 
             try:
                 names = _ObjectStore.get_all_object_names(bucket=bucket,
                                                           prefix=prefix)
             except:
                 names = []
+
+            print(names)
 
             user_uids = []
             for name in names:

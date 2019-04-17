@@ -22,6 +22,41 @@ class Credentials:
         """Return whether or not these credentials are null"""
         return self._username is None
 
+    def username(self):
+        """Return the decoded username"""
+        if self.is_null():
+            return None
+        else:
+            return self._username
+
+    def short_uid(self):
+        """Return the decoded session short UID"""
+        if self.is_null():
+            return None
+        else:
+            return self._short_uid
+
+    def device_uid(self):
+        """Return the decoded device UID"""
+        if self.is_null():
+            return None
+        else:
+            return self._device_uid
+
+    def password(self):
+        """Return the decoded password"""
+        if self.is_null():
+            return None
+        else:
+            return self._password
+
+    def otpcode(self):
+        """Return the decoded one time password code (otpcode)"""
+        if self.is_null():
+            return None
+        else:
+            return self._otpcode
+
     def to_data(self, identity_uid):
         """Package these credentials into a secure package that
            can be encoded to json and sent to the service.
@@ -65,6 +100,17 @@ class Credentials:
                 "credentials")
 
     @staticmethod
+    def encode_device_uid(encoded_password, device_uid):
+        """Simple function that takes an existig encoded password,
+           and then additionally encodes this using the device_uid
+        """
+        if device_uid is None or encoded_password is None:
+            return encoded_password
+
+        from Acquire.Crypto import Hash as _Hash
+        return _Hash.md5(encoded_password + device_uid)
+
+    @staticmethod
     def encode_password(password, identity_uid, device_uid=None):
         """Simple function that creates an MD5 hash of the password,
            salted using the passed identity_uid and (optionally)
@@ -72,10 +118,16 @@ class Credentials:
         """
         from Acquire.Crypto import Hash as _Hash
 
-        if device_uid is not None:
-            identity_uid = identity_uid + device_uid
+        print("Encode %s" % password)
 
-        return _Hash.multi_md5(identity_uid, password)
+        encoded_password = _Hash.multi_md5(identity_uid, password)
+
+        encoded_password = Credentials.encode_device_uid(
+                                        encoded_password=encoded_password,
+                                        device_uid=device_uid)
+
+        print("Result %s" % encoded_password)
+        return encoded_password
 
     @staticmethod
     def package(identity_uid, short_uid, username, password, otpcode,

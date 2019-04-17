@@ -45,5 +45,6 @@ def run(args):
 
     return_value["login_url"] = login_session.login_url()
     return_value["short_uid"] = login_session.short_uid()
+    return_value["session_uid"] = login_session.uid()
 
     return return_value

@@ -120,18 +120,22 @@ def _login_admin(service_url, username, password, otp):
     """
     from Acquire.Client import User, Service
     from Acquire.Identity import LoginSession
+    from Acquire.Client import Credentials
 
     user = User(username=username, identity_url=service_url)
 
     user.request_login()
     short_uid = LoginSession.to_short_uid(user.session_uid())
 
-    args = {"username": username,
-            "short_uid": short_uid,
-            "password": password,
-            "otpcode": otp.generate()}
+    credentials = Credentials(username=username, short_uid=short_uid,
+                              password=password, otpcode=otp.generate(),
+                              device_uid=None)
 
     service = Service(service_url)
+
+    args = {"short_uid": short_uid,
+            "credentials": credentials.to_data(identity_uid=service.uid())}
+
     service.call_function(function="admin/login", args=args)
 
     user.wait_for_login()

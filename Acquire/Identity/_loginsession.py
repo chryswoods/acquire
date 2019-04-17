@@ -16,16 +16,16 @@ class LoginSession:
         """
         if public_key is not None:
             from Acquire.Crypto import PublicKey as _PublicKey
-            if not isinstance(self._pubkey, _PublicKey):
+            if not isinstance(public_key, _PublicKey):
                 raise TypeError("The public key must be of type PublicKey")
 
-            if not isinstance(self._pubcert, _PublicKey):
+            if not isinstance(public_cert, _PublicKey):
                 raise TypeError("The public certificate must be of "
                                 "type PublicKey")
 
             self._username = username
             self._pubkey = public_key
-            self._pubcert = _PublicKey.from_data(public_cert)
+            self._pubcert = public_cert
 
             from Acquire.ObjectStore import get_datetime_now \
                 as _get_datetime_now
@@ -497,12 +497,15 @@ class LoginSession:
             try:
                 data = _ObjectStore.get_object_from_json(bucket=bucket,
                                                          key=key)
-                return LoginSession.from_data(data)
+                session = LoginSession.from_data(data)
             except:
                 from Acquire.Identity import LoginSessionError
                 raise LoginSessionError(
                     "There is no valid session with UID %s in "
                     "state %s" % (uid, status))
+
+            session._localise(scope=scope, permissions=permissions)
+            return session
 
         prefix = "%s/%s/%s/" % (_sessions_key, status, short_uid)
 
@@ -516,7 +519,9 @@ class LoginSession:
 
         for data in keys.values():
             try:
-                sessions.append(LoginSession.from_data(data))
+                session = LoginSession.from_data(data)
+                session._localise(scope=scope, permissions=permissions)
+                sessions.append(session)
             except:
                 pass
 
@@ -526,12 +531,9 @@ class LoginSession:
                 "There is no valid session with short UID %s "
                 "in state %s" % (short_uid, status))
         elif len(sessions) == 1:
-            session = sessions[0]
-        else:
-            session = sessions
+            sessions = sessions[0]
 
-        session._localise(scope=scope, permissions=permissions)
-        return session
+        return sessions
 
     def to_data(self):
         """Return a data version (dictionary) of this LoginSession
@@ -606,7 +608,7 @@ class LoginSession:
         """
         l = LoginSession()
 
-        if data is not None and len(data) == 0:
+        if data is not None and len(data) > 0:
             from Acquire.ObjectStore import string_to_datetime \
                 as _string_to_datetime
             from Acquire.Crypto import PublicKey as _PublicKey

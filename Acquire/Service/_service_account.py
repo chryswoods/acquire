@@ -149,6 +149,8 @@ def setup_this_service(canonical_url, service_type, username, password):
     """
     assert_running_service()
 
+    print("setup service: %s" % password)
+
     from Acquire.Service import get_service_account_bucket as \
         _get_service_account_bucket
 
@@ -208,7 +210,12 @@ def setup_this_service(canonical_url, service_type, username, password):
         service_uid = service.uid()
         skelkey = service.skeleton_key().public_key()
 
-        # now register the new admin user account
+        # now register the new admin user account - remembering to
+        # encode the password
+        from Acquire.Client import Credentials as _Credentials
+        password = _Credentials.encode_password(password=password,
+                                                identity_uid=service_uid)
+
         from Acquire.Identity import UserAccount as _UserAccount
         (user_uid, otp) = _UserAccount.create(username=username,
                                               password=password,

@@ -323,6 +323,8 @@ class User:
         if self.is_null():
             return None
 
+        print("REGISTER: %s" % password)
+
         if self._user_uid is not None:
             raise PermissionError(
                 "You cannot try to register a user who is already "
@@ -457,7 +459,7 @@ class User:
         self._signing_key = signing_key
         self._session_uid = session_uid
         self._status = _LoginStatus.LOGGING_IN
-        self._user_uid = result["user_uid"]
+        self._user_uid = None
 
         print("Login by visiting: %s" % self._login_url)
 
