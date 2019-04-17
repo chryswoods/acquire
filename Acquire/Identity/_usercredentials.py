@@ -13,6 +13,15 @@ class UserCredentials:
        primary private key
     """
     @staticmethod
+    def hash(username, password):
+        """Return a secure hash of the passed username and password"""
+        from Acquire.Crypto import Hash as _Hash
+        from Acquire.Service import get_this_service as _get_this_service
+        uid = _get_this_service(need_private_access=False).uid()
+
+        return _Hash.multi_md5(uid, username+password)
+
+    @staticmethod
     def create(user_uid, password, primary_password,
                device_uid=None):
         """Create the credentials for the user with specified

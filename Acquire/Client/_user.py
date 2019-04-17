@@ -1,19 +1,7 @@
 
-import os as _os
-
 from enum import Enum as _Enum
 
-from datetime import datetime as _datetime
-import time as _time
-
-# If we can, import socket to get the hostname and IP address
-try:
-    import socket as _socket
-    _has_socket = True
-except:
-    _has_socket = False
-
-__all__ = ["User", "get_session_keys", "get_random_sentence"]
+__all__ = ["User"]
 
 
 class _LoginStatus(_Enum):
@@ -57,7 +45,7 @@ def _get_identity_service(identity_url=None):
     return service
 
 
-def get_random_sentence():
+def _get_random_sentence():
     """This function generates and returns a random (nonsense)
        sentence
     """
@@ -74,39 +62,6 @@ def get_random_sentence():
     adv = advs[_random.randint(0, len(advs)-1)]
 
     return "%s %s %s %s" % (adj, animal, verb, adv)
-
-
-def get_session_keys(username=None, user_uid=None, session_uid=None,
-                     scope=None, identity_url=None):
-    """Function to return the session keys for the specified user"""
-    if username is None and user_uid is None:
-        raise ValueError("You must supply either the username or user_uid!")
-
-    if session_uid is None:
-        raise ValueError("You must supply a valid UID for a login session")
-
-    service = _get_identity_service(identity_url=identity_url)
-
-    args = {"username": username,
-            "user_uid": user_uid,
-            "session_uid": session_uid,
-            "scope": scope}
-
-    response = service.call_function(function="whois", args=args)
-
-    from Acquire.Client import PublicKey as _PublicKey
-
-    try:
-        response["public_key"] = _PublicKey.from_data(response["public_key"])
-    except:
-        pass
-
-    try:
-        response["public_cert"] = _PublicKey.from_data(response["public_cert"])
-    except:
-        pass
-
-    return response
 
 
 class User:
@@ -550,6 +505,8 @@ class User:
         elif polling_delta < 1:
             polling_delta = 1
 
+        import time as _time
+
         if timeout is None:
             # block forever....
             while True:
@@ -568,9 +525,12 @@ class User:
             if timeout < 1:
                 timeout = 1
 
-            start_time = _datetime.now()
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
 
-            while (_datetime.now() - start_time).seconds < timeout:
+            start_time = _get_datetime_now()
+
+            while (_get_datetime_now() - start_time).seconds < timeout:
                 self._poll_session_status()
 
                 if self.is_logged_in():

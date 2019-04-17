@@ -74,6 +74,8 @@ class UserAccount:
             as _get_service_public_key
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         from Acquire.Identity import UserCredentials as _UserCredentials
+        from Acquire.ObjectStore import get_datetime_now_to_string \
+            as _get_datetime_now_to_string
 
         bucket = _get_service_account_bucket()
 
@@ -96,6 +98,20 @@ class UserAccount:
         key = "%s/names/%s/%s" % (_user_root, user.encoded_name(), user_uid)
         _ObjectStore.set_string_object(bucket=bucket, key=key,
                                        string_data=recovery_password)
+
+        # now save a lookup from the hashed username+password
+        # to the user_uid, so that we can
+        # quickly find matching user_uids (expect few people will have
+        # exactly the same username and password). This will
+        # save the exact time this username-password combination
+        # was set
+        key = "%s/passwords/%s/%s" % (_user_root,
+                                      _UserCredentials.hash(username=username,
+                                                            password=password),
+                                      user_uid)
+        _ObjectStore.set_string_object(
+                                bucket=bucket, key=key,
+                                string_data=_get_datetime_now_to_string())
 
         # finally(!) save the account itself to the object store
         key = "%s/uids/%s" % (_user_root, user_uid)
