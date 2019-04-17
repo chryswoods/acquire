@@ -371,16 +371,22 @@ class LoginSession:
     def scope(self):
         """Return the scope requested for this login session"""
         try:
-            return self._scope
+            return self._localised_scope
         except:
-            return None
+            try:
+                return self._scope
+            except:
+                return None
 
     def permissions(self):
         """Return the permissions requested for this login session"""
         try:
-            return self._permissions
+            return self._localised_permissions
         except:
-            return None
+            try:
+                return self._permissions
+            except:
+                return None
 
     def hostname(self):
         """Return the user-supplied hostname of the host making the
@@ -439,8 +445,27 @@ class LoginSession:
         _ObjectStore.set_object_from_json(bucket=bucket, key=key,
                                           data=self.to_data())
 
+    def _localise(self, scope, permissions):
+        """Localise this session for the specified scope and permissions.
+           This will raise an exception if the scope or permissions are
+           greater than those embedded into the session
+        """
+        # DO SOME WORK HERE TO ASSERT THAT THE SCOPE AND PERMISSIONS
+        # ARE ACCEPTABLE
+
+        if scope is None:
+            self._localised_scope = self.scope()
+        else:
+            self._localised_scope = scope
+
+        if permissions is None:
+            self._localised_permissions = self.permissions()
+        else:
+            self._localised_permissions = permissions
+
     @staticmethod
-    def load(status=None, short_uid=None, uid=None):
+    def load(status=None, short_uid=None, uid=None,
+             scope=None, permissions=None):
         """Load and return a LoginSession specified from either a
            short_uid or a long uid. Note that if more than one
            session matches the short_uid then you will get a list
@@ -501,9 +526,12 @@ class LoginSession:
                 "There is no valid session with short UID %s "
                 "in state %s" % (short_uid, status))
         elif len(sessions) == 1:
-            return sessions[0]
+            session = sessions[0]
         else:
-            return sessions
+            session = sessions
+
+        session._localise(scope=scope, permissions=permissions)
+        return session
 
     def to_data(self):
         """Return a data version (dictionary) of this LoginSession

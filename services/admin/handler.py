@@ -37,9 +37,6 @@ def _route_function(function, args, additional_functions=None):
     elif function == "admin/request_login":
         from admin.request_login import run as _request_login
         result = _request_login(args)
-    elif function == "admin/get_keys":
-        from admin.get_keys import run as _get_keys
-        result = _get_keys(args)
     elif function == "admin/get_session_info":
         from admin.get_session_info import run as _get_session_info
         result = _get_session_info(args)

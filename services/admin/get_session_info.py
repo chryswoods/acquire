@@ -12,7 +12,18 @@ def run(args):
     """
     session_uid = args["session_uid"]
 
-    login_session = LoginSession.load(uid=session_uid)
+    try:
+        scope = args["scope"]
+    except:
+        scope = None
+
+    try:
+        permissions = args["permissions"]
+    except:
+        permissions = None
+
+    login_session = LoginSession.load(uid=session_uid, scope=scope,
+                                      permissions=permissions)
 
     return_value = create_return_value()
 
