@@ -44,8 +44,8 @@ class UserAccount:
         self._status = status
 
     @staticmethod
-    def create(username, password, service_uid=None,
-               service_public_key=None):
+    def create(username, password, _service_uid=None,
+               _service_public_key=None):
         """Create a new account with username 'username', which will
            be secured using the passed password.
 
@@ -53,6 +53,13 @@ class UserAccount:
            user UID, meaning that different users can have the same
            username. We identify the right user via the combination
            of username, password and OTP code.
+
+           Normally the UID of the service, and the skeleton key
+           used to encrypt the backup password are obtained
+           directly from the service. However, when initialising
+           a new service we must pass these directly. In those
+           cases, pass the object using _service_uid and
+           _service_public_key
 
            This returns a tuple of the user_uid and OTP for the
            newly-created account
@@ -76,13 +83,18 @@ class UserAccount:
         from Acquire.ObjectStore import get_datetime_now_to_string \
             as _get_datetime_now_to_string
 
-        if service_public_key is None:
-            from Acquire.Service import get_service_public_key \
-                as _get_service_public_key
-            service_public_key = _get_service_public_key()
+        if _service_public_key is None:
+            from Acquire.Service import get_this_service as _get_this_service
+            service_pubkey = _get_this_service().skeleton_key().public_key()
+        else:
+            service_pubkey = _service_public_key
 
-        if service_uid is None:
+        if _service_uid is None:
+            from Acquire.Service import get_this_service \
+                as _get_this_service
             service_uid = _get_this_service(need_private_access=False).uid()
+        else:
+            service_uid = _service_uid
 
         bucket = _get_service_account_bucket()
 
@@ -98,9 +110,8 @@ class UserAccount:
         # now save a lookup from the username to this user_uid
         # (many users can have the same username). Use this lookup
         # to hold a recovery password for this account
-        service_pubkey = _get_service_public_key()
         recovery_password = _bytes_to_string(
-                                service_public_key.encrypt(primary_password))
+                                service_pubkey.encrypt(primary_password))
 
         key = "%s/names/%s/%s" % (_user_root, user.encoded_name(), user_uid)
         _ObjectStore.set_string_object(bucket=bucket, key=key,

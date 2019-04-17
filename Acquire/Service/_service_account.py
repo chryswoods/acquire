@@ -205,10 +205,15 @@ def setup_this_service(canonical_url, service_type, username, password):
         service = _Service(service_url=canonical_url,
                            service_type=service_type)
 
+        service_uid = service.uid()
+        skelkey = service.skeleton_key().public_key()
+
         # now register the new admin user account
         from Acquire.Identity import UserAccount as _UserAccount
         (user_uid, otp) = _UserAccount.create(username=username,
-                                              password=password)
+                                              password=password,
+                                              _service_uid=service_uid,
+                                              _service_public_key=skelkey)
 
         add_admin_user(service, user_uid)
 

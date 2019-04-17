@@ -15,7 +15,7 @@ class ServiceError(Exception):
     pass
 
 
-def _create_service_user(service_type, service_uid):
+def _create_service_user(service_type, service_uid, service_public_key):
     """This function is called to create the service user account for
        this service. The service user is the actual user who manages
        and authorises everything for this service. It it not possible
@@ -45,8 +45,11 @@ def _create_service_user(service_type, service_uid):
                                     password=password,
                                     device_uid=None)
 
-    (user_uid, otp) = _UserAccount.create(username=username,
-                                          password=encoded_password)
+    (user_uid, otp) = _UserAccount.create(
+                                    username=username,
+                                    password=encoded_password,
+                                    _service_uid=service_uid,
+                                    _service_public_key=service_public_key)
 
     user_secret = {"password": password,
                    "otpsecret": otp._secret}
@@ -167,9 +170,12 @@ class Service:
             self._last_key_update = _get_datetime_now()
             self._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
+            skelkey = self._skeleton_key.public_key()
+
             (username, uid, secrets) = _create_service_user(
                                             service_type=self._service_type,
-                                            service_uid=self._uid)
+                                            service_uid=self._uid,
+                                            service_public_key=skelkey)
 
             self._service_user_name = username
             self._service_user_uid = uid
