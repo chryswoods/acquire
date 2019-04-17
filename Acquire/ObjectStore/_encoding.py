@@ -274,6 +274,11 @@ def string_to_datetime(s):
     """Return the datetime that had been encoded to the passed string
        via datetime_to_string. This string must have been created
        via 'datetime_to_string'
+
+       Args:
+            s (str): String to convert
+       Returns:
+            datetime: Datetime version of string
     """
     if isinstance(s, _datetime.datetime):
         return s
@@ -288,6 +293,11 @@ def date_to_string(d):
        is passed then this will be in the
        UTC timezone (converting to UTC if the passed datetime
        is for another timezone)
+
+       Args:
+            d (datetime): Datetie to convert
+       Returns:
+            str: Datetime in ISO format
     """
     if isinstance(d, _datetime.datetime):
         return datetime_to_datetime(d).date().isoformat()
@@ -299,6 +309,11 @@ def string_to_date(s):
     """Return a date from the string that has been encoded using
        'date_to_string'. This is only guaranteed to work for strings
        that were created using that function
+
+       Args:
+            s (str): String from date_to_string function
+       Returns:
+            datetime: Datetime created from string
     """
     d = _datetime.date.fromisoformat(s)
     return d
@@ -310,6 +325,12 @@ def time_to_string(t):
        is passed then this will be in the
        UTC timezone (converting to UTC if the passed datetime
        is for another timezone)
+
+       Args:
+            t (time): Time to convert, can be datetime
+       Returns:
+            str: String of passed time converted to UTC ISO
+            format
     """
     if isinstance(t, _datetime.datetime):
         t = datetime_to_datetime(t)
@@ -336,6 +357,11 @@ def string_to_time(s):
     """Return a time from the string that was encoded by 'time_to_string'.
        This will only be guaranteed to produce valid output for strings
        produced using that function
+
+       Args:
+            s (str): String to convert to time
+       Returns:
+            datetime.time: Time object created from string
     """
     t = _datetime.time.fromisoformat(s)
 
@@ -352,6 +378,11 @@ def string_to_safestring(s):
     """Return a safe (base64) encoded version of 's'. This string
        has no special characters or spaces, thereby making it safe
        for use, e.g. as a filename or to save in a database
+
+       Args:
+            s (str): String to encode to base
+       Returns:
+            str: base64 encoded string
     """
     return _base64.b64encode(s.encode("utf-8")).decode("utf-8")
 
@@ -364,6 +395,11 @@ def safestring_to_string(s):
 def list_to_string(l):
     """Return the passed list of items converted to a json string.
        All items should have the same type
+
+       Args:
+            l (list): List to convert to JSON
+       Returns:
+            str: JSON string
     """
     j = []
     for item in l:
@@ -376,6 +412,12 @@ def string_to_list(s, C):
     """Convert the string encoded using list_to_string back to a list
         of objects of type C. Note that all objects must have the
         same type
+
+        Args:
+            s (str): String to convert
+            C (type): Type to create
+        Returns:
+            list: List of C objects
     """
     items = []
 
@@ -388,6 +430,11 @@ def string_to_list(s, C):
 def dict_to_string(d):
     """Return the passed dict of items converted to a json string.
        All items should have the same type
+
+       Args:
+            d (dict): Dictionary to convert
+       Returns:
+            str: JSON version of dict
     """
     j = {}
     for key, value in d.items():
@@ -403,6 +450,12 @@ def string_to_dict(s, C):
     """Convert the string encoded using dict_to_string back to a dict
         of objects of type C. Note that all objects must have the
         same type
+
+        Args:
+            s (str): String to convert
+            C (type): Type to create
+        Returns:
+            dict: Dictionary created from string
     """
     items = {}
 
@@ -419,6 +472,11 @@ def string_to_filepath(path):
     """This function cleans the passed path so that doesn't contain
        redundant slashes or '..' etc., so that all backslashes are forwards
        slashes, and that the trailing slash is removed
+
+       Args:
+            path (str): Path to clean
+       Returns:
+            str: Cleaned path
     """
     if path is None:
         return ""
@@ -447,6 +505,11 @@ def string_to_filepath_parts(path):
        e.g. /home/user/test/../something/./new.txt will return
 
        ['home', 'user', 'something', 'new.txt']
+
+       Args:
+            path (str): Path to split
+       Returns:
+            list: List of sections of path
     """
     from os.path import split as _split
 
