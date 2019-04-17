@@ -96,14 +96,23 @@ def encoded_to_url(e):
        produce valid output for inputs created using url_to_encoded
 
        Args:
-            e (bytes): 
+            e (bytes): base64 encoded byte object
+       Returns:
+            bytes: bytes object as URL
     """
     return _base64.b64decode(e.encode("utf-8")).decode("utf-8")
 
 
 def bytes_to_string(b):
     """Return the passed binary bytes safely encoded to
-       a base64 utf-8 string"""
+       a base64 utf-8 string
+
+       Args:
+            b (bytes): binary bytes to encode
+       Returns:
+            str: UTF-8 encoded string object             
+       
+    """
     if b is None:
         return None
     else:
@@ -115,7 +124,14 @@ def string_to_bytes(s):
        back converted from a string back to bytes. Note that
        this can only convert strings that were encoded using
        bytes_to_string - you cannot use this to convert
-       arbitrary strings to bytes"""
+       arbitrary strings to bytes
+       
+       Args:
+            s (str): base64 byte object to decode
+       Returns:
+            bytes: bytes object
+
+    """
     if s is None:
         return None
     else:
@@ -124,7 +140,12 @@ def string_to_bytes(s):
 
 def decimal_to_string(d):
     """Return the passed decimal number encoded as a string that
-       can be safely serialised via json
+       can be safely serialised via JSON
+
+       Args:
+            d (Decimal): Decimal to convert to string
+       Returns:
+            str: String version of Decimal
     """
     return str(d)
 
@@ -132,6 +153,11 @@ def decimal_to_string(d):
 def string_to_decimal(s):
     """Return the decimal that had been encoded via 'decimal_to_string'.
        This string must have been created via 'decimal_to_string'
+
+       Args:
+            s (str): String to convert to Decimal
+       Returns:
+            Decimal: Decimal version of string
     """
     from Acquire.Accounting import create_decimal as _create_decimal
     return _create_decimal(s)
@@ -141,6 +167,12 @@ def datetime_to_string(d):
     """Return the passed datetime encoded to a string. This will be a
        standard iso-formatted time in the UTC timezone (converting
        to UTC if the passed datetime is for another timezone)
+       
+       Args:
+            d (datetime): Datetime to convert to string
+       Returns:
+            str: Datetime as a string
+
     """
     if d.tzinfo is None:
         d = d.replace(tzinfo=_datetime.timezone.utc)
@@ -156,6 +188,12 @@ def datetime_to_datetime(d):
     """Return the passed datetime as a datetime that is clean
        and usable by Acquire. This will move the datetime to UTC,
        adding the timezone if this is missing
+
+       Args:
+            d (datetime): datetime to convert to UTC
+       Returns:
+            datetime: UTC datetime useable by Acquire
+
     """
     if not isinstance(d, _datetime.datetime):
         raise TypeError(
@@ -170,6 +208,12 @@ def datetime_to_datetime(d):
 def date_and_time_to_datetime(date, time=_datetime.time(0)):
     """Return the passed date and time as a UTC datetime. By
        default the time is midnight (first second of the day)
+
+       Args:
+            date (datetime): Date (may be any timezone)
+            time (default=_datetime.time(0)): Time of day, default midnight
+       Returns:
+            datetime: UTC datetime
     """
     return datetime_to_datetime(_datetime.datetime.combine(date, time))
 
@@ -178,6 +222,9 @@ def get_datetime_now():
     """Return the current time in the UTC timezone. This creates an
        object that will be properly stored using datetime_to_string
        and string_to_datetime
+
+       Returns:
+            datetime: Current datetime
     """
     return datetime_to_datetime(_datetime.datetime.now(
                                 _datetime.timezone.utc))
@@ -186,6 +233,9 @@ def get_datetime_now():
 def get_datetime_now_to_string():
     """Convenience function that returns the result of get_datetime_now
        as a string converted via datetime_to_string
+
+       Returns:
+            str: Current datetime as string
     """
     return datetime_to_string(get_datetime_now())
 
@@ -194,6 +244,14 @@ def get_datetime_future(weeks=0, days=0, hours=0, minutes=0, seconds=0,
                         timedelta=None):
     """Return the datetime that is the supplied time in the future.
        This will raise an exception if the time is not in the future!
+
+       Args:
+            weeks (int, default=0): Number of weeks in future
+            days (int, default=0): Number of days in future
+            hours (int, default=0): Number of hours in future
+            minutes (int, default=0): Number of minutes in future
+            seconds (int, default=0): Number of seconds in future
+            timedelta (datetime.timedelta, default=0): Timedelta from now
     """
     delta = _datetime.timedelta(weeks=weeks, days=days, hours=hours,
                                 minutes=minutes, seconds=seconds)
