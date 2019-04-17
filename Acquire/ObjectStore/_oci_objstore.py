@@ -13,7 +13,14 @@ __all__ = ["OCI_ObjectStore"]
 def _sanitise_bucket_name(bucket_name):
     """This function sanitises the passed bucket name. It will always
         return a valid bucket name. If "None" is passed, then a new,
-        unique bucket name will be generated"""
+        unique bucket name will be generated
+        
+        Args:
+            bucket_name (str): Bucket name to clean
+        Returns:
+            str: Cleaned bucket name
+        
+        """
 
     if bucket_name is None:
         return str(_uuid.uuid4())
@@ -25,6 +32,12 @@ def _clean_key(key):
     """This function cleans and returns a key so that it is suitable
        for use both as a key and a directory/file path
        e.g. it removes double-slashes
+
+       Args:
+            key (str): Key to clean
+       Returns:
+            str: Cleaned key
+
     """
     key = _os.path.normpath(key)
 
@@ -44,6 +57,12 @@ def _get_object_url_for_region(region, uri):
        for the specified region. This has the format;
 
        https://objectstorage.{region}.oraclecloud.com/{uri}
+
+       Args:
+            region (str): Region for cloud service
+            uri (str): URI for cloud service
+       Returns:
+            str: Full URL for use with cloud service
     """
     server = "https://objectstorage.%s.oraclecloud.com" % region
 
@@ -55,7 +74,12 @@ def _get_object_url_for_region(region, uri):
 
 def _get_driver_details_from_par(par):
     """Internal function used to get the OCI driver details from the
-       passed PAR
+       passed PAR (pre-authenticated request)
+
+       Args:
+            par (PAR): PAR holding details
+        Args:
+            dict: Dictionary holding OCI driver details
     """
     from Acquire.ObjectStore import datetime_to_string \
         as _datetime_to_string
@@ -76,6 +100,11 @@ def _get_driver_details_from_par(par):
 def _get_driver_details_from_data(data):
     """Internal function used to get the OCI driver details from the
        passed data
+
+       Args:
+            data (dict): Dict holding OCI driver details
+       Returns:
+            dict: Dict holding OCI driver details
     """
     from Acquire.ObjectStore import string_to_datetime \
         as _string_to_datetime
@@ -101,6 +130,14 @@ class OCI_ObjectStore:
            'bucket_name', optionally placing it into the compartment
            identified by 'compartment'. This will raise an
            ObjectStoreError if this bucket already exists
+
+           Args:
+            bucket (dict): Bucket to hold data
+            bucket_name (str): Name of bucket to create
+            compartment (str): Compartment in which to create bucket
+           
+           Returns:
+                dict: New bucket
         """
         new_bucket = _copy.copy(bucket)
 
@@ -145,6 +182,17 @@ class OCI_ObjectStore:
            identified by 'compartment'. If 'create_if_needed' is True
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
+
+           Args:
+                bucket (dict): Bucket to hold data
+                bucket_name (str): Name of bucket to create
+                compartment (str, default=None): Compartment in which to create bucket
+                create_if_needed (bool, default=None): If True, create bucket, else do 
+                not 
+
+           Returns:
+                dict: New bucket
+
         """
         new_bucket = _copy.copy(bucket)
 
@@ -205,12 +253,25 @@ class OCI_ObjectStore:
 
     @staticmethod
     def get_bucket_name(bucket):
-        """Return the name of the passed bucket"""
+        """Return the name of the passed bucket
+        
+           Args:
+                bucket (dict): Bucket holding data
+           Returns:
+                str: Name of bucket
+        """
         return bucket["bucket_name"]
 
     @staticmethod
     def is_bucket_empty(bucket):
-        """Return whether or not the passed bucket is empty"""
+        """Return whether or not the passed bucket is empty
+
+           Args:
+                bucket (dict): Bucket holding data
+           Returns:
+                bool: True if bucket empty, else False
+           
+        """
         objects = bucket["client"].list_objects(bucket["namespace"],
                                                 bucket["bucket_name"],
                                                 limit=1).data
@@ -223,6 +284,14 @@ class OCI_ObjectStore:
            'force' is True then it will remove all objects/pars from
            the bucket first, and then delete the bucket. This
            can cause a LOSS OF DATA!
+
+           Args:
+                bucket (dict): Bucket to delete
+                force (bool, default=False): If True, delete even
+                if bucket is not empty. If False and bucket not empty
+                raise PermissionError
+           Returns:
+                None
         """
         is_empty = OCI_ObjectStore.is_bucket_empty(bucket=bucket)
 
@@ -264,6 +333,21 @@ class OCI_ObjectStore:
            the URL will also allow the object/bucket to be written to.
            PARs are time-limited. Set the lifetime in seconds by passing
            in 'duration' (by default this is one hour)
+
+           Args:
+                bucket (dict): Bucket to create PAR for
+                encrypt_key (PublicKey): Public key to 
+                encrypt PAR
+                key (str, default=None): Key
+                readable (bool, default=True): If bucket is readable
+                writeable (bool, default=False): If bucket is writeable
+                duration (int, default=3600): Duration PAR should be
+                valid for in seconds
+                cleanup_function (function, default=None): Cleanup
+                function to be passed to PARRegistry
+
+           Returns:
+                PAR: Pre-authenticated request for the bucket
         """
         from Acquire.Crypto import PublicKey as _PublicKey
 
@@ -391,6 +475,14 @@ class OCI_ObjectStore:
     def close_par(par=None, par_uid=None, url_checksum=None):
         """Close the passed PAR, which provides access to data in the
            passed bucket
+
+           Args:
+                par (PAR, default=None): PAR to close bucket
+                par_uid (str, default=None): UID for PAR
+                url_checksum (str, default=None): Checksum to 
+                pass to PARRegistry
+           Returns:
+                None
         """
         from Acquire.ObjectStore import PARRegistry as _PARRegistry
 
@@ -446,7 +538,15 @@ class OCI_ObjectStore:
     @staticmethod
     def get_object(bucket, key):
         """Return the binary data contained in the key 'key' in the
-           passed bucket"""
+           passed bucket
+
+           Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data in bucket
+           Returns:
+                bytes: Binary data
+
+        """
 
         key = _clean_key(key)
 
@@ -508,6 +608,13 @@ class OCI_ObjectStore:
     def take_object(bucket, key):
         """Take (delete) the object from the object store, returning
            the object
+
+           Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            
+           Returns:
+                bytes: Binary data
         """
         # ideally the get and delete should be atomic... would like this API
         data = OCI_ObjectStore.get_object(bucket, key)
@@ -521,7 +628,15 @@ class OCI_ObjectStore:
 
     @staticmethod
     def get_all_object_names(bucket, prefix=None):
-        """Returns the names of all objects in the passed bucket"""
+        """Returns the names of all objects in the passed bucket
+           
+           Args:
+                bucket (dict): Bucket containing data
+                prefix (str): Prefix for data
+           Returns:
+                list: List of all objects in bucket    
+        
+        """
         if prefix is not None:
             prefix = _clean_key(prefix)
 
@@ -551,7 +666,16 @@ class OCI_ObjectStore:
 
     @staticmethod
     def set_object(bucket, key, data):
-        """Set the value of 'key' in 'bucket' to binary 'data'"""
+        """Set the value of 'key' in 'bucket' to binary 'data'
+        
+           Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data in bucket
+                data (bytes): Binary data to store in bucket
+
+           Returns:
+                None
+        """
         if data is None:
             data = b'0'
 
@@ -564,7 +688,15 @@ class OCI_ObjectStore:
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
-        """Deletes all objects..."""
+        """Deletes all objects...
+        
+           Args: 
+                bucket (dict): Bucket containing data
+                prefix (str, default=None): Prefix for data, 
+                currently unused
+            Returns:
+                None
+        """
 
         for obj in OCI_ObjectStore.get_all_object_names(bucket):
             bucket["client"].delete_object(bucket["namespace"],
@@ -573,7 +705,14 @@ class OCI_ObjectStore:
 
     @staticmethod
     def delete_object(bucket, key):
-        """Removes the object at 'key'"""
+        """Removes the object at 'key'
+        
+           Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+           Returns:
+                None
+        """
         try:
             key = _clean_key(key)
             bucket["client"].delete_object(bucket["namespace"],
@@ -586,6 +725,13 @@ class OCI_ObjectStore:
     def get_size_and_checksum(bucket, key):
         """Return the object size (in bytes) and MD5 checksum of the
            object in the passed bucket at the specified key
+
+           Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for object
+           Returns:
+                tuple (int, str): Size and MD5 checksum of object
+
         """
         key = _clean_key(key)
 
