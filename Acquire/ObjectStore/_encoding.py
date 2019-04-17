@@ -45,25 +45,48 @@ __all__ = ["bytes_to_string", "string_to_bytes",
 def create_uuid():
     """Return a newly created random uuid. This is highly likely
        to be globally unique
+
+       Returns:
+            str: Random UUID
     """
     return str(_uuid.uuid4())
 
 
 def string_to_encoded(s):
     """Return the passed unicode string encoded to a safely
-       encoded base64 utf-8 string"""
+       encoded base64 utf-8 string
+
+       Args:
+            s (str): String to encode
+       Returns:
+            str: Unicode string s encoded to UTF-8
+       
+    """
     return bytes_to_string(s.encode("utf-8"))
 
 
 def encoded_to_string(b):
     """Return the passed encoded base64 utf-8 string converted
-       back into a unicode string"""
+       back into a unicode string
+
+       Args:
+            b (bytes): base64 utf-8 byte string
+       Returns:
+            str: UTF-8 string converted from byte string
+       
+    """
     return string_to_bytes(b).decode("utf-8")
 
 
 def url_to_encoded(url):
     """Return an encoding of the passed url that is safe to use
        as a name, filename or key in an object store
+
+       Args:
+            url (str): URL to encode
+       Returns:
+            bytes: base64 encoded bytes object   
+
     """
     return _base64.b64encode(url.encode("utf-8")).decode("utf-8")
 
@@ -71,6 +94,9 @@ def url_to_encoded(url):
 def encoded_to_url(e):
     """Decode the passed encoded data back to the URL. This will only
        produce valid output for inputs created using url_to_encoded
+
+       Args:
+            e (bytes): 
     """
     return _base64.b64decode(e.encode("utf-8")).decode("utf-8")
 
