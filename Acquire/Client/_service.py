@@ -394,22 +394,15 @@ class Service:
         self._fail()
         return None
 
-    def whois(self, username=None, user_uid=None, session_uid=None):
-        """Do a whois lookup to map from username to user_uid or
-           vice versa. If 'session_uid' is provided, then also validate
-           that this is a correct login session, and return also
-           the public key and signing certificate for this login session.
-
-           This should return a dictionary with the following keys
-           optionally contained;
-
-           username = name of the user
-           user_uid = uid of the user
-           public_key = public key for the session with uid 'session_uid'
-           public_cert = public certificate for that login session
+    def get_session_info(self, session_uid,
+                         scope=None, permissions=None):
+        """Return information about the passed session,
+           optionally limited to the provided scope and permissions
         """
-        self._fail()
-        return None
+        from Acquire.Service import get_session_info as _get_session_info
+        return _get_session_info(identity_url=self.canonical_url(),
+                                 session_uid=session_uid,
+                                 scope=scope, permissions=permissions)
 
     def to_data(self, password=None):
         """Serialise this key to a dictionary, using the supplied

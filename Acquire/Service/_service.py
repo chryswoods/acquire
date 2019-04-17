@@ -15,7 +15,7 @@ class ServiceError(Exception):
     pass
 
 
-def _create_service_user(service_type=None):
+def _create_service_user(service_type, service_uid):
     """This function is called to create the service user account for
        this service. The service user is the actual user who manages
        and authorises everything for this service. It it not possible
@@ -31,65 +31,27 @@ def _create_service_user(service_type=None):
     """
     from Acquire.Identity import UserAccount as _UserAccount
     from Acquire.Crypto import PrivateKey as _PrivateKey
-    from Acquire.Crypto import OTP as _OTP
-    from Acquire.ObjectStore import ObjectStore as _ObjectStore
-    from Acquire.ObjectStore import Mutex as _Mutex
-    from Acquire.Service import get_service_account_bucket as \
-        _get_service_account_bucket
-    from Acquire.Service import ServiceAccountError
-
-    bucket = _get_service_account_bucket()
+    from Acquire.Client import Credentials as _Credentials
 
     if service_type is None:
         username = "service_principal"
     else:
         username = "%s_principal" % service_type
 
-    service_account = _UserAccount(username)
-
     password = _PrivateKey.random_passphrase()
 
-    # generate the encryption keys and otp secret
-    privkey = _PrivateKey()
-    pubkey = privkey.public_key()
-    otp = _OTP()
+    encoded_password = _Credentials.encode_password(
+                                    identity_uid=service_uid,
+                                    password=password,
+                                    device_uid=None)
 
-    # save the encrypted private key (encrypted using the user's password)
-    # and encrypted OTP secret (encrypted using the public key)
-    service_account.set_keys(privkey.bytes(password), pubkey.bytes(),
-                             otp.encrypt(pubkey))
+    (user_uid, otp) = _UserAccount.create(username=username,
+                                          password=encoded_password)
 
-    # can only do this once
-    account_key = "identity/accounts/%s" % service_account.sanitised_name()
-    mutex = _Mutex(account_key)
-
-    try:
-        service_user = _ObjectStore.get_object_from_json(bucket, account_key)
-    except:
-        service_user = None
-
-    if service_user is not None:
-        raise ServiceAccountError(
-            "The Service User Account can only be created ONCE per service!")
-
-    # save the new account details
-    _ObjectStore.set_object_from_json(bucket, account_key,
-                                      service_account.to_data())
-
-    # need to update the "whois" database with the uuid of this user
-    _ObjectStore.set_string_object(bucket,
-                                   "identity/whois/%s" %
-                                   service_account.uuid(),
-                                   service_account.username())
-
-    mutex.unlock()
-
-    # everything is ok - add this admin user to the admin_users
-    # dictionary
     user_secret = {"password": password,
                    "otpsecret": otp._secret}
 
-    return (username, service_account.uid(), user_secret)
+    return (username, user_uid, user_secret)
 
 
 @_cached(_cache_service_user)
@@ -106,6 +68,7 @@ def _login_service_user(service_uid):
     from Acquire.Client import User as _User
     from Acquire.Crypto import OTP as _OTP
     from Acquire.Identity import LoginSession as _LoginSession
+    from Acquire.Client import Credentials as _Credentials
 
     service = _get_this_service(need_private_access=True)
 
@@ -122,20 +85,26 @@ def _login_service_user(service_uid):
     password = secrets["password"]
     otpsecret = secrets["otpsecret"]
 
-    user = _User(user_uid=service.service_user_uid(),
+    user = _User(username=service.service_user_name(),
                  identity_url=service.canonical_url())
 
-    user.request_login(_is_local=True)
+    user.request_login()
     short_uid = _LoginSession.to_short_uid(user.session_uid())
 
+    credentials = _Credentials(username=user.username(),
+                               short_uid=short_uid,
+                               device_uid=None,
+                               password=password,
+                               otpcode=_OTP(otpsecret).generate())
+
     login_args = {"short_uid": short_uid,
-                  "username": user.username(),
-                  "password": password,
-                  "otpcode": _OTP(otpsecret).generate()}
+                  "credentials": credentials.to_data(
+                                        identity_uid=service.uid())}
 
     secrets = None
+    credentials = None
 
-    from ._function import call_function as _call_function
+    from Acquire.Service import call_function as _call_function
     result = _call_function(service.canonical_url(), function="login",
                             args=login_args)
 
@@ -177,8 +146,9 @@ class Service:
                                    self._service_type)
 
             from Acquire.Crypto import PrivateKey as _PrivateKey
+            from Acquire.ObjectStore import create_uuid as _create_uuid
 
-            self._uid = str(_uuid.uuid4())
+            self._uid = _create_uuid()
             self._skeleton_key = _PrivateKey()
 
             self._privkey = _PrivateKey()
@@ -197,7 +167,9 @@ class Service:
             self._last_key_update = _get_datetime_now()
             self._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
-            (username, uid, secrets) = _create_service_user(self._service_type)
+            (username, uid, secrets) = _create_service_user(
+                                            service_type=self._service_type,
+                                            service_uid=self._uid)
 
             self._service_user_name = username
             self._service_user_uid = uid
@@ -788,100 +760,6 @@ class Service:
             from Acquire.Crypto import PublicKey as _PublicKey
             for fingerprint in fingerprints:
                 result[fingerprint] = _PublicKey.from_data(data[fingerprint])
-
-        return result
-
-    def whois(self, username=None, user_uid=None, session_uid=None):
-        """Do a whois lookup to map from username to user_uid or
-           vice versa. If 'session_uid' is provided, then also validate
-           that this is a correct login session, and return also
-           the public key and signing certificate for this login session.
-
-           This should return a dictionary with the following keys
-           optionally contained;
-
-           username = name of the user
-           user_uid = uid of the user
-           public_key = public key for the session with uid 'session_uid'
-           public_cert = public certificate for that login session
-        """
-
-        if (username is None) and (user_uid is None):
-            from Acquire.Identity import IdentityServiceError
-            raise IdentityServiceError(
-                    "You must supply either a username "
-                    "or a user's UID for a lookup")
-
-        response = None
-
-        if session_uid is None:
-            args = {}
-        else:
-            args = {"session_uid": str(session_uid)}
-
-        try:
-            from Acquire.Crypto import get_private_key as _get_private_key
-            from ._function import call_function as _call_function
-
-            if username:
-                args["username"] = str(username)
-                response = _call_function(
-                                self.service_url(), "whois",
-                                public_cert=self.public_certificate(),
-                                response_key=_get_private_key("function"),
-                                args=args)
-                lookup_uid = response["user_uid"]
-            else:
-                lookup_uid = None
-
-            if user_uid:
-                args["user_uid"] = str(user_uid)
-                response = _call_function(
-                    self.service_url(), "whois",
-                    public_cert=self.public_certificate(),
-                    response_key=_get_private_key("function"),
-                    args=args)
-                lookup_username = response["username"]
-            else:
-                lookup_username = None
-
-        except Exception as e:
-            from Acquire.Identity import IdentityServiceError
-            raise IdentityServiceError("Failed whois lookup: %s" % str(e))
-
-        if username is None:
-            username = lookup_username
-
-        elif (lookup_username is not None) and (username != lookup_username):
-            from Acquire.Identity import IdentityServiceError
-            raise IdentityServiceError(
-                "Disagreement of the user who matches "
-                "UID=%s. We think '%s', but the identity service says '%s'" %
-                (user_uid, username, lookup_username))
-
-        if user_uid is None:
-            user_uid = lookup_uid
-
-        elif (lookup_uid is not None) and (user_uid != lookup_uid):
-            from Acquire.Identity import IdentityServiceError
-            raise IdentityServiceError(
-                    "Disagreement of the user's UID for user "
-                    "'%s'. We think %s, but the identity service says %s" %
-                    (username, user_uid, lookup_uid))
-
-        result = response
-
-        try:
-            result["public_key"] = _PublicKey.from_data(
-                                            response["public_key"])
-        except:
-            pass
-
-        try:
-            result["public_cert"] = _PublicKey.from_data(
-                                            response["public_cert"])
-        except:
-            pass
 
         return result
 

@@ -13,13 +13,15 @@ class UserCredentials:
        primary private key
     """
     @staticmethod
-    def hash(username, password):
+    def hash(username, password, service_uid=None):
         """Return a secure hash of the passed username and password"""
         from Acquire.Crypto import Hash as _Hash
         from Acquire.Service import get_this_service as _get_this_service
-        uid = _get_this_service(need_private_access=False).uid()
 
-        return _Hash.multi_md5(uid, username+password)
+        if service_uid is None:
+            service_uid = _get_this_service(need_private_access=False).uid()
+
+        return _Hash.multi_md5(service_uid, username+password)
 
     @staticmethod
     def create(user_uid, password, primary_password,
@@ -58,9 +60,6 @@ class UserCredentials:
         _ObjectStore.set_object_from_json(bucket=bucket,
                                           key=key,
                                           data=data)
-
-        if issuer is None:
-            issuer = "Acquire"
 
         return otp
 

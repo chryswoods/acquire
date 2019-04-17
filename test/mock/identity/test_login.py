@@ -5,7 +5,7 @@ import sys
 import re
 
 from Acquire.Service import call_function
-from Acquire.Client import User, uid_to_username
+from Acquire.Client import User
 from Acquire.Identity import Authorisation
 from Acquire.Crypto import OTP
 
@@ -28,12 +28,6 @@ def test_login(username, password, aaai_services):
                           provisioning_uri).groups()[0]
 
     user_otp = OTP(otpsecret)
-
-    # now get and check the whois lookup...
-    user_uid = user.uid()
-    check_username = uid_to_username(user_uid, identity_url="identity")
-
-    assert(check_username == username)
 
     (login_url, qrcode) = user.request_login()
 

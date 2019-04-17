@@ -44,7 +44,8 @@ class UserAccount:
         self._status = status
 
     @staticmethod
-    def create(username, password):
+    def create(username, password, service_uid=None,
+               service_public_key=None):
         """Create a new account with username 'username', which will
            be secured using the passed password.
 
@@ -70,12 +71,18 @@ class UserAccount:
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
-        from Acquire.Service import get_service_public_key \
-            as _get_service_public_key
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         from Acquire.Identity import UserCredentials as _UserCredentials
         from Acquire.ObjectStore import get_datetime_now_to_string \
             as _get_datetime_now_to_string
+
+        if service_public_key is None:
+            from Acquire.Service import get_service_public_key \
+                as _get_service_public_key
+            service_public_key = _get_service_public_key()
+
+        if service_uid is None:
+            service_uid = _get_this_service(need_private_access=False).uid()
 
         bucket = _get_service_account_bucket()
 
@@ -93,7 +100,7 @@ class UserAccount:
         # to hold a recovery password for this account
         service_pubkey = _get_service_public_key()
         recovery_password = _bytes_to_string(
-                                service_pubkey.encrypt(primary_password))
+                                service_public_key.encrypt(primary_password))
 
         key = "%s/names/%s/%s" % (_user_root, user.encoded_name(), user_uid)
         _ObjectStore.set_string_object(bucket=bucket, key=key,
@@ -105,10 +112,11 @@ class UserAccount:
         # exactly the same username and password). This will
         # save the exact time this username-password combination
         # was set
-        key = "%s/passwords/%s/%s" % (_user_root,
-                                      _UserCredentials.hash(username=username,
-                                                            password=password),
-                                      user_uid)
+        encoded_password = _UserCredentials.hash(username=username,
+                                                 password=password,
+                                                 service_uid=service_uid)
+
+        key = "%s/passwords/%s/%s" % (_user_root, encoded_password, user_uid)
         _ObjectStore.set_string_object(
                                 bucket=bucket, key=key,
                                 string_data=_get_datetime_now_to_string())

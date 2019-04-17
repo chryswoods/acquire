@@ -55,17 +55,23 @@ def _assert_strong_passphrase(passphrase, mangleFunction):
 
     if len(passphrase) < 6 or len(passphrase) > 50:
         from Acquire.Crypto import WeakPassphraseError
+        print(passphrase)
         raise WeakPassphraseError("The pass-phrase '%s' must contain between "
                                   "6 and 50 characters" % passphrase)
 
-    import re as _re
+    if len(passphrase) < 24:
+        import re as _re
 
-    if not (_re.search(r'[A-Z]', passphrase) and
-            _re.search(r'[a-z]', passphrase) and
-            _re.search(r'[0-9]', passphrase)):
-        from Acquire.Crypto import WeakPassphraseError
-        raise WeakPassphraseError("The pass-phrase must contain numbers and "
-                                  "upper- and lowercase characters")
+        if not (_re.search(r'[A-Z]', passphrase) and
+                _re.search(r'[a-z]', passphrase) and
+                _re.search(r'[0-9]', passphrase)):
+            from Acquire.Crypto import WeakPassphraseError
+            print(passphrase)
+            raise WeakPassphraseError(
+                "Short pass-phrases must contain numbers and "
+                "upper- and lowercase characters")
+
+    # an MD5 passphrase is 32 characters, only lower case and numbers
 
     return passphrase
 

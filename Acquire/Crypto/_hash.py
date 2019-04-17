@@ -9,6 +9,9 @@ class Hash:
     @staticmethod
     def md5(data):
         """Return the MD5 checksum of the passed data"""
+        if data is None:
+            return None
+
         from hashlib import md5 as _md5
 
         if isinstance(data, str):

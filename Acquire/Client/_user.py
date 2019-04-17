@@ -465,6 +465,9 @@ class User:
             print("(please check that this page displays the message '%s')"
                   % login_message)
 
+        return {"login_url": self._login_url,
+                "session_uid": session_uid}
+
     def _poll_session_status(self):
         """Function used to query the identity service for this session
            to poll for the session status"""
