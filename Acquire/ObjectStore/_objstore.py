@@ -55,6 +55,26 @@ class ObjectStore:
                                             compartment, create_if_needed)
 
     @staticmethod
+    def get_bucket_name(bucket):
+        """Return the name of the passed bucket"""
+        return _objstore_backend.get_bucket_name(bucket)
+
+    @staticmethod
+    def is_bucket_empty(bucket):
+        """Return whether or not the passed bucket is empty"""
+        return _objstore_backend.is_bucket_empty(bucket)
+
+    @staticmethod
+    def delete_bucket(bucket, force=False):
+        """Delete the passed bucket. This should be used with caution.
+           Normally you can only delete a bucket if it is empty. If
+           'force' is True then it will remove all objects/pars from
+           the bucket first, and then delete the bucket. This
+           can cause a LOSS OF DATA!
+        """
+        return _objstore_backend.delete_bucket(bucket=bucket, force=force)
+
+    @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
                    writeable=False, duration=3600, cleanup_function=None):
         """Create a pre-authenticated request for the passed bucket and

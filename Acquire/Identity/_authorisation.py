@@ -172,6 +172,12 @@ class Authorisation:
         """Return the global UID for this user"""
         return "%s@%s" % (self.user_uid(), self.identity_uid())
 
+    def identifiers(self):
+        """Return a dictionary of the full set of identifiers attached
+           to this authorisation (e.g. user_guid, group_guid(s) etc.)
+        """
+        return {"user_guid": self.user_guid()}
+
     def session_uid(self):
         """Return the login session that authenticated the user"""
         if self.is_null():
@@ -272,7 +278,8 @@ class Authorisation:
         return False
 
     def verify(self, resource=None, refresh_time=3600, stale_time=7200,
-               force=False, accept_partial_match=False):
+               force=False, accept_partial_match=False,
+               return_identifiers=True):
         """Verify that this is a valid authorisation provided by the
            user for the passed 'resource'. This will
            cache the verification for 'refresh_time' (in seconds), but
@@ -292,6 +299,10 @@ class Authorisation:
 
            If 'testing_key' is passed, then this object is being
            tested as part of the unit tests
+
+           If the authorisation was verified, then if 'return_identifiers'
+           is True then this will return the full set of identifiers
+           associated with the user who provided the authorisation
         """
         if self.is_null():
             raise PermissionError("Cannot verify a null Authorisation")
@@ -319,7 +330,10 @@ class Authorisation:
             if self.is_verified(refresh_time=refresh_time,
                                 stale_time=stale_time):
                 if matched_resource:
-                    return
+                    if return_identifiers:
+                        return self.identifiers()
+                    else:
+                        return
 
         try:
             testing_key = self._testing_key
@@ -347,7 +361,11 @@ class Authorisation:
             self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource
             self._last_verified_key = testing_key
-            return
+
+            if return_identifiers:
+                return self.identifiers()
+            else:
+                return
 
         try:
             # we need to get the public signing key for this session
@@ -426,6 +444,11 @@ class Authorisation:
                     resource)
             else:
                 raise PermissionError("Cannot verify the authorisation")
+
+        if return_identifiers:
+            return self.identifiers()
+        else:
+            return
 
     @staticmethod
     def from_data(data):

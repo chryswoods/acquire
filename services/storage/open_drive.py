@@ -30,8 +30,6 @@ def run(args):
 
     drive = drives.get_drive(name=name, autocreate=autocreate)
 
-    drive.resolve_acl(user_guid=authorisation.user_guid())
-
     return_value = create_return_value()
 
     return_value["drive"] = drive.to_data()

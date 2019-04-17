@@ -3,13 +3,44 @@
 import pytest
 import os
 
-from Acquire.Client import Drive
+from Acquire.Client import Drive, PAR
 
 
 @pytest.fixture(scope="session")
 def tempdir(tmpdir_factory):
     d = tmpdir_factory.mktemp("")
     return str(d)
+
+
+def _test_bulk_upload(authenticated_user, tempdir):
+    drive_name = "bulk upload"
+    drive = Drive(user=authenticated_user, name=drive_name,
+                  storage_url="storage")
+
+    assert(drive.name() == drive_name)
+    assert(drive.acl().is_owner())
+
+    files = drive.list_files()
+    assert(len(files) == 0)
+
+    par = drive.bulk_upload(max_size=1024*1024)
+
+    assert(isinstance(par, PAR))
+    assert(not par.is_null())
+    assert(par.is_bucket())
+    assert(par.is_writeable())
+
+    par.write().set_object_from_file("test_file.py", __file__)
+    par.write().set_string_object("test_newfile.py", "Here is\nsome text\n")
+
+    par.close()
+
+    assert(par.is_null())
+
+    files = drive.list_files()
+    assert(len(files) == 2)
+
+    # (filename, filemeta) = drive.download()
 
 
 def test_drives(authenticated_user, tempdir):

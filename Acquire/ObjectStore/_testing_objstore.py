@@ -105,6 +105,37 @@ class Testing_ObjectStore:
         return full_name
 
     @staticmethod
+    def get_bucket_name(bucket):
+        """Return the name of the passed bucket"""
+        return _os.path.split(bucket)[1]
+
+    @staticmethod
+    def is_bucket_empty(bucket):
+        """Return whether or not the passed bucket is empty"""
+        return len(_os.listdir(bucket)) == 0
+
+    @staticmethod
+    def delete_bucket(bucket, force=False):
+        """Delete the passed bucket. This should be used with caution.
+           Normally you can only delete a bucket if it is empty. If
+           'force' is True then it will remove all objects/pars from
+           the bucket first, and then delete the bucket. This
+           can cause a LOSS OF DATA!
+        """
+        is_empty = Testing_ObjectStore.is_bucket_empty(bucket=bucket)
+
+        if not is_empty:
+            if force:
+                Testing_ObjectStore.delete_all_objects(bucket=bucket)
+            else:
+                raise PermissionError(
+                    "You cannot delete the bucket %s as it is not empty" %
+                    Testing_ObjectStore.get_bucket_name(bucket=bucket))
+
+        # the bucket is empty - delete it
+        _os.rmdir(bucket)
+
+    @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
                    writeable=False, duration=3600, cleanup_function=None):
         """Create a pre-authenticated request for the passed bucket and

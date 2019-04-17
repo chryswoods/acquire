@@ -204,6 +204,57 @@ class OCI_ObjectStore:
         return new_bucket
 
     @staticmethod
+    def get_bucket_name(bucket):
+        """Return the name of the passed bucket"""
+        return bucket["bucket_name"]
+
+    @staticmethod
+    def is_bucket_empty(bucket):
+        """Return whether or not the passed bucket is empty"""
+        objects = bucket["client"].list_objects(bucket["namespace"],
+                                                bucket["bucket_name"],
+                                                limit=1).data
+        return len(objects) == 0
+
+    @staticmethod
+    def delete_bucket(bucket, force=False):
+        """Delete the passed bucket. This should be used with caution.
+           Normally you can only delete a bucket if it is empty. If
+           'force' is True then it will remove all objects/pars from
+           the bucket first, and then delete the bucket. This
+           can cause a LOSS OF DATA!
+        """
+        is_empty = OCI_ObjectStore.is_bucket_empty(bucket=bucket)
+
+        if not is_empty:
+            if force:
+                OCI_ObjectStore.delete_all_objects(bucket=bucket)
+            else:
+                raise PermissionError(
+                    "You cannot delete the bucket %s as it is not empty" %
+                    OCI_ObjectStore.get_bucket_name(bucket=bucket))
+
+        # the bucket is empty - delete it
+        client = bucket["client"]
+        namespace = client.get_namespace().data
+        bucket_name = bucket["bucket_name"]
+
+        try:
+            response = client.delete_bucket(namespace, bucket_name)
+        except Exception as e:
+            from Acquire.ObjectStore import ObjectStoreError
+            raise ObjectStoreError(
+                "Unable to delete bucket '%s'. Please check the "
+                "compartment and access permissions: Error %s" %
+                (bucket_name, str(e)))
+
+        if response.status not in [200, 204]:
+            from Acquire.ObjectStore import ObjectStoreError
+            raise ObjectStoreError(
+                "Unable to delete a bucket '%s' : Status %s, Error %s" %
+                (bucket_name, response.status, str(response.data)))
+
+    @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
                    writeable=False, duration=3600, cleanup_function=None):
         """Create a pre-authenticated request for the passed bucket and

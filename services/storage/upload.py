@@ -38,8 +38,7 @@ def run(args):
 
     drive_uid = filehandle.drive_uid()
 
-    drive = DriveInfo(drive_uid=drive_uid,
-                      user_guid=authorisation.user_guid())
+    drive = DriveInfo(drive_uid=drive_uid)
 
     return_value = create_return_value()
 
