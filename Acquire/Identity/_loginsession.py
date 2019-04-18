@@ -549,9 +549,11 @@ class LoginSession:
         data["uid"] = self._uid
         data["username"] = self._username
         data["request_datetime"] = _datetime_to_string(self._request_datetime)
-        data["public_key"] = self._pubkey.to_data()
         data["public_certificate"] = self._pubcert.to_data()
         data["status"] = self._status
+
+        if self._pubkey is not None:
+            data["public_key"] = self._pubkey.to_data()
 
         try:
             data["login_datetime"] = _datetime_to_string(self._login_datetime)
@@ -617,9 +619,13 @@ class LoginSession:
             l._username = data["username"]
             l._request_datetime = _string_to_datetime(
                                         data["request_datetime"])
-            l._pubkey = _PublicKey.from_data(data["public_key"])
             l._pubcert = _PublicKey.from_data(data["public_certificate"])
             l._status = data["status"]
+
+            try:
+                l._pubkey = _PublicKey.from_data(data["public_key"])
+            except:
+                l._pubkey = None
 
             try:
                 l._login_datatime = _string_to_datetime(

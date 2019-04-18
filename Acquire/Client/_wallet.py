@@ -68,11 +68,12 @@ class Wallet:
         import os as _os
 
         if wallet_dir is None:
+            raise PermissionError("NO HOME IN TESTING")
             home = _os.path.expanduser("~")
             wallet_dir = "%s/.acquire_wallet" % home
 
         if not _os.path.exists(wallet_dir):
-            _os.mkdir(wallet_dir)
+            _os.makedirs(wallet_dir, mode=0o700, exist_ok=False)
         elif not _os.path.isdir(wallet_dir):
             raise TypeError("The wallet directory must be a directory!")
 
@@ -547,15 +548,17 @@ class Wallet:
             return
 
         try:
-            function = "login"
-            args = {"username": username,
-                    "password": password,
-                    "otpcode": otpcode,
+            from Acquire.Client import Credentials as _Credentials
+
+            creds = _Credentials(username=username, password=password,
+                                 otpcode=otpcode, short_uid=short_uid,
+                                 device_uid=self._device_uid)
+
+            args = {"credentials": creds.to_data(identity_uid=service.uid()),
                     "remember_device": remember_device,
-                    "device_uid": self._device_uid,
                     "short_uid": short_uid}
 
-            response = service.call_function(function=function, args=args)
+            response = service.call_function(function="login", args=args)
             print("SUCCEEDED!")
             _flush_output()
         except Exception as e:

@@ -122,12 +122,13 @@ def _login_admin(service_url, username, password, otp, wallet_dir):
     from Acquire.Identity import LoginSession
     from Acquire.Client import Wallet
 
-    user = User(username=username, identity_url=service_url)
+    wallet = Wallet(wallet_dir=wallet_dir, wallet_password=_wallet_password)
+
+    user = User(username=username, identity_url=service_url,
+                wallet_dir=wallet_dir, auto_logout=False)
 
     result = user.request_login()
     login_url = result["login_url"]
-
-    wallet = Wallet(wallet_dir=wallet_dir, wallet_password=_wallet_password)
 
     wallet.send_password(url=login_url, username=username,
                          password=password, otpcode=otp.generate(),
@@ -285,6 +286,7 @@ def aaai_services(tmpdir_factory):
                     function="admin/trust_accounting_service", args=args)
 
     responses["_services"] = _services
+    responses["_wallet_dir"] = wallet_dir
 
     return responses
 
@@ -297,16 +299,20 @@ def authenticated_user(aaai_services):
     username = str(uuid.uuid4())
     password = PrivateKey.random_passphrase()
 
+    wallet_dir = aaai_services["wallet_dir"]
+
     result = User.register(username=username,
                            password=password,
-                           identity_url="identity")
+                           identity_url="identity",
+                           wallet_dir=wallet_dir)
 
     otpsecret = result["otpsecret"]
 
     user_otp = OTP(otpsecret)
 
     # now log the user in
-    user = User(username=username, identity_url="identity")
+    user = User(username=username, identity_url="identity",
+                wallet_dir=wallet_dir)
     result = user.request_login()
 
     assert(type(result) is dict)
