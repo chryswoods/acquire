@@ -81,6 +81,12 @@ class Accounts:
 
         self._aclrules = aclrules
 
+    def identifiers(self):
+        """Return the set of validated identifiers that are known to
+           be attached to this group of accounts
+        """
+        return {"user_guid": self._user_guid}
+
     def aclrules(self):
         """Return the ACL rules for this group of accounts"""
         return self._aclrules
@@ -121,7 +127,7 @@ class Accounts:
     def _assert_is_readable(self):
         """Assert that we have permission to read these accounts"""
         aclrule = self._aclrules.resolve(must_resolve=True,
-                                         user_guid=self._user_guid)
+                                         identifiers=self.identifiers())
 
         if not aclrule.is_readable():
             raise PermissionError(
@@ -131,7 +137,7 @@ class Accounts:
     def _assert_is_writeable(self):
         """Assert that we have permission to write these accounts"""
         aclrule = self._aclrules.resolve(must_resolve=True,
-                                         user_guid=self._user_guid)
+                                         identifiers=self.identifiers())
 
         if not aclrule.is_writeable():
             raise PermissionError(

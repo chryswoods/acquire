@@ -4,7 +4,10 @@ def storage_functions(function, args):
     """This function routes calls to all of the storage service's
        extra functions
     """
-    if function == "close_par":
+    if function == "bulk_upload":
+        from storage.bulk_upload import run as _bulk_upload
+        return _bulk_upload(args)
+    elif function == "close_par":
         from storage.close_par import run as _close_par
         return _close_par(args)
     elif function == "download":

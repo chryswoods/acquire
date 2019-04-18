@@ -159,7 +159,7 @@ class Drive:
         else:
             return self._storage_service
 
-    def bulkupload(self, max_size=None, aclrules=None):
+    def bulk_upload(self, max_size=None, aclrules=None):
         """Start the bulk upload of a large number of files to this
            drive, assuming we have write access to this drive. This
            will return a bulk upload PAR that can be used to write to a bucket.
@@ -182,8 +182,8 @@ class Drive:
         from Acquire.Crypto import PrivateKey as _PrivateKey
 
         authorisation = _Authorisation(
-                            resource="bulk_upload %s" % self._drive_uid,
-                            user=self._user)
+                            resource="bulk_upload %s %s" %
+                            (self._drive_uid, max_size), user=self._user)
 
         # we need a new private key to secure access to this PAR
         privkey = _PrivateKey()
@@ -210,7 +210,7 @@ class Drive:
         return par
 
     def upload(self, filename, uploaded_name=None, aclrules=None,
-               **kwargs):
+               force_par=False):
         """Upload the file at 'filename' to this drive, assuming we have
            write access to this drive. The local file 'filename' will be
            uploaded to the drive as the file called 'filename' (just the
@@ -236,14 +236,13 @@ class Drive:
 
         local_cutoff = None
 
-        if "force_par" in kwargs:
-            if kwargs["force_par"]:
-                local_cutoff = 0
+        if force_par:
+            # only upload using a PAR
+            local_cutoff = 0
 
         filehandle = _FileHandle(filename=filename,
                                  remote_filename=uploaded_name,
                                  drive_uid=self.uid(),
-                                 user_guid=self._user.guid(),
                                  aclrules=aclrules,
                                  local_cutoff=local_cutoff)
 
@@ -283,7 +282,7 @@ class Drive:
             raise
 
     def download(self, filename, downloaded_name=None, version=None,
-                 dir=None, **kwargs):
+                 dir=None, force_par=False):
         """Download the file called 'filename' from this drive into
            the local directory, or 'dir' if specified,
            ideally called 'filename'
@@ -326,8 +325,8 @@ class Drive:
                 "authorisation": authorisation.to_data(),
                 "encryption_key": privkey.public_key().to_data()}
 
-        if "force_par" in kwargs:
-            args["force_par"] = kwargs["force_par"]
+        if force_par:
+            args["force_par"] = True
 
         if version is not None:
             from Acquire.ObjectStore import datetime_to_string \

@@ -44,8 +44,7 @@ def run(args):
     if force_par:
         force_par = True
 
-    drive = DriveInfo(drive_uid=drive_uid,
-                      user_guid=authorisation.user_guid())
+    drive = DriveInfo(drive_uid=drive_uid)
 
     return_value = create_return_value()
 
