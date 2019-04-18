@@ -64,6 +64,10 @@ class OTP:
            for the user called 'username' and is issued by 'issuer'"""
         return self._totp().provisioning_uri(username, issuer_name=issuer)
 
+    def secret(self):
+        """Return the otpsecret for this generator"""
+        return self._secret
+
     @staticmethod
     def extract_secret(provisioning_uri):
         """Return the otpsecret extracted from the passed provisioning_url"""

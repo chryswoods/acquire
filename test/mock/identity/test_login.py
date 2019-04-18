@@ -26,7 +26,7 @@ def test_login(username, password, aaai_services, tmpdir):
 
     otpsecret = result["otpsecret"]
 
-    user_otp = OTP(otpsecret)
+    otp = OTP(otpsecret)
 
     user = User(username=username, identity_url="identity",
                 wallet_dir=wallet_dir, auto_logout=False)
@@ -40,8 +40,48 @@ def test_login(username, password, aaai_services, tmpdir):
     wallet = Wallet(wallet_dir=wallet_dir, wallet_password=_wallet_password)
 
     wallet.send_password(url=login_url, username=username,
-                         password=password, otpcode=user_otp.generate(),
-                         remember_password=True, remember_device=True)
+                         password=password, otpcode=otp.generate(),
+                         remember_password=True)
+
+    user.wait_for_login()
+    assert(user.is_logged_in())
+
+    auth = Authorisation(user=user, resource="test")
+
+    auth.verify("test")
+
+    user.logout()
+
+    # now try to log in, using the remembered password
+    user = User(username=username, identity_url="identity",
+                wallet_dir=wallet_dir, auto_logout=False)
+
+    result = user.request_login()
+
+    login_url = result["login_url"]
+
+    wallet.send_password(url=login_url, otpcode=otp.generate(),
+                         remember_device=True)
+
+    user.wait_for_login()
+    assert(user.is_logged_in())
+
+    auth = Authorisation(user=user, resource="test")
+
+    auth.verify("test")
+
+    user.logout()
+
+    # now see if the wallet can send all login info
+    # now try to log in, using the remembered password
+    user = User(username=username, identity_url="identity",
+                wallet_dir=wallet_dir, auto_logout=False)
+
+    result = user.request_login()
+
+    login_url = result["login_url"]
+
+    wallet.send_password(url=login_url)
 
     user.wait_for_login()
     assert(user.is_logged_in())

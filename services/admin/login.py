@@ -70,10 +70,15 @@ def run(args):
 
     return_value = create_return_value()
 
+    return_value["user_uid"] = login_session.user_uid()
+
     if remember_device:
         try:
             service = get_this_service(need_private_access=False)
-            issuer = "%s@%s" % (service.service_type(), service.hostname())
+            hostname = service.hostname()
+            if hostname is None:
+                hostname = "acquire"
+            issuer = "%s@%s" % (service.service_type(), hostname)
             username = result["user"].name()
             device_uid = result["device_uid"]
 
@@ -82,6 +87,7 @@ def run(args):
                                                     issuer=issuer)
 
             return_value["provisioning_uri"] = provisioning_uri
+            return_value["otpsecret"] = otp.secret()
             return_value["device_uid"] = device_uid
         except:
             pass
