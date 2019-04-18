@@ -40,8 +40,6 @@ def _create_service_user(service_type, service_uid, service_public_key):
 
     password = _PrivateKey.random_passphrase()
 
-    print("service password: %s" % password)
-
     encoded_password = _Credentials.encode_password(
                                     identity_uid=service_uid,
                                     password=password,

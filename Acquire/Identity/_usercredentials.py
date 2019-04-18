@@ -21,7 +21,9 @@ class UserCredentials:
         if service_uid is None:
             service_uid = _get_this_service(need_private_access=False).uid()
 
-        return _Hash.multi_md5(service_uid, username+password)
+        result = _Hash.multi_md5(service_uid, username+password)
+
+        return result
 
     @staticmethod
     def create(user_uid, password, primary_password,
@@ -48,8 +50,6 @@ class UserCredentials:
         otp = _OTP()
         otpsecret = otp.encrypt(privkey.public_key())
         primary_password = privkey.encrypt(primary_password)
-
-        print("Create account: %s" % password)
 
         data = {"primary_password": _bytes_to_string(primary_password),
                 "private_key": privkey.to_data(passphrase=password),
@@ -113,8 +113,8 @@ class UserCredentials:
                 key = "%s/credentials/%s/%s" % (_user_root, user_uid,
                                                 user_uid)
                 try:
-                    data = _ObjectStore.get_objects_from_json(bucket=bucket,
-                                                              key=key)
+                    data = _ObjectStore.get_object_from_json(bucket=bucket,
+                                                             key=key)
                     verified_device_uid = None
                 except:
                     pass
@@ -165,10 +165,11 @@ class UserCredentials:
                                         passphrase=password)
 
         # decrypt and validate the OTP code
-        data = _string_to_bytes(secrets["otpcode"])
+        data = _string_to_bytes(secrets["otpsecret"])
+
         otpsecret = privkey.decrypt(data)
         otp = _OTP(secret=otpsecret)
-        otp.verify(otpcode, once_only=True)
+        otp.verify(code=otpcode, once_only=True)
 
         # everything is ok - we can load the user account via the
         # decrypted primary password
@@ -180,7 +181,10 @@ class UserCredentials:
             as _get_service_account_bucket
 
         data = None
+        secrets = None
         key = "%s/uids/%s" % (_user_root, user_uid)
+
+        bucket = _get_service_account_bucket()
 
         try:
             data = _ObjectStore.get_object_from_json(bucket=bucket, key=key)

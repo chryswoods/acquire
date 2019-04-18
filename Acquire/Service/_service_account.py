@@ -149,8 +149,6 @@ def setup_this_service(canonical_url, service_type, username, password):
     """
     assert_running_service()
 
-    print("setup service: %s" % password)
-
     from Acquire.Service import get_service_account_bucket as \
         _get_service_account_bucket
 

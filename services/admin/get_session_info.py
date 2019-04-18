@@ -46,6 +46,6 @@ def run(args):
         return_value["permissions"] = login_session.permissions()
         return_value["user_uid"] = login_session.user_uid()
 
-    return_value["login_status"] = login_session.status()
+    return_value["session_status"] = login_session.status()
 
     return return_value

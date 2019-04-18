@@ -118,15 +118,12 @@ class Credentials:
         """
         from Acquire.Crypto import Hash as _Hash
 
-        print("Encode %s" % password)
-
         encoded_password = _Hash.multi_md5(identity_uid, password)
 
         encoded_password = Credentials.encode_device_uid(
                                         encoded_password=encoded_password,
                                         device_uid=device_uid)
 
-        print("Result %s" % encoded_password)
         return encoded_password
 
     @staticmethod

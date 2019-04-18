@@ -169,15 +169,11 @@ class UserAccount:
 
             prefix = "%s/passwords/%s/" % (_user_root, encoded_password)
 
-            print(prefix)
-
             try:
                 names = _ObjectStore.get_all_object_names(bucket=bucket,
                                                           prefix=prefix)
             except:
                 names = []
-
-            print(names)
 
             user_uids = []
             for name in names:
