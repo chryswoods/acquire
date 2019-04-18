@@ -1,11 +1,8 @@
 
 import pytest
-import os
-import sys
-import re
 
 from Acquire.Service import call_function
-from Acquire.Client import User
+from Acquire.Client import User, Wallet
 from Acquire.Identity import Authorisation
 from Acquire.Crypto import OTP
 
@@ -14,38 +11,34 @@ from Acquire.Crypto import OTP
                          [("testuser", "ABCdef12345"),
                           ("something", "!!DDerfld31"),
                           ("someone", "%$(F*Dj4jij43  kdfjdk")])
-def test_login(username, password, aaai_services):
+def test_login(username, password, aaai_services, tmpdir):
     # register the new user
-    user = User(username, identity_url="identity")
+    result = User.register(username=username,
+                           password=password,
+                           identity_url="identity")
 
-    (provisioning_uri, qrcode) = user.register(password)
+    assert(type(result) is dict)
 
-    assert(qrcode is not None)
-    assert(type(provisioning_uri) is str)
-
-    # extract the shared secret from the provisioning URI
-    otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
-                          provisioning_uri).groups()[0]
+    otpsecret = result["otpsecret"]
 
     user_otp = OTP(otpsecret)
 
-    (login_url, qrcode) = user.request_login()
+    user = User(username=username, identity_url="identity")
+    result = user.request_login()
 
-    assert(type(login_url) is str)
+    assert(type(result) is dict)
 
-    short_uid = re.search(r"id=([\w\d+]+)",
-                          login_url).groups()[0]
+    login_url = result["login_url"]
 
-    args = {}
-    args["short_uid"] = short_uid
-    args["username"] = username
-    args["password"] = password
-    args["otpcode"] = user_otp.generate()
+    wallet = Wallet(wallet_dir="%s/acquire_wallet" % tmpdir)
+    wallet.send_password(url=login_url, username=username,
+                         password=password, otpcode=user_otp.generate(),
+                         remember_password=True, remember_device=True,
+                         dryrun=True)
 
-    result = call_function("identity", "login", args=args)
-
-    assert("status" in result)
-    assert(result["status"] == 0)
+    wallet.send_password(url=login_url, username=username,
+                         password=password, otpcode=user_otp.generate(),
+                         remember_password=True, remember_device=True)
 
     user.wait_for_login()
     assert(user.is_logged_in())

@@ -17,11 +17,12 @@ def test_login_fails(aaai_services):
     username2 = "fail2"
     password2 = "Fail2!!!"
 
-    user1 = User(username1, identity_url="identity")
-    user2 = User(username2, identity_url="identity")
-
-    (provisioning_uri1, qrcode) = user1.register(password1)
-    (provisioning_uri2, qrcode) = user2.register(password2)
+    (provisioning_uri1, qrcode) = User.register(username=username1,
+                                                password=password1,
+                                                identity_url="identity")
+    (provisioning_uri2, qrcode) = User.register(username=username2,
+                                                password=password2,
+                                                identity_url="identity")
 
     assert(qrcode is not None)
     assert(type(provisioning_uri1) is str)
@@ -37,6 +38,9 @@ def test_login_fails(aaai_services):
                           provisioning_uri2).groups()[0]
 
     user_otp2 = OTP(otpsecret)
+
+    user1 = User(username=username1, identity_url="identity")
+    user2 = User(username=username2, identity_url="identity")
 
     (login_url1, qrcode) = user1.request_login()
     (login_url2, qrcode) = user2.request_login()

@@ -7,7 +7,6 @@
 import pytest
 import os
 import sys
-import re
 import uuid
 
 import Acquire
@@ -111,32 +110,28 @@ Acquire.Stubs.requests = MockedRequests
 
 # monkey-patch input so that we can say "y"
 Acquire.Client._wallet._input = mocked_input
-Acquire.Client._wallet._is_testing = True
+
+_wallet_password = Acquire.Crypto.PrivateKey.random_passphrase()
 
 
-def _login_admin(service_url, username, password, otp):
+def _login_admin(service_url, username, password, otp, wallet_dir):
     """Internal function used to get a valid login to the specified
        service for the passed username, password and otp
     """
     from Acquire.Client import User, Service
     from Acquire.Identity import LoginSession
-    from Acquire.Client import Credentials
+    from Acquire.Client import Wallet
 
     user = User(username=username, identity_url=service_url)
 
-    user.request_login()
-    short_uid = LoginSession.to_short_uid(user.session_uid())
+    result = user.request_login()
+    login_url = result["login_url"]
 
-    credentials = Credentials(username=username, short_uid=short_uid,
-                              password=password, otpcode=otp.generate(),
-                              device_uid=None)
+    wallet = Wallet(wallet_dir=wallet_dir, wallet_password=_wallet_password)
 
-    service = Service(service_url)
-
-    args = {"short_uid": short_uid,
-            "credentials": credentials.to_data(identity_uid=service.uid())}
-
-    service.call_function(function="admin/login", args=args)
+    wallet.send_password(url=login_url, username=username,
+                         password=password, otpcode=otp.generate(),
+                         remember_password=False, remember_device=False)
 
     user.wait_for_login()
 
@@ -162,6 +157,8 @@ def aaai_services(tmpdir_factory):
     _services["userdata"] = tmpdir_factory.mktemp("userdata")
     _services["compute"] = tmpdir_factory.mktemp("compute")
 
+    wallet_dir = tmpdir_factory.mktemp("wallet")
+
     _set_services(_services)
 
     password = PrivateKey.random_passphrase()
@@ -179,7 +176,8 @@ def aaai_services(tmpdir_factory):
     identity_service = Service.from_data(response["service"])
     identity_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
     identity_user = _login_admin("identity", "admin",
-                                 password, identity_otp)
+                                 password, identity_otp,
+                                 wallet_dir)
     responses["identity"] = {"service": identity_service,
                              "user": identity_user,
                              "response": response}
@@ -191,7 +189,7 @@ def aaai_services(tmpdir_factory):
     accounting_service = Service.from_data(response["service"])
     accounting_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
     accounting_user = _login_admin("accounting", "admin", password,
-                                   accounting_otp)
+                                   accounting_otp, wallet_dir)
     responses["accounting"] = {"service": accounting_service,
                                "user": accounting_user,
                                "response": response}
@@ -202,7 +200,8 @@ def aaai_services(tmpdir_factory):
     responses["access"] = response
     access_service = Service.from_data(response["service"])
     access_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
-    access_user = _login_admin("access", "admin", password, access_otp)
+    access_user = _login_admin("access", "admin", password, access_otp,
+                               wallet_dir)
     responses["access"] = {"service": access_service,
                            "user": access_user,
                            "response": response}
@@ -213,7 +212,8 @@ def aaai_services(tmpdir_factory):
     responses["compute"] = response
     compute_service = Service.from_data(response["service"])
     compute_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
-    compute_user = _login_admin("compute", "admin", password, compute_otp)
+    compute_user = _login_admin("compute", "admin", password, compute_otp,
+                                wallet_dir)
     responses["compute"] = {"service": compute_service,
                             "user": compute_user,
                             "response": response}
@@ -223,7 +223,8 @@ def aaai_services(tmpdir_factory):
     response = call_function("storage", function="admin/setup", args=args)
     storage_service = Service.from_data(response["service"])
     storage_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
-    storage_user = _login_admin("storage", "admin", password, storage_otp)
+    storage_user = _login_admin("storage", "admin", password, storage_otp,
+                                wallet_dir)
     responses["storage"] = {"service": storage_service,
                             "user": storage_user,
                             "response": response}
@@ -296,21 +297,21 @@ def authenticated_user(aaai_services):
     username = str(uuid.uuid4())
     password = PrivateKey.random_passphrase()
 
-    user = User(username, identity_url="identity")
-    (provisioning_uri, _) = user.register(password)
+    result = User.register(username=username,
+                           password=password,
+                           identity_url="identity")
 
-    otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
-                          provisioning_uri).groups()[0]
+    otpsecret = result["otpsecret"]
 
     user_otp = OTP(otpsecret)
 
     # now log the user in
-    (login_url, _) = user.request_login()
+    user = User(username=username, identity_url="identity")
+    result = user.request_login()
 
-    assert(type(login_url) is str)
+    assert(type(result) is dict)
 
-    short_uid = re.search(r"id=([\w\d+]+)",
-                          login_url).groups()[0]
+    short_uid = result["short_uid"]
 
     args = {}
     args["short_uid"] = short_uid

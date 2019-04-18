@@ -26,7 +26,8 @@ def _get_identity_service(identity_url=None):
 
     try:
         from Acquire.Client import Wallet as _Wallet
-        service = _Wallet.get_service(service_url=identity_url)
+        wallet = _Wallet()
+        service = wallet.get_service(service_url=identity_url)
     except Exception as e:
         from Acquire.Service import exception_to_string
         raise LoginError("Have not received the identity service info from "
@@ -72,7 +73,8 @@ class User:
     """
     def __init__(self, username=None,
                  identity_url=None, identity_uid=None,
-                 scope=None, permissions=None):
+                 scope=None, permissions=None,
+                 auto_logout=True):
         """Construct a null user"""
         self._username = username
         self._status = _LoginStatus.EMPTY
@@ -88,7 +90,6 @@ class User:
         else:
             self._identity_uid = None
 
-        self._username = username
         self._user_uid = None
 
     def __str__(self):
@@ -315,29 +316,23 @@ class User:
 
             return result
 
-    def register(self, password, identity_url=None):
-        """Request to register this user with the identity service running
+    @staticmethod
+    def register(username, password, identity_url=None):
+        """Request to register a new user with the specified
+           username one the identity service running
            at 'identity_url', using the supplied 'password'. This will
            return a QR code that you must use immediately to add this
            user on the identity service to a QR code generator"""
-        if self.is_null():
-            return None
-
-        if self._user_uid is not None:
-            raise PermissionError(
-                "You cannot try to register a user who is already "
-                "logged in!")
-
-        service = self.identity_service()
+        service = _get_identity_service(identity_url=identity_url)
 
         from Acquire.Client import Credentials as _Credentials
 
-        credentials = _Credentials.encode_password(
-                                identity_uid=service.uid(),
-                                password=password)
+        encoded_password = _Credentials.encode_password(
+                                    identity_uid=service.uid(),
+                                    password=password)
 
-        args = {"username": self._username,
-                "credentials": credentials}
+        args = {"username": username,
+                "password": encoded_password}
 
         result = service.call_function(function="register", args=args)
 
@@ -348,11 +343,27 @@ class User:
             raise UserError(
                 "Cannot register the user '%s' on "
                 "the identity service at '%s'!" %
-                (self._username, identity_url))
+                (username, identity_url))
 
         # return a QR code for the provisioning URI
-        from Acquire.Client import create_qrcode as _create_qrcode
-        return (provisioning_uri, _create_qrcode(provisioning_uri))
+        result = {}
+        result["provisioning_uri"] = provisioning_uri
+
+        try:
+            import re
+            otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
+                                  provisioning_uri).groups()[0]
+            result["otpsecret"] = otpsecret
+        except:
+            pass
+
+        try:
+            from Acquire.Client import create_qrcode as _create_qrcode
+            result["qrcode"] = _create_qrcode(provisioning_uri)
+        except:
+            pass
+
+        return result
 
     def request_login(self, login_message=None):
         """Request to authenticate as this user. This returns a login URL that
@@ -465,8 +476,11 @@ class User:
             print("(please check that this page displays the message '%s')"
                   % login_message)
 
+        from Acquire.Identity import LoginSession as _LoginSession
+
         return {"login_url": self._login_url,
-                "session_uid": session_uid}
+                "session_uid": session_uid,
+                "short_uid": _LoginSession.to_short_uid(session_uid)}
 
     def _poll_session_status(self):
         """Function used to query the identity service for this session

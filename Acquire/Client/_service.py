@@ -8,7 +8,7 @@ _cache_service_lookup = _LRUCache(maxsize=5)
 
 
 @_cached(_cache_service_lookup)
-def _get_remote_service(service_url):
+def _get_remote_service(service_url, wallet_dir=None):
     """Call this function to get the Service info of a remote Service.
        This will check if we have seen the service before. If so, then
        we will ensure that this is the correct service. If not, then
@@ -16,7 +16,7 @@ def _get_remote_service(service_url):
        service
     """
     from Acquire.Client import Wallet as _Wallet
-    return _Wallet.get_service(service_url)
+    return _Wallet(wallet_dir=wallet_dir).get_service(service_url)
 
 
 class Service:
@@ -29,7 +29,8 @@ class Service:
        i.e. during construction it will transform into the class
        of the type of service, e.g. Acquire.Identity.IdentityService
     """
-    def __init__(self, service_url=None, service_uid=None):
+    def __init__(self, service_url=None, service_uid=None,
+                 wallet_dir=None):
         """Construct the service that is accessed at the remote
            URL 'service_url'. This will fetch and return the
            details of the remote service. This wrapper is a
@@ -41,7 +42,7 @@ class Service:
         """
         try:
             from Acquire.Client import Wallet as _Wallet
-            service = _Wallet.get_service(service_url)
+            service = _Wallet(wallet_dir=wallet_dir).get_service(service_url)
 
             from copy import copy as _copy
             self.__dict__ = _copy(service.__dict__)
@@ -399,10 +400,8 @@ class Service:
         """Return information about the passed session,
            optionally limited to the provided scope and permissions
         """
-        from Acquire.Service import get_session_info as _get_session_info
-        return _get_session_info(identity_url=self.canonical_url(),
-                                 session_uid=session_uid,
-                                 scope=scope, permissions=permissions)
+        self._fail()
+        return None
 
     def to_data(self, password=None):
         """Serialise this key to a dictionary, using the supplied

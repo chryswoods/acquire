@@ -1,31 +1,24 @@
 
-from Acquire.Stubs import lazy_import as _lazy_import
-
-import os as _os
-import sys as _sys
-import json as _json
-
-_getpass = _lazy_import.lazy_module("getpass")
-_glob = _lazy_import.lazy_module("glob")
-_re = _lazy_import.lazy_module("re")
-
 # use a variable so we can monkey-patch while testing
 _input = input
 
-# whether or not we are in testing mode
-_is_testing = False
-
 __all__ = ["Wallet"]
+
+
+def _flush_output():
+    """Flush STDOUT"""
+    try:
+        import sys as _sys
+        _sys.stdout.flush()
+    except:
+        pass
 
 
 def _read_json(filename):
     """Return a json-decoded dictionary from the data written
        to 'filename'
     """
-    global _is_testing
-    if _is_testing:
-        return {}
-
+    import json as _json
     with open(filename, "rb") as FILE:
         s = FILE.read().decode("utf-8")
         return _json.loads(s)
@@ -33,10 +26,7 @@ def _read_json(filename):
 
 def _write_json(data, filename):
     """Write the passed json-encodable dictionary to 'filename'"""
-    global _is_testing
-    if _is_testing:
-        return
-
+    import json as _json
     s = _json.dumps(data)
     with open(filename, "wb") as FILE:
         FILE.write(s.encode("utf-8"))
@@ -61,31 +51,44 @@ class Wallet:
        This holds a wallet of passwords and (optionally)
        OTP secrets that are encrypted using a local keypair
        that is unlocked by a password supplied by the user locally.
+
+       By default this will create the wallet in your home
+       directory ($HOME/.acquire_wallet). If you want the wallet
+       to be saved in a different directory, specify that
+       as "wallet_dir".
     """
-    def __init__(self):
+    def __init__(self, wallet_dir=None, wallet_password=None):
         self._wallet_key = None
-        self._get_wallet_key()
         self._cache = {}
         self._service_info = {}
         self._manual_password = False
         self._manual_otpcode = False
+        self._device_uid = None
 
-    @staticmethod
-    def _wallet_dir():
-        """Directory containing all of the wallet files"""
-        homedir = _os.path.expanduser("~")
+        import os as _os
 
-        walletdir = "%s/.acquire" % homedir
+        if wallet_dir is None:
+            home = _os.path.expanduser("~")
+            wallet_dir = "%s/.acquire_wallet" % home
 
-        if not _os.path.exists(walletdir):
-            _os.mkdir(walletdir)
+        if not _os.path.exists(wallet_dir):
+            _os.mkdir(wallet_dir)
+        elif not _os.path.isdir(wallet_dir):
+            raise TypeError("The wallet directory must be a directory!")
 
-        return walletdir
+        self._wallet_dir = wallet_dir
 
-    def _create_wallet_key(self, filename):
+        if wallet_password is not None:
+            self._get_wallet_key(wallet_password=wallet_password)
+
+    def _create_wallet_key(self, filename, wallet_password=None):
         """Create a new wallet key for the user"""
 
-        password = _getpass.getpass(
+        if wallet_password is not None:
+            password = wallet_password
+        else:
+            import getpass as _getpass
+            password = _getpass.getpass(
                      prompt="Please enter a password to encrypt your wallet: ")
 
         from Acquire.Client import PrivateKey as _PrivateKey
@@ -93,7 +96,12 @@ class Wallet:
 
         bytes = key.bytes(password)
 
-        password2 = _getpass.getpass(prompt="Please confirm the password: ")
+        if wallet_password is not None:
+            password2 = wallet_password
+        else:
+            import getpass as _getpass
+            password2 = _getpass.getpass(
+                            prompt="Please confirm the password: ")
 
         if password != password2:
             print("The passwords don't match. Please try again.")
@@ -106,33 +114,43 @@ class Wallet:
 
         return key
 
-    def _get_wallet_key(self):
+    def _get_wallet_key(self, wallet_password=None):
         """Return the private key used to encrypt everything in the wallet.
            This will ask for the users password
         """
         if self._wallet_key:
             return self._wallet_key
 
-        wallet_dir = Wallet._wallet_dir()
+        wallet_dir = self._wallet_dir
 
         keyfile = "%s/wallet_key.pem" % wallet_dir
 
+        import os as _os
+
         if not _os.path.exists(keyfile):
-            self._wallet_key = self._create_wallet_key(keyfile)
+            self._wallet_key = self._create_wallet_key(
+                                            filename=keyfile,
+                                            wallet_password=wallet_password)
             return self._wallet_key
 
         # read the keyfile and decrypt
         with open(keyfile, "rb") as FILE:
             bytes = FILE.read()
 
-        # get the user password
         wallet_key = None
+
+        from Acquire.Client import PrivateKey as _PrivateKey
+
+        if wallet_password is not None:
+            wallet_key = _PrivateKey.read_bytes(bytes, wallet_password)
+
+        # get the user password
+        import getpass as _getpass
         while not wallet_key:
             password = _getpass.getpass(
                             prompt="Please enter your wallet password: ")
 
             try:
-                from Acquire.Client import PrivateKey as _PrivateKey
                 wallet_key = _PrivateKey.read_bytes(bytes, password)
             except:
                 print("Invalid password. Please try again.")
@@ -140,23 +158,24 @@ class Wallet:
         self._wallet_key = wallet_key
         return wallet_key
 
-    @staticmethod
-    def _get_userfile(username, identity_url):
+    def _get_userfile(self, username, identity_url):
         """Return the userfile for the passed username logging into the
            passed identity url"""
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
         return "%s/user_%s_%s_encrypted" % (
-            Wallet._wallet_dir(),
+            self._wallet_dir,
             _string_to_safestring(username),
             _string_to_safestring(identity_url))
 
-    @staticmethod
-    def remove_user_info(username):
+    def remove_user_info(self, username):
         """Call this function to remove the userinfo associated
            with the account 'username' for all identity services
         """
-        wallet_dir = Wallet._wallet_dir()
+        wallet_dir = self._wallet_dir
+
+        import glob as _glob
+        import os as _os
 
         userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
 
@@ -174,6 +193,8 @@ class Wallet:
             return self._cache[filename]
         except:
             pass
+
+        import os as _os
 
         if not _os.path.exists(filename):
             return
@@ -199,14 +220,16 @@ class Wallet:
     def _read_userinfo(self, username, identity_url):
         """Read all info for the passed user at the identity service
            reached at 'identity_url'"""
-        return self._read_userfile(Wallet._get_userfile(username,
-                                                        identity_url))
+        return self._read_userfile(self._get_userfile(username,
+                                                      identity_url))
 
     def _get_username(self):
         """Function to find a username automatically, of if that fails,
            to ask the user
         """
-        wallet_dir = Wallet._wallet_dir()
+        wallet_dir = self._wallet_dir
+
+        import glob as _glob
 
         userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
 
@@ -273,11 +296,12 @@ class Wallet:
                 self._manual_password = False
 
                 # this needs to be decrypted
-                return self._wallet_key.decrypt(password)
+                return self._get_wallet_key().decrypt(password)
         except:
             pass
 
         self._manual_password = True
+        import getpass as _getpass
         return _getpass.getpass(prompt="Please enter the login password: ")
 
     def _get_otpcode(self, username, identity_url):
@@ -288,7 +312,7 @@ class Wallet:
 
             if userinfo:
                 from Acquire.Client import OTP as _OTP
-                secret = self._wallet_key.decrypt(userinfo["otpsecret"])
+                secret = self._get_wallet_key().decrypt(userinfo["otpsecret"])
                 device_uid = userinfo["device_uid"]
                 self._manual_otpcode = False
                 self._device_uid = device_uid
@@ -298,24 +322,20 @@ class Wallet:
 
         self._manual_otpcode = True
         self._device_uid = None
+        import getpass as _getpass
         return _getpass.getpass(
                     prompt="Please enter the one-time-password code: ")
 
-    @staticmethod
-    def add_service(service):
+    def add_service(self, service):
         """Add a cached service info for the passed service. If it
            already exists, then this verifies that the added service
            is the same as the previously-seen service
         """
-        global _is_testing
-        if _is_testing:
-            return service
-
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
 
         service_file = "%s/service_%s" % (
-            Wallet._wallet_dir(),
+            self._wallet_dir,
             _string_to_safestring(service.canonical_url()))
 
         existing_service = None
@@ -392,14 +412,10 @@ class Wallet:
 
         return service
 
-    @staticmethod
-    def get_services():
+    def get_services(self):
         """Return all of the trusted services known to this wallet"""
-        global _is_testing
-        if _is_testing:
-            return []
-
-        service_files = _glob.glob("%s/service_*" % Wallet._wallet_dir())
+        import glob as _glob
+        service_files = _glob.glob("%s/service_*" % self._wallet_dir)
 
         services = []
 
@@ -408,23 +424,16 @@ class Wallet:
 
         return services
 
-    @staticmethod
-    def get_service(service_url):
+    def get_service(self, service_url):
         """Return the service at 'service_url'. This will return the
            cached service if it exists, or will add a new service if
            the user so wishes
         """
-        global _is_testing
-        if _is_testing:
-            from Acquire.Service import get_remote_service as \
-                _get_remote_service
-            return _get_remote_service(service_url)
-
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
 
         service_file = "%s/service_%s" % (
-            Wallet._wallet_dir(),
+            self._wallet_dir,
             _string_to_safestring(service_url))
 
         existing_service = None
@@ -447,16 +456,13 @@ class Wallet:
                 _get_remote_service
 
             service = _get_remote_service(service_url)
-            return Wallet.add_service(service)
+            return self.add_service(service)
 
-    @staticmethod
-    def remove_all_services():
+    def remove_all_services(self):
         """Remove all trusted services from this Wallet"""
-        global _is_testing
-        if _is_testing:
-            return
-
-        service_files = _glob.glob("%s/service_*" % Wallet._wallet_dir())
+        import glob as _glob
+        import os as _os
+        service_files = _glob.glob("%s/service_*" % self._wallet_dir)
 
         for service_file in service_files:
             if _os.path.exists(service_file):
@@ -466,13 +472,8 @@ class Wallet:
         from ._service import _cache_service_lookup
         _cache_service_lookup.clear()
 
-    @staticmethod
-    def remove_service(service):
+    def remove_service(self, service):
         """Remove the cached service info for the passed service"""
-        global _is_testing
-        if _is_testing:
-            return
-
         if isinstance(service, str):
             service_url = service
         else:
@@ -482,8 +483,10 @@ class Wallet:
             as _string_to_safestring
 
         service_file = "%s/service_%s" % (
-            Wallet._wallet_dir(),
+            self._wallet_dir,
             _string_to_safestring(service_url))
+
+        import os as _os
 
         if _os.path.exists(service_file):
             _os.unlink(service_file)
@@ -492,10 +495,10 @@ class Wallet:
         from ._service import _cache_service_lookup
         _cache_service_lookup.clear()
 
-    def send_password(self, url, username=None, remember_password=True,
+    def send_password(self, url, username=None, password=None,
+                      otpcode=None, remember_password=True,
                       remember_device=None, dryrun=None):
         """Send a password and one-time code to the supplied login url"""
-
         self._manual_password = False
         self._manual_otpcode = False
 
@@ -508,7 +511,7 @@ class Wallet:
         short_uid = words[-1].split("=")[-1]
 
         # now get the service
-        service = Wallet.get_service(identity_service)
+        service = self.get_service(identity_service)
 
         if not service.can_identify_users():
             from Acquire.Client import LoginError
@@ -522,12 +525,19 @@ class Wallet:
             username = self._get_username()
 
         print("Logging in using username '%s'" % username)
-        password = self._get_user_password(username, service.canonical_url())
-        otpcode = self._get_otpcode(username, service.canonical_url())
+        if password is None:
+            password = self._get_user_password(
+                                        username=username,
+                                        identity_url=service.canonical_url())
+
+        if otpcode is None:
+            otpcode = self._get_otpcode(username=username,
+                                        identity_url=service.canonical_url())
 
         print("\nLogging in to '%s', session '%s'..." % (
               service.canonical_url(), short_uid), end="")
-        _sys.stdout.flush()
+
+        _flush_output()
 
         if dryrun:
             print("Calling %s with username=%s, password=%s, otpcode=%s, "
@@ -547,10 +557,10 @@ class Wallet:
 
             response = service.call_function(function=function, args=args)
             print("SUCCEEDED!")
-            _sys.stdout.flush()
+            _flush_output()
         except Exception as e:
             print("FAILED!")
-            _sys.stdout.flush()
+            _flush_output()
             from Acquire.Client import LoginError
             raise LoginError("Failed to log in. %s" % e.args)
 
@@ -583,7 +593,7 @@ class Wallet:
             if user_info is None:
                 user_info = {}
 
-            pubkey = self._wallet_key.public_key()
+            pubkey = self._get_wallet_key().public_key()
 
             must_write = self._manual_password
 
@@ -608,7 +618,7 @@ class Wallet:
                                                    otpsecret.encode("utf-8")))
                     user_info["device_uid"] = device_uid
 
-                _write_json(data=user_info, filename=Wallet._get_userfile(
+                _write_json(data=user_info, filename=self._get_userfile(
                             username, service.canonical_url()))
 
         self._manual_password = False

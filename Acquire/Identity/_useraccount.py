@@ -64,17 +64,9 @@ class UserAccount:
            This returns a tuple of the user_uid and OTP for the
            newly-created account
         """
-        # create a UID for this new user
         from Acquire.ObjectStore import create_uuid as _create_uuid
-        user_uid = _create_uuid()
-
-        # now create the primary password for this user and use
-        # this to encrypt the special keys for this user
-        from Acquire.Crypto import PrivateKey
-
-        privkey = PrivateKey(auto_generate=True)
-        primary_password = PrivateKey.random_passphrase()
-
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
@@ -85,9 +77,13 @@ class UserAccount:
 
         if _service_public_key is None:
             from Acquire.Service import get_this_service as _get_this_service
-            service_pubkey = _get_this_service().skeleton_key().public_key()
+            service_pubkey = _get_this_service().public_skeleton_key()
+            assert(service_pubkey is not None)
         else:
             service_pubkey = _service_public_key
+
+        if not isinstance(service_pubkey, _PublicKey):
+            raise TypeError("The service public key must be type PublicKey")
 
         if _service_uid is None:
             from Acquire.Service import get_this_service \
@@ -95,6 +91,14 @@ class UserAccount:
             service_uid = _get_this_service(need_private_access=False).uid()
         else:
             service_uid = _service_uid
+
+        # create a UID for this new user
+        user_uid = _create_uuid()
+
+        # now create the primary password for this user and use
+        # this to encrypt the special keys for this user
+        privkey = _PrivateKey(auto_generate=True)
+        primary_password = _PrivateKey.random_passphrase()
 
         bucket = _get_service_account_bucket()
 

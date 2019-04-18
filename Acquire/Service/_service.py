@@ -131,28 +131,24 @@ class Service:
     def __init__(self, service_type=None, service_url=None):
         """Construct a new service of the specified type, with
            the specified URL."""
-        self._service_type = service_type
-        self._service_url = service_url
-        self._canonical_url = service_url
-        self._skeleton_key = None
         self._uid = None
-        self._pubcert = None
-        self._pubkey = None
-        self._service_user_name = None
-        self._service_user_uid = None
-        self._service_user_secrets = None
 
-        if self._service_type:
-            if self._service_type not in ["identity", "access", "compute",
-                                          "accounting", "storage"]:
+        if service_type is not None:
+            if service_type not in ["identity", "access", "compute",
+                                    "accounting", "storage"]:
                 raise ServiceError("Services of type '%s' are not allowed!" %
-                                   self._service_type)
+                                   service_type)
 
             from Acquire.Crypto import PrivateKey as _PrivateKey
             from Acquire.ObjectStore import create_uuid as _create_uuid
 
+            self._service_type = service_type
+            self._service_url = service_url
+            self._canonical_url = service_url
+
             self._uid = _create_uuid()
             self._skeleton_key = _PrivateKey()
+            self._public_skeleton_key = self._skeleton_key.public_key()
 
             self._privkey = _PrivateKey()
             self._privcert = _PrivateKey()
@@ -183,35 +179,41 @@ class Service:
                                                     _json.dumps(secrets))
 
     def __str__(self):
-        if self._uid is None:
+        if self.is_null():
             return "%s(NULL)" % self.__class__.__name__
         else:
             return "%s(url=%s, uid=%s)" % (self.__class__.__name__,
                                            self.canonical_url(),
                                            self.uid())
 
-    def uuid(self):
-        """Synonym for uid"""
-        return self.uid()
-
     def uid(self):
         """Return the uuid of this service. This MUST NEVER change, as
            the UID uniquely identifies this service to all other
            services
         """
-        if self._uid is None:
-            self.refresh_keys()
+        if self.is_null():
+            return None
+        else:
+            return self._uid
 
-        return self._uid
+    def is_null(self):
+        """Return whether or not this is null"""
+        return self._uid is None
 
     def service_type(self):
         """Return the type of this service"""
-        return self._service_type
+        if self.is_null():
+            return None
+        else:
+            return self._service_type
 
     def bucket(self):
         """Return the bucket you can use to read/write data to the
            object store associated with this service account
         """
+        if self.is_null():
+            return None
+
         from Acquire.Service import get_service_account_bucket as \
             _get_service_account_bucket
         return _get_service_account_bucket()
@@ -222,7 +224,10 @@ class Service:
            and can be safely shared as a means of distributing public
            keys and certificates
         """
-        return self._skeleton_key is None
+        if self.is_null():
+            return True
+        else:
+            return self._skeleton_key is None
 
     def is_unlocked(self):
         """Return whether or not this service object is unlocked. Unlocked
@@ -231,16 +236,35 @@ class Service:
            are what are returned by services to provide public keys and
            public certificates
         """
-        return self._skeleton_key is not None
+        if self.is_null():
+            return False
+        else:
+            return self._skeleton_key is not None
 
     def get_trusted_service(self, service_url=None, service_uid=None):
         """Return the trusted service info for the service with specified
            service_url or service_uid"""
+        if self.is_null():
+            return None
+
         from ._get_services import get_trusted_service as \
             _get_trusted_service
 
         return _get_trusted_service(service_url=service_url,
                                     service_uid=service_uid)
+
+    def get_session_info(self, session_uid,
+                         scope=None, permissions=None):
+        """Return information about the passed session,
+           optionally limited to the provided scope and permissions
+        """
+        if self.is_null():
+            return None
+
+        from Acquire.Service import get_session_info as _get_session_info
+        return _get_session_info(identity_url=self.canonical_url(),
+                                 session_uid=session_uid,
+                                 scope=scope, permissions=permissions)
 
     def assert_unlocked(self):
         """Assert that this service object is unlocked"""
@@ -254,7 +278,7 @@ class Service:
            (optionally) specified resource, and that this has been
            authorised by one of the admin accounts of this service
         """
-        if authorisation.identity_uid() != self.uid():
+        if self.is_null() or authorisation.identity_uid() != self.uid():
             from Acquire.Identity import AuthorisationError
             raise AuthorisationError(
                 "The authorisation has not been signed by one of the "
@@ -281,28 +305,34 @@ class Service:
 
     def key_update_interval(self):
         """Return the time delta between server key updates"""
-        try:
-            return _datetime.timedelta(seconds=self._key_update_interval)
-        except:
-            return _datetime.timedelta(seconds=1)
+        if self.is_null():
+            return None
+        else:
+            try:
+                return _datetime.timedelta(seconds=self._key_update_interval)
+            except:
+                return _datetime.timedelta(seconds=1)
 
     def should_refresh_keys(self):
         """Return whether the keys and certificates need to be refreshed
            - i.e. more than 'key_update_interval' has passed since the last
            key update
         """
-        try:
-            from Acquire.ObjectStore import get_datetime_now as \
-                _get_datetime_now
+        if self.is_null():
+            return False
+        else:
+            try:
+                from Acquire.ObjectStore import get_datetime_now as \
+                    _get_datetime_now
 
-            return _get_datetime_now() > (self._last_key_update +
-                                          self.key_update_interval())
-        except:
-            return True
+                return _get_datetime_now() > (self._last_key_update +
+                                              self.key_update_interval())
+            except:
+                return True
 
     def refresh_keys(self):
         """Refresh the keys and certificates"""
-        if self._uid is None:
+        if self.is_null():
             return
 
         if self.is_unlocked():
@@ -363,59 +393,68 @@ class Service:
            users. However, only true Identity Services can register
            and manage normal users
         """
-        return True
+        if self.is_null():
+            return False
+        else:
+            return True
 
     def is_identity_service(self):
         """Return whether or not this is an identity service"""
-        if self._service_type:
-            return self._service_type == "identity"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "identity"
 
     def is_access_service(self):
         """Return whether or not this is an access service"""
-        if self._service_type:
-            return self._service_type == "access"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "access"
 
     def is_accounting_service(self):
         """Return whether or not this is an accounting service"""
-        if self._service_type:
-            return self._service_type == "accounting"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "accounting"
 
     def is_compute_service(self):
         """Return whether or not this is a compute service"""
-        if self._service_type:
-            return self._service_type == "compute"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "compute"
 
     def is_storage_service(self):
         """Return whether or not this is a storage service"""
-        if self._service_type:
-            return self._service_type == "storage"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "storage"
 
     def service_url(self):
         """Return the URL used to access this service"""
-        return self._service_url
+        if self.is_null():
+            return None
+        else:
+            return self._service_url
 
     def canonical_url(self):
         """Return the canonical URL for this service (this is the URL the
            service thinks it has, and which it has used to register itself
            with all other services)
         """
-        return self._canonical_url
+        if self.is_null():
+            return None
+        else:
+            return self._canonical_url
 
     def hostname(self):
         """Return the hostname of the canonical URL that provides
            this service
         """
-        if self._uid is None:
+        if self.is_null():
             return None
 
         from urllib.parse import urlparse as _urlparse
@@ -425,7 +464,7 @@ class Service:
         """Return whether or not the canonical URL of this service
            is connected to via https
         """
-        if self._uid is None:
+        if self.is_null():
             return False
 
         from urllib.parse import urlparse as _urlparse
@@ -433,15 +472,22 @@ class Service:
 
     def update_service_url(self, service_url):
         """Update the service url to be 'service_url'"""
-        self._service_url = str(service_url)
+        if not self.is_null():
+            self._service_url = str(service_url)
 
     def service_user_uid(self):
         """Return the UID of the service user account for this service"""
-        return self._service_user_uid
+        if self.is_null():
+            return None
+        else:
+            return self._service_user_uid
 
     def service_user_name(self):
         """Return the name of the service user account for this service"""
-        return self._service_user_name
+        if self.is_null():
+            return None
+        else:
+            return self._service_user_name
 
     def service_user_secrets(self):
         """Return the (encrypted) secrets for the service user account.
@@ -464,6 +510,9 @@ class Service:
         """Return the UID of the financial account associated with
            this service on the passed accounting service
         """
+        if self.is_null():
+            return None
+
         from Acquire.Service import get_service_user_account_uid as \
             _get_service_user_account_uid
 
@@ -484,10 +533,22 @@ class Service:
         return _get_service_user_account_uid(
                     accounting_service_uid=accounting_service.uid())
 
+    def public_skeleton_key(self):
+        """Return the public skeleton key. This is the public
+           key for the matching private skeleton key, which is
+           stored internally, and which should never be shared
+           outside this service. It is used to encrypt data that
+           should only be decryptable by the skeleton key
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._public_skeleton_key
+
     def skeleton_key(self):
         """Return the skeleton key used by this service. This is an
            unchanging key which is stored internally, should never be
-           shared outside the service, and which is used to encrypt
+           shared outside the service, and which is used to decrypt
            all data. Unlocking the service involves loading and
            decrypting this skeleton key
         """
@@ -506,11 +567,17 @@ class Service:
 
     def public_key(self):
         """Return the public key for this service"""
-        return self._pubkey
+        if self.is_null():
+            return None
+        else:
+            return self._pubkey
 
     def public_certificate(self):
         """Return the public signing certificate for this service"""
-        return self._pubcert
+        if self.is_null():
+            return None
+        else:
+            return self._pubcert
 
     def last_key(self):
         """Return the old private key for this service (if it has
@@ -527,7 +594,10 @@ class Service:
            in case we need to verify data signed using the old private
            certificate
         """
-        return self._lastcert
+        if self.is_null():
+            return None
+        else:
+            return self._lastcert
 
     def call_function(self, function, args=None):
         """Call the function 'func' on this service, optionally passing
@@ -538,7 +608,7 @@ class Service:
            the response (and automatically then decrypts the
            response)
         """
-        if self._uid is None:
+        if self.is_null():
             from Acquire.Service import RemoteFunctionCallError
             raise RemoteFunctionCallError(
                 "You cannot call the function '%s' on a null service!" %
@@ -558,18 +628,30 @@ class Service:
 
     def sign(self, message):
         """Sign the specified message"""
-        return self.private_certificate().sign(message)
+        if self.is_null():
+            raise PermissionError("You cannot sign using a null service!")
+
+        self.private_certificate().sign(message)
 
     def verify(self, signature, message):
         """Verify that this service signed the message"""
+        if self.is_null():
+            raise PermissionError("You cannot verify using a null service!")
+
         self.public_certificate().verify(signature, message)
 
     def encrypt(self, message):
         """Encrypt the passed message"""
+        if self.is_null():
+            raise PermissionError("You cannot encrypt using a null service!")
+
         return self.public_key().encrypt(message)
 
     def decrypt(self, message):
         """Decrypt the passed message"""
+        if self.is_null():
+            raise PermissionError("You cannot decrypt using a null service!")
+
         return self.private_key().decrypt(message)
 
     def sign_data(self, data):
@@ -583,6 +665,9 @@ class Service:
                    "signed_data" : "JSON_ENCODED_DATA",
                    "signature" : "SIG OF JSON_ENCODED_DATA"}
         """
+        if self.is_null():
+            raise PermissionError("You cannot sign using a null service!")
+
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
         data = _json.dumps(data)
@@ -604,6 +689,9 @@ class Service:
            key used to encrypt the data, enabling the service to
            perform key rotation and management.
         """
+        if self.is_null():
+            raise PermissionError("You cannot verify using a null service!")
+
         try:
             from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
@@ -644,6 +732,9 @@ class Service:
                    "fingerprint" : "KEY_FINGERPRINT",
                    "encrypted_data" : "ENCRYPTED_DATA"}
         """
+        if self.is_null():
+            raise PermissionError("You cannot encrypt using a null service!")
+
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         return {"service_uid": str(self.uid()),
                 "canonical_url": str(self.canonical_url()),
@@ -661,6 +752,9 @@ class Service:
            key used to encrypt the data, enabling the service to
            perform key rotation and management.
         """
+        if self.is_null():
+            raise PermissionError("You cannot decrypt using a null service!")
+
         if isinstance(data, str):
             data = _json.loads(data)
 
@@ -697,6 +791,9 @@ class Service:
            are encrypted the password which is encrypted using the
            master key
         """
+        if self.is_null():
+            return {}
+
         dump = {}
 
         from Acquire.ObjectStore import datetime_to_string \
@@ -740,6 +837,9 @@ class Service:
            This returns a dictionary of the keys and datetime that
            they were created, indexed by their key fingerprints
         """
+        if self.is_null():
+            return
+
         # get all of the key fingerprints in this dictionary
         fingerprints = []
         for key in data.keys():
@@ -774,6 +874,9 @@ class Service:
            Evolving means that this service is the same service as 'other',
            but at a later point in time with newer keys
         """
+        if self.is_null():
+            return False
+
         if self.validation_string() == other.validation_string():
             return True
         elif self.canonical_url() != other.canonical_url():
@@ -789,6 +892,9 @@ class Service:
         """Return a string created from this object that can be signed
            to verify that all information was transmitted correctly
         """
+        if self.is_null():
+            return None
+
         return "%s:%s:%s:%s:%s:%s:%s:%s:%s" % (
             self._uid, self.canonical_url(), self._service_type,
             self._pubcert.fingerprint(), self._pubkey.fingerprint(),
@@ -800,6 +906,9 @@ class Service:
            password to encrypt the private key and certificate"""
 
         data = {}
+
+        if self.is_null():
+            return data
 
         data["uid"] = self._uid
         data["service_type"] = self._service_type
@@ -843,6 +952,7 @@ class Service:
 
             data["secret_data"] = _bytes_to_string(secret_data)
             data["skeleton_key"] = self._skeleton_key.to_data(password)
+            data["public_skeleton_key"] = self._public_skeleton_key.to_data()
 
             # the service user secrets are already encrypted
             data["service_user_secrets"] = _bytes_to_string(
@@ -870,6 +980,9 @@ class Service:
            always verify data that has been transmitted over a network.
         """
         service = Service()
+
+        if data is None or len(data) == 0:
+            return service
 
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import string_to_datetime as \
@@ -908,6 +1021,7 @@ class Service:
                 service._lastcert = service._privcert
         else:
             service._skeleton_key = None
+            service._public_skeleton_key = None
             service._privkey = None
             service._privcert = None
             service._lastkey = None
@@ -921,6 +1035,12 @@ class Service:
 
         service._service_user_uid = data["service_user_uid"]
         service._service_user_name = data["service_user_name"]
+
+        try:
+            service._public_skeleton_key = _PublicKey.from_data(
+                                            data["public_skeleton_key"])
+        except:
+            service._public_skeleton_key = None
 
         service._pubkey = _PublicKey.from_data(data["public_key"])
         service._pubcert = _PublicKey.from_data(data["public_certificate"])
