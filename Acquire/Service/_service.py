@@ -113,11 +113,6 @@ def _login_service_user(service_uid):
 
     login_args = None
 
-    if result["status"] != 0:
-        from Acquire.Service import ServiceAccountError
-        raise ServiceAccountError(
-            "Error logging into the admin account: %s" % result["message"])
-
     user.wait_for_login()
 
     return user

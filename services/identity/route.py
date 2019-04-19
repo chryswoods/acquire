@@ -19,7 +19,9 @@ def identity_functions(function, args):
         from admin.request_login import run as _request_login
         return _request_login(args)
     else:
-        return None
+        from admin.handler import MissingFunctionError
+        raise MissingFunctionError()
+
 
 if __name__ == "__main__":
     import fdk

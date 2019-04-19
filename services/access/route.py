@@ -1,5 +1,4 @@
 
-
 def access_functions(function, args):
     """These are all of the additional functions for the access service"""
     if function == "request":
@@ -9,7 +8,9 @@ def access_functions(function, args):
         from access.run_calculation import run as _run_calculation
         return _run_calculation(args)
     else:
-        return None
+        from admin.handler import MissingFunctionError
+        raise MissingFunctionError()
+
 
 if __name__ == "__main__":
     import fdk

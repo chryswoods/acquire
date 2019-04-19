@@ -447,23 +447,6 @@ class User:
         result = identity_service.call_function(
                         function="request_login", args=args)
 
-        # look for status = 0
-        try:
-            status = int(result["status"])
-        except:
-            status = -1
-
-        try:
-            message = result["message"]
-        except:
-            message = str(result)
-
-        if status != 0:
-            error = "Failed to login. Error = %d. Message = %s" % \
-                                (status, message)
-            self._set_error_state(error)
-            raise LoginError(error)
-
         try:
             login_url = result["login_url"]
         except:

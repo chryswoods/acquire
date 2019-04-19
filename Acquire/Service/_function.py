@@ -261,6 +261,7 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
 
     if public_cert:
         if not is_encrypted:
+            from Acquire.Service import UnpackingError
             raise UnpackingError(
                 "Cannot unpack the result of %s on %s as it should be "
                 "signed, but it isn't! (only encrypted results are signed) "
@@ -300,10 +301,16 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
         return unpack_arguments(decrypted_data,
                                 is_return_value=is_return_value,
                                 function=function, service=service)
-    elif is_return_value and payload is not None:
+
+    if payload is None:
+        raise UnpackingError(
+            "We should have been able to extract the payload from "
+            "%s" % data)
+
+    if is_return_value:
         return payload["return"]
     else:
-        return (data["function"], data["payload"])
+        return (data["function"], payload, data)
 
 
 def unpack_return_value(return_value, key=None, public_cert=None,
@@ -353,7 +360,7 @@ def _unpack_and_raise(function, service, exdata):
             ex.__traceback__ = _tblib.Traceback.from_dict(
                                         exdata["traceback"]).as_traceback()
         except:
-            # cannot get the traceback...
+            # cannot get the traceback...
             pass
     except Exception as e:
         from Acquire.Service import RemoteFunctionCallError
@@ -376,32 +383,6 @@ def exception_to_string(e):
                                         limit=2)
 
     return "".join(lines)
-
-
-def _call_local_function(service, function=None, args=None, args_key=None,
-                         response_key=None, public_cert=None):
-    """This is an internal version of call_function which short-cuts
-       the whole process if the function is being called in the local
-       service
-    """
-    response_key = _get_key(response_key)
-
-    if response_key:
-        args_json = pack_arguments(function=function, args=args,
-                                   key=args_key,
-                                   response_key=response_key.public_key(),
-                                   public_cert=public_cert)
-    else:
-        args_json = pack_arguments(function=function, args=args,
-                                   key=args_key)
-
-    result = service._call_local_function(function=function,
-                                          args_json=args_json)
-
-    # Now unpack the results
-    return unpack_return_value(return_value=result, key=response_key,
-                               public_cert=public_cert,
-                               function=function, service=service)
 
 
 def call_function(service_url, function=None, args=None, args_key=None,
@@ -428,17 +409,15 @@ def call_function(service_url, function=None, args=None, args_key=None,
     if _is_running_service():
         from Acquire.Service import get_this_service as _get_this_service
         try:
-            service = _get_this_service(need_private_access=True)
+            service = _get_this_service(need_private_access=False)
         except:
             pass
 
         if service is not None:
             if service.canonical_url() == service_url:
-                return _call_local_function(service=service,
-                                            function=function,
-                                            args=args, args_key=args_key,
-                                            response_key=response_key,
-                                            public_cert=public_cert)
+                result = service._call_local_function(function=function,
+                                                      args=args)
+                return unpack_return_value(return_value=result)
 
     response_key = _get_key(response_key)
 

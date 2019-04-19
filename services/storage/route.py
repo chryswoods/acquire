@@ -32,7 +32,9 @@ def storage_functions(function, args):
         from storage.upload import run as _upload
         return _upload(args)
     else:
-        return None
+        from admin.handler import MissingFunctionError
+        raise MissingFunctionError()
+
 
 if __name__ == "__main__":
     import fdk

@@ -6,7 +6,12 @@ import sys
 import os
 import subprocess
 
-__all__ = ["create_handler", "create_async_handler"]
+__all__ = ["create_handler", "create_async_handler",
+           "MissingFunctionError"]
+
+
+class MissingFunctionError(Exception):
+    pass
 
 
 def _one_hot_spare():
@@ -72,7 +77,7 @@ def _route_function(function, args, additional_functions=None):
         if additional_functions is not None:
             try:
                 return additional_functions(function, args)
-            except LookupError:
+            except MissingFunctionError:
                 pass
 
         if function.startswith("admin/"):
@@ -81,7 +86,7 @@ def _route_function(function, args, additional_functions=None):
         return _route_function("admin/%s" % function, args)
 
 
-def _handle(additional_functions=None, args={}):
+def _handle(function=None, additional_functions=None, args={}):
     """This function routes calls to sub-functions, thereby allowing
        a single identity function to stay hot for longer. If you want
        to add additional functions then add them via the
@@ -93,16 +98,6 @@ def _handle(additional_functions=None, args={}):
 
     pr = start_profile()
 
-    try:
-        function = str(args["function"])
-    except:
-        function = None
-
-    try:
-        args = args["payload"]
-    except:
-        args = None
-
     # if function != "warm":
     #     one_hot_spare()
 
@@ -113,7 +108,8 @@ def _handle(additional_functions=None, args={}):
     return result
 
 
-def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
+def _base_handler(additional_functions=None, ctx=None, data=None, loop=None,
+                  function=None, args=None):
     """This function routes calls to sub-functions, thereby allowing
        a single function to stay hot for longer. If you want
        to add additional functions then add them via the
@@ -132,15 +128,20 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
 
     result = None
 
-    try:
-        args = unpack_arguments(data, get_service_private_key)
-    except Exception as e:
-        args = None
-        result = e
+    if function is None:
+        try:
+            (function, args, keys) = unpack_arguments(data,
+                                                      get_service_private_key)
+        except Exception as e:
+            args = None
+            result = e
+    else:
+        keys = None
 
     if result is None:
         try:
-            result = _handle(additional_functions=additional_functions,
+            result = _handle(function=function,
+                             additional_functions=additional_functions,
                              args=args)
         except Exception as e:
             result = e
@@ -148,7 +149,7 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
     result = create_return_value(payload=result)
 
     try:
-        result = pack_return_value(payload=result, key=args)
+        result = pack_return_value(payload=result, key=keys)
     except Exception as e:
         result = pack_return_value(payload=create_return_value(e))
 
@@ -168,8 +169,9 @@ def create_async_handler(additional_functions=None):
 
 
 def create_handler(additional_functions=None):
-    def handler(ctx, data=None, loop=None):
+    def handler(ctx=None, data=None, loop=None, function=None, args=None):
         return _base_handler(additional_functions=additional_functions,
-                             ctx=ctx, data=data, loop=loop)
+                             ctx=ctx, data=data, loop=loop,
+                             function=function, args=args)
 
     return handler

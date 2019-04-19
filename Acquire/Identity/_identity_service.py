@@ -26,4 +26,4 @@ class IdentityService(_Service):
         from identity.route import identity_functions as _identity_functions
         from admin.handler import create_handler as _create_handler
         handler = _create_handler(_identity_functions)
-        return handler(function, args)
+        return handler(function=function, args=args)

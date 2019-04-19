@@ -28,4 +28,4 @@ class ComputeService(_Service):
         from compute.route import compute_functions as _compute_functions
         from admin.handler import create_handler as _create_handler
         handler = _create_handler(_compute_functions)
-        return handler(function, args)
+        return handler(function=function, args=args)

@@ -29,4 +29,4 @@ class AccountingService(_Service):
             as _accounting_functions
         from admin.handler import create_handler as _create_handler
         handler = _create_handler(_accounting_functions)
-        return handler(function, args)
+        return handler(function=function, args=args)
