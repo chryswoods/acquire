@@ -47,6 +47,7 @@ def bucket(tmpdir_factory):
 
 @pytest.fixture(scope="session")
 def account1(bucket):
+    push_is_running_service()
     accounts = Accounts(user_guid=account1_user)
     account = Account(name="Testing Account",
                       description="This is the test account",
@@ -59,12 +60,14 @@ def account1(bucket):
 
     account.set_overdraft_limit(account1_overdraft_limit)
     assert(account.get_overdraft_limit() == account1_overdraft_limit)
+    pop_is_running_service()
 
     return account
 
 
 @pytest.fixture(scope="session")
 def account2(bucket):
+    push_is_running_service()
     accounts = Accounts(user_guid=account2_user)
     account = Account(name="Testing Account",
                       description="This is a second testing account",
@@ -77,6 +80,8 @@ def account2(bucket):
 
     account.set_overdraft_limit(account2_overdraft_limit)
     assert(account.get_overdraft_limit() == account2_overdraft_limit)
+
+    pop_is_running_service()
 
     return account
 
@@ -103,22 +108,29 @@ def test_account(bucket):
     name = "test account"
     description = "This is a test account"
 
-    account = Account(name, description, bucket=bucket)
+    push_is_running_service()
 
-    assert(account.name() == name)
-    assert(account.description() == description)
-    assert(not account.is_null())
+    try:
+        account = Account(name, description, bucket=bucket)
 
-    uid = account.uid()
-    assert(uid is not None)
+        assert(account.name() == name)
+        assert(account.description() == description)
+        assert(not account.is_null())
 
-    account2 = Account(uid=uid, bucket=bucket)
+        uid = account.uid()
+        assert(uid is not None)
 
-    assert(account2.name() == name)
-    assert(account2.description() == description)
+        account2 = Account(uid=uid, bucket=bucket)
 
-    assert(account.balance() == 0)
+        assert(account2.name() == name)
+        assert(account2.description() == description)
 
+        assert(account.balance() == 0)
+    except:
+        pop_is_running_service()
+        raise
+
+    pop_is_running_service()
 
 def test_transactions(random_transaction, bucket):
 
