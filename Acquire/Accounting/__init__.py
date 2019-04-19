@@ -7,6 +7,7 @@ Acquire Accounting Service
 
 from ._account import *
 from ._accounts import *
+from ._balance import *
 from ._errors import *
 from ._transaction import *
 from ._transactionrecord import *

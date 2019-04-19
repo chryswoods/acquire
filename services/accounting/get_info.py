@@ -45,16 +45,12 @@ def run(args):
     # validate the authorisation for this account
     authorisation.verify(resource="get_info %s" % account.uid())
 
-    balance_status = account.balance_status(bucket=bucket)
+    balance = account.balance()
 
     return_value = {}
 
-    if account:
-        return_value["description"] = account.description()
-        return_value["overdraft_limit"] = str(account.get_overdraft_limit())
-
-    if balance_status:
-        for key in balance_status.keys():
-            return_value[key] = str(balance_status[key])
+    return_value["description"] = account.description()
+    return_value["overdraft_limit"] = str(account.get_overdraft_limit())
+    return_value["balance"] = balance.to_data()
 
     return return_value

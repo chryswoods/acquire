@@ -61,7 +61,7 @@ def run(args):
 
         billing_balance = billing_account.balance() - transaction.value()
 
-        if billing_balance < -50.0:
+        if billing_balance.balance() < -50.0:
             # there are sufficient funds that need to be transferred that
             # it is worth really charging the user
             invoice_user = user_guid

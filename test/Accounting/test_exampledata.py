@@ -26,35 +26,43 @@ def bucket(tmpdir_factory):
 
 
 def test_example_data(bucket):
-    example_dir = "%s/example_data" % os.path.split(__file__)[0]
+    push_is_running_service()
 
-    assert(os.path.exists("%s/accounting" % example_dir))
+    try:
+        example_dir = "%s/example_data" % os.path.split(__file__)[0]
 
-    # copy the accounting data into the object store
-    distutils.dir_util.copy_tree(example_dir, bucket)
+        assert(os.path.exists("%s/accounting" % example_dir))
 
-    user1_accounts = Accounts("e2e31e35-025c-4a4c-8a7b-65da94e722d6")
-    user2_accounts = Accounts("e5e03b59-bc04-4a7f-9ebd-9c32dbc795f6")
+        # copy the accounting data into the object store
+        distutils.dir_util.copy_tree(example_dir, bucket)
 
-    accounts = []
+        user1_accounts = Accounts("e2e31e35-025c-4a4c-8a7b-65da94e722d6")
+        user2_accounts = Accounts("e5e03b59-bc04-4a7f-9ebd-9c32dbc795f6")
 
-    for account in user1_accounts.list_accounts():
-        accounts.append(user1_accounts.get_account(account))
+        accounts = []
 
-    for account in user2_accounts.list_accounts():
-        accounts.append(user2_accounts.get_account(account))
+        for account in user1_accounts.list_accounts():
+            accounts.append(user1_accounts.get_account(account))
 
-    # make sure that the ledger is balanced
-    balance_sum = 0
-    some_nonzero = False
+        for account in user2_accounts.list_accounts():
+            accounts.append(user2_accounts.get_account(account))
 
-    for account in accounts:
-        balance = account.balance()
+        # make sure that the ledger is balanced
+        balance_sum = 0
+        some_nonzero = False
 
-        if balance != 0:
-            some_nonzero = True
+        for account in accounts:
+            balance = account.balance()
 
-        balance_sum += balance
+            if balance != 0:
+                some_nonzero = True
 
-    assert(some_nonzero)
-    assert(balance_sum == 0)
+            balance_sum += balance
+
+        assert(some_nonzero)
+        assert(balance_sum == 0)
+    except:
+        pop_is_running_service()
+        raise
+
+    pop_is_running_service()

@@ -104,12 +104,12 @@ def decimal_to_string(d):
     return str(d)
 
 
-def string_to_decimal(s):
+def string_to_decimal(s, default=0):
     """Return the decimal that had been encoded via 'decimal_to_string'.
        This string must have been created via 'decimal_to_string'
     """
     from Acquire.Accounting import create_decimal as _create_decimal
-    return _create_decimal(s)
+    return _create_decimal(s, default=default)
 
 
 def datetime_to_string(d):

@@ -5,7 +5,7 @@ import datetime
 
 from Acquire.Accounting import Account, Transaction, TransactionRecord, \
                                Accounts, Ledger, Receipt, Refund, \
-                               create_decimal
+                               create_decimal, Balance
 
 from Acquire.Identity import Authorisation, ACLRule
 
@@ -45,6 +45,7 @@ def bucket(tmpdir_factory):
 
         return bucket
 
+
 @pytest.fixture(scope="session")
 def account1(bucket):
     push_is_running_service()
@@ -55,8 +56,7 @@ def account1(bucket):
                       bucket=bucket)
     uid = account.uid()
     assert(uid is not None)
-    assert(account.balance() == 0)
-    assert(account.liability() == 0)
+    assert(account.balance() == Balance())
 
     account.set_overdraft_limit(account1_overdraft_limit)
     assert(account.get_overdraft_limit() == account1_overdraft_limit)
@@ -75,8 +75,7 @@ def account2(bucket):
                       bucket=bucket)
     uid = account.uid()
     assert(uid is not None)
-    assert(account.balance() == 0)
-    assert(account.liability() == 0)
+    assert(account.balance() == Balance())
 
     account.set_overdraft_limit(account2_overdraft_limit)
     assert(account.get_overdraft_limit() == account2_overdraft_limit)
@@ -125,24 +124,21 @@ def test_account(bucket):
         assert(account2.name() == name)
         assert(account2.description() == description)
 
-        assert(account.balance() == 0)
+        assert(account.balance() == Balance())
     except:
         pop_is_running_service()
         raise
 
     pop_is_running_service()
 
+
 def test_transactions(random_transaction, bucket):
 
     (transaction, account1, account2) = random_transaction
 
     starting_balance1 = account1.balance()
-    starting_liability1 = account1.liability()
-    starting_receivable1 = account1.receivable()
 
     starting_balance2 = account2.balance()
-    starting_liability2 = account2.liability()
-    starting_receivable2 = account2.receivable()
 
     authorisation = Authorisation(resource=transaction.fingerprint(),
                                   testing_key=testing_key,
@@ -160,20 +156,10 @@ def test_transactions(random_transaction, bucket):
     record = records[0]
 
     ending_balance1 = account1.balance()
-    ending_liability1 = account1.liability()
-    ending_receivable1 = account1.receivable()
-
     ending_balance2 = account2.balance()
-    ending_liability2 = account2.liability()
-    ending_receivable2 = account2.receivable()
 
-    assert(ending_balance1 == starting_balance1 - transaction.value())
-    assert(ending_balance2 == starting_balance2 + transaction.value())
-
-    assert(ending_liability1 == starting_liability1)
-    assert(starting_liability2 == ending_liability2)
-    assert(starting_receivable1 == ending_receivable1)
-    assert(starting_receivable2 == ending_receivable2)
+    assert(ending_balance1 == starting_balance1 - transaction)
+    assert(ending_balance2 == starting_balance2 + transaction)
 
     assert(record.debit_account_uid() == account1.uid())
     assert(record.credit_account_uid() == account2.uid())
@@ -236,31 +222,21 @@ def test_transactions(random_transaction, bucket):
     assert(rrecord.original_transaction_record() == record)
 
     ending_balance1 = account1.balance()
-    ending_liability1 = account1.liability()
-    ending_receivable1 = account1.receivable()
-
     ending_balance2 = account2.balance()
-    ending_liability2 = account2.liability()
-    ending_receivable2 = account2.receivable()
 
-    assert(ending_liability1 == starting_liability1)
-    assert(ending_receivable2 == starting_receivable2)
-    assert(starting_balance1 == ending_balance1)
-    assert(starting_balance2 == ending_balance2)
-    assert(starting_liability2 == ending_liability2)
-    assert(starting_receivable1 == ending_receivable1)
+    assert(ending_balance1.liability() == starting_balance1.liability())
+    assert(ending_balance2.receivable() == starting_balance2.receivable())
+    assert(starting_balance1.balance() == ending_balance1.balance())
+    assert(starting_balance2.balance() == ending_balance2.balance())
+    assert(starting_balance2.liability() == ending_balance2.liability())
+    assert(starting_balance1.receivable() == ending_balance1.receivable())
 
 
 def test_pending_transactions(random_transaction):
     (transaction, account1, account2) = random_transaction
 
     starting_balance1 = account1.balance()
-    starting_liability1 = account1.liability()
-    starting_receivable1 = account1.receivable()
-
     starting_balance2 = account2.balance()
-    starting_liability2 = account2.liability()
-    starting_receivable2 = account2.receivable()
 
     authorisation = Authorisation(resource=transaction.fingerprint(),
                                   testing_key=testing_key,
@@ -276,19 +252,16 @@ def test_pending_transactions(random_transaction):
     record = records[0]
 
     ending_balance1 = account1.balance()
-    ending_liability1 = account1.liability()
-    ending_receivable1 = account1.receivable()
-
     ending_balance2 = account2.balance()
-    ending_liability2 = account2.liability()
-    ending_receivable2 = account2.receivable()
 
-    assert(ending_liability1 == starting_liability1 + transaction.value())
-    assert(ending_receivable2 == starting_receivable2 + transaction.value())
-    assert(starting_balance1 == ending_balance1)
-    assert(starting_balance2 == ending_balance2)
-    assert(starting_liability2 == ending_liability2)
-    assert(starting_receivable1 == ending_receivable1)
+    assert(ending_balance1.liability() == starting_balance1.liability() +
+           transaction.value())
+    assert(ending_balance2.receivable() == starting_balance2.receivable() +
+           transaction.value())
+    assert(starting_balance1.balance() == ending_balance1.balance())
+    assert(starting_balance2.balance() == ending_balance2.balance())
+    assert(starting_balance2.liability() == ending_balance2.liability())
+    assert(starting_balance1.receivable() == ending_balance1.receivable())
 
     assert(record.debit_account_uid() == account1.uid())
     assert(record.credit_account_uid() == account2.uid())
@@ -364,16 +337,11 @@ def test_pending_transactions(random_transaction):
     assert(rrecord.original_transaction_record() == record)
 
     ending_balance1 = account1.balance()
-    ending_liability1 = account1.liability()
-    ending_receivable1 = account1.receivable()
-
     ending_balance2 = account2.balance()
-    ending_liability2 = account2.liability()
-    ending_receivable2 = account2.receivable()
 
-    assert(ending_liability1 == starting_liability1)
-    assert(ending_receivable2 == starting_receivable2)
-    assert(starting_balance1 - value == ending_balance1)
-    assert(starting_balance2 + value == ending_balance2)
-    assert(starting_liability2 == ending_liability2)
-    assert(starting_receivable1 == ending_receivable1)
+    assert(ending_balance1.liability() == starting_balance1.liability())
+    assert(ending_balance2.receivable() == starting_balance2.receivable())
+    assert(starting_balance1.balance() - value == ending_balance1.balance())
+    assert(starting_balance2.balance() + value == ending_balance2.balance())
+    assert(starting_balance2.liability() == ending_balance2.liability())
+    assert(starting_balance1.receivable() == ending_balance1.receivable())

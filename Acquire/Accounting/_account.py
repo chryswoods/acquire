@@ -1,10 +1,4 @@
 
-import uuid as _uuid
-from copy import copy as _copy
-import datetime as _datetime
-import time as _time
-import re as _re
-
 __all__ = ["Account"]
 
 
@@ -22,11 +16,13 @@ def _get_key_from_hour(start, datetime):
 
 def _get_hour_from_key(key):
     """Return the date that is encoded in the passed key"""
+    import re as _re
     m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d)", key)
 
     if m:
         from Acquire.ObjectStore import date_and_time_to_datetime \
             as _date_and_time_to_datetime
+        import datetime as _datetime
 
         return _date_and_time_to_datetime(
                     _datetime.date(year=int(m.groups()[0]),
@@ -40,12 +36,14 @@ def _get_hour_from_key(key):
 
 def _get_datetime_from_key(key):
     """Return the datetime that is encoded in the passed key"""
+    import re as _re
     m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)\.(\d+)",
                    key)
 
     if m:
         from Acquire.ObjectStore import date_and_time_to_datetime \
             as _datetime_to_datetime
+        import datetime as _datetime
 
         return _datetime_to_datetime(
                     _datetime.datetime(year=int(m.groups()[0]),
@@ -65,13 +63,10 @@ def _sum_transactions(keys):
         by the passed keys. This returns a tuple of
         (balance, liability, receivable, spent)
     """
-    from Acquire.Accounting import create_decimal as _create_decimal
+    from Acquire.Accounting import Balance as _Balance
     from Acquire.Accounting import TransactionInfo as _TransactionInfo
 
-    balance = _create_decimal(0)
-    liability = _create_decimal(0)
-    receivable = _create_decimal(0)
-    spent = _create_decimal(0)
+    balance = _Balance()
 
     for key in keys:
         if isinstance(key, _TransactionInfo):
@@ -79,31 +74,9 @@ def _sum_transactions(keys):
         else:
             v = _TransactionInfo(key)
 
-        if v.is_credit():
-            balance += v.value()
-        elif v.is_debit():
-            balance -= v.value()
-            spent += v.value()
-        elif v.is_liability():
-            liability += v.value()
-            spent += v.value()
-        elif v.is_accounts_receivable():
-            receivable += v.value()
-        elif v.is_received_receipt():
-            balance -= v.receipted_value()
-            liability -= v.value()
-        elif v.is_sent_receipt():
-            balance += v.receipted_value()
-            receivable -= v.value()
-        elif v.is_received_refund():
-            balance += v.value()
-        elif v.is_sent_refund():
-            balance -= v.value()
+        balance += v
 
-    return {"balance": balance,
-            "liability": liability,
-            "receivable": receivable,
-            "spent": spent}
+    return balance
 
 
 class Account:
@@ -134,7 +107,7 @@ class Account:
             self._uid = str(uid)
             self._name = None
             self._description = None
-            self._last_update_datetime = None
+            self._last_balance_key = None
             self._load_account(bucket)
 
             if name:
@@ -159,6 +132,10 @@ class Account:
             self._uid = None
             self._last_update_datetime = None
             self._group_name = None
+
+    def is_null(self):
+        """Return whether or not this is a null account"""
+        return self._uid is None
 
     def __str__(self):
         if self._uid is None:
@@ -197,13 +174,15 @@ class Account:
         from Acquire.Accounting import create_decimal as _create_decimal
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
+        from Acquire.ObjectStore import create_uuid as _create_uuid
 
-        self._uid = str(_uuid.uuid4())
+        self._uid = _create_uuid()
         self._name = str(name)
         self._description = str(description)
         self._overdraft_limit = _create_decimal(0)
         self._maximum_daily_limit = 0
         self._last_update_datetime = None
+        self._last_balance_key = None
         self._aclrules = aclrules
 
         if group_name is None:
@@ -213,7 +192,7 @@ class Account:
 
         # initialise the account with a balance of zero
         bucket = _get_service_account_bucket()
-        self._record_hourly_balance(0, 0, 0, bucket=bucket)
+        self._record_hourly_balance(balance=None, bucket=bucket)
 
         # make sure that this is saved to the object store
         self._save_account(bucket)
@@ -238,16 +217,19 @@ class Account:
 
         return _get_key_from_hour("%s/balance" % self._key(), datetime)
 
-    def _record_hourly_balance(self, balance, liability, receivable,
-                               datetime=None, bucket=None):
+    def _record_hourly_balance(self, balance, datetime=None, bucket=None):
         """Record the starting balance for the hour containing 'datetime'
-           as 'balance' with the starting outstanding liabilities at
-           'liability' and starting outstanding accounts receivable at
-           'receivable' If 'datetime' is none, then the balance
+           as 'balance' If 'datetime' is none, then the balance
            for now is set.
         """
         if self.is_null():
             return
+
+        from Acquire.Accounting import Balance as _Balance
+        if balance is None:
+            balance = _Balance()
+        elif type(balance) is not _Balance:
+            raise TypeError("The balance must be type Balance")
 
         if datetime is None:
             from Acquire.ObjectStore import get_datetime_now \
@@ -258,12 +240,6 @@ class Account:
                 as _datetime_to_datetime
             datetime = _datetime_to_datetime(datetime)
 
-        from Acquire.Accounting import create_decimal as _create_decimal
-
-        balance = _create_decimal(balance)
-        liability = _create_decimal(liability)
-        receivable = _create_decimal(receivable)
-
         balance_key = self._get_balance_key(datetime)
 
         if bucket is None:
@@ -271,26 +247,44 @@ class Account:
                 as _get_service_account_bucket
             bucket = _get_service_account_bucket()
 
-        data = {"balance": str(balance),
-                "liability": str(liability),
-                "receivable": str(receivable)}
-
         last_balance_key = "%s/last_hourly_balance" % self._key()
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        _ObjectStore.set_object_from_json(bucket, balance_key, data)
+        _ObjectStore.set_object_from_json(bucket, balance_key,
+                                          balance.to_data())
 
         # also record the key for the last recorded balance so we
         # can quickly work out where to start calculating balances
         _ObjectStore.set_string_object(bucket, last_balance_key,
                                        balance_key)
 
-    def _recalculate_all_balances(self):
-        """Internal function that recalculates all of the daily/hourly
-           balances from scratch. This is used to recover an account
-           that is in a very strange state
+        self._last_balance_key = last_balance_key
+
+    def _find_last_balance_key(self):
+        """Internal function that finds and returns a tuple of the
+           last balance and transaction that has been properly
+           audited for this account
         """
-        raise NotImplementedError("NEED TO IMPLEMENT RECALC!")
+        # find the latest day by reading the keys in the object
+        # store directly
+        root = "%s/balance/" % self._key()
+
+        try:
+            keys = _ObjectStore.get_all_object_names(
+                        bucket, root)
+        except:
+            keys = None
+
+        if keys is None or len(keys) == 0:
+            from Acquire.Accounting import AccountError
+            raise AccountError(
+                "There is no hourly balance recorded for "
+                "the account with UID %s" % self.uid())
+
+        # the encoding of the keys is such that, when sorted, the
+        # last key must be the latest balance
+        keys.sort()
+        return keys[-1]
 
     def _reconcile_hourly_accounts(self, bucket=None):
         """Internal function used to reconcile the hourly accounts.
@@ -310,128 +304,61 @@ class Account:
         from Acquire.ObjectStore import get_datetime_now \
             as _get_datetime_now
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Accounting import Balance as _Balance
 
-        # first, find the last point the balance was calculated and
-        # the last time a transaction was performed
-        last_balance_key = "%s/last_hourly_balance" % self._key()
-        last_transaction_key = "%s/last_transaction" % self._key()
+        # first, find the last point the balance was calculated
+        key = "%s/last_hourly_balance" % self._key()
 
         try:
             last_balance_key = _ObjectStore.get_string_object(
                                                         bucket=bucket,
-                                                        key=last_balance_key)
+                                                        key=key)
         except:
             last_balance_key = None
 
-        try:
-            last_transaction_key = _ObjectStore.get_string_object(
-                                                    bucket=bucket,
-                                                    key=last_transaction_key)
-        except:
-            last_transaction_key = None
+        if last_balance_key is None:
+            last_balance_key = self._find_last_balance_key()
 
-        if last_balance_key is None or last_transaction_key is None:
-            # need to do everything from scratch
-            self._recalculate_all_balances()
-            return
+        assert(last_balance_key is not None)
 
-        # ALL OF THE BELOW CODE NEEDS CHANGING
-        today = _get_datetime_now().toordinal()
-        day = today
-        last_data = None
-        num_missing_days = 0
+        print(last_balance_key)
 
-        while last_data is None:
-            daytime = _datetime.datetime.fromordinal(day)
-            key = self._get_balance_key(daytime)
+        # read the last balance
+        data = _ObjectStore.get_object_from_json(bucket=bucket,
+                                                 key=last_balance_key)
+        last_balance = _Balance.from_data(data)
+        last_balance_time = _get_hour_from_key(last_balance_key)
 
-            try:
-                last_data = _ObjectStore.get_object_from_json(bucket, key)
-            except:
-                last_data = None
+        # ok, now get all of the transactions between the last balance
+        # and the top of the hour, to work out what the balance at this
+        # hour would be. We only record the balance at the top of the hour
+        from Acquire.ObjectStore import date_and_hour_to_datetime \
+            as _date_and_hour_to_datetime
+        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
 
-            if last_data is None:
-                day -= 1
-                num_missing_days += 1
+        now = _get_datetime_now()
+        last_hour = _date_and_hour_to_datetime(now.date(), now.hour)
 
-                if num_missing_days > 100:
-                    # we need another strategy to find the last balance
-                    break
+        transaction_keys = self._get_transaction_keys_between(
+                                            last_balance_time, last_hour)
 
-        if last_data is None:
-            # find the latest day by reading the keys in the object
-            # store directly
-            root = "%s/balance/" % self._key()
+        total = _sum_transactions(transaction_keys)
 
-            try:
-                keys = _ObjectStore.get_all_object_names(
-                            bucket, root)
-            except:
-                keys = None
+        balance = last_balance + total
+        balance_key = self._get_balance_key(last_hour)
 
-            if keys is None or len(keys) == 0:
-                from Acquire.Accounting import AccountError
-                raise AccountError(
-                    "There is no daily balance recorded for "
-                    "the account with UID %s" % self.uid())
+        _ObjectStore.set_object_from_json(bucket=bucket, key=balance_key,
+                                          data=balance.to_data())
+        _ObjectStore.set_string_object(bucket=bucket, key=key,
+                                       string_data=balance_key)
 
-            # the encoding of the keys is such that, when sorted, the
-            # last key must be the latest balance
-            keys.sort()
-
-            try:
-                last_data = _ObjectStore.get_object_from_json(
-                                bucket, keys[-1])
-            except:
-                last_data = None
-
-            if last_data is None:
-                raise AccountError("How can there be no data for key %s?" %
-                                   keys[-1])
-
-            day = _get_date_from_key(keys[-1]).toordinal()
-
-        # what was the balance on the last day?
-        from Acquire.Accounting import create_decimal as _create_decimal
-        result = {"balance": _create_decimal(last_data["balance"]),
-                  "liability": _create_decimal(last_data["liability"]),
-                  "receivable": _create_decimal(last_data["receivable"])}
-
-        # ok, now we go from the last day until today and sum up the
-        # line items from each day to create the daily balances
-        # (not including today, as we only want the balance at the beginning
-        #  of today)
-        for d in range(day+1, today+1):
-            day_time = _datetime.datetime.fromordinal(d)
-            transaction_keys = self._get_transaction_keys_between(
-                            _datetime.datetime.fromordinal(d-1),
-                            day_time)
-
-            total = _sum_transactions(transaction_keys)
-
-            for key in result.keys():
-                result[key] += total[key]
-
-            balance_key = self._get_balance_key(day_time)
-
-            data = {}
-            data["balance"] = str(result["balance"])
-            data["liability"] = str(result["liability"])
-            data["receivable"] = str(result["receivable"])
-
-            _ObjectStore.set_object_from_json(bucket, balance_key, data)
+        self._last_balance_key = balance_key
 
     def _get_hourly_balance(self, bucket=None, datetime=None):
-        """Get the hourly starting balance for the passed datetime. This
-           returns a dictionary containing (balance, liability, receivable).
+        """Get the hourly starting balance for the passed datetime.
 
-           where 'balance' is the current real balance of the account,
-           neglecting any outstanding liabilities or accounts receivable,
-           where 'liability' is the current total liabilities,
-           where 'receivable' is the current total accounts receivable, and
-
-           If datetime is None then the hourly balance for now is returned. The
-           hourly balance is the balance at the start of the hour. The
+           If datetime is None then the hourly balance for now is returned.
+           The hourly balance is the balance at the start of the hour. The
            actual balance at a particular time will be this starting
            balance plus/minus all of the transactions between the start
            of this hour and the specified datetime
@@ -463,9 +390,9 @@ class Account:
             data = None
 
         if data is None:
-            # there is no balance for this day. This means that we haven't
-            # yet calculated that day's balance. Do the accounting necessary
-            # to construct that day's starting balance
+            # there is no balance for this hour. This means that we haven't
+            # yet calculated that hour's balance. Do the accounting necessary
+            # to construct that hour's starting balance
             self._reconcile_hourly_accounts(bucket)
 
             try:
@@ -478,23 +405,11 @@ class Account:
                 raise AccountError("The hourly balance for account at %s "
                                    "is not available" % str(datetime))
 
-        from Acquire.Accounting import create_decimal as _create_decimal
-
-        return {"balance": _create_decimal(data["balance"]),
-                "liability": _create_decimal(data["liability"]),
-                "receivable": _create_decimal(data["receivable"])}
+        from Acquire.Accounting import Balance as _Balance
+        return _Balance.from_data(data)
 
     def _get_balance(self, bucket=None, datetime=None):
-        """Get the balance of the account for the passed datetime. This
-           returns a tuple of
-
-           (balance, liability, receivable)
-
-           where 'balance' is the current real balance of the account,
-           neglecting any outstanding liabilities or accounts receivable,
-           where 'liability' is the current total liabilities,
-           where 'receivable' is the current total accounts receivable
-
+        """Get the balance of the account for the passed datetime.
            If datetime is None then the balance for now is returned
         """
         if datetime is None:
@@ -506,7 +421,7 @@ class Account:
                                       bucket=None):
         """Return all of the object store keys for transactions in this
            account beteen 'start_datetime' and 'end_datetime' (inclusive, e.g.
-           start_datetime <= transaction <= end_datetime). This will return an
+           start_datetime <= transaction < end_datetime). This will return an
            empty list if there were no transactions in this time
         """
         if bucket is None:
@@ -517,6 +432,8 @@ class Account:
         # convert both times to UTC
         from Acquire.ObjectStore import datetime_to_datetime \
             as _datetime_to_datetime
+        import datetime as _datetime
+
         start_datetime = _datetime_to_datetime(start_datetime)
         end_datetime = _datetime_to_datetime(end_datetime)
 
@@ -579,15 +496,12 @@ class Account:
 
         total = _sum_transactions(transaction_keys)
 
-        result = {}
-
-        for key in hourly_balance.keys():
-            result[key] = hourly_balance[key] + total[key]
+        balance = hourly_balance + total
 
         self._last_update_datetime = now
-        self._last_update = result
+        self._last_update = balance
 
-        return result
+        return balance
 
     def last_update_datetime(self):
         """Return the last time the balance was updated, as a datetime
@@ -597,6 +511,7 @@ class Account:
             # this is the earliest datetime possible
             from Acquire.ObjectStore import date_and_time_to_datetime \
                 as _date_and_time_to_datetime
+            import datetime as _datetime
             return _date_and_time_to_datetime(_datetime.date.fromordinal(1))
         else:
             return self._last_update_datetime
@@ -621,15 +536,12 @@ class Account:
 
         total = _sum_transactions(transaction_keys)
 
-        result = {}
-
-        for key in self._last_update.keys():
-            result[key] = self._last_update[key] + total[key]
+        balance = self._last_update + total
 
         self._last_update_datetime = now
-        self._last_update = result
+        self._last_update = balance
 
-        return result
+        return balance
 
     def _get_current_balance(self, bucket=None):
         """Get the balance of the account now (the current balance). This
@@ -663,10 +575,6 @@ class Account:
             # Get the transactions since the last update and use these
             # to update the daily spend
             return self._update_current_balance(bucket, now)
-
-    def is_null(self):
-        """Return whether or not this is a null account"""
-        return self._uid is None
 
     def name(self):
         """Return the name of this account"""
@@ -725,7 +633,8 @@ class Account:
             raise AccountError(
                 "There is no account data for this account? %s" % self._key())
 
-        self.__dict__ = _copy(Account.from_data(data).__dict__)
+        import copy as _copy
+        self.__dict__ = _copy.copy(Account.from_data(data).__dict__)
 
     def _save_account(self, bucket=None):
         """Save this account back to the object store"""
@@ -834,6 +743,7 @@ class Account:
         # don't want to risk any late transactions from messing up the
         # accounting
         while now.minute == 59 and now.second >= 58:
+            import time as _time
             _time.sleep(1)
             now = _get_datetime_now()
 
@@ -869,19 +779,7 @@ class Account:
             except:
                 pass
 
-            # now remove all day-balances from the day before this note
-            # to today. Hopefully this will prevent any ledger errors...
-            day0 = note.datetime().toordinal() - 1
-            day1 = _get_datetime_now().toordinal()
-
-            for day in range(day0, day1+1):
-                balance_key = self._get_balance_key(
-                                    _datetime.datetime.fromordinal(day))
-
-                try:
-                    _ObjectStore.delete_object(bucket, balance_key)
-                except:
-                    pass
+            raise PermissionError("MUST RECALCULATE HOURLY BALANCE!")
 
     def _credit_refund(self, debit_note, refund, bucket=None):
         """Credit the value of the passed 'refund' to this account. The
@@ -928,9 +826,10 @@ class Account:
             as _datetime_to_string
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.Accounting import LineItem as _LineItem
+        from Acquire.ObjectStore import create_uuid as _create_uuid
 
         datetime_key = _datetime_to_string(now)
-        uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
+        uid = "%s/%s" % (datetime_key, _create_uuid()[0:8])
 
         item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
         l = _LineItem(debit_note.uid(), refund.authorisation())
@@ -976,9 +875,10 @@ class Account:
                 as _datetime_to_string
             from Acquire.ObjectStore import ObjectStore as _ObjectStore
             from Acquire.Accounting import LineItem as _LineItem
+            from Acquire.ObjectStore import create_uuid as _create_uuid
 
             datetime_key = _datetime_to_string(now)
-            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
+            uid = "%s/%s" % (datetime_key, _create_uuid()[0:8])
 
             item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
             l = _LineItem(uid, refund.authorisation())
@@ -1038,9 +938,10 @@ class Account:
                 as _datetime_to_string
             from Acquire.ObjectStore import ObjectStore as _ObjectStore
             from Acquire.Accounting import LineItem as _LineItem
+            from Acquire.ObjectStore import create_uuid as _create_uuid
 
             datetime_key = _datetime_to_string(now)
-            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
+            uid = "%s/%s" % (datetime_key, _create_uuid()[0:8])
 
             item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
             l = _LineItem(debit_note.uid(), receipt.authorisation())
@@ -1091,9 +992,10 @@ class Account:
                 as _datetime_to_string
             from Acquire.ObjectStore import ObjectStore as _ObjectStore
             from Acquire.Accounting import LineItem as _LineItem
+            from Acquire.ObjectStore import create_uuid as _create_uuid
 
             datetime_key = _datetime_to_string(now)
-            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
+            uid = "%s/%s" % (datetime_key, _create_uuid()[0:8])
 
             item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
             l = _LineItem(uid, receipt.authorisation())
@@ -1151,9 +1053,10 @@ class Account:
                 as _datetime_to_string
             from Acquire.ObjectStore import ObjectStore as _ObjectStore
             from Acquire.Accounting import LineItem as _LineItem
+            from Acquire.ObjectStore import create_uuid as _create_uuid
 
             datetime_key = _datetime_to_string(now)
-            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
+            uid = "%s/%s" % (datetime_key, _create_uuid()[0:8])
 
             item_key = "%s/%s/%s" % (self._key(), uid, encoded_value)
 
@@ -1227,7 +1130,9 @@ class Account:
                 as _get_service_account_bucket
             bucket = _get_service_account_bucket()
 
-        if self.available_balance(bucket) < transaction.value():
+        balance = self.balance()
+
+        if balance.available(self.get_overdraft_limit()) < transaction.value():
             from Acquire.Accounting import InsufficientFundsError
             raise InsufficientFundsError(
                 "You cannot debit '%s' from account %s as there "
@@ -1271,8 +1176,9 @@ class Account:
 
             # and to create a key to find this debit later. The key is made
             # up from the isoformat datetime of the debit and a random string
+            from Acquire.ObjectStore import create_uuid as _create_uuid
             datetime_key = _datetime_to_string(now)
-            uid = "%s/%s" % (datetime_key, str(_uuid.uuid4())[0:8])
+            uid = "%s/%s" % (datetime_key, _create_uuid()[0:8])
 
             # the key in the object store is a combination of the key for this
             # account plus the uid for the debit plus the actual debit value.
@@ -1315,43 +1221,9 @@ class Account:
 
         return (uid, now, receipt_by)
 
-    def available_balance(self, bucket=None):
-        """Return the available balance of this account. This is the
-           total balance on the account, minus liabilities, plus
-           any overdraft limit
-        """
-        result = self._get_current_balance(bucket)
-
-        balance = result["balance"]
-        liabilities = result["liability"]
-
-        available = balance - liabilities + self.get_overdraft_limit()
-
-        return available
-
     def balance(self, bucket=None):
         """Return the current balance of this account"""
-        result = self._get_current_balance(bucket)
-        return result["balance"]
-
-    def liability(self, bucket=None):
-        """Return the current total liability of this account"""
-        result = self._get_current_balance(bucket)
-        return result["liability"]
-
-    def receivable(self, bucket=None):
-        """Return the current total accounts receivable of this account"""
-        result = self._get_current_balance(bucket)
-        return result["receivable"]
-
-    def balance_status(self, bucket=None):
-        """Return the overall balance status as a dictionary
-           with keys 'balance', 'liability', 'receivable' and
-           'overdraft_limit'
-        """
-        result = self._get_current_balance(bucket)
-        result["overdraft_limit"] = self.get_overdraft_limit()
-        return result
+        return self._get_current_balance(bucket)
 
     def get_overdraft_limit(self):
         """Return the overdraft limit of this account"""
@@ -1404,7 +1276,4 @@ class Account:
         """Return whether or not the current balance is beyond
            the overdraft limit
         """
-        result = self._get_current_balance(bucket)
-
-        balance = result["balance"] - result["liability"]
-        return balance < -(self.get_overdraft_limit())
+        return self.balance().available() < -(self.get_overdraft_limit())
