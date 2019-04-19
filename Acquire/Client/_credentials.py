@@ -70,7 +70,8 @@ class Credentials:
                                    short_uid=self._short_uid,
                                    username=self._username,
                                    password=self._password,
-                                   otpcode=self._otpcode)
+                                   otpcode=self._otpcode,
+                                   device_uid=self._device_uid)
 
     @staticmethod
     def from_data(data, username, short_uid, random_sleep=150):
@@ -108,7 +109,8 @@ class Credentials:
             return encoded_password
 
         from Acquire.Crypto import Hash as _Hash
-        return _Hash.md5(encoded_password + device_uid)
+        result = _Hash.md5(encoded_password + device_uid)
+        return result
 
     @staticmethod
     def encode_password(password, identity_uid, device_uid=None):
@@ -154,6 +156,11 @@ class Credentials:
         from Acquire.Crypto import SymmetricKey as _SymmetricKey
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
+        if username is None or password is None or otpcode is None:
+            raise PermissionError(
+                "You must supply a username, password and otpcode "
+                "to be able to log in!")
+
         encoded_password = Credentials.encode_password(
                                             identity_uid=identity_uid,
                                             device_uid=device_uid,
@@ -166,13 +173,13 @@ class Credentials:
             device_uid = _create_uuid()
 
         data = [encoded_password, device_uid, otpcode]
-        string_data = "*".join(data)
+        string_data = "|".join(data)
 
         uname_shortid = _Hash.md5(username) + _Hash.md5(short_uid)
 
         data = _SymmetricKey(symmetric_key=uname_shortid).encrypt(string_data)
-
-        return _bytes_to_string(data)
+        result = _bytes_to_string(data)
+        return result
 
     @staticmethod
     def unpackage(data, username, short_uid, random_sleep=150):
@@ -197,14 +204,24 @@ class Credentials:
         from Acquire.Crypto import Hash as _Hash
         from Acquire.Crypto import SymmetricKey as _SymmetricKey
         from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-
-        data = _string_to_bytes(data)
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
         uname_shortid = _Hash.md5(username) + _Hash.md5(short_uid)
 
-        data = _SymmetricKey(symmetric_key=uname_shortid).decrypt(data)
+        data = _string_to_bytes(data)
 
-        data = data.split("*")
+        try:
+            data = _SymmetricKey(symmetric_key=uname_shortid).decrypt(data)
+        except:
+            data = None
+
+        if data is None:
+            raise PermissionError("Cannot unpackage/decrypt the credentials")
+
+        data = data.split("|")
+
+        if len(data) < 3:
+            raise PermissionError("Invalid credentials! %s" % data)
 
         result = {"username": username,
                   "short_uid": short_uid,

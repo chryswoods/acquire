@@ -57,7 +57,9 @@ def test_login(username, password, aaai_services, tmpdir):
 
     login_url = result["login_url"]
 
-    wallet.send_password(url=login_url, otpcode=otp.generate(),
+    # the test has to specify the username as we can't choose...
+    wallet.send_password(url=login_url, username=username,
+                         otpcode=otp.generate(),
                          remember_device=True)
 
     user.wait_for_login()
@@ -78,7 +80,8 @@ def test_login(username, password, aaai_services, tmpdir):
 
     login_url = result["login_url"]
 
-    wallet.send_password(url=login_url)
+    # the test has to specify the username as we can't choose...
+    wallet.send_password(url=login_url, username=username)
 
     user.wait_for_login()
     assert(user.is_logged_in())

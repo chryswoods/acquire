@@ -691,6 +691,8 @@ class SymmetricKey:
         if isinstance(message, str):
             message = message.encode("utf-8")
 
+        assert(type(self._symkey) is bytes)
+
         f = _fernet.Fernet(self._symkey)
         token = f.encrypt(message)
         return token
@@ -702,18 +704,18 @@ class SymmetricKey:
             raise DecryptionError("You cannot decrypt a message "
                                   "with a null key!")
 
+        assert(type(self._symkey) is bytes)
+
         f = _fernet.Fernet(self._symkey)
 
         try:
-            try:
-                message = f.decrypt(message)
-            except:
-                message = f.decrypt(message.encode("utf-8"))
+            message = f.decrypt(message)
         except Exception as e:
             from Acquire.Crypto import DecryptionError
             raise DecryptionError(
                     "Cannot decrypt the message using the "
-                    "symmetric key: %s" % str(e))
+                    "symmetric key: %s : %s : %s" %
+                    (str(e), self._symkey, message))
 
         try:
             return message.decode("utf-8")

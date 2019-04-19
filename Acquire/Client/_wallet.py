@@ -222,6 +222,7 @@ class Wallet:
         data = _bytes_to_string(key.encrypt(_json.dumps(userinfo)))
 
         userinfo = {"username": userinfo["username"],
+                    "user_uid": user_uid,
                     "data": data}
 
         _write_json(data=userinfo, filename=filename)
@@ -234,7 +235,9 @@ class Wallet:
         key = self._get_wallet_key()
 
         data = _string_to_bytes(userinfo["data"])
-        return _json.loads(key.decrypt(data))
+        result = _json.loads(key.decrypt(data))
+        result["user_uid"] = userinfo["user_uid"]
+        return result
 
     def _get_userinfo(self, user_uid, identity_uid):
         """Read all info for the passed user at the identity service
@@ -287,7 +290,9 @@ class Wallet:
         for (i, (username, userinfo)) in enumerate(userinfos):
             _output("[%d] %s {%s}" % (i+1, username, userinfo["user_uid"]))
 
-        while True:
+        max_tries = 5
+
+        for i in range(0, max_tries):
             reply = _input(
                     "\nMake your selection (1 to %d) " %
                     (len(userinfos))
@@ -295,13 +300,26 @@ class Wallet:
 
             try:
                 idx = int(reply) - 1
-
-                if idx < 0 or idx >= len(userinfos):
-                    _output("Invalid account. Try again...")
-                else:
-                    return self._unlock_userinfo(userinfos[idx][1])
             except:
-                pass
+                idx = None
+
+            if idx is None:
+                # interpret this as a username
+                return self._find_userinfo(username=reply, password=password)
+            elif idx < 0 or idx >= len(userinfos):
+                _output("Invalid account.")
+            else:
+                return self._unlock_userinfo(userinfos[idx][1])
+
+            if i < max_tries-1:
+                _output("Try again...")
+
+        userinfo = {}
+
+        if username is not None:
+            userinfo["username"] = username
+
+        return userinfo
 
     def _get_user_password(self, userinfo):
         """Get the user password for the passed user on the passed
@@ -545,6 +563,9 @@ class Wallet:
         userinfo = self._find_userinfo(username=username,
                                        password=password)
 
+        if username is None:
+            username = userinfo["username"]
+
         if "user_uid" in userinfo:
             user_uid = userinfo["user_uid"]
         else:
@@ -562,6 +583,9 @@ class Wallet:
 
         if otpcode is None:
             otpcode = self._get_otpcode(userinfo=userinfo)
+        else:
+            # user is providing the primary OTP, so this is not a device
+            device_uid = None
 
         _output("\nLogging in to '%s', session '%s'..." % (
                 service.canonical_url(), short_uid), end="")
@@ -569,10 +593,11 @@ class Wallet:
         _flush_output()
 
         if dryrun:
-            _output("Calling %s with username=%s, password=%s, otpcode=%s, "
-                    "remember_device=%s, device_uid=%s, short_uid=%s" %
-                    (service.canonical_url(), username, password, otpcode,
-                     remember_device, device_uid, short_uid))
+            print("Calling %s with username=%s, password=%s, otpcode=%s, "
+                  "remember_device=%s, device_uid=%s, short_uid=%s "
+                  "user_uid=%s" %
+                  (service.canonical_url(), username, password, otpcode,
+                   remember_device, device_uid, short_uid, user_uid))
             return
 
         try:
