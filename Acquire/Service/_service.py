@@ -627,7 +627,7 @@ class Service:
         if self.is_null():
             raise PermissionError("You cannot sign using a null service!")
 
-        self.private_certificate().sign(message)
+        return self.private_certificate().sign(message)
 
     def verify(self, signature, message):
         """Verify that this service signed the message"""

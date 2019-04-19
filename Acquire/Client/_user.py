@@ -12,6 +12,14 @@ class _LoginStatus(_Enum):
     ERROR = 4
 
 
+def _output(s, end=None):
+    """Simple output function that can be removed during testing"""
+    if end is None:
+        print(s)
+    else:
+        print(s, end=end)
+
+
 def _get_identity_url():
     """Function to discover and return the default identity url"""
     return "http://fn.acquire-aaai.com:8080/t/identity"
@@ -478,11 +486,11 @@ class User:
         self._status = _LoginStatus.LOGGING_IN
         self._user_uid = None
 
-        print("Login by visiting: %s" % self._login_url)
+        _output("Login by visiting: %s" % self._login_url)
 
         if login_message is not None:
-            print("(please check that this page displays the message '%s')"
-                  % login_message)
+            _output("(please check that this page displays the message '%s')"
+                    % login_message)
 
         from Acquire.Identity import LoginSession as _LoginSession
 

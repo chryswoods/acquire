@@ -105,11 +105,22 @@ def mocked_input(s):
     return "y"
 
 
+def mocked_output(s, end=None):
+    pass
+
+
+def mocked_flush_output():
+    pass
+
+
 # monkey-patch _pycurl.Curl so that we can mock calls
 Acquire.Stubs.requests = MockedRequests
 
-# monkey-patch input so that we can say "y"
+# monkey-patch input so that we can say "y", and so there is no output
 Acquire.Client._wallet._input = mocked_input
+Acquire.Client._wallet._output = mocked_output
+Acquire.Client._wallet._flush_output = mocked_flush_output
+Acquire.Client._user._output = mocked_output
 
 _wallet_password = Acquire.Crypto.PrivateKey.random_passphrase()
 

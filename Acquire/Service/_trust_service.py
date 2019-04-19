@@ -44,7 +44,8 @@ def trust_service(service, authorisation=None):
         _clear_services_cache()
     else:
         from Acquire.Client import Wallet as _Wallet
-        _Wallet.add_service(service)
+        wallet = _Wallet()
+        wallet.add_service(service)
 
 
 def untrust_service(service, authorisation=None):
@@ -92,4 +93,5 @@ def untrust_service(service, authorisation=None):
         _clear_services_cache()
     else:
         from Acquire.Client import Wallet as _Wallet
-        _Wallet.remove_service(service)
+        wallet = _Wallet()
+        wallet.remove_service(service)

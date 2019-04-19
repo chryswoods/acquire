@@ -5,6 +5,16 @@ _input = input
 __all__ = ["Wallet"]
 
 
+def _output(s, end=None):
+    """Simple output function that can be replaced at testing
+       to silence the wallet
+    """
+    if end is None:
+        print(s)
+    else:
+        print(s, end=end)
+
+
 def _flush_output():
     """Flush STDOUT"""
     try:
@@ -137,7 +147,7 @@ class Wallet:
                             prompt="Please confirm the password: ")
 
         if password != password2:
-            print("The passwords don't match. Please try again.")
+            _output("The passwords don't match. Please try again.")
             self._create_wallet_key(filename)
             return
 
@@ -186,7 +196,7 @@ class Wallet:
             try:
                 wallet_key = _PrivateKey.read_bytes(bytes, password)
             except:
-                print("Invalid password. Please try again.")
+                _output("Invalid password. Please try again.")
 
         self._wallet_key = wallet_key
         return wallet_key
@@ -272,11 +282,11 @@ class Wallet:
 
             return userinfo
 
-        print("Please choose the account by typing in its number, "
-              "or type a new username if you want a different account.")
+        _output("Please choose the account by typing in its number, "
+                "or type a new username if you want a different account.")
 
         for (i, (username, userinfo)) in enumerate(userinfos):
-            print("[%d] %s {%s}" % (i+1, username, userinfo["user_uid"]))
+            _output("[%d] %s {%s}" % (i+1, username, userinfo["user_uid"]))
 
         while True:
             reply = _input(
@@ -288,7 +298,7 @@ class Wallet:
                 idx = int(reply) - 1
 
                 if idx < 0 or idx >= len(userinfos):
-                    print("Invalid account. Try again...")
+                    _output("Invalid account. Try again...")
                 else:
                     return self._unlock_userinfo(userinfos[idx][1])
             except:
@@ -367,9 +377,9 @@ class Wallet:
                 )
 
                 if reply[0].lower() == 'y':
-                    print("Now trusting %s" % str(service))
+                    _output("Now trusting %s" % str(service))
                 else:
-                    print("Not trusting this service!")
+                    _output("Not trusting this service!")
                     raise PermissionError(
                         "We do not trust the service '%s'" % str(service))
 
@@ -393,9 +403,9 @@ class Wallet:
                 )
 
         if reply[0].lower() == 'y':
-            print("Now trusting %s" % str(service))
+            _output("Now trusting %s" % str(service))
         else:
-            print("Not trusting this service!")
+            _output("Not trusting this service!")
             raise PermissionError(
                 "We do not trust the service '%s'" % str(service))
 
@@ -517,7 +527,7 @@ class Wallet:
         else:
             user_uid = None
 
-        print("Logging in using username '%s'" % username)
+        _output("Logging in using username '%s'" % username)
 
         try:
             device_uid = userinfo["device_uid"]
@@ -530,16 +540,16 @@ class Wallet:
         if otpcode is None:
             otpcode = self._get_otpcode(userinfo=userinfo)
 
-        print("\nLogging in to '%s', session '%s'..." % (
-              service.canonical_url(), short_uid), end="")
+        _output("\nLogging in to '%s', session '%s'..." % (
+                service.canonical_url(), short_uid), end="")
 
         _flush_output()
 
         if dryrun:
-            print("Calling %s with username=%s, password=%s, otpcode=%s, "
-                  "remember_device=%s, device_uid=%s, short_uid=%s" %
-                  (service.canonical_url(), username, password, otpcode,
-                   remember_device, device_uid, short_uid))
+            _output("Calling %s with username=%s, password=%s, otpcode=%s, "
+                    "remember_device=%s, device_uid=%s, short_uid=%s" %
+                    (service.canonical_url(), username, password, otpcode,
+                     remember_device, device_uid, short_uid))
             return
 
         try:
@@ -555,10 +565,10 @@ class Wallet:
                     "short_uid": short_uid}
 
             response = service.call_function(function="login", args=args)
-            print("SUCCEEDED!")
+            _output("SUCCEEDED!")
             _flush_output()
         except Exception as e:
-            print("FAILED!")
+            _output("FAILED!")
             _flush_output()
             from Acquire.Client import LoginError
             raise LoginError("Failed to log in. %s" % e.args)

@@ -35,7 +35,9 @@ def test_pack_unpack_args_returnvals():
 
     uncrypted = privkey.decrypt(crypted)
 
-    (f, unpacked) = unpack_arguments(args=uncrypted)
+    (f, unpacked, keys) = unpack_arguments(args=uncrypted)
+
+    print(keys)
 
     assert(args == unpacked)
     assert(f == func)
@@ -56,14 +58,15 @@ def test_pack_unpack_args_returnvals():
     assert(payload["encryption_public_key"] == bytes_to_string(pubkey.bytes()))
     assert(payload["payload"] == args)
 
-    (f, unpacked) = unpack_arguments(function=func, args=packed, key=privkey)
+    (f, unpacked, keys) = unpack_arguments(function=func, args=packed,
+                                           key=privkey)
 
     message = {"message": "OK"}
 
     return_value = create_return_value(message)
 
     packed_result = pack_return_value(function=func,
-                                      payload=return_value, key=payload,
+                                      payload=return_value, key=keys,
                                       private_cert=privkey)
 
     result = json.loads(packed_result.decode("utf-8"))
@@ -90,7 +93,7 @@ def test_pack_unpack_args_returnvals():
         return_value = create_return_value(e)
 
     packed_result = pack_return_value(function=func,
-                                      payload=return_value, key=payload,
+                                      payload=return_value, key=keys,
                                       private_cert=privkey)
 
     with pytest.raises(PermissionError):

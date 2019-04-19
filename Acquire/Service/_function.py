@@ -308,9 +308,18 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
             "%s" % data)
 
     if is_return_value:
-        return payload["return"]
+        try:
+            return payload["return"]
+        except:
+            # no return value from this function
+            return None
     else:
-        return (data["function"], payload, data)
+        try:
+            function = data["function"]
+        except:
+            function = None
+
+        return (function, payload, data)
 
 
 def unpack_return_value(return_value, key=None, public_cert=None,
