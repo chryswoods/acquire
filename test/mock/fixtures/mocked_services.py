@@ -28,12 +28,25 @@ storage_handler = create_handler(storage_functions)
 compute_handler = create_handler(compute_functions)
 
 
-def _set_services(s):
+def _set_services(s, wallet_dir, wallet_password):
     pytest.my_global_services = s
+    pytest.my_global_wallet_dir = wallet_dir
+    pytest.my_global_wallet_password = wallet_password
 
 
 def _get_services():
     return pytest.my_global_services
+
+
+def _get_wallet_dir(**kwargs):
+    return pytest.my_global_wallet_dir
+
+
+def _get_wallet_password(**kwargs):
+    return pytest.my_global_wallet_password
+
+Acquire.Client._wallet._get_wallet_dir = _get_wallet_dir
+Acquire.Client._wallet._get_wallet_password = _get_wallet_password
 
 
 class MockedRequests:
@@ -125,7 +138,7 @@ Acquire.Client._user._output = mocked_output
 _wallet_password = Acquire.Crypto.PrivateKey.random_passphrase()
 
 
-def _login_admin(service_url, username, password, otp, wallet_dir):
+def _login_admin(service_url, username, password, otp):
     """Internal function used to get a valid login to the specified
        service for the passed username, password and otp
     """
@@ -133,10 +146,10 @@ def _login_admin(service_url, username, password, otp, wallet_dir):
     from Acquire.Identity import LoginSession
     from Acquire.Client import Wallet
 
-    wallet = Wallet(wallet_dir=wallet_dir, wallet_password=_wallet_password)
+    wallet = Wallet()
 
     user = User(username=username, identity_url=service_url,
-                wallet_dir=wallet_dir, auto_logout=False)
+                auto_logout=False)
 
     result = user.request_login()
     login_url = result["login_url"]
@@ -170,8 +183,9 @@ def aaai_services(tmpdir_factory):
     _services["compute"] = tmpdir_factory.mktemp("compute")
 
     wallet_dir = tmpdir_factory.mktemp("wallet")
+    wallet_password = PrivateKey.random_passphrase()
 
-    _set_services(_services)
+    _set_services(_services, wallet_dir, wallet_password)
 
     password = PrivateKey.random_passphrase()
     args = {"password": password}
@@ -188,8 +202,7 @@ def aaai_services(tmpdir_factory):
     identity_service = Service.from_data(response["service"])
     identity_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
     identity_user = _login_admin("identity", "admin",
-                                 password, identity_otp,
-                                 wallet_dir)
+                                 password, identity_otp)
     responses["identity"] = {"service": identity_service,
                              "user": identity_user,
                              "response": response}
@@ -201,7 +214,7 @@ def aaai_services(tmpdir_factory):
     accounting_service = Service.from_data(response["service"])
     accounting_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
     accounting_user = _login_admin("accounting", "admin", password,
-                                   accounting_otp, wallet_dir)
+                                   accounting_otp)
     responses["accounting"] = {"service": accounting_service,
                                "user": accounting_user,
                                "response": response}
@@ -212,8 +225,7 @@ def aaai_services(tmpdir_factory):
     responses["access"] = response
     access_service = Service.from_data(response["service"])
     access_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
-    access_user = _login_admin("access", "admin", password, access_otp,
-                               wallet_dir)
+    access_user = _login_admin("access", "admin", password, access_otp)
     responses["access"] = {"service": access_service,
                            "user": access_user,
                            "response": response}
@@ -224,8 +236,7 @@ def aaai_services(tmpdir_factory):
     responses["compute"] = response
     compute_service = Service.from_data(response["service"])
     compute_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
-    compute_user = _login_admin("compute", "admin", password, compute_otp,
-                                wallet_dir)
+    compute_user = _login_admin("compute", "admin", password, compute_otp)
     responses["compute"] = {"service": compute_service,
                             "user": compute_user,
                             "response": response}
@@ -235,8 +246,7 @@ def aaai_services(tmpdir_factory):
     response = call_function("storage", function="admin/setup", args=args)
     storage_service = Service.from_data(response["service"])
     storage_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
-    storage_user = _login_admin("storage", "admin", password, storage_otp,
-                                wallet_dir)
+    storage_user = _login_admin("storage", "admin", password, storage_otp)
     responses["storage"] = {"service": storage_service,
                             "user": storage_user,
                             "response": response}
@@ -297,7 +307,6 @@ def aaai_services(tmpdir_factory):
                     function="admin/trust_accounting_service", args=args)
 
     responses["_services"] = _services
-    responses["_wallet_dir"] = wallet_dir
 
     return responses
 
@@ -305,41 +314,31 @@ def aaai_services(tmpdir_factory):
 @pytest.fixture(scope="session")
 def authenticated_user(aaai_services):
     from Acquire.Crypto import PrivateKey, OTP
-    from Acquire.Client import User, Service
+    from Acquire.Client import User, Service, Wallet
 
     username = str(uuid.uuid4())
     password = PrivateKey.random_passphrase()
 
-    wallet_dir = aaai_services["wallet_dir"]
-
     result = User.register(username=username,
                            password=password,
-                           identity_url="identity",
-                           wallet_dir=wallet_dir)
+                           identity_url="identity")
 
     otpsecret = result["otpsecret"]
-
-    user_otp = OTP(otpsecret)
+    otp = OTP(otpsecret)
 
     # now log the user in
-    user = User(username=username, identity_url="identity",
-                wallet_dir=wallet_dir)
+    user = User(username=username, identity_url="identity", auto_logout=False)
+
     result = user.request_login()
 
     assert(type(result) is dict)
 
-    short_uid = result["short_uid"]
+    wallet = Wallet()
 
-    args = {}
-    args["short_uid"] = short_uid
-    args["username"] = username
-    args["password"] = password
-    args["otpcode"] = user_otp.generate()
-
-    service = Service("identity")
-    result = service.call_function(function="login", args=args)
-
-    assert(result["status"] == 0)
+    wallet.send_password(url=result["login_url"],
+                         username=username, password=password,
+                         otpcode=otp.generate(),
+                         remember_password=False, remember_device=False)
 
     user.wait_for_login()
 

@@ -15,12 +15,9 @@ _wallet_password = PrivateKey.random_passphrase()
                           ("someone", "%$(F*Dj4jij43  kdfjdk")])
 def test_login(username, password, aaai_services, tmpdir):
     # register the new user
-    wallet_dir = "%s/acquire_wallet" % tmpdir
-
     result = User.register(username=username,
                            password=password,
-                           identity_url="identity",
-                           wallet_dir=wallet_dir)
+                           identity_url="identity")
 
     assert(type(result) is dict)
 
@@ -29,7 +26,7 @@ def test_login(username, password, aaai_services, tmpdir):
     otp = OTP(otpsecret)
 
     user = User(username=username, identity_url="identity",
-                wallet_dir=wallet_dir, auto_logout=False)
+                auto_logout=False)
 
     result = user.request_login()
 
@@ -37,7 +34,7 @@ def test_login(username, password, aaai_services, tmpdir):
 
     login_url = result["login_url"]
 
-    wallet = Wallet(wallet_dir=wallet_dir, wallet_password=_wallet_password)
+    wallet = Wallet()
 
     wallet.send_password(url=login_url, username=username,
                          password=password, otpcode=otp.generate(),
@@ -54,7 +51,7 @@ def test_login(username, password, aaai_services, tmpdir):
 
     # now try to log in, using the remembered password
     user = User(username=username, identity_url="identity",
-                wallet_dir=wallet_dir, auto_logout=False)
+                auto_logout=False)
 
     result = user.request_login()
 
@@ -75,7 +72,7 @@ def test_login(username, password, aaai_services, tmpdir):
     # now see if the wallet can send all login info
     # now try to log in, using the remembered password
     user = User(username=username, identity_url="identity",
-                wallet_dir=wallet_dir, auto_logout=False)
+                auto_logout=False)
 
     result = user.request_login()
 

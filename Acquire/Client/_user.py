@@ -25,7 +25,7 @@ def _get_identity_url():
     return "http://fn.acquire-aaai.com:8080/t/identity"
 
 
-def _get_identity_service(identity_url=None, wallet_dir=None):
+def _get_identity_service(identity_url=None):
     """Function to return the identity service for the system"""
     if identity_url is None:
         identity_url = _get_identity_url()
@@ -40,7 +40,7 @@ def _get_identity_service(identity_url=None, wallet_dir=None):
 
     try:
         from Acquire.Client import Wallet as _Wallet
-        wallet = _Wallet(wallet_dir=wallet_dir)
+        wallet = _Wallet()
         service = wallet.get_service(service_url=identity_url)
     except Exception as e:
         from Acquire.Service import exception_to_string
@@ -87,15 +87,13 @@ class User:
     """
     def __init__(self, username=None,
                  identity_url=None, identity_uid=None,
-                 scope=None, permissions=None,
-                 wallet_dir=None, auto_logout=True):
+                 scope=None, permissions=None, auto_logout=True):
         """Construct the user with specified 'username', who will
            login to the identity service at specified URL
            'identity_url', or with UID 'identity_uid'. You can
            optionally request a user with a limited scope or
            limited permissions. Service lookup will be using
-           you wallet, and you can optionally specify the location
-           of the wallet using 'wallet_dir'. By default,
+           you wallet. By default,
            the user will logout when this object is destroyed.
            Prevent this behaviour by setting auto_logout to False
         """
@@ -104,7 +102,6 @@ class User:
         self._identity_service = None
         self._scope = scope
         self._permissions = permissions
-        self._wallet_dir = wallet_dir
 
         if identity_url:
             self._identity_url = identity_url
@@ -223,8 +220,7 @@ class User:
             return self._identity_service
 
         identity_service = _get_identity_service(
-                                identity_url=self.identity_service_url(),
-                                wallet_dir=self._wallet_dir)
+                                identity_url=self.identity_service_url())
 
         # if the user supplied the UID then validate this is correct
         # pylint: disable=assignment-from-none
@@ -349,14 +345,13 @@ class User:
             return result
 
     @staticmethod
-    def register(username, password, identity_url=None, wallet_dir=None):
+    def register(username, password, identity_url=None):
         """Request to register a new user with the specified
            username one the identity service running
            at 'identity_url', using the supplied 'password'. This will
            return a QR code that you must use immediately to add this
            user on the identity service to a QR code generator"""
-        service = _get_identity_service(identity_url=identity_url,
-                                        wallet_dir=wallet_dir)
+        service = _get_identity_service(identity_url=identity_url)
 
         from Acquire.Client import Credentials as _Credentials
 

@@ -68,7 +68,8 @@ def get_trusted_services():
     else:
         # this is running on the client
         from Acquire.Client import Wallet as _Wallet
-        return _Wallet.get_services()
+        wallet = _Wallet()
+        return wallet.get_services()
 
 
 # Cached as the remote service information will not change too often

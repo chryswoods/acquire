@@ -5,6 +5,36 @@ _input = input
 __all__ = ["Wallet"]
 
 
+def _get_wallet_dir():
+    """Function that can be mocked in testing to ensure we don't
+       mess with the user's main wallet
+    """
+    import os as _os
+    home = _os.path.expanduser("~")
+    return "%s/.acquire_wallet" % home
+
+
+def _get_wallet_password(confirm_password=False):
+    """Function that can be mocked in testing to ensure we don't
+       mess with the user's main wallet
+    """
+    import getpass as _getpass
+    password = _getpass.getpass(
+                prompt="Please enter a password to encrypt your wallet: ")
+
+    if not confirm_password:
+        return password
+
+    password2 = _getpass.getpass(
+                    prompt="Please confirm the password: ")
+
+    if password != password2:
+        _output("The passwords don't match. Please try again.")
+        return _get_wallet_password(confirm_password=confirm_password)
+
+    return password
+
+
 def _output(s, end=None):
     """Simple output function that can be replaced at testing
        to silence the wallet
@@ -86,14 +116,8 @@ class Wallet:
        to be saved in a different directory, specify that
        as "wallet_dir".
     """
-    def __init__(self, wallet_dir=None, wallet_password=None):
-        """Construct a wallet, optionally specifying the
-           directory used for the wallet, and the password
-           used to unlock the wallet. If these are not set,
-           then the wallet will default to be in
-           $HOME/.wallet, and an input prompt will be used
-           to ask for the wallet password
-        """
+    def __init__(self):
+        """Construct a wallet to hold all user credentials"""
         from Acquire.Service import is_running_service \
             as _is_running_service
 
@@ -110,9 +134,7 @@ class Wallet:
 
         import os as _os
 
-        if wallet_dir is None:
-            home = _os.path.expanduser("~")
-            wallet_dir = "%s/.acquire_wallet" % home
+        wallet_dir = _get_wallet_dir()
 
         if not _os.path.exists(wallet_dir):
             _os.makedirs(wallet_dir, mode=0o700, exist_ok=False)
@@ -121,43 +143,21 @@ class Wallet:
 
         self._wallet_dir = wallet_dir
 
-        if wallet_password is not None:
-            self._get_wallet_key(wallet_password=wallet_password)
-
-    def _create_wallet_key(self, filename, wallet_password=None):
+    def _create_wallet_key(self, filename):
         """Create a new wallet key for the user"""
-
-        if wallet_password is not None:
-            password = wallet_password
-        else:
-            import getpass as _getpass
-            password = _getpass.getpass(
-                     prompt="Please enter a password to encrypt your wallet: ")
+        password = _get_wallet_password(confirm_password=True)
 
         from Acquire.Client import PrivateKey as _PrivateKey
         key = _PrivateKey()
 
         bytes = key.bytes(password)
 
-        if wallet_password is not None:
-            password2 = wallet_password
-        else:
-            import getpass as _getpass
-            password2 = _getpass.getpass(
-                            prompt="Please confirm the password: ")
-
-        if password != password2:
-            _output("The passwords don't match. Please try again.")
-            self._create_wallet_key(filename)
-            return
-
-        # the passwords match - write this to the file
         with open(filename, "wb") as FILE:
             FILE.write(bytes)
 
         return key
 
-    def _get_wallet_key(self, wallet_password=None):
+    def _get_wallet_key(self):
         """Return the private key used to encrypt everything in the wallet.
            This will ask for the users password
         """
@@ -171,9 +171,7 @@ class Wallet:
         import os as _os
 
         if not _os.path.exists(keyfile):
-            self._wallet_key = self._create_wallet_key(
-                                            filename=keyfile,
-                                            wallet_password=wallet_password)
+            self._wallet_key = self._create_wallet_key(filename=keyfile)
             return self._wallet_key
 
         # read the keyfile and decrypt
@@ -184,19 +182,20 @@ class Wallet:
 
         from Acquire.Client import PrivateKey as _PrivateKey
 
-        if wallet_password is not None:
-            wallet_key = _PrivateKey.read_bytes(bytes, wallet_password)
-
         # get the user password
-        import getpass as _getpass
-        while not wallet_key:
-            password = _getpass.getpass(
-                            prompt="Please enter your wallet password: ")
+        for _ in range(0, 5):
+            password = _get_wallet_password()
 
             try:
                 wallet_key = _PrivateKey.read_bytes(bytes, password)
             except:
                 _output("Invalid password. Please try again.")
+
+            if wallet_key:
+                break
+
+        if wallet_key is None:
+            raise PermissionError("Too many failed password attempts...")
 
         self._wallet_key = wallet_key
         return wallet_key
@@ -426,13 +425,27 @@ class Wallet:
 
         return services
 
-    def get_service(self, service_url):
-        """Return the service at 'service_url'. This will return the
+    def get_service(self, service_url=None, service_uid=None):
+        """Return the service at either 'service_url', or that
+           has UID 'service_uid'. This will return the
            cached service if it exists, or will add a new service if
            the user so wishes
         """
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
+
+        if service_url is None:
+            # we need to look up the name...
+            import glob as _glob
+            service_files = _glob.glob("%s/service_*" % self._wallet_dir)
+
+            for service_file in service_files:
+                service = _read_service(service_file)
+                if service.uid() == service_uid:
+                    return service
+
+            raise PermissionError(
+                "There is no trusted service with UID '%s'" % service_uid)
 
         service_file = "%s/service_%s" % (
             self._wallet_dir,
@@ -445,6 +458,8 @@ class Wallet:
         except:
             pass
 
+        service = None
+
         if existing_service is not None:
             # check if the keys need rotating - if they do, load up
             # the new keys and save them to the service file...
@@ -452,13 +467,21 @@ class Wallet:
                 existing_service.refresh_keys()
                 _write_service(existing_service, service_file)
 
-            return existing_service
+            service = existing_service
         else:
             from Acquire.Service import get_remote_service as \
                 _get_remote_service
 
             service = _get_remote_service(service_url)
-            return self.add_service(service)
+            service = self.add_service(service)
+
+        if service_uid is not None:
+            if service.uid() != service_uid:
+                raise PermissionError(
+                    "Disagreement over the service UID for '%s' (%s)" %
+                    (service, service_uid))
+
+        return service
 
     def remove_all_services(self):
         """Remove all trusted services from this Wallet"""

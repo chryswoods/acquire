@@ -135,6 +135,7 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None,
         except Exception as e:
             args = None
             result = e
+            keys = None
     else:
         keys = None
 

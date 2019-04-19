@@ -8,7 +8,7 @@ _cache_service_lookup = _LRUCache(maxsize=5)
 
 
 @_cached(_cache_service_lookup)
-def _get_remote_service(service_url, wallet_dir=None):
+def _get_remote_service(service_url):
     """Call this function to get the Service info of a remote Service.
        This will check if we have seen the service before. If so, then
        we will ensure that this is the correct service. If not, then
@@ -16,7 +16,7 @@ def _get_remote_service(service_url, wallet_dir=None):
        service
     """
     from Acquire.Client import Wallet as _Wallet
-    return _Wallet(wallet_dir=wallet_dir).get_service(service_url)
+    return _Wallet().get_service(service_url)
 
 
 class Service:
@@ -29,8 +29,7 @@ class Service:
        i.e. during construction it will transform into the class
        of the type of service, e.g. Acquire.Identity.IdentityService
     """
-    def __init__(self, service_url=None, service_uid=None,
-                 wallet_dir=None):
+    def __init__(self, service_url=None, service_uid=None):
         """Construct the service that is accessed at the remote
            URL 'service_url'. This will fetch and return the
            details of the remote service. This wrapper is a
@@ -42,7 +41,8 @@ class Service:
         """
         try:
             from Acquire.Client import Wallet as _Wallet
-            service = _Wallet(wallet_dir=wallet_dir).get_service(service_url)
+            service = _Wallet().get_service(service_url=service_url,
+                                            service_uid=service_uid)
 
             from copy import copy as _copy
             self.__dict__ = _copy(service.__dict__)

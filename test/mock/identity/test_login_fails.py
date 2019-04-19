@@ -12,8 +12,6 @@ from Acquire.Client import LoginError, Wallet
 
 def test_login_fails(aaai_services, tmpdir):
     # register two users
-    wallet_dir = "%s/acquire_wallet" % tmpdir
-
     username1 = "fail1"
     password1 = "Fail1!!!"
     username2 = "fail2"
@@ -21,8 +19,7 @@ def test_login_fails(aaai_services, tmpdir):
 
     result = User.register(username=username1,
                            password=password1,
-                           identity_url="identity",
-                           wallet_dir=wallet_dir)
+                           identity_url="identity")
 
     assert(type(result) is dict)
 
@@ -31,12 +28,11 @@ def test_login_fails(aaai_services, tmpdir):
     otp1 = OTP(otpsecret1)
 
     user1 = User(username=username1, identity_url="identity",
-                 wallet_dir=wallet_dir, auto_logout=False)
+                 auto_logout=False)
 
     result = User.register(username=username2,
                            password=password2,
-                           identity_url="identity",
-                           wallet_dir=wallet_dir)
+                           identity_url="identity")
 
     assert(type(result) is dict)
 
@@ -45,7 +41,7 @@ def test_login_fails(aaai_services, tmpdir):
     otp2 = OTP(otpsecret2)
 
     user2 = User(username=username2, identity_url="identity",
-                 wallet_dir=wallet_dir, auto_logout=False)
+                 auto_logout=False)
 
     result1 = user1.request_login()
     result2 = user2.request_login()
@@ -56,7 +52,7 @@ def test_login_fails(aaai_services, tmpdir):
     login_url1 = result1["login_url"]
     login_url2 = result2["login_url"]
 
-    wallet = Wallet(wallet_dir=wallet_dir)
+    wallet = Wallet()
 
     # try to log in with the wrong user
     with pytest.raises(LoginError):

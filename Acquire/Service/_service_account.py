@@ -581,6 +581,11 @@ def get_service_private_key(fingerprint=None):
     s = _refresh_service_keys_and_certs(s)
     key = s.private_key()
 
+    from Acquire.Service import get_service_account_bucket
+    print(get_service_account_bucket())
+    print(key.fingerprint())
+    print(s.last_key().fingerprint())
+
     if fingerprint:
         if key.fingerprint() != fingerprint:
             key = s.last_key()
