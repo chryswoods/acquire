@@ -2,7 +2,6 @@
 import datetime
 
 from Acquire.Service import get_service_account_bucket
-from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Account, Accounts, Transaction, Ledger
 
@@ -77,10 +76,7 @@ def run(args):
                                 is_provisional=False,
                                 bucket=bucket)
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     if transaction_records:
         try:

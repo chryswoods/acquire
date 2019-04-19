@@ -136,7 +136,7 @@ def _get_service_password():
     return service_password
 
 
-def setup_this_service(canonical_url, service_type):
+def setup_this_service(canonical_url, service_type, username, password):
     """Call this function to setup a new
        service that will serve at 'canonical_url', will be of
        the specified service_type.
@@ -168,6 +168,9 @@ def setup_this_service(canonical_url, service_type):
 
     service = None
     service_password = _get_service_password()
+
+    user_uid = None
+    otp = None
 
     if service_info:
         try:
@@ -202,7 +205,22 @@ def setup_this_service(canonical_url, service_type):
         service = _Service(service_url=canonical_url,
                            service_type=service_type)
 
-        # now create the service user account
+        service_uid = service.uid()
+        skelkey = service.skeleton_key().public_key()
+
+        # now register the new admin user account - remembering to
+        # encode the password
+        from Acquire.Client import Credentials as _Credentials
+        password = _Credentials.encode_password(password=password,
+                                                identity_uid=service_uid)
+
+        from Acquire.Identity import UserAccount as _UserAccount
+        (user_uid, otp) = _UserAccount.create(username=username,
+                                              password=password,
+                                              _service_uid=service_uid,
+                                              _service_public_key=skelkey)
+
+        add_admin_user(service, user_uid)
 
         # write the service data, encrypted using the service password
         service_data = service.to_data(service_password)
@@ -213,7 +231,7 @@ def setup_this_service(canonical_url, service_type):
 
     mutex.unlock()
 
-    return service
+    return (service, user_uid, otp)
 
 
 def add_admin_user(service, account_uid, authorisation=None):
@@ -562,6 +580,8 @@ def get_service_private_key(fingerprint=None):
     s = get_this_service(need_private_access=True)
     s = _refresh_service_keys_and_certs(s)
     key = s.private_key()
+
+    from Acquire.Service import get_service_account_bucket
 
     if fingerprint:
         if key.fingerprint() != fingerprint:

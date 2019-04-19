@@ -85,14 +85,11 @@ def my_function():
 
 ```python
 def run(args):
-    from Acquire.Service import create_return_value
-
     input1 = MyClass1.from_data(args["input1"])
     input2 = MyClass2.from_data(args["input2"])  # etc. etc.
 
     # do something
-
-    result = create_return_value()
+    result = {}
 
     result["output1"] = output1.to_data()
     result["output2"] = output2.to_data()

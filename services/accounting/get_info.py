@@ -1,6 +1,5 @@
 
 from Acquire.Service import get_service_account_bucket
-from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Accounts
 
@@ -48,10 +47,7 @@ def run(args):
 
     balance_status = account.balance_status(bucket=bucket)
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     if account:
         return_value["description"] = account.description()

@@ -1,6 +1,5 @@
 
-from Acquire.Service import get_this_service, create_return_value, \
-    save_service_keys_to_objstore
+from Acquire.Service import get_this_service, save_service_keys_to_objstore
 from Acquire.Identity import Authorisation
 
 
@@ -22,10 +21,3 @@ def run(args):
             authorisation, "dump_keys %s" % service.uid())
 
     save_service_keys_to_objstore(include_old_keys=True)
-
-    status = 0
-    message = "Success. Keys have been dumped"
-
-    return_value = create_return_value(status, message)
-
-    return return_value

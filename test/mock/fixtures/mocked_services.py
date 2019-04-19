@@ -7,7 +7,6 @@
 import pytest
 import os
 import sys
-import re
 import uuid
 
 import Acquire
@@ -29,12 +28,25 @@ storage_handler = create_handler(storage_functions)
 compute_handler = create_handler(compute_functions)
 
 
-def _set_services(s):
+def _set_services(s, wallet_dir, wallet_password):
     pytest.my_global_services = s
+    pytest.my_global_wallet_dir = wallet_dir
+    pytest.my_global_wallet_password = wallet_password
 
 
 def _get_services():
     return pytest.my_global_services
+
+
+def _get_wallet_dir(**kwargs):
+    return pytest.my_global_wallet_dir
+
+
+def _get_wallet_password(**kwargs):
+    return pytest.my_global_wallet_password
+
+Acquire.Client._wallet._get_wallet_dir = _get_wallet_dir
+Acquire.Client._wallet._get_wallet_password = _get_wallet_password
 
 
 class MockedRequests:
@@ -106,12 +118,24 @@ def mocked_input(s):
     return "y"
 
 
+def mocked_output(s, end=None):
+    pass
+
+
+def mocked_flush_output():
+    pass
+
+
 # monkey-patch _pycurl.Curl so that we can mock calls
 Acquire.Stubs.requests = MockedRequests
 
-# monkey-patch input so that we can say "y"
+# monkey-patch input so that we can say "y", and so there is no output
 Acquire.Client._wallet._input = mocked_input
-Acquire.Client._wallet._is_testing = True
+Acquire.Client._wallet._output = mocked_output
+Acquire.Client._wallet._flush_output = mocked_flush_output
+Acquire.Client._user._output = mocked_output
+
+_wallet_password = Acquire.Crypto.PrivateKey.random_passphrase()
 
 
 def _login_admin(service_url, username, password, otp):
@@ -120,19 +144,19 @@ def _login_admin(service_url, username, password, otp):
     """
     from Acquire.Client import User, Service
     from Acquire.Identity import LoginSession
+    from Acquire.Client import Wallet
 
-    user = User(username=username, identity_url=service_url)
+    wallet = Wallet()
 
-    user.request_login()
-    short_uid = LoginSession.to_short_uid(user.session_uid())
+    user = User(username=username, identity_url=service_url,
+                auto_logout=False)
 
-    args = {"username": username,
-            "short_uid": short_uid,
-            "password": password,
-            "otpcode": otp.generate()}
+    result = user.request_login()
+    login_url = result["login_url"]
 
-    service = Service(service_url)
-    service.call_function(function="admin/login", args=args)
+    wallet.send_password(url=login_url, username=username,
+                         password=password, otpcode=otp.generate(),
+                         remember_password=False, remember_device=False)
 
     user.wait_for_login()
 
@@ -158,7 +182,10 @@ def aaai_services(tmpdir_factory):
     _services["userdata"] = tmpdir_factory.mktemp("userdata")
     _services["compute"] = tmpdir_factory.mktemp("compute")
 
-    _set_services(_services)
+    wallet_dir = tmpdir_factory.mktemp("wallet")
+    wallet_password = PrivateKey.random_passphrase()
+
+    _set_services(_services, wallet_dir, wallet_password)
 
     password = PrivateKey.random_passphrase()
     args = {"password": password}
@@ -287,37 +314,31 @@ def aaai_services(tmpdir_factory):
 @pytest.fixture(scope="session")
 def authenticated_user(aaai_services):
     from Acquire.Crypto import PrivateKey, OTP
-    from Acquire.Client import User, Service
+    from Acquire.Client import User, Service, Wallet
 
     username = str(uuid.uuid4())
     password = PrivateKey.random_passphrase()
 
-    user = User(username, identity_url="identity")
-    (provisioning_uri, _) = user.register(password)
+    result = User.register(username=username,
+                           password=password,
+                           identity_url="identity")
 
-    otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
-                          provisioning_uri).groups()[0]
-
-    user_otp = OTP(otpsecret)
+    otpsecret = result["otpsecret"]
+    otp = OTP(otpsecret)
 
     # now log the user in
-    (login_url, _) = user.request_login()
+    user = User(username=username, identity_url="identity", auto_logout=False)
 
-    assert(type(login_url) is str)
+    result = user.request_login()
 
-    short_uid = re.search(r"id=([\w\d+]+)",
-                          login_url).groups()[0]
+    assert(type(result) is dict)
 
-    args = {}
-    args["short_uid"] = short_uid
-    args["username"] = username
-    args["password"] = password
-    args["otpcode"] = user_otp.generate()
+    wallet = Wallet()
 
-    service = Service("identity")
-    result = service.call_function(function="login", args=args)
-
-    assert(result["status"] == 0)
+    wallet.send_password(url=result["login_url"],
+                         username=username, password=password,
+                         otpcode=otp.generate(),
+                         remember_password=False, remember_device=False)
 
     user.wait_for_login()
 

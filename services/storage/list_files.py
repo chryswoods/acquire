@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Storage import DriveInfo, UserDrives
 
 from Acquire.Client import Authorisation
@@ -31,7 +29,7 @@ def run(args):
     files = drive.list_files(authorisation=authorisation,
                              include_metadata=include_metadata)
 
-    return_value = create_return_value()
+    return_value = {}
 
     return_value["files"] = list_to_string(files)
 

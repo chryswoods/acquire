@@ -1,5 +1,4 @@
 
-from Acquire.Service import create_return_value
 from Acquire.Service import get_checked_remote_service, trust_service
 from Acquire.Service import get_this_service, create_service_user_account
 
@@ -16,9 +15,6 @@ def run(args):
        service as a service before we can trust it as an accounting
        service...
     """
-    status = 0
-    message = None
-
     try:
         service_url = args["service_url"]
     except:
@@ -61,10 +57,7 @@ def run(args):
 
     create_service_user_account(service, accounting_service.canonical_url())
 
-    status = 0
-    message = "Success. Now trusting %s" % str(service)
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     return_value["args"] = args
 

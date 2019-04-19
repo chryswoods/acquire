@@ -4,7 +4,8 @@ import pytest
 import random
 import os
 
-from Acquire.Crypto import PublicKey, PrivateKey, SignatureVerificationError
+from Acquire.Crypto import PublicKey, PrivateKey, SymmetricKey, \
+                           SignatureVerificationError
 
 
 def test_keys():
@@ -68,3 +69,28 @@ def test_keys():
 
     assert(privkey.fingerprint() == privkey2.fingerprint())
     assert(privkey == privkey2)
+
+    symkey = SymmetricKey()
+
+    c = symkey.encrypt(message)
+
+    assert(message == symkey.decrypt(c))
+
+    c = symkey.encrypt(long_message)
+
+    assert(long_message == symkey.decrypt(c))
+
+    symkey = SymmetricKey("This is a key")
+
+    c = symkey.encrypt(long_message)
+
+    assert(long_message == SymmetricKey("This is a key").decrypt(c))
+
+    data = symkey.to_data("testPass33")
+
+    symkey2 = SymmetricKey.from_data(data, "testPass33")
+
+    assert(symkey.fingerprint() == symkey2.fingerprint())
+    assert(symkey == symkey2)
+
+    assert(long_message == symkey2.decrypt(c))

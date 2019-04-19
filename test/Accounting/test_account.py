@@ -10,7 +10,8 @@ from Acquire.Accounting import Account, Transaction, TransactionRecord, \
 from Acquire.Identity import Authorisation, ACLRule
 
 from Acquire.Service import get_service_account_bucket, \
-    push_is_running_service, pop_is_running_service
+    push_is_running_service, pop_is_running_service, \
+    is_running_service
 
 from Acquire.Crypto import PrivateKey
 
@@ -38,9 +39,11 @@ def bucket(tmpdir_factory):
     except:
         d = tmpdir_factory.mktemp("objstore")
         push_is_running_service()
+        bucket = get_service_account_bucket(str(d))
+        while is_running_service():
+            pop_is_running_service()
 
-        return get_service_account_bucket(str(d))
-
+        return bucket
 
 @pytest.fixture(scope="session")
 def account1(bucket):

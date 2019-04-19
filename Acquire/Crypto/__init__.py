@@ -6,6 +6,7 @@ libraries. The aim is to provide a simple interface that ensures that
 all cryptography in Acquire uses best practice
 """
 
+from ._hash import *
 from ._keys import *
 from ._otp import *
 from ._errors import *

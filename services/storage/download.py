@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Identity import Authorisation
 
 from Acquire.Storage import DriveInfo
@@ -46,7 +44,7 @@ def run(args):
 
     drive = DriveInfo(drive_uid=drive_uid)
 
-    return_value = create_return_value()
+    return_value = {}
 
     (filemeta, filedata, par) = drive.download(filename=filename,
                                                version=version,

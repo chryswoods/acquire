@@ -6,7 +6,8 @@ from distutils import dir_util
 
 from Acquire.Accounting import Account, Accounts
 
-from Acquire.Service import push_is_running_service, get_service_account_bucket
+from Acquire.Service import push_is_running_service, \
+    get_service_account_bucket, is_running_service, pop_is_running_service
 
 
 @pytest.fixture(scope="session")
@@ -16,7 +17,12 @@ def bucket(tmpdir_factory):
     except:
         d = tmpdir_factory.mktemp("objstore")
         push_is_running_service()
-        return get_service_account_bucket(str(d))
+        bucket = get_service_account_bucket(str(d))
+
+        while is_running_service():
+            pop_is_running_service()
+
+        return bucket
 
 
 def test_example_data(bucket):

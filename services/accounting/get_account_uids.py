@@ -1,6 +1,5 @@
 
 from Acquire.Service import get_service_account_bucket
-from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Accounts
 
@@ -87,10 +86,7 @@ def run(args):
 
         account_uids[account.uid()] = account.name()
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     if account_uids:
         return_value["account_uids"] = account_uids

@@ -1,42 +1,73 @@
 
-from Acquire.Stubs import lazy_import as _lazy_import
-
-import os as _os
-import sys as _sys
-import json as _json
-
-_getpass = _lazy_import.lazy_module("getpass")
-_glob = _lazy_import.lazy_module("glob")
-_re = _lazy_import.lazy_module("re")
-
 # use a variable so we can monkey-patch while testing
 _input = input
 
-# whether or not we are in testing mode
-_is_testing = False
-
 __all__ = ["Wallet"]
+
+
+def _get_wallet_dir():
+    """Function that can be mocked in testing to ensure we don't
+       mess with the user's main wallet
+    """
+    import os as _os
+    home = _os.path.expanduser("~")
+    return "%s/.acquire_wallet" % home
+
+
+def _get_wallet_password(confirm_password=False):
+    """Function that can be mocked in testing to ensure we don't
+       mess with the user's main wallet
+    """
+    import getpass as _getpass
+    password = _getpass.getpass(
+                prompt="Please enter a password to encrypt your wallet: ")
+
+    if not confirm_password:
+        return password
+
+    password2 = _getpass.getpass(
+                    prompt="Please confirm the password: ")
+
+    if password != password2:
+        _output("The passwords don't match. Please try again.")
+        return _get_wallet_password(confirm_password=confirm_password)
+
+    return password
+
+
+def _output(s, end=None):
+    """Simple output function that can be replaced at testing
+       to silence the wallet
+    """
+    if end is None:
+        print(s)
+    else:
+        print(s, end=end)
+
+
+def _flush_output():
+    """Flush STDOUT"""
+    try:
+        import sys as _sys
+        _sys.stdout.flush()
+    except:
+        pass
 
 
 def _read_json(filename):
     """Return a json-decoded dictionary from the data written
        to 'filename'
     """
-    global _is_testing
-    if _is_testing:
-        return {}
-
+    import json as _json
     with open(filename, "rb") as FILE:
         s = FILE.read().decode("utf-8")
+
         return _json.loads(s)
 
 
 def _write_json(data, filename):
     """Write the passed json-encodable dictionary to 'filename'"""
-    global _is_testing
-    if _is_testing:
-        return
-
+    import json as _json
     s = _json.dumps(data)
     with open(filename, "wb") as FILE:
         FILE.write(s.encode("utf-8"))
@@ -53,6 +84,24 @@ def _write_service(service, filename):
     _write_json(service.to_data(), filename)
 
 
+def _could_match(userinfo, username, password):
+    if username is None:
+        return True
+
+    if "username" not in userinfo:
+        return False
+
+    if userinfo["username"] == username:
+        if password is None:
+            return True
+
+        if "password" in userinfo:
+            if userinfo["password"] == password:
+                return True
+
+    return False
+
+
 class Wallet:
     """This class holds a wallet that can be used to simplify
        sending passwords and one-time-password (OTP) codes
@@ -61,46 +110,48 @@ class Wallet:
        This holds a wallet of passwords and (optionally)
        OTP secrets that are encrypted using a local keypair
        that is unlocked by a password supplied by the user locally.
+
+       By default this will create the wallet in your home
+       directory ($HOME/.acquire_wallet). If you want the wallet
+       to be saved in a different directory, specify that
+       as "wallet_dir".
     """
     def __init__(self):
+        """Construct a wallet to hold all user credentials"""
+        from Acquire.Service import is_running_service \
+            as _is_running_service
+
+        if _is_running_service():
+            from Acquire.Service import get_this_service \
+                as _get_this_service
+            service = _get_this_service(need_private_access=False)
+            raise PermissionError(
+                "You cannot open a Wallet on a running Service (%s)" %
+                service)
+
         self._wallet_key = None
-        self._get_wallet_key()
-        self._cache = {}
         self._service_info = {}
-        self._manual_password = False
-        self._manual_otpcode = False
 
-    @staticmethod
-    def _wallet_dir():
-        """Directory containing all of the wallet files"""
-        homedir = _os.path.expanduser("~")
+        import os as _os
 
-        walletdir = "%s/.acquire" % homedir
+        wallet_dir = _get_wallet_dir()
 
-        if not _os.path.exists(walletdir):
-            _os.mkdir(walletdir)
+        if not _os.path.exists(wallet_dir):
+            _os.makedirs(wallet_dir, mode=0o700, exist_ok=False)
+        elif not _os.path.isdir(wallet_dir):
+            raise TypeError("The wallet directory must be a directory!")
 
-        return walletdir
+        self._wallet_dir = wallet_dir
 
     def _create_wallet_key(self, filename):
         """Create a new wallet key for the user"""
-
-        password = _getpass.getpass(
-                     prompt="Please enter a password to encrypt your wallet: ")
+        password = _get_wallet_password(confirm_password=True)
 
         from Acquire.Client import PrivateKey as _PrivateKey
         key = _PrivateKey()
 
         bytes = key.bytes(password)
 
-        password2 = _getpass.getpass(prompt="Please confirm the password: ")
-
-        if password != password2:
-            print("The passwords don't match. Please try again.")
-            self._create_wallet_key(filename)
-            return
-
-        # the passwords match - write this to the file
         with open(filename, "wb") as FILE:
             FILE.write(bytes)
 
@@ -113,209 +164,197 @@ class Wallet:
         if self._wallet_key:
             return self._wallet_key
 
-        wallet_dir = Wallet._wallet_dir()
+        wallet_dir = self._wallet_dir
 
         keyfile = "%s/wallet_key.pem" % wallet_dir
 
+        import os as _os
+
         if not _os.path.exists(keyfile):
-            self._wallet_key = self._create_wallet_key(keyfile)
+            self._wallet_key = self._create_wallet_key(filename=keyfile)
             return self._wallet_key
 
         # read the keyfile and decrypt
         with open(keyfile, "rb") as FILE:
             bytes = FILE.read()
 
-        # get the user password
         wallet_key = None
-        while not wallet_key:
-            password = _getpass.getpass(
-                            prompt="Please enter your wallet password: ")
+
+        from Acquire.Client import PrivateKey as _PrivateKey
+
+        # get the user password
+        for _ in range(0, 5):
+            password = _get_wallet_password()
 
             try:
-                from Acquire.Client import PrivateKey as _PrivateKey
                 wallet_key = _PrivateKey.read_bytes(bytes, password)
             except:
-                print("Invalid password. Please try again.")
+                _output("Invalid password. Please try again.")
+
+            if wallet_key:
+                break
+
+        if wallet_key is None:
+            raise PermissionError("Too many failed password attempts...")
 
         self._wallet_key = wallet_key
         return wallet_key
 
-    @staticmethod
-    def _get_userfile(username, identity_url):
-        """Return the userfile for the passed username logging into the
-           passed identity url"""
-        from Acquire.ObjectStore import string_to_safestring \
-            as _string_to_safestring
-        return "%s/user_%s_%s_encrypted" % (
-            Wallet._wallet_dir(),
-            _string_to_safestring(username),
-            _string_to_safestring(identity_url))
-
-    @staticmethod
-    def remove_user_info(username):
-        """Call this function to remove the userinfo associated
-           with the account 'username' for all identity services
+    def _get_userinfo_filename(self, user_uid, identity_uid):
+        """Return the filename for the passed user_uid logging into the
+           passed identity service with identity_uid
         """
-        wallet_dir = Wallet._wallet_dir()
+        assert(user_uid is not None)
+        assert(identity_uid is not None)
 
-        userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
+        return "%s/user_%s_%s_encrypted" % (
+            self._wallet_dir, user_uid, identity_uid)
 
-        for userfile in userfiles:
-            try:
-                userinfo = self._read_userfile(userfile)
-                if userinfo["username"] == username:
-                    _os.unlink(userfile)
-            except:
-                pass
+    def _set_userinfo(self, userinfo, user_uid, identity_uid):
+        """Save the userfile for the passed user_uid logging into the
+           passed identity service with identity_uid
+        """
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+        import json as _json
+        filename = self._get_userinfo_filename(user_uid=user_uid,
+                                               identity_uid=identity_uid)
+        key = self._get_wallet_key().public_key()
+        data = _bytes_to_string(key.encrypt(_json.dumps(userinfo)))
 
-    def _read_userfile(self, filename):
-        """Read all info from the passed userfile"""
-        try:
-            return self._cache[filename]
-        except:
-            pass
+        userinfo = {"username": userinfo["username"],
+                    "user_uid": user_uid,
+                    "data": data}
 
-        if not _os.path.exists(filename):
-            return
+        _write_json(data=userinfo, filename=filename)
 
-        data = _read_json(filename)
+    def _unlock_userinfo(self, userinfo):
+        """Function used to unlock (decrypt) the passed userinfo"""
+        from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+        import json as _json
 
-        from Acquire.ObjectStore import string_to_bytes \
-            as _string_to_bytes
+        key = self._get_wallet_key()
 
-        try:
-            data["password"] = _string_to_bytes(data["password"])
-        except:
-            pass
+        data = _string_to_bytes(userinfo["data"])
+        result = _json.loads(key.decrypt(data))
+        result["user_uid"] = userinfo["user_uid"]
+        return result
 
-        try:
-            data["otpsecret"] = _string_to_bytes(data["otpsecret"])
-        except:
-            pass
-
-        self._cache[filename] = data
-        return data
-
-    def _read_userinfo(self, username, identity_url):
+    def _get_userinfo(self, user_uid, identity_uid):
         """Read all info for the passed user at the identity service
-           reached at 'identity_url'"""
-        return self._read_userfile(Wallet._get_userfile(username,
-                                                        identity_url))
+           reached at 'identity_url'
+        """
+        filename = self._get_userinfo_filename(user_uid=user_uid,
+                                               identity_uid=identity_uid)
+        userinfo = _read_json(filename=filename)
+        return self._unlock_userinfo(userinfo)
 
-    def _get_username(self):
-        """Function to find a username automatically, of if that fails,
+    def _find_userinfo(self, username=None, password=None):
+        """Function to find a user_info automatically, of if that fails,
            to ask the user
         """
-        wallet_dir = Wallet._wallet_dir()
+        wallet_dir = self._wallet_dir
+
+        import glob as _glob
 
         userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
 
-        userinfos = {}
-
-        from Acquire.ObjectStore import safestring_to_string \
-            as _safestring_to_string
+        userinfos = []
 
         for userfile in userfiles:
             try:
-                userinfo = self._read_userfile(userfile)
-                username = _safestring_to_string(userinfo["username"])
-                userinfos[username] = userinfo
+                userinfo = _read_json(userfile)
+                if _could_match(userinfo, username, password):
+                    userinfos.append((userinfo["username"], userinfo))
             except:
                 pass
 
-        usernames = list(userinfos.keys())
-        usernames.sort()
+        userinfos.sort(key=lambda x: x[0])
 
-        if len(usernames) == 1:
-            return usernames[0]
+        if len(userinfos) == 1:
+            return self._unlock_userinfo(userinfos[0][1])
 
-        if len(usernames) == 0:
-            return _input("Please type your username: ")
+        if len(userinfos) == 0:
+            if username is None:
+                username = _input("Please type your username: ")
 
-        print("Please choose the account by typing in its number, "
-              "or type a new username if you want a different account.")
+            userinfo = {"username": username}
 
-        for (i, username) in enumerate(usernames):
-            print("[%d] %s" % (i+1, username))
+            if password is not None:
+                userinfo["password"] = password
 
-        username = None
+            return userinfo
 
-        while not username:
-            print("Make your selection: ", end="")
+        _output("Please choose the account by typing in its number, "
+                "or type a new username if you want a different account.")
 
+        for (i, (username, userinfo)) in enumerate(userinfos):
+            _output("[%d] %s {%s}" % (i+1, username, userinfo["user_uid"]))
+
+        max_tries = 5
+
+        for i in range(0, max_tries):
             reply = _input(
-                    "Make your selection (1 to %d) " %
-                    (len(usernames))
+                    "\nMake your selection (1 to %d) " %
+                    (len(userinfos))
                 )
 
             try:
                 idx = int(reply) - 1
-
-                if idx < 0 or idx >= len(usernames):
-                    print("Invalid account. Try again...")
-                else:
-                    username = usernames[idx]
             except:
-                username = None
+                idx = None
 
-        return username
+            if idx is None:
+                # interpret this as a username
+                return self._find_userinfo(username=reply, password=password)
+            elif idx < 0 or idx >= len(userinfos):
+                _output("Invalid account.")
+            else:
+                return self._unlock_userinfo(userinfos[idx][1])
 
-    def _get_user_password(self, username, identity_url):
+            if i < max_tries-1:
+                _output("Try again...")
+
+        userinfo = {}
+
+        if username is not None:
+            userinfo["username"] = username
+
+        return userinfo
+
+    def _get_user_password(self, userinfo):
         """Get the user password for the passed user on the passed
-           identity_url. If remember_device then save the
-           password in the wallet if it is not already there
+           identity_url
         """
-        try:
-            userinfo = self._read_userinfo(username, identity_url)
+        if "password" in userinfo:
+            return userinfo["password"]
+        else:
+            import getpass as _getpass
+            password = _getpass.getpass(
+                            prompt="Please enter the login password: ")
+            userinfo["password"] = password
+            return password
 
-            if userinfo:
-                password = userinfo["password"]
-                self._manual_password = False
+    def _get_otpcode(self, userinfo):
+        """Get the OTP code"""
+        if "otpsecret" in userinfo:
+            from Acquire.Client import OTP as _OTP
+            otp = _OTP(userinfo["otpsecret"])
+            return otp.generate()
+        else:
+            import getpass as _getpass
+            return _getpass.getpass(
+                        prompt="Please enter the one-time-password code: ")
 
-                # this needs to be decrypted
-                return self._wallet_key.decrypt(password)
-        except:
-            pass
-
-        self._manual_password = True
-        return _getpass.getpass(prompt="Please enter the login password: ")
-
-    def _get_otpcode(self, username, identity_url):
-        """Get the OTP code for the passed user on the passed identity
-           service url"""
-        try:
-            userinfo = self._read_userinfo(username, identity_url)
-
-            if userinfo:
-                from Acquire.Client import OTP as _OTP
-                secret = self._wallet_key.decrypt(userinfo["otpsecret"])
-                device_uid = userinfo["device_uid"]
-                self._manual_otpcode = False
-                self._device_uid = device_uid
-                return _OTP(secret=secret).generate()
-        except:
-            pass
-
-        self._manual_otpcode = True
-        self._device_uid = None
-        return _getpass.getpass(
-                    prompt="Please enter the one-time-password code: ")
-
-    @staticmethod
-    def add_service(service):
+    def add_service(self, service):
         """Add a cached service info for the passed service. If it
            already exists, then this verifies that the added service
            is the same as the previously-seen service
         """
-        global _is_testing
-        if _is_testing:
-            return service
-
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
 
         service_file = "%s/service_%s" % (
-            Wallet._wallet_dir(),
+            self._wallet_dir,
             _string_to_safestring(service.canonical_url()))
 
         existing_service = None
@@ -355,9 +394,9 @@ class Wallet:
                 )
 
                 if reply[0].lower() == 'y':
-                    print("Now trusting %s" % str(service))
+                    _output("Now trusting %s" % str(service))
                 else:
-                    print("Not trusting this service!")
+                    _output("Not trusting this service!")
                     raise PermissionError(
                         "We do not trust the service '%s'" % str(service))
 
@@ -381,9 +420,9 @@ class Wallet:
                 )
 
         if reply[0].lower() == 'y':
-            print("Now trusting %s" % str(service))
+            _output("Now trusting %s" % str(service))
         else:
-            print("Not trusting this service!")
+            _output("Not trusting this service!")
             raise PermissionError(
                 "We do not trust the service '%s'" % str(service))
 
@@ -392,14 +431,10 @@ class Wallet:
 
         return service
 
-    @staticmethod
-    def get_services():
+    def get_services(self):
         """Return all of the trusted services known to this wallet"""
-        global _is_testing
-        if _is_testing:
-            return []
-
-        service_files = _glob.glob("%s/service_*" % Wallet._wallet_dir())
+        import glob as _glob
+        service_files = _glob.glob("%s/service_*" % self._wallet_dir)
 
         services = []
 
@@ -408,23 +443,30 @@ class Wallet:
 
         return services
 
-    @staticmethod
-    def get_service(service_url):
-        """Return the service at 'service_url'. This will return the
+    def get_service(self, service_url=None, service_uid=None):
+        """Return the service at either 'service_url', or that
+           has UID 'service_uid'. This will return the
            cached service if it exists, or will add a new service if
            the user so wishes
         """
-        global _is_testing
-        if _is_testing:
-            from Acquire.Service import get_remote_service as \
-                _get_remote_service
-            return _get_remote_service(service_url)
-
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
 
+        if service_url is None:
+            # we need to look up the name...
+            import glob as _glob
+            service_files = _glob.glob("%s/service_*" % self._wallet_dir)
+
+            for service_file in service_files:
+                service = _read_service(service_file)
+                if service.uid() == service_uid:
+                    return service
+
+            raise PermissionError(
+                "There is no trusted service with UID '%s'" % service_uid)
+
         service_file = "%s/service_%s" % (
-            Wallet._wallet_dir(),
+            self._wallet_dir,
             _string_to_safestring(service_url))
 
         existing_service = None
@@ -434,6 +476,8 @@ class Wallet:
         except:
             pass
 
+        service = None
+
         if existing_service is not None:
             # check if the keys need rotating - if they do, load up
             # the new keys and save them to the service file...
@@ -441,22 +485,27 @@ class Wallet:
                 existing_service.refresh_keys()
                 _write_service(existing_service, service_file)
 
-            return existing_service
+            service = existing_service
         else:
             from Acquire.Service import get_remote_service as \
                 _get_remote_service
 
             service = _get_remote_service(service_url)
-            return Wallet.add_service(service)
+            service = self.add_service(service)
 
-    @staticmethod
-    def remove_all_services():
+        if service_uid is not None:
+            if service.uid() != service_uid:
+                raise PermissionError(
+                    "Disagreement over the service UID for '%s' (%s)" %
+                    (service, service_uid))
+
+        return service
+
+    def remove_all_services(self):
         """Remove all trusted services from this Wallet"""
-        global _is_testing
-        if _is_testing:
-            return
-
-        service_files = _glob.glob("%s/service_*" % Wallet._wallet_dir())
+        import glob as _glob
+        import os as _os
+        service_files = _glob.glob("%s/service_*" % self._wallet_dir)
 
         for service_file in service_files:
             if _os.path.exists(service_file):
@@ -466,13 +515,8 @@ class Wallet:
         from ._service import _cache_service_lookup
         _cache_service_lookup.clear()
 
-    @staticmethod
-    def remove_service(service):
+    def remove_service(self, service):
         """Remove the cached service info for the passed service"""
-        global _is_testing
-        if _is_testing:
-            return
-
         if isinstance(service, str):
             service_url = service
         else:
@@ -482,8 +526,10 @@ class Wallet:
             as _string_to_safestring
 
         service_file = "%s/service_%s" % (
-            Wallet._wallet_dir(),
+            self._wallet_dir,
             _string_to_safestring(service_url))
+
+        import os as _os
 
         if _os.path.exists(service_file):
             _os.unlink(service_file)
@@ -492,13 +538,10 @@ class Wallet:
         from ._service import _cache_service_lookup
         _cache_service_lookup.clear()
 
-    def send_password(self, url, username=None, remember_password=True,
+    def send_password(self, url, username=None, password=None,
+                      otpcode=None, remember_password=True,
                       remember_device=None, dryrun=None):
         """Send a password and one-time code to the supplied login url"""
-
-        self._manual_password = False
-        self._manual_otpcode = False
-
         if not remember_password:
             remember_device = False
 
@@ -508,7 +551,7 @@ class Wallet:
         short_uid = words[-1].split("=")[-1]
 
         # now get the service
-        service = Wallet.get_service(identity_service)
+        service = self.get_service(identity_service)
 
         if not service.can_identify_users():
             from Acquire.Client import LoginError
@@ -517,101 +560,97 @@ class Wallet:
                 "You cannot log into something that is not "
                 "a valid identity service!" % (service))
 
-        if not username:
-            # choose a username from any existing files...
-            username = self._get_username()
+        userinfo = self._find_userinfo(username=username,
+                                       password=password)
 
-        print("Logging in using username '%s'" % username)
-        password = self._get_user_password(username, service.canonical_url())
-        otpcode = self._get_otpcode(username, service.canonical_url())
+        if username is None:
+            username = userinfo["username"]
 
-        print("\nLogging in to '%s', session '%s'..." % (
-              service.canonical_url(), short_uid), end="")
-        _sys.stdout.flush()
+        if "user_uid" in userinfo:
+            user_uid = userinfo["user_uid"]
+        else:
+            user_uid = None
+
+        _output("Logging in using username '%s'" % username)
+
+        try:
+            device_uid = userinfo["device_uid"]
+        except:
+            device_uid = None
+
+        if password is None:
+            password = self._get_user_password(userinfo=userinfo)
+
+        if otpcode is None:
+            otpcode = self._get_otpcode(userinfo=userinfo)
+        else:
+            # user is providing the primary OTP, so this is not a device
+            device_uid = None
+
+        _output("\nLogging in to '%s', session '%s'..." % (
+                service.canonical_url(), short_uid), end="")
+
+        _flush_output()
 
         if dryrun:
             print("Calling %s with username=%s, password=%s, otpcode=%s, "
-                  "remember_device=%s, device_uid=%s, short_uid=%s" %
+                  "remember_device=%s, device_uid=%s, short_uid=%s "
+                  "user_uid=%s" %
                   (service.canonical_url(), username, password, otpcode,
-                   remember_device, self._device_uid, short_uid))
+                   remember_device, device_uid, short_uid, user_uid))
             return
 
         try:
-            function = "login"
-            args = {"username": username,
-                    "password": password,
-                    "otpcode": otpcode,
+            from Acquire.Client import Credentials as _Credentials
+
+            creds = _Credentials(username=username, password=password,
+                                 otpcode=otpcode, short_uid=short_uid,
+                                 device_uid=device_uid)
+
+            args = {"credentials": creds.to_data(identity_uid=service.uid()),
+                    "user_uid": user_uid,
                     "remember_device": remember_device,
-                    "device_uid": self._device_uid,
                     "short_uid": short_uid}
 
-            response = service.call_function(function=function, args=args)
-            print("SUCCEEDED!")
-            _sys.stdout.flush()
+            response = service.call_function(function="login", args=args)
+            _output("SUCCEEDED!")
+            _flush_output()
         except Exception as e:
-            print("FAILED!")
-            _sys.stdout.flush()
+            _output("FAILED!")
+            _flush_output()
             from Acquire.Client import LoginError
             raise LoginError("Failed to log in. %s" % e.args)
 
-        if remember_password:
-            try:
-                provisioning_uri = response["provisioning_uri"]
-            except:
-                provisioning_uri = None
+        if not remember_password:
+            return
 
-            try:
-                device_uid = response["device_uid"]
-            except:
-                device_uid = None
+        try:
+            returned_user_uid = response["user_uid"]
 
-            otpsecret = None
+            if returned_user_uid != user_uid:
+                # change of user?
+                userinfo = {}
+                user_uid = returned_user_uid
+        except:
+            # no user_uid, so nothing to save
+            return
 
-            if provisioning_uri:
-                try:
-                    otpsecret = _re.search(r"secret=([\w\d+]+)&issuer",
-                                           provisioning_uri).groups()[0]
-                except:
-                    pass
+        if user_uid is None:
+            # can't save anything
+            return
 
-            try:
-                user_info = self._read_userinfo(username,
-                                                service.canonical_url())
-            except:
-                user_info = {}
+        userinfo["username"] = username
+        userinfo["password"] = password
 
-            if user_info is None:
-                user_info = {}
+        try:
+            userinfo["device_uid"] = response["device_uid"]
+        except:
+            pass
 
-            pubkey = self._wallet_key.public_key()
+        try:
+            userinfo["otpsecret"] = response["otpsecret"]
+        except:
+            pass
 
-            must_write = self._manual_password
-
-            if otpsecret:
-                if self._manual_otpcode:
-                    must_write = True
-
-            if must_write:
-                from Acquire.ObjectStore import string_to_safestring \
-                    as _string_to_safestring
-                from Acquire.ObjectStore import bytes_to_string \
-                    as _bytes_to_string
-
-                user_info["username"] = _string_to_safestring(username)
-                user_info["password"] = _bytes_to_string(
-                                              pubkey.encrypt(
-                                                  password.encode("utf-8")))
-
-                if otpsecret:
-                    user_info["otpsecret"] = _bytes_to_string(
-                                                pubkey.encrypt(
-                                                   otpsecret.encode("utf-8")))
-                    user_info["device_uid"] = device_uid
-
-                _write_json(data=user_info, filename=Wallet._get_userfile(
-                            username, service.canonical_url()))
-
-        self._manual_password = False
-        self._manual_otpcode = False
-
-        return response
+        self._set_userinfo(userinfo=userinfo,
+                           user_uid=user_uid, identity_uid=service.uid())

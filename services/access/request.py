@@ -1,5 +1,4 @@
 
-from Acquire.Service import create_return_value
 from Acquire.Service import get_service_account_bucket
 from Acquire.Service import call_function
 
@@ -41,10 +40,3 @@ def run(args):
             % str(request))
 
     authorisation.verify(request.signature())
-
-    status = 0
-    message = "Request has been validated"
-
-    return_value = create_return_value(status, message)
-
-    return return_value
