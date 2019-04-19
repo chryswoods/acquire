@@ -620,7 +620,8 @@ class Service:
         if self.should_refresh_keys():
             self.refresh_keys()
 
-        return _call_function(self.canonical_url(), function=function,
+        return _call_function(service_url=self.canonical_url(),
+                              function=function,
                               args=args,
                               args_key=self.public_key(),
                               public_cert=self.public_certificate(),

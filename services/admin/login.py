@@ -1,5 +1,5 @@
 
-from Acquire.Service import create_return_value, get_this_service
+from Acquire.Service import get_this_service
 
 from Acquire.Client import Credentials
 
@@ -68,7 +68,7 @@ def run(args):
     login_session.set_approved(user_uid=result["user"].uid(),
                                device_uid=result["device_uid"])
 
-    return_value = create_return_value()
+    return_value = {}
 
     return_value["user_uid"] = login_session.user_uid()
 

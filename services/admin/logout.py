@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Identity import LoginSession, Authorisation
 
 
@@ -25,7 +23,3 @@ def run(args):
 
     login_session.set_logged_out(authorisation=authorisation,
                                  signature=signature)
-
-    return_value = create_return_value()
-
-    return return_value

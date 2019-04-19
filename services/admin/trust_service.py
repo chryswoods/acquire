@@ -1,5 +1,4 @@
 
-from Acquire.Service import create_return_value
 from Acquire.Service import get_checked_remote_service, trust_service
 from Acquire.Crypto import PublicKey
 from Acquire.Identity import Authorisation
@@ -7,9 +6,6 @@ from Acquire.Identity import Authorisation
 
 def run(args):
     """This function return the status and service info"""
-    status = 0
-    message = None
-
     try:
         service_url = args["service_url"]
     except:
@@ -33,10 +29,7 @@ def run(args):
     if service is not None:
         trust_service(service, authorisation)
 
-    status = 0
-    message = "Success. Now trusting %s" % str(service)
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     return_value["args"] = args
 

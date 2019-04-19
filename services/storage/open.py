@@ -1,5 +1,4 @@
 
-from Acquire.Service import create_return_value
 from Acquire.Service import get_service_account_bucket
 from Acquire.Service import get_this_service
 
@@ -23,9 +22,6 @@ def run(args):
        a new bucket for the user in which the files will be placed,
        if a bucket for the user does not already exist.
     """
-
-    status = 0
-    message = None
 
     # receive the credit note that shows that the user has paid for
     # this storage. Also parse the request to find the files that
@@ -69,10 +65,7 @@ def run(args):
     par2 = ObjectStore.create_par(new_bucket, encrypt_key=encrypt_key,
                                   readable=False, writeable=True)
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     return_value["test_key"] = ObjectStore.get_object_from_json(new_bucket,
                                                                 "test_key")

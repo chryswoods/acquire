@@ -1,5 +1,5 @@
 
-from Acquire.Service import create_return_value, get_this_service
+from Acquire.Service import get_this_service
 from Acquire.Identity import UserAccount
 
 
@@ -18,7 +18,7 @@ def run(args):
 
     provisioning_uri = otp.provisioning_uri(username=username, issuer=issuer)
 
-    return_value = create_return_value()
+    return_value = {}
 
     return_value["user_uid"] = user_uid
     return_value["provisioning_uri"] = provisioning_uri

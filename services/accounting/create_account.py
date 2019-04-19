@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Accounting import Accounts
 from Acquire.Identity import Authorisation
 
@@ -49,10 +47,7 @@ def run(args):
 
     account_uid = account.uid()
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     if account_uid:
         return_value["account_uid"] = account_uid

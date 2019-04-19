@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Identity import LoginSession
 
 from Acquire.ObjectStore import datetime_to_string
@@ -25,7 +23,7 @@ def run(args):
     login_session = LoginSession.load(uid=session_uid, scope=scope,
                                       permissions=permissions)
 
-    return_value = create_return_value()
+    return_value = {}
 
     # only send information if the user had logged in!
     should_return_data = False

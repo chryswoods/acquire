@@ -14,29 +14,23 @@ def _flush_output():
         pass
 
 
-def _read_json(filename, key=None):
+def _read_json(filename):
     """Return a json-decoded dictionary from the data written
        to 'filename'
     """
     import json as _json
     with open(filename, "rb") as FILE:
-        if key is not None:
-            s = key.decrypt(FILE.read())
-        else:
-            s = FILE.read().decode("utf-8")
+        s = FILE.read().decode("utf-8")
 
         return _json.loads(s)
 
 
-def _write_json(data, filename, key=None):
+def _write_json(data, filename):
     """Write the passed json-encodable dictionary to 'filename'"""
     import json as _json
     s = _json.dumps(data)
     with open(filename, "wb") as FILE:
-        if key is not None:
-            FILE.write(key.encrypt(s))
-        else:
-            FILE.write(s.encode("utf-8"))
+        FILE.write(s.encode("utf-8"))
 
 
 def _read_service(filename):
@@ -83,6 +77,24 @@ class Wallet:
        as "wallet_dir".
     """
     def __init__(self, wallet_dir=None, wallet_password=None):
+        """Construct a wallet, optionally specifying the
+           directory used for the wallet, and the password
+           used to unlock the wallet. If these are not set,
+           then the wallet will default to be in
+           $HOME/.wallet, and an input prompt will be used
+           to ask for the wallet password
+        """
+        from Acquire.Service import is_running_service \
+            as _is_running_service
+
+        if _is_running_service():
+            from Acquire.Service import get_this_service \
+                as _get_this_service
+            service = _get_this_service(need_private_access=False)
+            raise PermissionError(
+                "You cannot open a Wallet on a running Service (%s)" %
+                service)
+
         self._wallet_key = None
         self._service_info = {}
 
@@ -91,7 +103,6 @@ class Wallet:
         if wallet_dir is None:
             home = _os.path.expanduser("~")
             wallet_dir = "%s/.acquire_wallet" % home
-            raise PermissionError("NO HOME IN TESTING")
 
         if not _os.path.exists(wallet_dir):
             _os.makedirs(wallet_dir, mode=0o700, exist_ok=False)
@@ -180,17 +191,8 @@ class Wallet:
         self._wallet_key = wallet_key
         return wallet_key
 
-    def _set_userinfo(self, userinfo, user_uid, identity_uid):
-        """Save the userfile for the passed user_uid logging into the
-           passed identity service with identity_uid
-        """
-        filename = self._get_userfile(user_uid=user_uid,
-                                      identity_uid=identity_uid)
-        key = self._get_wallet_key().public_key()
-        _write_json(data=userinfo, filename=filename, key=key)
-
-    def _get_userfile(self, user_uid, identity_uid):
-        """Return the userfile for the passed user_uid logging into the
+    def _get_userinfo_filename(self, user_uid, identity_uid):
+        """Return the filename for the passed user_uid logging into the
            passed identity service with identity_uid
         """
         assert(user_uid is not None)
@@ -199,15 +201,42 @@ class Wallet:
         return "%s/user_%s_%s_encrypted" % (
             self._wallet_dir, user_uid, identity_uid)
 
-    def _read_userinfo(self, user_uid, identity_uid):
-        """Read all info for the passed user at the identity service
-           reached at 'identity_url'"""
-        key = self._get_wallet_key()
-        filename = self._get_userfile(user_uid=user_uid,
-                                      identity_uid=identity_uid)
-        return _read_json(filename=filename, key=key)
+    def _set_userinfo(self, userinfo, user_uid, identity_uid):
+        """Save the userfile for the passed user_uid logging into the
+           passed identity service with identity_uid
+        """
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+        import json as _json
+        filename = self._get_userinfo_filename(user_uid=user_uid,
+                                               identity_uid=identity_uid)
+        key = self._get_wallet_key().public_key()
+        data = _bytes_to_string(key.encrypt(_json.dumps(userinfo)))
 
-    def _get_userinfo(self, username=None, password=None):
+        userinfo = {"username": userinfo["username"],
+                    "data": data}
+
+        _write_json(data=userinfo, filename=filename)
+
+    def _unlock_userinfo(self, userinfo):
+        """Function used to unlock (decrypt) the passed userinfo"""
+        from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+        import json as _json
+
+        key = self._get_wallet_key()
+
+        data = _string_to_bytes(userinfo["data"])
+        return _json.loads(key.decrypt(data))
+
+    def _get_userinfo(self, user_uid, identity_uid):
+        """Read all info for the passed user at the identity service
+           reached at 'identity_url'
+        """
+        filename = self._get_userinfo_filename(user_uid=user_uid,
+                                               identity_uid=identity_uid)
+        userinfo = _read_json(filename=filename)
+        return self._unlock_userinfo(userinfo)
+
+    def _find_userinfo(self, username=None, password=None):
         """Function to find a user_info automatically, of if that fails,
            to ask the user
         """
@@ -221,7 +250,7 @@ class Wallet:
 
         for userfile in userfiles:
             try:
-                userinfo = self._read_userfile(userfile)
+                userinfo = _read_json(userfile)
                 if _could_match(userinfo, username, password):
                     userinfos.append((userinfo["username"], userinfo))
             except:
@@ -230,7 +259,7 @@ class Wallet:
         userinfos.sort(key=lambda x: x[0])
 
         if len(userinfos) == 1:
-            return userinfos[0][1]
+            return self._unlock_userinfo(userinfos[0][1])
 
         if len(userinfos) == 0:
             if username is None:
@@ -261,7 +290,7 @@ class Wallet:
                 if idx < 0 or idx >= len(userinfos):
                     print("Invalid account. Try again...")
                 else:
-                    return userinfos[idx][1]
+                    return self._unlock_userinfo(userinfos[idx][1])
             except:
                 pass
 
@@ -480,8 +509,8 @@ class Wallet:
                 "You cannot log into something that is not "
                 "a valid identity service!" % (service))
 
-        userinfo = self._get_userinfo(username=username,
-                                      password=password)
+        userinfo = self._find_userinfo(username=username,
+                                       password=password)
 
         if "user_uid" in userinfo:
             user_uid = userinfo["user_uid"]

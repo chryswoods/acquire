@@ -30,57 +30,55 @@ def _route_function(function, args, additional_functions=None):
     """
     if function is None:
         from admin.root import run as _root
-        result = _root(args)
+        return _root(args)
     elif function == "admin/dump_keys":
         from admin.dump_keys import run as _dump_keys
-        result = _dump_keys(args)
+        return _dump_keys(args)
     elif function == "admin/request_login":
         from admin.request_login import run as _request_login
-        result = _request_login(args)
+        return _request_login(args)
     elif function == "admin/get_session_info":
         from admin.get_session_info import run as _get_session_info
-        result = _get_session_info(args)
+        return _get_session_info(args)
     elif function == "admin/login":
         from admin.login import run as _login
-        result = _login(args)
+        return _login(args)
     elif function == "admin/logout":
         from admin.logout import run as _logout
-        result = _logout(args)
+        return _logout(args)
     elif function == "admin/request_login":
         from admin.request_login import run as _request_login
-        result = _request_login(args)
+        return _request_login(args)
     elif function == "admin/reset":
         from admin.reset import run as _reset
-        result = _reset(args)
+        return _reset(args)
     elif function == "admin/setup":
         from admin.setup import run as _setup
-        result = _setup(args)
+        return _setup(args)
     elif function == "admin/trust_accounting_service":
         from admin.trust_accounting_service import run as \
             _trust_accounting_service
-        result = _trust_accounting_service(args)
+        return _trust_accounting_service(args)
     elif function == "admin/trust_service":
         from admin.trust_service import run as _trust_service
-        result = _trust_service(args)
+        return _trust_service(args)
     elif function == "admin/test":
         from admin.test import run as _test
-        result = _test(args)
+        return _test(args)
     elif function == "admin/warm":
         from admin.warm import run as _warm
-        result = _warm(args)
+        return _warm(args)
     else:
         if additional_functions is not None:
-            result = additional_functions(function, args)
-        else:
-            result = None
+            try:
+                return additional_functions(function, args)
+            except LookupError:
+                pass
 
-        if result is None:
-            if function.startswith("admin/"):
-                raise LookupError("No function called '%s'" % function)
-            else:
-                return _route_function("admin/%s" % function, args)
+        if function.startswith("admin/"):
+            raise LookupError("No function called '%s'" % function)
 
-    return result
+        return _route_function("admin/%s" % function, args)
 
 
 def _handle(additional_functions=None, args={}):
@@ -99,6 +97,11 @@ def _handle(additional_functions=None, args={}):
         function = str(args["function"])
     except:
         function = None
+
+    try:
+        args = args["payload"]
+    except:
+        args = None
 
     # if function != "warm":
     #     one_hot_spare()
@@ -122,51 +125,32 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
     # as part of a service
     from Acquire.Service import push_is_running_service, \
         pop_is_running_service, unpack_arguments, \
-        get_service_private_key, pack_return_value
+        get_service_private_key, pack_return_value, \
+        create_return_value
 
     push_is_running_service()
 
+    result = None
+
     try:
         args = unpack_arguments(data, get_service_private_key)
-        is_error = False
     except Exception as e:
-        import tblib as _tblib
-        tb = _tblib.Traceback(e.__traceback__)
-        err_json = {"class": str(e.__class__.__name__),
-                    "module": str(e.__class__.__module__),
-                    "error": str(e),
-                    "traceback": tb.to_dict()}
-        result = {"status": -1,
-                  "message": "EXCEPTION",
-                  "exception": err_json}
-        args = {}
-        is_error = True
+        args = None
+        result = e
 
-    if not is_error:
+    if result is None:
         try:
             result = _handle(additional_functions=additional_functions,
                              args=args)
         except Exception as e:
-            import tblib as _tblib
-            tb = _tblib.Traceback(e.__traceback__)
-            err_json = {"class": str(e.__class__.__name__),
-                        "module": str(e.__class__.__module__),
-                        "error": str(e),
-                        "traceback": tb.to_dict()}
-            result = {"status": -1,
-                      "message": "EXCEPTION",
-                      "exception": err_json}
+            result = e
+
+    result = create_return_value(payload=result)
 
     try:
-        result = pack_return_value(result, args)
+        result = pack_return_value(payload=result, key=args)
     except Exception as e:
-        message = {"status": -1,
-                   "message": "Error packing results: %s" % e}
-        result = json.dumps(message)
-    except:
-        message = {"status": -1,
-                   "message": "Error packing results: Unknown error"}
-        result = json.dumps(message)
+        result = pack_return_value(payload=create_return_value(e))
 
     pop_is_running_service()
     return result

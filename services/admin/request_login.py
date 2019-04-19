@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Identity import LoginSession
 
 from Acquire.Crypto import PublicKey
@@ -41,7 +39,7 @@ def run(args):
                                  login_message=login_message,
                                  scope=scope, permissions=permissions)
 
-    return_value = create_return_value()
+    return_value = {}
 
     return_value["login_url"] = login_session.login_url()
     return_value["short_uid"] = login_session.short_uid()

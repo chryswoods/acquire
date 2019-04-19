@@ -1,6 +1,6 @@
 
 from Acquire.Service import setup_this_service, add_admin_user
-from Acquire.Service import create_return_value, MissingServiceAccountError
+from Acquire.Service import MissingServiceAccountError
 
 from Acquire.Crypto import OTP
 
@@ -55,7 +55,7 @@ def run(args):
     provisioning_uri = otp.provisioning_uri(username=username,
                                             issuer=issuer)
 
-    return_value = create_return_value()
+    return_value = {}
     return_value["service"] = service.to_data()
     return_value["provisioning_uri"] = provisioning_uri
 

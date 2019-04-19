@@ -1,5 +1,4 @@
 
-from Acquire.Service import create_return_value
 from Acquire.Service import get_this_service
 
 
@@ -16,7 +15,7 @@ def run(args):
     status = 0
     message = "Success"
 
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     if service:
         return_value["service_info"] = service.to_data()
