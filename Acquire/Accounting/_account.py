@@ -100,7 +100,10 @@ def _sum_transactions(keys):
         elif v.is_sent_refund():
             balance -= v.value()
 
-    return (balance, liability, receivable, spent)
+    return {"balance": balance,
+            "liability": liability,
+            "receivable": receivable,
+            "spent": spent}
 
 
 class Account:
@@ -390,9 +393,9 @@ class Account:
 
         # what was the balance on the last day?
         from Acquire.Accounting import create_decimal as _create_decimal
-        result = (_create_decimal(last_data["balance"]),
-                  _create_decimal(last_data["liability"]),
-                  _create_decimal(last_data["receivable"]))
+        result = {"balance": _create_decimal(last_data["balance"]),
+                  "liability": _create_decimal(last_data["liability"]),
+                  "receivable": _create_decimal(last_data["receivable"])}
 
         # ok, now we go from the last day until today and sum up the
         # line items from each day to create the daily balances
@@ -406,22 +409,21 @@ class Account:
 
             total = _sum_transactions(transaction_keys)
 
-            result = (result[0]+total[0], result[1]+total[1],
-                      result[2]+total[2])
+            for key in result.keys():
+                result[key] += total[key]
 
             balance_key = self._get_balance_key(day_time)
 
             data = {}
-            data["balance"] = str(result[0])
-            data["liability"] = str(result[1])
-            data["receivable"] = str(result[2])
+            data["balance"] = str(result["balance"])
+            data["liability"] = str(result["liability"])
+            data["receivable"] = str(result["receivable"])
 
             _ObjectStore.set_object_from_json(bucket, balance_key, data)
 
     def _get_hourly_balance(self, bucket=None, datetime=None):
         """Get the hourly starting balance for the passed datetime. This
-           returns a tuple of
-           (balance, liability, receivable).
+           returns a dictionary containing (balance, liability, receivable).
 
            where 'balance' is the current real balance of the account,
            neglecting any outstanding liabilities or accounts receivable,
@@ -478,9 +480,9 @@ class Account:
 
         from Acquire.Accounting import create_decimal as _create_decimal
 
-        return (_create_decimal(data["balance"]),
-                _create_decimal(data["liability"]),
-                _create_decimal(data["receivable"]))
+        return {"balance": _create_decimal(data["balance"]),
+                "liability": _create_decimal(data["liability"]),
+                "receivable": _create_decimal(data["receivable"])}
 
     def _get_balance(self, bucket=None, datetime=None):
         """Get the balance of the account for the passed datetime. This
@@ -566,11 +568,10 @@ class Account:
             as _datetime_to_datetime
         now = _datetime_to_datetime(now)
 
-        (balance, liability, receivable) = self._get_hourly_balance(bucket,
-                                                                    now)
+        hourly_balance = self._get_hourly_balance(bucket, now)
 
         # now sum up all of the transactions from the start of this hour
-        from Acquire.ObjectStore import date_and_time_to_datetime \
+        from Acquire.ObjectStore import date_and_hour_to_datetime \
             as _date_and_hour_to_datetime
         start_hour = _date_and_hour_to_datetime(now.date(), now.hour)
 
@@ -578,8 +579,10 @@ class Account:
 
         total = _sum_transactions(transaction_keys)
 
-        result = (balance+total[0], liability+total[1], receivable+total[2],
-                  total[3])
+        result = {}
+
+        for key in hourly_balance.keys():
+            result[key] = hourly_balance[key] + total[key]
 
         self._last_update_datetime = now
         self._last_update = result
@@ -603,7 +606,8 @@ class Account:
            by updating the balance etc. from transactions that have
            occurred since the last update
         """
-        (balance, liability, receivable) = self._last_update
+        if self._last_update is None:
+            raise ValueError("How is the last update None?")
 
         from Acquire.ObjectStore import datetime_to_datetime \
             as _datetime_to_datetime
@@ -617,7 +621,10 @@ class Account:
 
         total = _sum_transactions(transaction_keys)
 
-        result = (balance+total[0], liability+total[1], receivable+total[2])
+        result = {}
+
+        for key in self._last_update.keys():
+            result[key] = self._last_update[key] + total[key]
 
         self._last_update_datetime = now
         self._last_update = result
@@ -1315,8 +1322,8 @@ class Account:
         """
         result = self._get_current_balance(bucket)
 
-        balance = result[0]
-        liabilities = result[1]
+        balance = result["balance"]
+        liabilities = result["liability"]
 
         available = balance - liabilities + self.get_overdraft_limit()
 
@@ -1325,30 +1332,26 @@ class Account:
     def balance(self, bucket=None):
         """Return the current balance of this account"""
         result = self._get_current_balance(bucket)
-        return result[0]
+        return result["balance"]
 
     def liability(self, bucket=None):
         """Return the current total liability of this account"""
         result = self._get_current_balance(bucket)
-        return result[1]
+        return result["liability"]
 
     def receivable(self, bucket=None):
         """Return the current total accounts receivable of this account"""
         result = self._get_current_balance(bucket)
-        return result[2]
+        return result["receivable"]
 
     def balance_status(self, bucket=None):
         """Return the overall balance status as a dictionary
            with keys 'balance', 'liability', 'receivable' and
-           'spent_today'
+           'overdraft_limit'
         """
         result = self._get_current_balance(bucket)
-        d = {}
-        d["balance"] = result[0]
-        d["liability"] = result[1]
-        d["receivable"] = result[2]
-        d["overdraft_limit"] = self.get_overdraft_limit()
-        return d
+        result["overdraft_limit"] = self.get_overdraft_limit()
+        return result
 
     def get_overdraft_limit(self):
         """Return the overdraft limit of this account"""
@@ -1403,4 +1406,5 @@ class Account:
         """
         result = self._get_current_balance(bucket)
 
-        return (result[0] - result[1]) < -(self.get_overdraft_limit())
+        balance = result["balance"] - result["liability"]
+        return balance < -(self.get_overdraft_limit())

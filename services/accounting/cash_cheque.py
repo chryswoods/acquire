@@ -2,6 +2,8 @@
 from Acquire.ObjectStore import string_to_decimal, string_to_datetime, \
     list_to_string, ObjectStore, Mutex, datetime_to_string
 
+from Acquire.Service import get_service_account_bucket
+
 from Acquire.Accounting import DebitNote, CreditNote, Account, \
                                Accounts, Ledger, Transaction
 
@@ -16,9 +18,6 @@ def run(args):
        been reserved, and can receipt the transaction once goods/services
        have been delivered.
     """
-
-    status = 0
-    message = None
 
     credit_notes = []
 

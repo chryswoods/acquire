@@ -333,7 +333,6 @@ class Account:
             self._balance = _create_decimal(0)
             self._liability = _create_decimal(0)
             self._receivable = _create_decimal(0)
-            self._spent_today = _create_decimal(0)
             return
 
         if force_update:
@@ -372,7 +371,6 @@ class Account:
         self._balance = _create_decimal(result["balance"])
         self._liability = _create_decimal(result["liability"])
         self._receivable = _create_decimal(result["receivable"])
-        self._spent_today = _create_decimal(result["spent_today"])
         self._description = result["description"]
 
         self._last_update = _datetime.datetime.now()
@@ -402,11 +400,6 @@ class Account:
         """Return the current total accounts receivable of this account"""
         self._refresh(force_update)
         return self._receivable
-
-    def spent_today(self, force_update=False):
-        """Return the current amount spent today on this account"""
-        self._refresh(force_update)
-        return self._spent_today
 
     def overdraft_limit(self, force_update=False):
         """Return the overdraft limit of this account"""
