@@ -127,15 +127,13 @@ def test_temporal_transactions(account1, account2, bucket):
             now = get_datetime_now()
             assert(transaction_time == now)
 
-            is_provisional = False  # (random.randint(0, 3) <= 2)
+            is_provisional = (random.randint(0, 3) <= 2)
 
             # check search for transaction is not O(n^2) lookup scanning
             # through the keys...
 
             transaction = Transaction(25*random.random(),
                                       "test transaction %d" % i)
-
-            print(transaction)
 
             if random.randint(0, 1):
                 debit_account = account1
@@ -182,7 +180,7 @@ def test_temporal_transactions(account1, account2, bucket):
             if is_provisional:
                 for record in records:
                     provisionals.append((credit_account, record))
-            elif True:  #(random.randint(0, 3) <= 2):
+            elif (random.randint(0, 3) <= 2):
                 # receipt pending transactions
                 balance1 = Balance(balance=balance1, liability=liability1,
                                    receivable=receivable1)

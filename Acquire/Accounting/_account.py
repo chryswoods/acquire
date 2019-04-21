@@ -130,7 +130,7 @@ def _sum_transactions(transactions):
         if not isinstance(transaction, _TransactionInfo):
             transaction = _TransactionInfo(transaction)
 
-        balance += transaction
+        balance = balance + transaction
 
     return balance
 
@@ -507,6 +507,8 @@ class Account:
 
             hourly_balance = last_balance + total
 
+        print("LAST HOURLY %s %s" % (hourly_balance, hourly_now_time))
+
         _ObjectStore.set_object_from_json(bucket=bucket,
                                           key=hourly_key,
                                           data=hourly_balance.to_data())
@@ -562,7 +564,7 @@ class Account:
                                  start_datetime=last_update_time,
                                  end_datetime=now, bucket=bucket)
 
-        total = _sum_transactions(transactions)
+        total = last_update_balance + _sum_transactions(transactions)
 
         self._last_update[hourly_key] = {"hourly_balance": hourly_balance,
                                          "last_update_time": now,
