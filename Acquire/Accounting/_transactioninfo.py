@@ -35,8 +35,12 @@ class TransactionInfo:
             self._uid = None
 
     def __str__(self):
-        return "TransactionInfo(code==%s, value==%s)" % \
-                    (self._code.value, self._value)
+        if self._receipted_value is None:
+            return "TransactionInfo(code==%s, value==%s)" % \
+                        (self._code.value, self._value)
+        else:
+            return "TransactionInfo(code==%s, value==%s, receipted==%s)" % \
+                        (self._code.value, self._value, self._receipted_value)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

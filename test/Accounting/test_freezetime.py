@@ -114,7 +114,7 @@ def test_temporal_transactions(account1, account2, bucket):
     # generate some random times for the transactions
     random_dates = []
     now = get_datetime_now()
-    for i in range(0, 25):
+    for i in range(0, 50):
         random_dates.append(start_time + random.random() * (now - start_time))
 
     # (which must be applied in time order!)
@@ -192,13 +192,29 @@ def test_temporal_transactions(account1, account2, bucket):
                 assert(account2.balance() == balance2)
 
                 for (credit_account, record) in provisionals:
+                    credit_note = record.credit_note()
                     auth = Authorisation(
-                            resource=record.credit_note().fingerprint(),
+                            resource=credit_note.fingerprint(),
                             testing_key=testing_key,
                             testing_user_guid=credit_account.group_name())
 
-                    Ledger.receipt(Receipt(record.credit_note(), auth),
+                    receipted_value = create_decimal(
+                                                random.random() *
+                                                float(credit_note.value()))
+
+                    delta_value = credit_note.value() - receipted_value
+
+                    Ledger.receipt(Receipt(credit_note=credit_note,
+                                           receipted_value=receipted_value,
+                                           authorisation=auth),
                                    bucket=bucket)
+
+                    if credit_note.debit_account_uid() == account1.uid():
+                        final_balance1 += delta_value
+                        final_balance2 -= delta_value
+                    else:
+                        final_balance2 += delta_value
+                        final_balance1 -= delta_value
 
                 assert(account1.balance() == Balance(balance=final_balance1))
                 assert(account2.balance() == Balance(balance=final_balance2))
@@ -221,12 +237,27 @@ def test_temporal_transactions(account1, account2, bucket):
     assert(account2.balance() == balance2)
 
     for (credit_account, record) in provisionals:
+        credit_note = record.credit_note()
         auth = Authorisation(resource=record.credit_note().fingerprint(),
                              testing_key=testing_key,
                              testing_user_guid=credit_account.group_name())
 
-        Ledger.receipt(Receipt(record.credit_note(), auth),
+        receipted_value = create_decimal(random.random() *
+                                         float(credit_note.value()))
+
+        delta_value = credit_note.value() - receipted_value
+
+        Ledger.receipt(Receipt(credit_note=credit_note,
+                               authorisation=auth,
+                               receipted_value=receipted_value),
                        bucket=bucket)
+
+        if credit_note.debit_account_uid() == account1.uid():
+            final_balance1 += delta_value
+            final_balance2 -= delta_value
+        else:
+            final_balance2 += delta_value
+            final_balance1 -= delta_value
 
     assert(account1.balance() == Balance(balance=final_balance1))
     assert(account2.balance() == Balance(balance=final_balance2))

@@ -89,10 +89,10 @@ class Balance:
                 receivable += other.value()
             elif other.is_received_receipt():
                 balance -= other.receipted_value()
-                liability -= other.value()
+                liability -= other.original_value()
             elif other.is_sent_receipt():
                 balance += other.receipted_value()
-                receivable -= other.value()
+                receivable -= other.original_value()
             elif other.is_received_refund():
                 balance += other.value()
             elif other.is_sent_refund():

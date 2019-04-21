@@ -507,8 +507,6 @@ class Account:
 
             hourly_balance = last_balance + total
 
-        print("LAST HOURLY %s %s" % (hourly_balance, hourly_now_time))
-
         _ObjectStore.set_object_from_json(bucket=bucket,
                                           key=hourly_key,
                                           data=hourly_balance.to_data())
@@ -1007,7 +1005,6 @@ class Account:
         bucket = self._get_account_bucket()
 
         balance = self.balance(bucket=bucket)
-        print("BEFORE BALANCE: %s" % balance)
 
         if balance.available(self.get_overdraft_limit()) < transaction.value():
             from Acquire.Accounting import InsufficientFundsError
@@ -1087,10 +1084,7 @@ class Account:
         _ObjectStore.set_object_from_json(bucket=bucket, key=item_key,
                                           data=line_item.to_data())
 
-        print(item_key)
-
         balance = self.balance(bucket=bucket)
-        print("AFTER BALANCE: %s" % balance)
 
         if balance.available(overdraft_limit=self._overdraft_limit) < 0:
             # This transaction has helped push the account beyond the
