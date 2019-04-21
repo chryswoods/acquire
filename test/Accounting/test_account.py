@@ -144,7 +144,7 @@ def test_transactions(random_transaction, bucket):
                                   testing_key=testing_key,
                                   testing_user_guid=account1.group_name())
 
-    records = Ledger.perform(transactions=transaction,
+    records = Ledger.perform(transaction=transaction,
                              debit_account=account1,
                              credit_account=account2,
                              authorisation=authorisation,

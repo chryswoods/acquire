@@ -245,7 +245,9 @@ class Ledger:
                                         bucket=bucket)
 
     @staticmethod
-    def perform(transactions, debit_account, credit_account, authorisation,
+    def perform(transaction=None, transactions=None,
+                debit_account=None, credit_account=None,
+                authorisation=None,
                 authorisation_resource=None,
                 is_provisional=False, receipt_by=None, bucket=None):
         """Perform the passed transaction(s) between 'debit_account' and
@@ -284,10 +286,13 @@ class Ledger:
         else:
             is_provisional = False
 
-        try:
-            transactions[0]
-        except:
+        if transactions is None:
+            transactions = []
+        elif isinstance(transactions, _Transaction):
             transactions = [transactions]
+
+        if transaction is not None:
+            transactions.insert(0, transaction)
 
         # remove any zero transactions, as they are not worth recording
         t = []
