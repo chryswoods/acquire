@@ -952,14 +952,6 @@ class Account:
 
         return (uid, now)
 
-    def _rescind(self, line_item, bucket=None):
-        """This function is internal and should only be called by
-           _debit. It rescinds the passed line_item which was a debit,
-           as this debit has caused the account to drop below the
-           minimum value
-        """
-        raise NotImplementedError("NEED TO IMPLEMENT RESCIND")
-
     def _debit(self, transaction, authorisation,
                is_provisional, receipt_by,
                authorisation_resource=None, bucket=None):
@@ -1090,7 +1082,20 @@ class Account:
             # This transaction has helped push the account beyond the
             # overdraft limit. This can only happen if two debits
             # take place at the same time - both should be refunded
-            self._rescind(line_item=line_item, bucket=bucket)
+            from Acquire.Accounting import TransactionInfo \
+                as _TransactionInfo
+
+            info = _TransactionInfo.from_key(item_key)
+            info = _TransactionInfo.rescind(info)
+
+            line_item = _LineItem(uid=info.dated_uid(), authorisation=None)
+
+            item_key = "%s/%s" % (self._transactions_key(),
+                                  info.to_key())
+
+            _ObjectStore.set_object_from_json(bucket=bucket, key=item_key,
+                                              data=line_item.to_data())
+
             raise InsufficientFundsError(
                 "You cannot debit '%s' from account %s as there "
                 "are insufficient funds in this account." %

@@ -69,6 +69,31 @@ class TransactionInfo:
         else:
             return "%2s%013.6fT%013.6f" % (code.value, value, receipted_value)
 
+    def rescind(self):
+        """Return a TransactionInfo that corresponds to rescinding this
+           transaction info. This is useful if you want to update the
+           ledger to remove this object (since we can't delete anything
+           from the ledger)
+        """
+        t = TransactionInfo()
+        t._uid = self._uid[-1::-1]
+        t._value = self._value
+        t._datetime = self._datetime
+
+        if self._code is TransactionCode.DEBIT:
+            t._code = TransactionCode.CREDIT
+        elif self._code is TransactionCode.CREDIT:
+            t._code = TransactionCode.DEBIT
+        elif self._code is TransactionCode.CURRENT_LIABILITY:
+            t._value = -(self._value)
+        elif self._code is TransactionCode.ACCOUNT_RECEIVABLE:
+            t._value = -(self._value)
+        else:
+            raise PermissionError(
+                "Do not have permission to rescind a %s" % str(self))
+
+        return t
+
     def value(self):
         """Return the value of the transaction. This will be the receipted
            value if this has been set"""
@@ -80,6 +105,12 @@ class TransactionInfo:
     def uid(self):
         """Return the UID of this transaction"""
         return self._uid
+
+    def dated_uid(self):
+        """Return the full dated uid of the transaction. This
+           is isoformat(datetime)/uid
+        """
+        return "%s/%s" % (self._datetime.isoformat(), self._uid)
 
     def datetime(self):
         """Return the datetime of this transaction"""
