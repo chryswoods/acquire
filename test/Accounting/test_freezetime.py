@@ -14,7 +14,7 @@ from Acquire.ObjectStore import get_datetime_now
 
 from Acquire.Crypto import PrivateKey
 
-from Acquire.Service import get_service_account_bucket, \
+from Acquire.Service import get_service_account_bucket, is_running_service, \
     push_is_running_service, pop_is_running_service
 
 try:
@@ -41,7 +41,10 @@ def bucket(tmpdir_factory):
     except:
         d = tmpdir_factory.mktemp("objstore")
         push_is_running_service()
-        return get_service_account_bucket(str(d))
+        bucket = get_service_account_bucket(str(d))
+        while is_running_service():
+            pop_is_running_service()
+        return bucket
 
 
 @pytest.fixture(scope="session")
@@ -49,15 +52,14 @@ def account1(bucket):
     if not have_freezetime:
         return None
 
-    with freeze_time(start_time) as frozen_datetime:
+    with freeze_time(start_time) as _frozen_datetime:
         now = get_datetime_now()
         assert(start_time == now)
         push_is_running_service()
         accounts = Accounts(user_guid=account1_user)
         account = Account(name="Testing Account",
-                        description="This is the test account",
-                        group_name=accounts.name(),
-                        bucket=bucket)
+                          description="This is the test account",
+                          group_name=accounts.name())
         uid = account.uid()
         assert(uid is not None)
         assert(account.balance() == Balance())
@@ -74,15 +76,14 @@ def account2(bucket):
     if not have_freezetime:
         return None
 
-    with freeze_time(start_time) as frozen_datetime:
+    with freeze_time(start_time) as _frozen_datetime:
         now = get_datetime_now()
         assert(start_time == now)
         push_is_running_service()
         accounts = Accounts(user_guid=account2_user)
         account = Account(name="Testing Account",
                           description="This is a second testing account",
-                          group_name=accounts.name(),
-                          bucket=bucket)
+                          group_name=accounts.name())
         uid = account.uid()
         assert(uid is not None)
         assert(account.balance() == Balance())
@@ -113,7 +114,7 @@ def test_temporal_transactions(account1, account2, bucket):
     # generate some random times for the transactions
     random_dates = []
     now = get_datetime_now()
-    for i in range(0, 3):
+    for i in range(0, 25):
         random_dates.append(start_time + random.random() * (now - start_time))
 
     # (which must be applied in time order!)
@@ -126,13 +127,15 @@ def test_temporal_transactions(account1, account2, bucket):
             now = get_datetime_now()
             assert(transaction_time == now)
 
-            is_provisional = False  # random.randint(0, 5)
+            is_provisional = False  # (random.randint(0, 3) <= 2)
 
             # check search for transaction is not O(n^2) lookup scanning
             # through the keys...
 
             transaction = Transaction(25*random.random(),
                                       "test transaction %d" % i)
+
+            print(transaction)
 
             if random.randint(0, 1):
                 debit_account = account1
@@ -179,29 +182,56 @@ def test_temporal_transactions(account1, account2, bucket):
             if is_provisional:
                 for record in records:
                     provisionals.append((credit_account, record))
+            elif True:  #(random.randint(0, 3) <= 2):
+                # receipt pending transactions
+                balance1 = Balance(balance=balance1, liability=liability1,
+                                   receivable=receivable1)
+
+                balance2 = Balance(balance=balance2, liability=liability2,
+                                   receivable=receivable2)
+
+                assert(account1.balance() == balance1)
+                assert(account2.balance() == balance2)
+
+                for (credit_account, record) in provisionals:
+                    auth = Authorisation(
+                            resource=record.credit_note().fingerprint(),
+                            testing_key=testing_key,
+                            testing_user_guid=credit_account.group_name())
+
+                    Ledger.receipt(Receipt(record.credit_note(), auth),
+                                   bucket=bucket)
+
+                assert(account1.balance() == Balance(balance=final_balance1))
+                assert(account2.balance() == Balance(balance=final_balance2))
+
+                provisionals = []
+                balance1 = final_balance1
+                balance2 = final_balance2
+                liability1 = zero
+                liability2 = zero
+                receivable1 = zero
+                receivable2 = zero
+
+    balance1 = Balance(balance=balance1, liability=liability1,
+                       receivable=receivable1)
+
+    balance2 = Balance(balance=balance2, liability=liability2,
+                       receivable=receivable2)
 
     assert(account1.balance() == balance1)
     assert(account2.balance() == balance2)
-    assert(account1.liability() == liability1)
-    assert(account1.receivable() == receivable1)
-    assert(account2.liability() == liability2)
-    assert(account2.receivable() == receivable2)
 
     for (credit_account, record) in provisionals:
-        auth = Authorisation(resource=record.credit_note.fingerprint(),
+        auth = Authorisation(resource=record.credit_note().fingerprint(),
                              testing_key=testing_key,
                              testing_user_guid=credit_account.group_name())
 
         Ledger.receipt(Receipt(record.credit_note(), auth),
                        bucket=bucket)
 
-    assert(account1.balance() == final_balance1)
-    assert(account2.balance() == final_balance2)
-
-    assert(account1.liability() == zero)
-    assert(account1.receivable() == zero)
-    assert(account2.liability() == zero)
-    assert(account2.receivable() == zero)
+    assert(account1.balance() == Balance(balance=final_balance1))
+    assert(account2.balance() == Balance(balance=final_balance2))
 
 
 def test_parallel_transaction(account1, account2, bucket):

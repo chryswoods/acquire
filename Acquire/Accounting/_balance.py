@@ -49,6 +49,13 @@ class Balance:
         """Return whether or not this balance is overdrawn"""
         return self.available(overdraft_limit=overdraft_limit) < 0
 
+    def __str__(self):
+        return "Balance(balance=%s, liability=%s, receivable=%s)" % \
+                (self.balance(), self.liability(), self.receivable())
+
+    def __repr__(self):
+        return self.__str__()
+
     def __eq__(self, other):
         """Comparison"""
         if type(other) is Balance:
