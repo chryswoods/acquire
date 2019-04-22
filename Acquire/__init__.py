@@ -3,7 +3,7 @@ Acquire : (C) Christopher Woods 2018
 
 System that allows users to log into a distributed serverless
 function service to run functions. Data from functions is stored
-in an intermediary Object Store. 
+in an intermediary Object Store.
 """
 
 from Acquire.Stubs import lazy_import as _lazy_import

@@ -6,6 +6,12 @@ an Acquire Registry Service. The Registry Service is responsible for
 identifying and registering other services
 """
 
+from ._get_registry_details import *
+from ._get_trusted_registry import *
+from ._register_service import *
+from ._registry_service import *
+from ._registry import *
+
 try:
     if __IPYTHON__:
         def _set_printer(C):

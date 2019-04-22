@@ -1,23 +1,31 @@
 
 from Acquire.Service import get_this_service
+from Acquire.ObjectStore import string_to_bytes
 
 
 def run(args):
     """This function return the status and service info"""
-    status = 0
-    message = None
-    service = None
 
-    # need private access as we will sign the returned data
-    service = get_this_service(need_private_access=True)
-    service.assert_unlocked()
+    try:
+        challenge = args["challenge"]
+        fingerprint = args["fingerprint"]
+    except:
+        challenge = None
 
-    status = 0
-    message = "Success"
+    response = None
 
-    return_value = {}
+    if challenge:
+        service = get_this_service(need_private_access=True)
+        service.assert_unlocked()
 
-    if service:
-        return_value["service_info"] = service.to_data()
+        key = service.get_key(fingerprint)
+        response = key.decrypt(string_to_bytes(challenge))
+    else:
+        service = get_this_service(need_private_access=False)
+
+    return_value = {"service_info": service.to_data()}
+
+    if response is not None:
+        return_value["response"] = response
 
     return return_value

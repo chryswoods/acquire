@@ -345,92 +345,6 @@ class Wallet:
             return _getpass.getpass(
                         prompt="Please enter the one-time-password code: ")
 
-    def add_service(self, service):
-        """Add a cached service info for the passed service. If it
-           already exists, then this verifies that the added service
-           is the same as the previously-seen service
-        """
-        from Acquire.ObjectStore import string_to_safestring \
-            as _string_to_safestring
-
-        service_file = "%s/service_%s" % (
-            self._wallet_dir,
-            _string_to_safestring(service.canonical_url()))
-
-        existing_service = None
-
-        try:
-            existing_service = _read_service(service_file)
-        except:
-            pass
-
-        if existing_service is not None:
-            if service.validation_string() == \
-               existing_service.validation_string():
-                return service
-            elif service.is_evolution_of(existing_service):
-                # the service has evolved - this is ok
-                _write_service(service, service_file)
-                return service
-            else:
-                reply = _input(
-                    "This is a service you have seen before, but "
-                    "it has changed?\n\n"
-                    "URL = %s (%s)\n"
-                    "UID = %s (%s)\n"
-                    "public_key fingerprint = %s (%s)\n"
-                    "public_certificate fingerprint = %s (%s)\n\n"
-                    "verification string = %s (%s)\n\n"
-                    "\nDo you trust this updated service? y/n " %
-                    (service.canonical_url(),
-                     existing_service.canonical_url(),
-                     service.uid(), existing_service.uid(),
-                     service.public_key().fingerprint(),
-                     existing_service.public_key().fingerprint(),
-                     service.public_certificate().fingerprint(),
-                     existing_service.public_certificate().fingerprint(),
-                     service.validation_string(),
-                     existing_service.validation_string())
-                )
-
-                if reply[0].lower() == 'y':
-                    _output("Now trusting %s" % str(service))
-                else:
-                    _output("Not trusting this service!")
-                    raise PermissionError(
-                        "We do not trust the service '%s'" % str(service))
-
-                # We trust the service, so save this for future reference
-                _write_service(service, service_file)
-                return service
-
-        reply = _input(
-                    "This is a new service that you have not seen before.\n\n"
-                    "URL = %s\n"
-                    "UID = %s\n"
-                    "public_key fingerprint = %s\n"
-                    "public_certificate fingerprint = %s\n\n"
-                    "verification string = %s\n\n"
-                    "\nDo you trust this service? y/n " %
-                    (service.canonical_url(),
-                     service.uid(),
-                     service.public_key().fingerprint(),
-                     service.public_certificate().fingerprint(),
-                     service.validation_string())
-                )
-
-        if reply[0].lower() == 'y':
-            _output("Now trusting %s" % str(service))
-        else:
-            _output("Not trusting this service!")
-            raise PermissionError(
-                "We do not trust the service '%s'" % str(service))
-
-        # We trust the service, so save this for future reference
-        _write_service(service, service_file)
-
-        return service
-
     def get_services(self):
         """Return all of the trusted services known to this wallet"""
         import glob as _glob
@@ -443,61 +357,78 @@ class Wallet:
 
         return services
 
-    def get_service(self, service_url=None, service_uid=None):
+    def get_service(self, service_url=None, service_uid=None,
+                    autofetch=True):
         """Return the service at either 'service_url', or that
            has UID 'service_uid'. This will return the
            cached service if it exists, or will add a new service if
-           the user so wishes
+           we are able to validate it from a trusted registry
         """
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
 
+        service = None
+
         if service_url is None:
+            if service_uid is None:
+                raise PermissionError(
+                    "You need to specify one of service_uid or service_url")
+
             # we need to look up the name...
             import glob as _glob
             service_files = _glob.glob("%s/service_*" % self._wallet_dir)
 
             for service_file in service_files:
-                service = _read_service(service_file)
-                if service.uid() == service_uid:
-                    return service
-
-            raise PermissionError(
-                "There is no trusted service with UID '%s'" % service_uid)
-
-        service_file = "%s/service_%s" % (
-            self._wallet_dir,
-            _string_to_safestring(service_url))
-
-        existing_service = None
-
-        try:
-            existing_service = _read_service(service_file)
-        except:
-            pass
-
-        service = None
-
-        if existing_service is not None:
-            # check if the keys need rotating - if they do, load up
-            # the new keys and save them to the service file...
-            if existing_service.should_refresh_keys():
-                existing_service.refresh_keys()
-                _write_service(existing_service, service_file)
-
-            service = existing_service
+                s = _read_service(service_file)
+                if s.uid() == service_uid:
+                    service = s
+                    break
         else:
-            from Acquire.Service import get_remote_service as \
-                _get_remote_service
+            service_file = "%s/service_%s" % (
+                self._wallet_dir,
+                _string_to_safestring(service_url))
 
-            service = _get_remote_service(service_url)
-            service = self.add_service(service)
+            try:
+                service = _read_service(service_file)
+            except:
+                pass
+
+        must_write = False
+
+        if service is None:
+            if not autofetch:
+                from Acquire.Service import ServiceError
+                raise ServiceError("No service at %s:%s" %
+                                        (service_url, service_uid))
+
+            # we need to look this service up from the registry
+            from Acquire.Registry import get_trusted_registry_service \
+                as _get_trusted_registry_service
+
+            registry = _get_trusted_registry_service(service_uid=service_uid,
+                                                     service_url=service_url)
+
+            service = registry.get_service(service_url=service_url,
+                                           service_uid=service_uid)
+            must_write = True
+
+        # check if the keys need rotating - if they do, load up
+        # the new keys and save them to the service file...
+        if service.should_refresh_keys():
+            service.refresh_keys()
+            must_write = True
 
         if service_uid is not None:
             if service.uid() != service_uid:
                 raise PermissionError(
                     "Disagreement over the service UID for '%s' (%s)" %
                     (service, service_uid))
+
+        if must_write:
+            service_file = "%s/service_%s" % (
+                self._wallet_dir,
+                _string_to_safestring(service.canonical_url()))
+            _write_service(service=service, filename=service_file)
 
         return service
 
@@ -510,10 +441,6 @@ class Wallet:
         for service_file in service_files:
             if _os.path.exists(service_file):
                 _os.unlink(service_file)
-
-        # clear cache to force a new lookup
-        from ._service import _cache_service_lookup
-        _cache_service_lookup.clear()
 
     def remove_service(self, service):
         """Remove the cached service info for the passed service"""
@@ -533,10 +460,6 @@ class Wallet:
 
         if _os.path.exists(service_file):
             _os.unlink(service_file)
-
-        # clear cache to force a new lookup
-        from ._service import _cache_service_lookup
-        _cache_service_lookup.clear()
 
     def send_password(self, url, username=None, password=None,
                       otpcode=None, remember_password=True,

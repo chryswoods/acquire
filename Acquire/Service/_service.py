@@ -107,9 +107,7 @@ def _login_service_user(service_uid):
     secrets = None
     credentials = None
 
-    from Acquire.Service import call_function as _call_function
-    result = _call_function(service.canonical_url(), function="login",
-                            args=login_args)
+    service.call_function(function="login", args=login_args)
 
     login_args = None
 
@@ -123,55 +121,85 @@ class Service:
        will either be identity services, access services,
        storage services or accounting services.
     """
-    def __init__(self, service_type=None, service_url=None):
+    def __init__(self):
         """Construct a new service of the specified type, with
            the specified URL."""
         self._uid = None
 
-        if service_type is not None:
-            if service_type not in ["identity", "access", "compute",
-                                    "accounting", "storage"]:
-                raise ServiceError("Services of type '%s' are not allowed!" %
-                                   service_type)
+    @staticmethod
+    def create(service_type, service_url):
+        """Conduct stage1 of the construction of a new service. This
+           creates the initial setup, creating a service with sufficient
+           info to survive registration with a Registry. The second stage
+           is performed automatically when the Registry confirms
+           registration
+        """
+        if service_type not in ["identity", "access", "compute",
+                                "registry", "accounting", "storage"]:
+            raise ServiceError("Services of type '%s' are not allowed!" %
+                               service_type)
 
-            from Acquire.Crypto import PrivateKey as _PrivateKey
-            from Acquire.ObjectStore import create_uuid as _create_uuid
+        from Acquire.Crypto import PrivateKey as _PrivateKey
 
-            self._service_type = service_type
-            self._service_url = service_url
-            self._canonical_url = service_url
+        service = Service()
 
-            self._uid = _create_uuid()
-            self._skeleton_key = _PrivateKey()
-            self._public_skeleton_key = self._skeleton_key.public_key()
+        service._service_type = service_type
+        service._service_url = service_url
+        service._canonical_url = service_url
+        service._uid = "STAGE1 %s" % _PrivateKey.random_passphrase()
 
-            self._privkey = _PrivateKey()
-            self._privcert = _PrivateKey()
+        service._privkey = _PrivateKey()
+        service._privcert = _PrivateKey()
 
-            self._pubkey = self._privkey.public_key()
-            self._pubcert = self._privcert.public_key()
+        service._pubkey = service._privkey.public_key()
+        service._pubcert = service._privcert.public_key()
 
-            # generate 'dummy' old keys - these will be replaced as
-            # the real keys are updated
-            self._lastkey = self._privkey
-            self._lastcert = self._privcert
+        # generate 'dummy' old keys - these will be replaced as
+        # the real keys are updated
+        service._lastkey = service._privkey
+        service._lastcert = service._privcert
 
-            from Acquire.ObjectStore import get_datetime_now as \
-                _get_datetime_now
-            self._last_key_update = _get_datetime_now()
-            self._key_update_interval = 3600 * 24 * 7  # update keys weekly
+        from Acquire.ObjectStore import get_datetime_now as \
+            _get_datetime_now
+        service._last_key_update = _get_datetime_now()
+        service._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
-            skelkey = self._skeleton_key.public_key()
+        service._skeleton_key = _PrivateKey()
+        service._public_skeleton_key = service._skeleton_key.public_key()
 
-            (username, uid, secrets) = _create_service_user(
-                                            service_type=self._service_type,
-                                            service_uid=self._uid,
-                                            service_public_key=skelkey)
+        service._service_user_name = None
+        service._service_user_uid = None
+        service._service_user_secrets = None
 
-            self._service_user_name = username
-            self._service_user_uid = uid
-            self._service_user_secrets = self._skeleton_key.encrypt(
-                                                    _json.dumps(secrets))
+        return service
+
+    def create_stage2(self, service_uid, response):
+        """Perform stage 2 of construction. This is called by the registry
+           that registered this service, which will provide the
+           service_uid
+        """
+        if not self._uid.startswith("STAGE1"):
+            raise PermissionError(
+                "You cannot enter stage2 until stage1 has been completed!")
+
+        if response != self._uid:
+            raise PermissionError(
+                "Invalid response from the registry service. Not trusted!")
+
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        self._uid = service_uid
+
+        skelkey = self._skeleton_key.public_key()
+
+        (username, uid, secrets) = _create_service_user(
+                                        service_type=self._service_type,
+                                        service_uid=self._uid,
+                                        service_public_key=skelkey)
+
+        self._service_user_name = username
+        self._service_user_uid = uid
+        self._service_user_secrets = self._skeleton_key.encrypt(
+                                                _json.dumps(secrets))
 
     def __str__(self):
         if self.is_null():
@@ -311,11 +339,16 @@ class Service:
     def should_refresh_keys(self):
         """Return whether the keys and certificates need to be refreshed
            - i.e. more than 'key_update_interval' has passed since the last
-           key update
+           key update, or the service has changed in some marked way
         """
         if self.is_null():
             return False
+        elif self._uid == "STAGE1":
+            return True
         else:
+            if self._service_user_uid is None or self._pubkey is None:
+                return True
+
             try:
                 from Acquire.ObjectStore import get_datetime_now as \
                     _get_datetime_now
@@ -392,6 +425,13 @@ class Service:
             return False
         else:
             return True
+
+    def is_registry_service(self):
+        """Return whether or not this is a registry service"""
+        if self.is_null():
+            return False
+        else:
+            return self._service_type == "registry"
 
     def is_identity_service(self):
         """Return whether or not this is an identity service"""
@@ -865,6 +905,73 @@ class Service:
 
         return result
 
+    def get_key(self, fingerprint):
+        """Return the key matching the passed fingerprint"""
+        if self.is_null():
+            return None
+
+        if self.is_unlocked():
+            if self._privkey.fingerprint() == fingerprint:
+                return self._privkey
+            elif self._privcert.fingerprint() == fingerprint:
+                return self._privcert
+
+            try:
+                if self._lastkey.fingerprint() == fingerprint:
+                    return self._lastkey
+                elif self._lastcert.fingerprint() == fingerprint:
+                    return self._lastcert
+            except:
+                pass
+        else:
+            if self._pubkey.fingerprint() == fingerprint:
+                return self._pubkey
+            elif self._pubcert.fingerprint() == fingerprint:
+                return self._pubcert
+            else:
+                try:
+                    if self._lastkey.fingerprint() == fingerprint:
+                        key = self._lastkey
+                    elif self._lastcert.fingerprint() == fingerprint:
+                        key = self._lastcert
+                except:
+                    pass
+
+        # we need to load the key from objstore
+        unlocked = self.is_unlocked()
+        from Acquire.Service import load_service_key_from_objstore \
+            as _load_service_key_from_objstore
+
+        key = _load_service_key_from_objstore(fingerprint)
+
+        if key is None:
+            from Acquire.Crypto import KeyManipulationError
+            raise KeyManipulationError(
+                "Unable to load the key or certificate with "
+                "fingerprint '%s'" % fingerprint)
+
+        if unlocked:
+            from Acquire.Crypto import PrivateKey as _PrivateKey
+            if type(key) is not _PrivateKey:
+                from Acquire.Crypto import KeyManipulationError
+                raise KeyManipulationError(
+                    "Unable to load the private key or certificate with "
+                    "fingerprint '%s'" % fingerprint)
+        else:
+            from Acquire.Crypto import PublicKey as _PublicKey
+            try:
+                key = key.public_key()
+            except:
+                pass
+
+            if type(key) is not _PublicKey:
+                from Acquire.Crypto import KeyManipulationError
+                raise KeyManipulationError(
+                    "Unable to load the public key or certificate with "
+                    "fingerprint '%s'" % fingerprint)
+
+        return key
+
     def is_evolution_of(self, other):
         """Return whether or not this service is an evolution of 'other'.
            Evolving means that this service is the same service as 'other',
@@ -906,7 +1013,11 @@ class Service:
         if self.is_null():
             return data
 
-        data["uid"] = self._uid
+        if self._uid.startswith("STAGE1"):
+            data["uid"] = "STAGE1"
+        else:
+            data["uid"] = self._uid
+
         data["service_type"] = self._service_type
         data["service_url"] = self._service_url
 
@@ -951,8 +1062,11 @@ class Service:
             data["public_skeleton_key"] = self._public_skeleton_key.to_data()
 
             # the service user secrets are already encrypted
-            data["service_user_secrets"] = _bytes_to_string(
-                                            self._service_user_secrets)
+            if self._service_user_secrets is not None:
+                data["service_user_secrets"] = _bytes_to_string(
+                                                self._service_user_secrets)
+            else:
+                data["service_user_secrets"] = None
         elif self.is_unlocked():
             # sign a validation string so that people can
             # check it has not been tampered with in transit
@@ -989,8 +1103,11 @@ class Service:
             from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
             # get the private info...
-            service._service_user_secrets = _string_to_bytes(
+            try:
+                service._service_user_secrets = _string_to_bytes(
                                                 data["service_user_secrets"])
+            except:
+                service._service_user_secrets = None
 
             service._skeleton_key = _PrivateKey.from_data(data["skeleton_key"],
                                                           password)
@@ -1056,6 +1173,9 @@ class Service:
         elif service.is_storage_service():
             from Acquire.Storage import StorageService as _StorageService
             service = _StorageService(service)
+        elif service.is_registry_service():
+            from Acquire.Registry import RegistryService as _RegistryService
+            service = _RegistryService(service)
         elif service.is_accounting_service():
             from Acquire.Accounting import AccountingService \
                                         as _AccountingService

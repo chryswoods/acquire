@@ -35,6 +35,11 @@ def run(args):
     except:
         canonical_url = None
 
+    try:
+        registry_uid = args["registry_uid"]
+    except:
+        registry_uid = None
+
     if username is None or password is None or service_type is None:
         raise PermissionError(
             "You need to supply more information to be able to set "
@@ -42,6 +47,7 @@ def run(args):
 
     (service, user_uid, otp) = setup_this_service(service_type=service_type,
                                                   canonical_url=canonical_url,
+                                                  registry_uid=registry_uid,
                                                   username=username,
                                                   password=password)
 
