@@ -334,7 +334,7 @@ class Ledger:
             debit_error = str(e)
             try:
                 for debit_note in debit_notes:
-                    debit_account._delete_note(debit_note, bucket=bucket)
+                    debit_account._rescind_note(debit_note, bucket=bucket)
             except Exception as e:
                 from Acquire.Accounting import UnbalancedLedgerError
                 raise UnbalancedLedgerError(
