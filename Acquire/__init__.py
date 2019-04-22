@@ -3,14 +3,7 @@ Acquire : (C) Christopher Woods 2018
 
 System that allows users to log into a distributed serverless
 function service to run functions. Data from functions is stored
-in an intermediary Object Store. The complete system comprises
-three services:
-
-(1) Identity Service (Acquire.Identity)
-    This manages user accounts and allows users to authenticate
-
-(2) Accounting Service (Acquire.Accounting)
-    This
+in an intermediary Object Store. 
 """
 
 from Acquire.Stubs import lazy_import as _lazy_import
@@ -22,8 +15,9 @@ Identity = _lazy_import.lazy_module("Acquire.Identity")
 ObjectStore = _lazy_import.lazy_module("Acquire.ObjectStore")
 Service = _lazy_import.lazy_module("Acquire.Service")
 Client = _lazy_import.lazy_module("Acquire.Client")
+Registry = _lazy_import.lazy_module("Acquire.Registry")
 
 __version__ = "0.0.7"
 
 __all__ = ["Access", "Accounting", "Client", "Crypto",
-           "Identity", "ObjectStore", "Service"]
+           "Identity", "ObjectStore", "Registry", "Service"]

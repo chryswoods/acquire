@@ -113,6 +113,8 @@ source/identity/credentials/*.pem
 source/accounting/credentials/*.pem
 source/access/credentials/*.pem
 source/storage/credentials/*.pem
+source/registry/credentials/*.pem
+source/compute/credentials/*.pem
 source/base_image/Acquire/*
 user/notebooks/.ipynb_checkpoints/
 *secret_key*

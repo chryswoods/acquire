@@ -1,11 +1,11 @@
 schema_version: 20180708
-name: s
-version: 0.0.44
+name: registry-root
+version: 0.0.143
 runtime: docker
-format: default
+format: http-stream
 type: sync
 timeout: 20
 triggers:
-- name: s
+- name: root
   type: http
-  source: /s
+  source: /
