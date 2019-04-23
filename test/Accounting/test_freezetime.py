@@ -115,7 +115,20 @@ def test_temporal_transactions(account1, account2, bucket):
     random_dates = []
     now = get_datetime_now()
     for i in range(0, 50):
-        random_dates.append(start_time + random.random() * (now - start_time))
+        if i == 0:
+            # this is an evil edge-case datetime
+            s = "2019-01-20 20:59:59.092627+00:00"
+            r = datetime.datetime.fromisoformat(s)
+        else:
+            r = start_time + random.random() * (now - start_time)
+
+        while (r.minute == 59 and r.second >= 58) or \
+              (r.minute == 0 and r.second == 0 and r.microsecond < 10):
+            r = r + datetime.timedelta(seconds=1)
+
+        random_dates.append(r)
+
+    random_dates.sort()
 
     # (which must be applied in time order!)
     random_dates.sort()

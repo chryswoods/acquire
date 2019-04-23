@@ -9,12 +9,12 @@ from Acquire.Service import call_function, Service, get_this_service, \
 
 
 @pytest.mark.parametrize("service_url",
-                         [("identity"),
+                         [("registry"),
+                          ("identity"),
                           ("storage"),
                           ("access"),
                           ("compute")])
 def test_service(service_url, aaai_services):
-
     # get the public service from the default API frontend
     privkey = PrivateKey()
     response = call_function(service_url, response_key=privkey)

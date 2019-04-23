@@ -1,5 +1,5 @@
 
-from Acquire.Service import get_checked_remote_service, trust_service
+from Acquire.Service import get_trusted_service
 from Acquire.Service import get_this_service, create_service_user_account
 
 from Acquire.Crypto import PublicKey
@@ -11,24 +11,12 @@ from Acquire.Service import ServiceAccountError
 def run(args):
     """Call this function to trust the passed accounting service,
        specifically to trust that we can move money using that service.
-       Note that we must have already trusted the passed accounting
-       service as a service before we can trust it as an accounting
-       service...
     """
-    try:
-        service_url = args["service_url"]
-    except:
-        service_url = None
-
-    try:
-        public_cert = PublicKey.from_data(args["public_certificate"])
-    except:
-        public_cert = None
+    service_url = args["service_url"]
 
     authorisation = Authorisation.from_data(args["authorisation"])
 
-    accounting_service = get_checked_remote_service(service_url,
-                                                    public_cert)
+    accounting_service = get_trusted_service(service_url=service_url)
 
     if not accounting_service.is_accounting_service():
         raise ServiceAccountError(
@@ -40,22 +28,9 @@ def run(args):
         authorisation,
         "trust_accounting_service %s" % accounting_service.uid())
 
-    # compare this service to one we already know
-    try:
-        check_service = service.get_trusted_service(service_url)
-    except Exception as e:
-        raise ServiceAccountError(
-            "The accounting service must already be trusted as a service "
-            "before you can trust it an accounting service! Error=%s" %
-            (str(e)))
+    url = accounting_service.canonical_url()
 
-    if check_service.uid() != accounting_service.uid():
-        raise ServiceAccountError(
-            "Something strange is happening - the accounting service "
-            "appears to have changed since it was trusted? "
-            "%s versus %s" % (str(check_service), str(accounting_service)))
-
-    create_service_user_account(service, accounting_service.canonical_url())
+    create_service_user_account(service=service, accounting_service_url=url)
 
     return_value = {}
 

@@ -7,9 +7,6 @@ def run(args):
     """Call this function to force the service to save its keys
        to the object store
     """
-    status = 0
-    message = None
-
     try:
         authorisation = Authorisation.from_data(args["authorisation"])
     except:

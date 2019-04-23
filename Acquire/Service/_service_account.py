@@ -19,6 +19,7 @@ __all__ = ["push_is_running_service", "pop_is_running_service",
            "setup_this_service", "add_admin_user",
            "get_this_service", "get_admin_users",
            "get_service_private_key", "save_service_keys_to_objstore",
+           "load_service_key_from_objstore",
            "get_service_private_certificate", "get_service_public_key",
            "get_service_public_certificate",
            "clear_serviceinfo_cache",
@@ -136,10 +137,12 @@ def _get_service_password():
     return service_password
 
 
-def setup_this_service(canonical_url, service_type, username, password):
+def setup_this_service(service_type, canonical_url, registry_uid,
+                       username, password):
     """Call this function to setup a new
        service that will serve at 'canonical_url', will be of
-       the specified service_type.
+       the specified service_type. This will be registered at the
+       registry at UID registry_uid
 
         (1) Delete the object store value "_service" if you want to reset
             the actual Service. This will assign a new UID for the service
@@ -178,58 +181,80 @@ def setup_this_service(canonical_url, service_type, username, password):
         except Exception as e:
             from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
-                "Something went write reading the Service data. You should "
+                "Something went wrong reading the Service data. You should "
                 "either debug the error or delete the data at key '%s' "
                 "to allow the service to be reset and constructed again. "
                 "The error was %s"
                 % (_service_key, str(e)))
 
-        if service.service_type() != service_type or \
-           service.canonical_url() != canonical_url:
+        if service.uid().startswith("STAGE1"):
             from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
-               "The existing service has a different type or URL to that "
-               "requested at setup. The request type and URL are %s and %s, "
-               "while the actual service type and URL are %s and %s." %
-               (service_type, canonical_url,
-                service.service_type(), service.canonical_url()))
+                "The service is currently under construction. Please "
+                "try again later...")
 
     if service is None:
+        # we need to create the new service
         if (service_type is None) or (canonical_url is None):
             from Acquire.Service import ServiceAccountError
             raise ServiceAccountError(
                 "You need to supply both the service_type and canonical_url "
                 "in order to initialise a new Service")
 
-        # we need to build the service account
-        service = _Service(service_url=canonical_url,
-                           service_type=service_type)
+        # we need to build the service account - first stage 1
+        service = _Service.create(service_url=canonical_url,
+                                  service_type=service_type)
 
-        service_uid = service.uid()
-        skelkey = service.skeleton_key().public_key()
-
-        # now register the new admin user account - remembering to
-        # encode the password
-        from Acquire.Client import Credentials as _Credentials
-        password = _Credentials.encode_password(password=password,
-                                                identity_uid=service_uid)
-
-        from Acquire.Identity import UserAccount as _UserAccount
-        (user_uid, otp) = _UserAccount.create(username=username,
-                                              password=password,
-                                              _service_uid=service_uid,
-                                              _service_public_key=skelkey)
-
-        add_admin_user(service, user_uid)
-
-        # write the service data, encrypted using the service password
+        # write the stage1 service data, encrypted using the service password.
+        # This will be needed to answer the challenge from the registry
         service_data = service.to_data(service_password)
-        # reload the data to check it is ok, and also to set the right class
-        service = _Service.from_data(service_data, service_password)
-        # now it is ok, save this data to the object store
         _ObjectStore.set_object_from_json(bucket, _service_key, service_data)
 
+        # now we can register the service with a registry - this
+        # will return the stage2-constructed service
+        from Acquire.Registry import register_service as _register_service
+        service = _register_service(service=service,
+                                    registry_uid=registry_uid)
+
+    if service.service_type() != service_type or \
+            service.canonical_url() != canonical_url:
+        from Acquire.Service import ServiceAccountError
+        raise ServiceAccountError(
+            "The existing service has a different type or URL to that "
+            "requested at setup. The request type and URL are %s and %s, "
+            "while the actual service type and URL are %s and %s." %
+            (service_type, canonical_url,
+             service.service_type(), service.canonical_url()))
+
+    # we can add the first admin user
+    service_uid = service.uid()
+    skelkey = service.skeleton_key().public_key()
+
+    # now register the new admin user account - remembering to
+    # encode the password
+    from Acquire.Client import Credentials as _Credentials
+    password = _Credentials.encode_password(password=password,
+                                            identity_uid=service_uid)
+
+    from Acquire.Identity import UserAccount as _UserAccount
+    (user_uid, otp) = _UserAccount.create(username=username,
+                                          password=password,
+                                          _service_uid=service_uid,
+                                          _service_public_key=skelkey)
+
+    add_admin_user(service, user_uid)
+
+    # write the service data, encrypted using the service password
+    service_data = service.to_data(service_password)
+    # reload the data to check it is ok, and also to set the right class
+    service = _Service.from_data(service_data, service_password)
+    # now it is ok, save this data to the object store
+    _ObjectStore.set_object_from_json(bucket, _service_key, service_data)
+
     mutex.unlock()
+
+    from Acquire.Service import clear_service_cache as _clear_service_cache
+    _clear_service_cache()
 
     return (service, user_uid, otp)
 
@@ -379,7 +404,8 @@ def get_this_service(need_private_access=False):
 
     except Exception as e:
         raise MissingServiceAccountError(
-            "Unable to create the ServiceAccount object: %s" % str(e))
+            "Unable to create the ServiceAccount object: %s %s" %
+            (e.__class__, str(e)))
 
     return service
 
@@ -424,7 +450,8 @@ def create_service_user_account(service, accounting_service_url):
     """
     assert_running_service()
 
-    accounting_service = service.get_trusted_service(accounting_service_url)
+    accounting_service = service.get_trusted_service(
+                                    service_url=accounting_service_url)
     accounting_service_uid = accounting_service.uid()
 
     key = "%s/account/%s" % (_service_key, accounting_service_uid)
@@ -465,7 +492,7 @@ def create_service_user_account(service, accounting_service_url):
              exception_to_string(e)))
 
 
-def _reload_key(fingerprint):
+def load_service_key_from_objstore(fingerprint):
     """This function will see if we have an old key with the requested
        fingerprint, and if so, we will try to load and return that
        key from the object store
@@ -589,7 +616,7 @@ def get_service_private_key(fingerprint=None):
 
         if key.fingerprint() != fingerprint:
             try:
-                return _reload_key(fingerprint)
+                return load_service_key_from_objstore(fingerprint)
             except Exception as e:
                 from Acquire.Service import ServiceAccountError
                 raise ServiceAccountError(
@@ -617,7 +644,7 @@ def get_service_private_certificate(fingerprint=None):
 
         if cert.fingerprint() != fingerprint:
             try:
-                return _reload_key(fingerprint)
+                return load_service_key_from_objstore(fingerprint)
             except Exception as e:
                 from Acquire.Service import ServiceAccountError
                 raise ServiceAccountError(

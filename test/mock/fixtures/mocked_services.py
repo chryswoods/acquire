@@ -20,10 +20,12 @@ from accounting.route import accounting_functions
 from access.route import access_functions
 from storage.route import storage_functions
 from compute.route import compute_functions
+from registry.route import registry_functions
 
 identity_handler = create_handler(identity_functions)
 accounting_handler = create_handler(accounting_functions)
 access_handler = create_handler(access_functions)
+registry_handler = create_handler(registry_functions)
 storage_handler = create_handler(storage_functions)
 compute_handler = create_handler(compute_functions)
 
@@ -101,6 +103,9 @@ class MockedRequests:
         elif url.startswith("compute"):
             push_testing_objstore(_services["compute"])
             func = compute_handler
+        elif url.startswith("registry"):
+            push_testing_objstore(_services["registry"])
+            func = registry_handler
         else:
             raise ValueError("Cannot recognise service from '%s'" % url)
 
@@ -175,6 +180,7 @@ def aaai_services(tmpdir_factory):
     from Acquire.Service import call_function, Service
 
     _services = {}
+    _services["registry"] = tmpdir_factory.mktemp("registry")
     _services["identity"] = tmpdir_factory.mktemp("identity")
     _services["accounting"] = tmpdir_factory.mktemp("accounting")
     _services["access"] = tmpdir_factory.mktemp("access")
@@ -195,6 +201,22 @@ def aaai_services(tmpdir_factory):
     os.environ["SERVICE_PASSWORD"] = "Service_pa33word"
     os.environ["STORAGE_COMPARTMENT"] = str(_services["userdata"])
 
+    args["canonical_url"] = "registry"
+    args["service_type"] = "registry"
+    args["registry_uid"] = "Z9-Z9"  # UID of testing registry
+    response = call_function("registry", function="admin/setup", args=args)
+
+    registry_service = Service.from_data(response["service"])
+    registry_otp = OTP(OTP.extract_secret(response["provisioning_uri"]))
+    registry_user = _login_admin("registry", "admin",
+                                 password, registry_otp)
+    responses["registry"] = {"service": registry_service,
+                             "user": registry_user,
+                             "response": response}
+
+    assert(registry_service.registry_uid() == registry_service.uid())
+    service_uids = [registry_service.uid()]
+
     args["canonical_url"] = "identity"
     args["service_type"] = "identity"
     response = call_function("identity", function="admin/setup", args=args)
@@ -206,6 +228,10 @@ def aaai_services(tmpdir_factory):
     responses["identity"] = {"service": identity_service,
                              "user": identity_user,
                              "response": response}
+
+    assert(identity_service.registry_uid() == registry_service.uid())
+    assert(identity_service.uid() not in service_uids)
+    service_uids.append(identity_service.uid())
 
     args["canonical_url"] = "accounting"
     args["service_type"] = 'accounting'
@@ -219,6 +245,10 @@ def aaai_services(tmpdir_factory):
                                "user": accounting_user,
                                "response": response}
 
+    assert(accounting_service.registry_uid() == registry_service.uid())
+    assert(accounting_service.uid() not in service_uids)
+    service_uids.append(accounting_service.uid())
+
     args["canonical_url"] = "access"
     args["service_type"] = "access"
     response = call_function("access", function="admin/setup", args=args)
@@ -229,6 +259,10 @@ def aaai_services(tmpdir_factory):
     responses["access"] = {"service": access_service,
                            "user": access_user,
                            "response": response}
+
+    assert(access_service.registry_uid() == registry_service.uid())
+    assert(access_service.uid() not in service_uids)
+    service_uids.append(access_service.uid())
 
     args["canonical_url"] = "compute"
     args["service_type"] = "compute"
@@ -241,6 +275,10 @@ def aaai_services(tmpdir_factory):
                             "user": compute_user,
                             "response": response}
 
+    assert(compute_service.registry_uid() == registry_service.uid())
+    assert(compute_service.uid() not in service_uids)
+    service_uids.append(compute_service.uid())
+
     args["canonical_url"] = "storage"
     args["service_type"] = "storage"
     response = call_function("storage", function="admin/setup", args=args)
@@ -251,58 +289,14 @@ def aaai_services(tmpdir_factory):
                             "user": storage_user,
                             "response": response}
 
-    resource = "trust_service %s" % identity_service.uid()
-    public_cert = identity_service.public_certificate().to_data()
-    args = {"service_url": identity_service.canonical_url(),
-            "authorisation": Authorisation(user=accounting_user,
-                                           resource=resource).to_data(),
-            "public_certificate": public_cert}
-
-    response = accounting_service.call_function(
-                    function="admin/trust_service", args=args)
-
-    args["authorisation"] = Authorisation(user=access_user,
-                                          resource=resource).to_data()
-
-    response = access_service.call_function(
-                    function="admin/trust_service", args=args)
-
-    args["authorisation"] = Authorisation(user=storage_user,
-                                          resource=resource).to_data()
-
-    response = storage_service.call_function(
-                    function="admin/trust_service", args=args)
-
-    args["authorisation"] = Authorisation(user=compute_user,
-                                          resource=resource).to_data()
-
-    response = compute_service.call_function(
-                    function="admin/trust_service", args=args)
-
-    args["authorisation"] = Authorisation(user=storage_user,
-                                          resource=resource).to_data()
-
-    response = storage_service.call_function(
-                    function="admin/trust_service", args=args)
-
-    args = {"service_url": access_service.canonical_url()}
-    resource = "trust_service %s" % access_service.uid()
-    args["authorisation"] = Authorisation(user=accounting_user,
-                                          resource=resource).to_data()
-    accounting_service.call_function(
-                    function="admin/trust_service", args=args)
-
-    args = {"service_url": accounting_service.canonical_url()}
-
-    resource = "trust_service %s" % accounting_service.uid()
-    args["authorisation"] = Authorisation(user=access_user,
-                                          resource=resource).to_data()
-    access_service.call_function(
-                    function="admin/trust_service", args=args)
+    assert(storage_service.registry_uid() == registry_service.uid())
+    assert(storage_service.uid() not in service_uids)
+    service_uids.append(storage_service.uid())
 
     resource = "trust_accounting_service %s" % accounting_service.uid()
-    args["authorisation"] = Authorisation(user=access_user,
-                                          resource=resource).to_data()
+    args = {"service_url": accounting_service.canonical_url(),
+            "authorisation": Authorisation(user=access_user,
+                                           resource=resource).to_data()}
     access_service.call_function(
                     function="admin/trust_accounting_service", args=args)
 
