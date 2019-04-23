@@ -208,6 +208,7 @@ class PAR:
             from Acquire.Service import get_trusted_service \
                 as _get_trusted_service
 
+            print(service_url)
             return _get_trusted_service(service_url=service_url)
         else:
             return None

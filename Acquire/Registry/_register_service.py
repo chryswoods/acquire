@@ -40,7 +40,7 @@ def register_service(service, registry_uid):
 
     # get the trusted registry
     from Acquire.Registry import get_trusted_registry_service \
-         as _get_trusted_registry_service
+        as _get_trusted_registry_service
     registry_service = _get_trusted_registry_service(
                                         service_uid=registry_uid)
 

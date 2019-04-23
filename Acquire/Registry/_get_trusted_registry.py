@@ -7,10 +7,10 @@ def get_primary_registry_uid(service_uid):
        passed service_uid.
     """
     try:
-        start = service_uid[0:2]
-        return start * 4
+        root = service_uid.split("-")[0]
+        return "%s-%s" % (root, root)
     except:
-        return "a0a0a0a0"
+        return "a0-a0"
 
 
 def get_trusted_registry_service(registry_uid=None,
@@ -29,10 +29,10 @@ def get_trusted_registry_service(registry_uid=None,
     if service_url is not None:
         if service_url.lower().startswith("http"):
             # try the main acquire registry first
-            return get_trusted_registry_service(registry_uid="a0a0a0a0")
+            return get_trusted_registry_service(registry_uid="a0-a0")
         else:
             # this must be testing...
-            return get_trusted_registry_service(registry_uid="Z0Z0Z0Z0")
+            return get_trusted_registry_service(registry_uid="Z9-Z9")
 
     if registry_uid is None:
         raise PermissionError(

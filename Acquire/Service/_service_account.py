@@ -450,7 +450,8 @@ def create_service_user_account(service, accounting_service_url):
     """
     assert_running_service()
 
-    accounting_service = service.get_trusted_service(accounting_service_url)
+    accounting_service = service.get_trusted_service(
+                                    service_url=accounting_service_url)
     accounting_service_uid = accounting_service.uid()
 
     key = "%s/account/%s" % (_service_key, accounting_service_uid)

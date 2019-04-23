@@ -127,7 +127,7 @@ class Service:
         self._uid = None
 
     @staticmethod
-    def create(service_type, service_url):
+    def create(service_type, service_url, _testing=False):
         """Conduct stage1 of the construction of a new service. This
            creates the initial setup, creating a service with sufficient
            info to survive registration with a Registry. The second stage
@@ -218,6 +218,16 @@ class Service:
             return None
         else:
             return self._uid
+
+    def registry_uid(self):
+        """Return the uid of the registry service that registered
+           this service
+        """
+        if self.is_null():
+            return None
+        else:
+            root = self.uid().split("-")[0]
+            return "%s-%s" % (root, root)
 
     def is_null(self):
         """Return whether or not this is null"""

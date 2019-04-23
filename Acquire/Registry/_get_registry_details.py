@@ -3,13 +3,13 @@ __all__ = ["get_registry_details", "update_registry_keys_and_certs"]
 
 _testing_registry = {
     "canonical_url": "registry",
-    "uid": "Z0Z0Z0Z0",
+    "uid": "Z9-Z9",
     "public_key": None,
     "public_certificate": None}
 
 _acquire_registry = {
     "canonical_url": "http://fn.acquire-aaai.com:8080/t/registry",
-    "uid": "a0a0a0a0",
+    "uid": "a0-a0",
     "public_key": None,
     "public_certificate": None}
 

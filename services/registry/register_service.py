@@ -12,38 +12,24 @@ def run(args):
     challenge = string_to_bytes(args["challenge"])
     fingerprint = args["fingerprint"]
 
+    try:
+        force_new_uid = args["force_new_uid"]
+    except:
+        force_new_uid = False
+
+    if force_new_uid:
+        force_new_uid = True
+
     # respond to the challenge from the service to be registered
     this_service = get_this_service(need_private_access=True)
     key = this_service.get_key(fingerprint)
     response = key.decrypt(challenge)
 
-    # now challenge the service
-    challenge = PrivateKey.random_passphrase()
-    pubkey = service.public_key()
-    encrypted_challenge = pubkey.encrypt(challenge)
-
-    args = {"challenge": bytes_to_string(encrypted_challenge),
-            "fingerprint": pubkey.fingerprint()}
-
-    result = service.call_function(function=None, args=args)
-
-    if result["response"] != challenge:
-        raise PermissionError(
-            "Failure of the service being registered to correctly respond "
-            "to the challenge!")
-
-    challenged_service = Service.from_data(result["service_info"])
-
-    if challenged_service.uid() != "STAGE1":
-        raise PermissionError(
-            "We cannot create a UID for a service which is "
-            "already registered!")
-
-    # this is a new service which has survived challenge, so can
-    # now be registered
+    # ok - we can respond to its challenge, so now challenge
+    # it, and if it passes, register the service
     registry = Registry()
-
-    service_uid = registry.register_service(service)
+    service_uid = registry.register_service(service=service,
+                                            force_new_uid=force_new_uid)
 
     return {"service_uid": service_uid,
             "response": response}

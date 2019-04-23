@@ -154,5 +154,6 @@ def get_trusted_service(service_url=None, service_uid=None, autofetch=True):
         from Acquire.Client import Wallet as _Wallet
         wallet = _Wallet()
         service = wallet.get_service(service_uid=service_uid,
+                                     service_url=service_url,
                                      autofetch=autofetch)
         return service
