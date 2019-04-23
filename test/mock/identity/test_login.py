@@ -33,6 +33,7 @@ def test_login(username, password, aaai_services, tmpdir):
     assert(type(result) is dict)
 
     login_url = result["login_url"]
+    print(login_url)
 
     wallet = Wallet()
 

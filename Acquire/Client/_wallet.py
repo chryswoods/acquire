@@ -468,13 +468,38 @@ class Wallet:
         if not remember_password:
             remember_device = False
 
-        # the login URL is of the form "server/code"
-        words = url.split("/")
-        identity_service = "/".join(words[0:-1])
-        short_uid = words[-1].split("=")[-1]
+        # the login URL is http[s]://something.com?id=XXXX/YY.YY.YY.YY
+        # where XXXX is the service_uid of the service we should
+        # connect with, and YY.YY.YY.YY is the short_uid of the login
+        try:
+            from urllib.parse import urlparse as _urlparse
+            from urllib.parse import parse_qs as _parse_qs
+            idcode = _parse_qs(_urlparse(url).query)["id"][0]
+        except Exception as e:
+            from Acquire.Client import LoginError
+            raise LoginError(
+                "Cannot identify the session or service information from "
+                "the login URL '%s'. This should have id=XX-XX/YY.YY.YY.YY "
+                "as a query parameter. <%s> %s" %
+                (url, e.__class__.__name__, str(e)))
+
+        try:
+            (service_uid, short_uid) = idcode.split("/")
+        except:
+            from Acquire.Client import LoginError
+            raise LoginError(
+                "Cannot extract the service_uid and short_uid from the "
+                "login ID code '%s'. This should be in the format "
+                "XX-XX/YY.YY.YY.YY" % idcode)
 
         # now get the service
-        service = self.get_service(identity_service)
+        try:
+            service = self.get_service(service_uid=service_uid)
+        except Exception as e:
+            from Acquire.Client import LoginError
+            raise LoginError(
+                "Cannot find the service with UID %s: <%s> %s" %
+                (service_uid, e.__class__.__name__, str(e)))
 
         if not service.can_identify_users():
             from Acquire.Client import LoginError

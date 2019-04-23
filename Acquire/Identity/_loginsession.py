@@ -146,7 +146,14 @@ class LoginSession:
         """
         from Acquire.Service import get_this_service as _get_this_service
         service = _get_this_service(need_private_access=False)
-        return "%s/s?id=%s" % (service.canonical_url(), self.short_uid())
+        service_uid = service.uid()
+        short_uid = self.short_uid()
+        short_uid = ".".join([short_uid[i:i+2]
+                             for i in range(0, len(short_uid), 2)])
+        # eventually allow the service provider to configure this url
+        url = "https://login.acquire-aaai.com"
+
+        return "%s?id=%s/%s" % (url, service_uid, short_uid)
 
     def regenerate_uid(self):
         """Regenerate the UUID as there has been a clash"""
@@ -507,7 +514,13 @@ class LoginSession:
             session._localise(scope=scope, permissions=permissions)
             return session
 
+        # the user may pass in the short_uid as YY.YY.YY.YY
+        # so remove all dots
+        short_uid = short_uid.replace(".", "")
+
         prefix = "%s/%s/%s/" % (_sessions_key, status, short_uid)
+
+        print(prefix)
 
         try:
             keys = _ObjectStore.get_all_objects_from_json(bucket=bucket,

@@ -660,11 +660,10 @@ class Account:
             new_now = self._get_now()
 
             if new_now == now:
-                # now time has passed - we are being tested, so raise
-                # an exception
-                raise PermissionError(
-                    "Cannot generate a safe now if time is frozen to %s"
-                    % now)
+                # now time has passed - we are being tested, so let's
+                # pretend that time has gone forwards
+                import datetime as _datetime
+                new_now = now + _datetime.timedelta(seconds=1)
 
             now = new_now
 
