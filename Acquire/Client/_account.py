@@ -437,7 +437,8 @@ class Account:
         from Acquire.Client import Authorisation as _Authorisation
         service = self.accounting_service()
 
-        auth = _Authorisation(resource=self._account_uid, user=self._user)
+        auth = _Authorisation(resource=transaction.fingerprint(),
+                              user=self._user)
 
         if is_provisional:
             is_provisional = True

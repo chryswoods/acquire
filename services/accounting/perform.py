@@ -15,9 +15,6 @@ def run(args):
        between accounts
     """
 
-    status = 0
-    message = None
-
     transaction_records = None
 
     try:
@@ -71,7 +68,7 @@ def run(args):
         raise PermissionError("You must supply a valid authorisation "
                               "to perform transactions between accounts")
 
-    authorisation.verify(resource=debit_account_uid)
+    authorisation.verify(resource=transaction.fingerprint())
     user_guid = authorisation.user_guid()
 
     # load the account from which the transaction will be performed
