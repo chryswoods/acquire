@@ -27,7 +27,7 @@ def get_trusted_registry_service(registry_uid=None,
         return get_trusted_registry_service(registry_uid=registry_uid)
 
     if service_url is not None:
-        if service_url.lower().startswith("http"):
+        if service_url.find(".") != -1:
             # try the main acquire registry first
             return get_trusted_registry_service(registry_uid="a0-a0")
         else:

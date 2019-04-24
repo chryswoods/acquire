@@ -260,6 +260,10 @@ class Registry:
 
         this_service = _get_this_service(need_private_access=False)
 
+        if service_url is not None:
+            from Acquire.Service import Service as _Service
+            service_url = _Service.get_canonical_url(service_url)
+
         if this_service.uid() == service_uid:
             return this_service
         elif this_service.canonical_url() == service_url:
@@ -331,7 +335,8 @@ class Registry:
         # the service to ask its registering registry for its data.
         # For now, we just raise an error
         from Acquire.Service import MissingServiceError
-        raise MissingServiceError("No service avaiable: %s|%s" %
+        raise MissingServiceError(
+            "No service available: service_url=%s  service_uid=%s" %
                                   (service_url, service_uid))
 
     def register_service(self, service, force_new_uid=False):
