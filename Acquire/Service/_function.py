@@ -193,11 +193,20 @@ def exception_to_safe_exception(e):
 def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
                      function=None, service=None):
     """Call this to unpack the passed arguments that have been encoded
-       as a json string, packed using pack_arguments. This will always
-       return a tuple of the function to be called, and a dictionary.
-       If there are no arguments, then an empty
-       dictionary will be returned. If 'public_cert' is supplied then
-       a signature of the result will be verified using 'public_cert'
+       as a json string, packed using pack_arguments.
+
+       If is_return_value is True, then this will simply return
+       the unpacked return valu
+
+       Otherwise, this will return a tuple containing
+
+       (function, args, keys)
+
+       where function is the name of the function to be called,
+       args are the arguments to the function, and keys is a
+       dictionary that may contain keys or additional instructions
+       that will be used to package up the return value from
+       calling the function.
 
        This function is also called as unpack_return_value, in which
        case is_return_value is set as True, and only the dictionary
@@ -206,7 +215,10 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
        are used to help provide more context for error messages.
     """
     if not (args and len(args) > 0):
-        return {}
+        if is_return_value:
+            return None
+        else:
+            return (None, None, None)
 
     # args should be a json-encoded utf-8 string
     try:
@@ -218,7 +230,10 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
 
     while not isinstance(data, dict):
         if not (data and len(data) > 0):
-            return {}
+            if is_return_value:
+                return None
+            else:
+                return (None, None, None)
 
         try:
             data = _json.loads(data)
