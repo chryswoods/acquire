@@ -295,7 +295,7 @@ class Registry:
 
                 # we can now move this service from pending to active
                 uidkey = self._get_key_for_uid(service.uid())
-                domain = self._get_domain(service.canonical_url())
+                domain = self._get_domain(service.service_url())
                 domainroot = self._get_root_key_for_domain(domain=domain)
 
                 pending_key = "%s/pending/%s" % (domainroot, service.uid())
@@ -347,7 +347,7 @@ class Registry:
 
         # first, stop a single domain monopolising resources...
         bucket = self.get_bucket()
-        domain = self._get_domain(service.canonical_url())
+        domain = self._get_domain(service.service_url())
         domainroot = self._get_root_key_for_domain(domain=domain)
 
         try:
