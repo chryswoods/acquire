@@ -162,7 +162,7 @@ def setup_this_service(service_type, canonical_url, registry_uid,
     bucket = _get_service_account_bucket()
 
     # ensure that this is the only time the service is set up
-    mutex = _Mutex(key=_service_key, bucket=bucket)
+    mutex = _Mutex(key=_service_key, bucket=bucket, lease_time=120)
 
     try:
         service_info = _ObjectStore.get_object_from_json(bucket, _service_key)
