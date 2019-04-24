@@ -55,8 +55,4 @@ def get_registry_details(registry_uid):
         import copy as _copy
         return _copy.copy(_registries[registry_uid])
     except:
-        pass
-
-    from Acquire.Service import ServiceError
-    raise ServiceError(
-        "There is no registry centrally recorded with UID %s" % registry_uid)
+        return _copy.copy(_registries["a0-a0"])

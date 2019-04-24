@@ -15,30 +15,20 @@ def run(args):
        provisioning_uri that you will need to generate one-time-codes
        to log in as the admin user
     """
-    try:
-        service_type = args["service_type"]
-    except:
-        service_type = None
+    service_type = args["service_type"]
 
     try:
         username = args["username"]
     except:
         username = "admin"
 
-    try:
-        password = args["password"]
-    except:
-        password = None
-
-    try:
-        canonical_url = args["canonical_url"]
-    except:
-        canonical_url = None
+    password = args["password"]
+    canonical_url = args["canonical_url"]
 
     try:
         registry_uid = args["registry_uid"]
     except:
-        registry_uid = None
+        registry_uid = "a0-a0"
 
     if username is None or password is None or service_type is None:
         raise PermissionError(
