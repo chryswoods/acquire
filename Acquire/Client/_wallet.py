@@ -409,11 +409,28 @@ class Wallet:
             from Acquire.Registry import get_trusted_registry_service \
                 as _get_trusted_registry_service
 
+            _output("Connecting to registry...")
+            _flush_output()
+
             registry = _get_trusted_registry_service(service_uid=service_uid,
                                                      service_url=service_url)
 
+            _output("...connected to registry %s" % registry)
+            _flush_output()
+
+            if service_url is not None:
+                _output("Securely fetching keys for %s..." % service_url)
+                _flush_output()
+            else:
+                _output("Securely fetching keys for UID %s..." % service_uid)
+                _flush_output()
+
             service = registry.get_service(service_url=service_url,
                                            service_uid=service_uid)
+
+            _output("...success.\nFetched %s" % service)
+            _flush_output()
+
             must_write = True
 
         # check if the keys need rotating - if they do, load up
