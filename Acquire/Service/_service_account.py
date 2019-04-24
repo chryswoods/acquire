@@ -216,6 +216,8 @@ def setup_this_service(service_type, canonical_url, registry_uid,
         service = _register_service(service=service,
                                     registry_uid=registry_uid)
 
+    canonical_url = _Service.get_canonical_url(canonical_url)
+
     if service.service_type() != service_type or \
             service.canonical_url() != canonical_url:
         from Acquire.Service import ServiceAccountError
