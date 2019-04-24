@@ -12,7 +12,8 @@ class Service:
        i.e. during construction it will transform into the class
        of the type of service, e.g. Acquire.Identity.IdentityService
     """
-    def __init__(self, service_url=None, service_uid=None):
+    def __init__(self, service_url=None, service_uid=None,
+                 service_type=None):
         """Construct the service that is accessed at the remote
            URL 'service_url'. This will fetch and return the
            details of the remote service. This wrapper is a
@@ -25,7 +26,8 @@ class Service:
         try:
             from Acquire.Client import Wallet as _Wallet
             service = _Wallet().get_service(service_url=service_url,
-                                            service_uid=service_uid)
+                                            service_uid=service_uid,
+                                            service_type=service_type)
 
             from copy import copy as _copy
             self.__dict__ = _copy(service.__dict__)
@@ -179,11 +181,6 @@ class Service:
         """Return whether or not the canonical URL of this service
            is connected to via https
         """
-        self._fail()
-        return None
-
-    def update_service_url(self, service_url):
-        """Update the service url to be 'service_url'"""
         self._fail()
         return None
 

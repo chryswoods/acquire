@@ -70,9 +70,15 @@ def get_trusted_services():
 
 # Cached as the remote service information will not change too often
 @_cached(_cache_local_serviceinfo)
-def get_trusted_service(service_url=None, service_uid=None, autofetch=True):
+def get_trusted_service(service_url=None, service_uid=None,
+                        service_type=None, autofetch=True):
     """Return the trusted service info for the service with specified
        service_url or service_uid"""
+    if service_url is not None:
+        from Acquire.Service import Service as _Service
+        service_url = _Service.get_canonical_url(service_url,
+                                                 service_type=service_type)
+
     from Acquire.Service import is_running_service as _is_running_service
 
     if _is_running_service():
@@ -155,5 +161,6 @@ def get_trusted_service(service_url=None, service_uid=None, autofetch=True):
         wallet = _Wallet()
         service = wallet.get_service(service_uid=service_uid,
                                      service_url=service_url,
+                                     service_type=service_type,
                                      autofetch=autofetch)
         return service

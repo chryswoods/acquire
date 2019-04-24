@@ -13,7 +13,7 @@ def _get_storage_service(storage_url=None):
         storage_url = _get_storage_url()
 
     from Acquire.Client import Service as _Service
-    service = _Service(storage_url)
+    service = _Service(storage_url, service_type="storage")
 
     if not service.is_storage_service():
         from Acquire.Client import LoginError
@@ -21,9 +21,6 @@ def _get_storage_service(storage_url=None):
             "You can only use a valid storage service to get CloudDrive info! "
             "The service at '%s' is a '%s'" %
             (storage_url, service.service_type()))
-
-    if service.service_url() != storage_url:
-        service.update_service_url(storage_url)
 
     return service
 

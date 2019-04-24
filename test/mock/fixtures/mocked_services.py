@@ -88,6 +88,11 @@ class MockedRequests:
         from Acquire.Service import push_testing_objstore, \
             pop_testing_objstore
 
+        if url.startswith("http://"):
+            url = url[8:]
+        elif url.startswith("https://"):
+            url = url[9:]
+
         if url.startswith("identity"):
             push_testing_objstore(_services["identity"])
             func = identity_handler

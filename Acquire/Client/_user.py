@@ -22,7 +22,7 @@ def _output(s, end=None):
 
 def _get_identity_url():
     """Function to discover and return the default identity url"""
-    return "http://fn.acquire-aaai.com:8080/t/identity"
+    return "fn.acquire-aaai.com"
 
 
 def _get_identity_service(identity_url=None):
@@ -34,14 +34,16 @@ def _get_identity_service(identity_url=None):
     if _is_running_service():
         from Acquire.Service import get_trusted_service \
             as _get_trusted_service
-        return _get_trusted_service(service_url=identity_url)
+        return _get_trusted_service(service_url=identity_url,
+                                    service_type='identity')
 
     from Acquire.Client import LoginError
 
     try:
         from Acquire.Client import Wallet as _Wallet
         wallet = _Wallet()
-        service = wallet.get_service(service_url=identity_url)
+        service = wallet.get_service(service_url=identity_url,
+                                     service_type="identity")
     except Exception as e:
         from Acquire.Service import exception_to_string
         raise LoginError("Have not received the identity service info from "
@@ -53,9 +55,6 @@ def _get_identity_service(identity_url=None):
             "You can only use a valid identity service to log in! "
             "The service at '%s' is a '%s'" %
             (identity_url, service.service_type()))
-
-    if identity_url != service.service_url():
-        service.update_service_url(identity_url)
 
     return service
 

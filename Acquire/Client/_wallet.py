@@ -358,7 +358,7 @@ class Wallet:
         return services
 
     def get_service(self, service_url=None, service_uid=None,
-                    autofetch=True):
+                    service_type=None, autofetch=True):
         """Return the service at either 'service_url', or that
            has UID 'service_uid'. This will return the
            cached service if it exists, or will add a new service if
@@ -384,6 +384,10 @@ class Wallet:
                     service = s
                     break
         else:
+            from Acquire.Service import Service as _Service
+            service_url = _Service.get_canonical_url(service_url,
+                                                     service_type=service_type)
+
             service_file = "%s/service_%s" % (
                 self._wallet_dir,
                 _string_to_safestring(service_url))

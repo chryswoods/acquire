@@ -127,6 +127,47 @@ class Service:
         self._uid = None
 
     @staticmethod
+    def get_canonical_url(service_url, service_type=None):
+        """Return the canonical URL from the passed service_url.
+           If 'service_type' is specified, then this will also
+           add on extra paths needed for the services. For
+           example,
+
+           get_canonical_url("fn.acquire-aaai.com", service_type="identity")
+
+           would return
+
+           "fn.acquire-aaai.com/identity"
+        """
+        from urllib.parse import urlparse as _urlparse
+
+        if not service_url.startswith("http"):
+            service_url = "https://%s" % service_url
+
+        # break the URL up into parts
+        p = _urlparse(service_url)
+        parts = p.netloc.split(":")
+        domain = parts[0]
+        path = p.path
+
+        if domain.find(".") == -1:
+            # this is a testing domain
+            return domain
+
+        if service_type is not None and path is None:
+            path = "/t/%s" % service_type
+
+        if path is None:
+            canonical_url = domain
+        else:
+            canonical_url = "%s%s" % (domain, path)
+
+        while canonical_url.endswith("/"):
+            canonical_url = canonical_url[0:-1]
+
+        return canonical_url
+
+    @staticmethod
     def create(service_type, service_url, _testing=False):
         """Conduct stage1 of the construction of a new service. This
            creates the initial setup, creating a service with sufficient
@@ -143,9 +184,33 @@ class Service:
 
         service = Service()
 
+        from urllib.parse import urlparse as _urlparse
+
+        if not service_url.startswith("http"):
+            service_url = "https://%s" % service_url
+
+        # break the URL up into parts
+        p = _urlparse(service_url)
+        parts = p.netloc.split(":")
+        service._domain = parts[0]
+        service._schemes = [p.scheme]
+        service._ports = {}
+
+        if len(parts) == 1:
+            service._ports[p.scheme] = None
+        elif len(parts) == 2:
+            service._ports[p.scheme] = parts[1]
+        else:
+            raise ValueError("Cannot interpret URL %s" % service_url)
+
+        service._path = p.path
+
         service._service_type = service_type
-        service._service_url = service_url
-        service._canonical_url = service_url
+        service._canonical_url = "%s/%s" % (service._domain, service._path)
+
+        while service._canonical_url.endswith("/"):
+            service._canonical_url = service._canonical_url[0:-1]
+
         service._uid = "STAGE1 %s" % _PrivateKey.random_passphrase()
 
         service._privkey = _PrivateKey()
@@ -401,13 +466,13 @@ class Service:
             if self._pubcert is None:
                 # we are initialising from scratch - hope this is over https
                 response = _call_function(
-                    self._service_url,
+                    self.service_url(),
                     response_key=_get_private_key("function"))
             else:
                 # ask for an updated Service, ensuring the service responds
                 # with a signature that we know was (once) valid
                 response = _call_function(
-                    self._service_url,
+                    self.service_url(),
                     response_key=_get_private_key("function"),
                     public_cert=self._pubcert)
 
@@ -478,12 +543,26 @@ class Service:
         else:
             return self._service_type == "storage"
 
-    def service_url(self):
-        """Return the URL used to access this service"""
+    def service_url(self, prefer_https=True):
+        """Return the URL used to access this service. This includes
+           the scheme, port etc. This is in contrast to the canonical
+           url which just includes the URL
+        """
         if self.is_null():
             return None
         else:
-            return self._service_url
+            if prefer_https and "https" in self._schemes:
+                scheme = "https"
+            else:
+                scheme = self._schemes[0]
+
+            port = self._ports[scheme]
+
+            if port is None or len(port) == 0:
+                return "%s://%s/%s" % (scheme, self._domain, self._path)
+            else:
+                return "%s://%s:%s/%s" % (scheme, self._domain,
+                                          port, self._path)
 
     def canonical_url(self):
         """Return the canonical URL for this service (this is the URL the
@@ -501,9 +580,8 @@ class Service:
         """
         if self.is_null():
             return None
-
-        from urllib.parse import urlparse as _urlparse
-        return _urlparse(self.canonical_url()).hostname
+        else:
+            return self._domain
 
     def uses_https(self):
         """Return whether or not the canonical URL of this service
@@ -511,14 +589,8 @@ class Service:
         """
         if self.is_null():
             return False
-
-        from urllib.parse import urlparse as _urlparse
-        return _urlparse(self.canonical_url()).scheme == "https"
-
-    def update_service_url(self, service_url):
-        """Update the service url to be 'service_url'"""
-        if not self.is_null():
-            self._service_url = str(service_url)
+        else:
+            return self._schemes[0] == "https"
 
     def service_user_uid(self):
         """Return the UID of the service user account for this service"""
@@ -1029,7 +1101,11 @@ class Service:
             data["uid"] = self._uid
 
         data["service_type"] = self._service_type
-        data["service_url"] = self._service_url
+        data["domain"] = self._domain
+        data["ports"] = self._ports
+        data["schemes"] = self._schemes
+        data["path"] = self._path
+        data["canonical_url"] = self._canonical_url
 
         data["public_certificate"] = self._pubcert.to_data()
         data["public_key"] = self._pubkey.to_data()
@@ -1153,8 +1229,11 @@ class Service:
 
         service._uid = data["uid"]
         service._service_type = data["service_type"]
-        service._service_url = data["service_url"]
-        service._canonical_url = service._service_url
+        service._canonical_url = data["canonical_url"]
+        service._domain = data["domain"]
+        service._ports = data["ports"]
+        service._schemes = data["schemes"]
+        service._path = data["path"]
 
         service._service_user_uid = data["service_user_uid"]
         service._service_user_name = data["service_user_name"]

@@ -8,7 +8,7 @@ __all__ = ["Account", "get_accounts", "create_account",
 
 def _get_accounting_url():
     """Function to discover and return the default accounting url"""
-    return "http://fn.acquire-aaai.com:8080/t/accounting"
+    return "fn.acquire-aaai.com"
 
 
 def _get_accounting_service(accounting_url=None):
@@ -17,7 +17,7 @@ def _get_accounting_service(accounting_url=None):
         accounting_url = _get_accounting_url()
 
     from Acquire.Client import Service as _Service
-    service = _Service(accounting_url)
+    service = _Service(accounting_url, service_type="accounting")
 
     if not service.is_accounting_service():
         from Acquire.Client import LoginError
@@ -25,9 +25,6 @@ def _get_accounting_service(accounting_url=None):
             "You can only use a valid accounting service to get account info! "
             "The service at '%s' is a '%s'" %
             (accounting_url, service.service_type()))
-
-    if service.service_url() != accounting_url:
-        service.update_service_url(accounting_url)
 
     return service
 

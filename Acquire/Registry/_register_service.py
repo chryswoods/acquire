@@ -24,7 +24,10 @@ def register_service(service, registry_uid):
 
         # make sure that everything matches what was specified
         if details["canonical_url"] != service.canonical_url():
-            raise PermissionError("Cannot change the canonical URL!")
+            raise PermissionError(
+                "Cannot change the canonical URL. I expect %s, but "
+                "you are trying to set to %s" %
+                (service.canonical_url(), details["canonical_url"]))
 
         from Acquire.Registry import update_registry_keys_and_certs \
             as _update_registry_keys_and_certs
