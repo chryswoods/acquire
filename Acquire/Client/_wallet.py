@@ -403,7 +403,7 @@ class Wallet:
             if not autofetch:
                 from Acquire.Service import ServiceError
                 raise ServiceError("No service at %s:%s" %
-                                        (service_url, service_uid))
+                                   (service_url, service_uid))
 
             # we need to look this service up from the registry
             from Acquire.Registry import get_trusted_registry_service \

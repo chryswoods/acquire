@@ -559,10 +559,10 @@ class Service:
             port = self._ports[scheme]
 
             if port is None or len(port) == 0:
-                return "%s://%s/%s" % (scheme, self._domain, self._path)
+                return "%s://%s%s" % (scheme, self._domain, self._path)
             else:
-                return "%s://%s:%s/%s" % (scheme, self._domain,
-                                          port, self._path)
+                return "%s://%s:%s%s" % (scheme, self._domain,
+                                         port, self._path)
 
     def canonical_url(self):
         """Return the canonical URL for this service (this is the URL the
@@ -737,7 +737,7 @@ class Service:
         if self.should_refresh_keys():
             self.refresh_keys()
 
-        return _call_function(service_url=self.canonical_url(),
+        return _call_function(service_url=self.service_url(),
                               function=function,
                               args=args,
                               args_key=self.public_key(),
