@@ -457,7 +457,7 @@ def call_function(service_url, function=None, args=None, args_key=None,
     response = None
     try:
         from Acquire.Stubs import requests as _requests
-        response = _requests.post(service_url, data=args_json, timeout=15.0)
+        response = _requests.post(service_url, data=args_json, timeout=60.0)
     except Exception as e:
         from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
