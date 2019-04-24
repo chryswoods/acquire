@@ -2,7 +2,6 @@
 import datetime
 
 from Acquire.Service import get_service_account_bucket
-from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Account, Accounts, Transaction, Ledger
 
@@ -62,7 +61,7 @@ def run(args):
 
         billing_balance = billing_account.balance() - transaction.value()
 
-        if billing_balance < -50.0:
+        if billing_balance.balance() < -50.0:
             # there are sufficient funds that need to be transferred that
             # it is worth really charging the user
             invoice_user = user_guid
@@ -77,10 +76,7 @@ def run(args):
                                 is_provisional=False,
                                 bucket=bucket)
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     if transaction_records:
         try:

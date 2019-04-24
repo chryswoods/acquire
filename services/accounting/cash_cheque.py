@@ -1,7 +1,8 @@
 
-from Acquire.Service import create_return_value, get_service_account_bucket
 from Acquire.ObjectStore import string_to_decimal, string_to_datetime, \
     list_to_string, ObjectStore, Mutex, datetime_to_string
+
+from Acquire.Service import get_service_account_bucket
 
 from Acquire.Accounting import DebitNote, CreditNote, Account, \
                                Accounts, Ledger, Transaction
@@ -17,9 +18,6 @@ def run(args):
        been reserved, and can receipt the transaction once goods/services
        have been delivered.
     """
-
-    status = 0
-    message = None
 
     credit_notes = []
 
@@ -170,11 +168,4 @@ def run(args):
         ObjectStore.set_object_from_json(bucket, receipt_key, info)
         mutex.unlock()
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
-
-    return_value["credit_notes"] = credit_notes
-
-    return return_value
+    return {"credit_notes": credit_notes}

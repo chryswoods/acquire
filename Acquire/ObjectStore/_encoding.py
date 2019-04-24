@@ -39,6 +39,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "get_datetime_future",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
+           "date_and_hour_to_datetime",
            "create_uuid"]
 
 
@@ -103,12 +104,12 @@ def decimal_to_string(d):
     return str(d)
 
 
-def string_to_decimal(s):
+def string_to_decimal(s, default=0):
     """Return the decimal that had been encoded via 'decimal_to_string'.
        This string must have been created via 'decimal_to_string'
     """
     from Acquire.Accounting import create_decimal as _create_decimal
-    return _create_decimal(s)
+    return _create_decimal(s, default=default)
 
 
 def datetime_to_string(d):
@@ -146,6 +147,15 @@ def date_and_time_to_datetime(date, time=_datetime.time(0)):
        default the time is midnight (first second of the day)
     """
     return datetime_to_datetime(_datetime.datetime.combine(date, time))
+
+
+def date_and_hour_to_datetime(date, hour):
+    """Return the passed date and hour as a UTC datetime. By
+       default the time is hour:00:00 (first second of the hour)
+    """
+    return datetime_to_datetime(
+                _datetime.datetime.combine(date,
+                                           _datetime.time(hour=hour)))
 
 
 def get_datetime_now():

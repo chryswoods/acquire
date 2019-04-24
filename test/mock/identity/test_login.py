@@ -1,57 +1,88 @@
 
 import pytest
-import os
-import sys
-import re
 
 from Acquire.Service import call_function
-from Acquire.Client import User, uid_to_username
+from Acquire.Client import User, Wallet
 from Acquire.Identity import Authorisation
-from Acquire.Crypto import OTP
+from Acquire.Crypto import OTP, PrivateKey
+
+_wallet_password = PrivateKey.random_passphrase()
 
 
 @pytest.mark.parametrize("username, password",
                          [("testuser", "ABCdef12345"),
                           ("something", "!!DDerfld31"),
                           ("someone", "%$(F*Dj4jij43  kdfjdk")])
-def test_login(username, password, aaai_services):
+def test_login(username, password, aaai_services, tmpdir):
     # register the new user
-    user = User(username, identity_url="identity")
+    result = User.register(username=username,
+                           password=password,
+                           identity_url="identity")
 
-    (provisioning_uri, qrcode) = user.register(password)
+    assert(type(result) is dict)
 
-    assert(qrcode is not None)
-    assert(type(provisioning_uri) is str)
+    otpsecret = result["otpsecret"]
 
-    # extract the shared secret from the provisioning URI
-    otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
-                          provisioning_uri).groups()[0]
+    otp = OTP(otpsecret)
 
-    user_otp = OTP(otpsecret)
+    user = User(username=username, identity_url="identity",
+                auto_logout=False)
 
-    # now get and check the whois lookup...
-    user_uid = user.uid()
-    check_username = uid_to_username(user_uid, identity_url="identity")
+    result = user.request_login()
 
-    assert(check_username == username)
+    assert(type(result) is dict)
 
-    (login_url, qrcode) = user.request_login()
+    login_url = result["login_url"]
+    print(login_url)
 
-    assert(type(login_url) is str)
+    wallet = Wallet()
 
-    short_uid = re.search(r"id=([\w\d+]+)",
-                          login_url).groups()[0]
+    wallet.send_password(url=login_url, username=username,
+                         password=password, otpcode=otp.generate(),
+                         remember_password=True)
 
-    args = {}
-    args["short_uid"] = short_uid
-    args["username"] = username
-    args["password"] = password
-    args["otpcode"] = user_otp.generate()
+    user.wait_for_login()
+    assert(user.is_logged_in())
 
-    result = call_function("identity", "login", args=args)
+    auth = Authorisation(user=user, resource="test")
 
-    assert("status" in result)
-    assert(result["status"] == 0)
+    auth.verify("test")
+
+    user.logout()
+
+    # now try to log in, using the remembered password
+    user = User(username=username, identity_url="identity",
+                auto_logout=False)
+
+    result = user.request_login()
+
+    login_url = result["login_url"]
+
+    # the test has to specify the username as we can't choose...
+    wallet.send_password(url=login_url, username=username,
+                         otpcode=otp.generate(),
+                         remember_device=True)
+
+    user.wait_for_login()
+    assert(user.is_logged_in())
+
+    auth = Authorisation(user=user, resource="test")
+
+    auth.verify("test")
+
+    user.logout()
+
+    # now see if the wallet can send all login info
+    # now try to log in, using the remembered password
+    user = User(username=username, identity_url="identity",
+                auto_logout=False)
+
+    result = user.request_login()
+
+    login_url = result["login_url"]
+
+    # the test has to specify the username as we can't choose...
+    wallet.send_password(url=login_url, username=username)
 
     user.wait_for_login()
     assert(user.is_logged_in())

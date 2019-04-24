@@ -7,104 +7,95 @@ import re
 from Acquire.Service import call_function
 from Acquire.Client import User
 from Acquire.Crypto import OTP
-from Acquire.Client import LoginError
+from Acquire.Client import LoginError, Wallet
 
 
-def test_login_fails(aaai_services):
+def test_login_fails(aaai_services, tmpdir):
     # register two users
     username1 = "fail1"
     password1 = "Fail1!!!"
     username2 = "fail2"
     password2 = "Fail2!!!"
 
-    user1 = User(username1, identity_url="identity")
-    user2 = User(username2, identity_url="identity")
+    result = User.register(username=username1,
+                           password=password1,
+                           identity_url="identity")
 
-    (provisioning_uri1, qrcode) = user1.register(password1)
-    (provisioning_uri2, qrcode) = user2.register(password2)
+    assert(type(result) is dict)
 
-    assert(qrcode is not None)
-    assert(type(provisioning_uri1) is str)
-    assert(type(provisioning_uri2) is str)
+    otpsecret1 = result["otpsecret"]
 
-    # extract the shared secret from the provisioning URI
-    otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
-                          provisioning_uri1).groups()[0]
+    otp1 = OTP(otpsecret1)
 
-    user_otp1 = OTP(otpsecret)
+    user1 = User(username=username1, identity_url="identity",
+                 auto_logout=False)
 
-    otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
-                          provisioning_uri2).groups()[0]
+    result = User.register(username=username2,
+                           password=password2,
+                           identity_url="identity")
 
-    user_otp2 = OTP(otpsecret)
+    assert(type(result) is dict)
 
-    (login_url1, qrcode) = user1.request_login()
-    (login_url2, qrcode) = user2.request_login()
+    otpsecret2 = result["otpsecret"]
 
-    assert(type(login_url1) is str)
-    assert(type(login_url2) is str)
+    otp2 = OTP(otpsecret2)
 
-    short_uid1 = re.search(r"id=([\w\d+]+)",
-                           login_url1).groups()[0]
-    short_uid2 = re.search(r"id=([\w\d+]+)",
-                           login_url2).groups()[0]
+    user2 = User(username=username2, identity_url="identity",
+                 auto_logout=False)
+
+    result1 = user1.request_login()
+    result2 = user2.request_login()
+
+    assert(type(result1) is dict)
+    assert(type(result2) is dict)
+
+    login_url1 = result1["login_url"]
+    login_url2 = result2["login_url"]
+
+    wallet = Wallet()
 
     # try to log in with the wrong user
-    args = {}
-    args["short_uid"] = short_uid1
-    args["username"] = username2
-    args["password"] = password2
-    args["otpcode"] = user_otp2.generate()
+    with pytest.raises(LoginError):
+        wallet.send_password(url=login_url1, username=username2,
+                             password=password2, otpcode=otp2.generate(),
+                             remember_password=False, remember_device=False)
 
     with pytest.raises(LoginError):
-        call_function("identity", "login", args=args)
-
-    args = {}
-    args["short_uid"] = short_uid2
-    args["username"] = username1
-    args["password"] = password1
-    args["otpcode"] = user_otp1.generate()
-
-    with pytest.raises(LoginError):
-        call_function("identity", "login", args=args)
+        wallet.send_password(url=login_url2, username=username1,
+                             password=password1, otpcode=otp1.generate(),
+                             remember_password=False, remember_device=False)
 
     # now use the right user by the wrong otpcode
-    args = {}
-    args["short_uid"] = short_uid1
-    args["username"] = username1
-    args["password"] = password1
-    args["otpcode"] = user_otp2.generate()
-
     with pytest.raises(LoginError):
-        call_function("identity", "login", args=args)
+        wallet.send_password(url=login_url1, username=username1,
+                             password=password1, otpcode=otp2.generate(),
+                             remember_password=False, remember_device=False)
 
-    args = {}
-    args["short_uid"] = short_uid2
-    args["username"] = username2
-    args["password"] = password2
-    args["otpcode"] = user_otp1.generate()
-
+    # now use the right user by the wrong otpcode
     with pytest.raises(LoginError):
-        call_function("identity", "login", args=args)
+        wallet.send_password(url=login_url2, username=username2,
+                             password=password2, otpcode=otp1.generate(),
+                             remember_password=False, remember_device=False)
 
     # now use the right user by the wrong password
-    args = {}
-    args["short_uid"] = short_uid1
-    args["username"] = username1
-    args["password"] = password2
-    args["otpcode"] = user_otp1.generate()
+    with pytest.raises(LoginError):
+        wallet.send_password(url=login_url1, username=username1,
+                             password=password2, otpcode=otp1.generate(),
+                             remember_password=False, remember_device=False)
 
     with pytest.raises(LoginError):
-        call_function("identity", "login", args=args)
+        wallet.send_password(url=login_url2, username=username2,
+                             password=password1, otpcode=otp1.generate(),
+                             remember_password=False, remember_device=False)
 
-    args = {}
-    args["short_uid"] = short_uid2
-    args["username"] = username2
-    args["password"] = password1
-    args["otpcode"] = user_otp2.generate()
+    # now, get it right ;-)
+    wallet.send_password(url=login_url1, username=username1,
+                         password=password1, otpcode=otp1.generate(),
+                         remember_password=False, remember_device=False)
 
-    with pytest.raises(LoginError):
-        call_function("identity", "login", args=args)
+    wallet.send_password(url=login_url2, username=username2,
+                         password=password2, otpcode=otp2.generate(),
+                         remember_password=False, remember_device=False)
 
     user1.logout()
     user2.logout()

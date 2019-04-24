@@ -279,7 +279,7 @@ class Authorisation:
 
     def verify(self, resource=None, refresh_time=3600, stale_time=7200,
                force=False, accept_partial_match=False,
-               return_identifiers=True):
+               scope=None, permissions=None, return_identifiers=True):
         """Verify that this is a valid authorisation provided by the
            user for the passed 'resource'. This will
            cache the verification for 'refresh_time' (in seconds), but
@@ -296,6 +296,13 @@ class Authorisation:
            'resource', e.g. if you have previously verified that
            "create ABC123" is the verified resource, then this will
            still verify if "ABC123" if the partially-accepted match
+
+           If 'scope' is passed, then verify that the user logged in
+           and signed the authorisation with the required 'scope'.
+
+           If 'permissions' is passed, then verify that the user
+           logged in and signed the authorisation with at least
+           the specified 'permissions'
 
            If 'testing_key' is passed, then this object is being
            tested as part of the unit tests
@@ -395,9 +402,21 @@ class Authorisation:
                     "(%s)" % (self._identity_url, identity_service.uid(),
                               self._identity_uid))
 
-            response = identity_service.whois(
-                                    user_uid=self._user_uid,
-                                    session_uid=self._session_uid)
+            response = identity_service.get_session_info(
+                                    session_uid=self._session_uid,
+                                    scope=scope, permissions=permissions)
+
+            try:
+                user_uid = response["user_uid"]
+            except:
+                pass
+
+            if self._user_uid != user_uid:
+                raise PermissionError(
+                    "Cannot verify the authorisation as there is "
+                    "disagreement over the UID of the user who signed "
+                    "the authorisation. %s versus %s" %
+                    (self._user_uid, user_uid))
 
             try:
                 logout_datetime = _string_to_datetime(
@@ -427,8 +446,6 @@ class Authorisation:
         except PermissionError:
             raise
         except Exception as e:
-            print(self.to_data())
-            print(resource)
             if resource:
                 raise PermissionError(
                     "Cannot verify the authorisation for resource %s: %s" %

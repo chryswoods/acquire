@@ -15,7 +15,7 @@ class ServiceError(Exception):
     pass
 
 
-def _create_service_user(service_type=None):
+def _create_service_user(service_type, service_uid, service_public_key):
     """This function is called to create the service user account for
        this service. The service user is the actual user who manages
        and authorises everything for this service. It it not possible
@@ -31,65 +31,30 @@ def _create_service_user(service_type=None):
     """
     from Acquire.Identity import UserAccount as _UserAccount
     from Acquire.Crypto import PrivateKey as _PrivateKey
-    from Acquire.Crypto import OTP as _OTP
-    from Acquire.ObjectStore import ObjectStore as _ObjectStore
-    from Acquire.ObjectStore import Mutex as _Mutex
-    from Acquire.Service import get_service_account_bucket as \
-        _get_service_account_bucket
-    from Acquire.Service import ServiceAccountError
-
-    bucket = _get_service_account_bucket()
+    from Acquire.Client import Credentials as _Credentials
 
     if service_type is None:
         username = "service_principal"
     else:
         username = "%s_principal" % service_type
 
-    service_account = _UserAccount(username)
-
     password = _PrivateKey.random_passphrase()
 
-    # generate the encryption keys and otp secret
-    privkey = _PrivateKey()
-    pubkey = privkey.public_key()
-    otp = _OTP()
+    encoded_password = _Credentials.encode_password(
+                                    identity_uid=service_uid,
+                                    password=password,
+                                    device_uid=None)
 
-    # save the encrypted private key (encrypted using the user's password)
-    # and encrypted OTP secret (encrypted using the public key)
-    service_account.set_keys(privkey.bytes(password), pubkey.bytes(),
-                             otp.encrypt(pubkey))
+    (user_uid, otp) = _UserAccount.create(
+                                    username=username,
+                                    password=encoded_password,
+                                    _service_uid=service_uid,
+                                    _service_public_key=service_public_key)
 
-    # can only do this once
-    account_key = "identity/accounts/%s" % service_account.sanitised_name()
-    mutex = _Mutex(account_key)
-
-    try:
-        service_user = _ObjectStore.get_object_from_json(bucket, account_key)
-    except:
-        service_user = None
-
-    if service_user is not None:
-        raise ServiceAccountError(
-            "The Service User Account can only be created ONCE per service!")
-
-    # save the new account details
-    _ObjectStore.set_object_from_json(bucket, account_key,
-                                      service_account.to_data())
-
-    # need to update the "whois" database with the uuid of this user
-    _ObjectStore.set_string_object(bucket,
-                                   "identity/whois/%s" %
-                                   service_account.uuid(),
-                                   service_account.username())
-
-    mutex.unlock()
-
-    # everything is ok - add this admin user to the admin_users
-    # dictionary
     user_secret = {"password": password,
                    "otpsecret": otp._secret}
 
-    return (username, service_account.uid(), user_secret)
+    return (username, user_uid, user_secret)
 
 
 @_cached(_cache_service_user)
@@ -106,6 +71,7 @@ def _login_service_user(service_uid):
     from Acquire.Client import User as _User
     from Acquire.Crypto import OTP as _OTP
     from Acquire.Identity import LoginSession as _LoginSession
+    from Acquire.Client import Credentials as _Credentials
 
     service = _get_this_service(need_private_access=True)
 
@@ -122,29 +88,28 @@ def _login_service_user(service_uid):
     password = secrets["password"]
     otpsecret = secrets["otpsecret"]
 
-    user = _User(user_uid=service.service_user_uid(),
+    user = _User(username=service.service_user_name(),
                  identity_url=service.canonical_url())
 
-    user.request_login(_is_local=True)
+    user.request_login()
     short_uid = _LoginSession.to_short_uid(user.session_uid())
 
+    credentials = _Credentials(username=user.username(),
+                               short_uid=short_uid,
+                               device_uid=None,
+                               password=password,
+                               otpcode=_OTP(otpsecret).generate())
+
     login_args = {"short_uid": short_uid,
-                  "username": user.username(),
-                  "password": password,
-                  "otpcode": _OTP(otpsecret).generate()}
+                  "credentials": credentials.to_data(
+                                        identity_uid=service.uid())}
 
     secrets = None
+    credentials = None
 
-    from ._function import call_function as _call_function
-    result = _call_function(service.canonical_url(), function="login",
-                            args=login_args)
+    service.call_function(function="login", args=login_args)
 
     login_args = None
-
-    if result["status"] != 0:
-        from Acquire.Service import ServiceAccountError
-        raise ServiceAccountError(
-            "Error logging into the admin account: %s" % result["message"])
 
     user.wait_for_login()
 
@@ -156,84 +121,132 @@ class Service:
        will either be identity services, access services,
        storage services or accounting services.
     """
-    def __init__(self, service_type=None, service_url=None):
+    def __init__(self):
         """Construct a new service of the specified type, with
            the specified URL."""
-        self._service_type = service_type
-        self._service_url = service_url
-        self._canonical_url = service_url
-        self._skeleton_key = None
         self._uid = None
-        self._pubcert = None
-        self._pubkey = None
-        self._service_user_name = None
-        self._service_user_uid = None
-        self._service_user_secrets = None
 
-        if self._service_type:
-            if self._service_type not in ["identity", "access", "compute",
-                                          "accounting", "storage"]:
-                raise ServiceError("Services of type '%s' are not allowed!" %
-                                   self._service_type)
+    @staticmethod
+    def create(service_type, service_url, _testing=False):
+        """Conduct stage1 of the construction of a new service. This
+           creates the initial setup, creating a service with sufficient
+           info to survive registration with a Registry. The second stage
+           is performed automatically when the Registry confirms
+           registration
+        """
+        if service_type not in ["identity", "access", "compute",
+                                "registry", "accounting", "storage"]:
+            raise ServiceError("Services of type '%s' are not allowed!" %
+                               service_type)
 
-            from Acquire.Crypto import PrivateKey as _PrivateKey
+        from Acquire.Crypto import PrivateKey as _PrivateKey
 
-            self._uid = str(_uuid.uuid4())
-            self._skeleton_key = _PrivateKey()
+        service = Service()
 
-            self._privkey = _PrivateKey()
-            self._privcert = _PrivateKey()
+        service._service_type = service_type
+        service._service_url = service_url
+        service._canonical_url = service_url
+        service._uid = "STAGE1 %s" % _PrivateKey.random_passphrase()
 
-            self._pubkey = self._privkey.public_key()
-            self._pubcert = self._privcert.public_key()
+        service._privkey = _PrivateKey()
+        service._privcert = _PrivateKey()
 
-            # generate 'dummy' old keys - these will be replaced as
-            # the real keys are updated
-            self._lastkey = self._privkey
-            self._lastcert = self._privcert
+        service._pubkey = service._privkey.public_key()
+        service._pubcert = service._privcert.public_key()
 
-            from Acquire.ObjectStore import get_datetime_now as \
-                _get_datetime_now
-            self._last_key_update = _get_datetime_now()
-            self._key_update_interval = 3600 * 24 * 7  # update keys weekly
+        # generate 'dummy' old keys - these will be replaced as
+        # the real keys are updated
+        service._lastkey = service._privkey
+        service._lastcert = service._privcert
 
-            (username, uid, secrets) = _create_service_user(self._service_type)
+        from Acquire.ObjectStore import get_datetime_now as \
+            _get_datetime_now
+        service._last_key_update = _get_datetime_now()
+        service._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
-            self._service_user_name = username
-            self._service_user_uid = uid
-            self._service_user_secrets = self._skeleton_key.encrypt(
-                                                    _json.dumps(secrets))
+        service._skeleton_key = _PrivateKey()
+        service._public_skeleton_key = service._skeleton_key.public_key()
+
+        service._service_user_name = None
+        service._service_user_uid = None
+        service._service_user_secrets = None
+
+        return service
+
+    def create_stage2(self, service_uid, response):
+        """Perform stage 2 of construction. This is called by the registry
+           that registered this service, which will provide the
+           service_uid
+        """
+        if not self._uid.startswith("STAGE1"):
+            raise PermissionError(
+                "You cannot enter stage2 until stage1 has been completed!")
+
+        if response != self._uid:
+            raise PermissionError(
+                "Invalid response from the registry service. Not trusted!")
+
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        self._uid = service_uid
+
+        skelkey = self._skeleton_key.public_key()
+
+        (username, uid, secrets) = _create_service_user(
+                                        service_type=self._service_type,
+                                        service_uid=self._uid,
+                                        service_public_key=skelkey)
+
+        self._service_user_name = username
+        self._service_user_uid = uid
+        self._service_user_secrets = self._skeleton_key.encrypt(
+                                                _json.dumps(secrets))
 
     def __str__(self):
-        if self._uid is None:
+        if self.is_null():
             return "%s(NULL)" % self.__class__.__name__
         else:
             return "%s(url=%s, uid=%s)" % (self.__class__.__name__,
                                            self.canonical_url(),
                                            self.uid())
 
-    def uuid(self):
-        """Synonym for uid"""
-        return self.uid()
-
     def uid(self):
         """Return the uuid of this service. This MUST NEVER change, as
            the UID uniquely identifies this service to all other
            services
         """
-        if self._uid is None:
-            self.refresh_keys()
+        if self.is_null():
+            return None
+        else:
+            return self._uid
 
-        return self._uid
+    def registry_uid(self):
+        """Return the uid of the registry service that registered
+           this service
+        """
+        if self.is_null():
+            return None
+        else:
+            root = self.uid().split("-")[0]
+            return "%s-%s" % (root, root)
+
+    def is_null(self):
+        """Return whether or not this is null"""
+        return self._uid is None
 
     def service_type(self):
         """Return the type of this service"""
-        return self._service_type
+        if self.is_null():
+            return None
+        else:
+            return self._service_type
 
     def bucket(self):
         """Return the bucket you can use to read/write data to the
            object store associated with this service account
         """
+        if self.is_null():
+            return None
+
         from Acquire.Service import get_service_account_bucket as \
             _get_service_account_bucket
         return _get_service_account_bucket()
@@ -244,7 +257,10 @@ class Service:
            and can be safely shared as a means of distributing public
            keys and certificates
         """
-        return self._skeleton_key is None
+        if self.is_null():
+            return True
+        else:
+            return self._skeleton_key is None
 
     def is_unlocked(self):
         """Return whether or not this service object is unlocked. Unlocked
@@ -253,16 +269,35 @@ class Service:
            are what are returned by services to provide public keys and
            public certificates
         """
-        return self._skeleton_key is not None
+        if self.is_null():
+            return False
+        else:
+            return self._skeleton_key is not None
 
     def get_trusted_service(self, service_url=None, service_uid=None):
         """Return the trusted service info for the service with specified
            service_url or service_uid"""
+        if self.is_null():
+            return None
+
         from ._get_services import get_trusted_service as \
             _get_trusted_service
 
         return _get_trusted_service(service_url=service_url,
                                     service_uid=service_uid)
+
+    def get_session_info(self, session_uid,
+                         scope=None, permissions=None):
+        """Return information about the passed session,
+           optionally limited to the provided scope and permissions
+        """
+        if self.is_null():
+            return None
+
+        from Acquire.Service import get_session_info as _get_session_info
+        return _get_session_info(identity_url=self.canonical_url(),
+                                 session_uid=session_uid,
+                                 scope=scope, permissions=permissions)
 
     def assert_unlocked(self):
         """Assert that this service object is unlocked"""
@@ -276,7 +311,7 @@ class Service:
            (optionally) specified resource, and that this has been
            authorised by one of the admin accounts of this service
         """
-        if authorisation.identity_uid() != self.uid():
+        if self.is_null() or authorisation.identity_uid() != self.uid():
             from Acquire.Identity import AuthorisationError
             raise AuthorisationError(
                 "The authorisation has not been signed by one of the "
@@ -303,28 +338,39 @@ class Service:
 
     def key_update_interval(self):
         """Return the time delta between server key updates"""
-        try:
-            return _datetime.timedelta(seconds=self._key_update_interval)
-        except:
-            return _datetime.timedelta(seconds=1)
+        if self.is_null():
+            return None
+        else:
+            try:
+                return _datetime.timedelta(seconds=self._key_update_interval)
+            except:
+                return _datetime.timedelta(seconds=1)
 
     def should_refresh_keys(self):
         """Return whether the keys and certificates need to be refreshed
            - i.e. more than 'key_update_interval' has passed since the last
-           key update
+           key update, or the service has changed in some marked way
         """
-        try:
-            from Acquire.ObjectStore import get_datetime_now as \
-                _get_datetime_now
-
-            return _get_datetime_now() > (self._last_key_update +
-                                          self.key_update_interval())
-        except:
+        if self.is_null():
+            return False
+        elif self._uid == "STAGE1":
             return True
+        else:
+            if self._service_user_uid is None or self._pubkey is None:
+                return True
+
+            try:
+                from Acquire.ObjectStore import get_datetime_now as \
+                    _get_datetime_now
+
+                return _get_datetime_now() > (self._last_key_update +
+                                              self.key_update_interval())
+            except:
+                return True
 
     def refresh_keys(self):
         """Refresh the keys and certificates"""
-        if self._uid is None:
+        if self.is_null():
             return
 
         if self.is_unlocked():
@@ -385,59 +431,75 @@ class Service:
            users. However, only true Identity Services can register
            and manage normal users
         """
-        return True
+        if self.is_null():
+            return False
+        else:
+            return True
+
+    def is_registry_service(self):
+        """Return whether or not this is a registry service"""
+        if self.is_null():
+            return False
+        else:
+            return self._service_type == "registry"
 
     def is_identity_service(self):
         """Return whether or not this is an identity service"""
-        if self._service_type:
-            return self._service_type == "identity"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "identity"
 
     def is_access_service(self):
         """Return whether or not this is an access service"""
-        if self._service_type:
-            return self._service_type == "access"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "access"
 
     def is_accounting_service(self):
         """Return whether or not this is an accounting service"""
-        if self._service_type:
-            return self._service_type == "accounting"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "accounting"
 
     def is_compute_service(self):
         """Return whether or not this is a compute service"""
-        if self._service_type:
-            return self._service_type == "compute"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "compute"
 
     def is_storage_service(self):
         """Return whether or not this is a storage service"""
-        if self._service_type:
-            return self._service_type == "storage"
-        else:
+        if self.is_null():
             return False
+        else:
+            return self._service_type == "storage"
 
     def service_url(self):
         """Return the URL used to access this service"""
-        return self._service_url
+        if self.is_null():
+            return None
+        else:
+            return self._service_url
 
     def canonical_url(self):
         """Return the canonical URL for this service (this is the URL the
            service thinks it has, and which it has used to register itself
            with all other services)
         """
-        return self._canonical_url
+        if self.is_null():
+            return None
+        else:
+            return self._canonical_url
 
     def hostname(self):
         """Return the hostname of the canonical URL that provides
            this service
         """
-        if self._uid is None:
+        if self.is_null():
             return None
 
         from urllib.parse import urlparse as _urlparse
@@ -447,7 +509,7 @@ class Service:
         """Return whether or not the canonical URL of this service
            is connected to via https
         """
-        if self._uid is None:
+        if self.is_null():
             return False
 
         from urllib.parse import urlparse as _urlparse
@@ -455,15 +517,22 @@ class Service:
 
     def update_service_url(self, service_url):
         """Update the service url to be 'service_url'"""
-        self._service_url = str(service_url)
+        if not self.is_null():
+            self._service_url = str(service_url)
 
     def service_user_uid(self):
         """Return the UID of the service user account for this service"""
-        return self._service_user_uid
+        if self.is_null():
+            return None
+        else:
+            return self._service_user_uid
 
     def service_user_name(self):
         """Return the name of the service user account for this service"""
-        return self._service_user_name
+        if self.is_null():
+            return None
+        else:
+            return self._service_user_name
 
     def service_user_secrets(self):
         """Return the (encrypted) secrets for the service user account.
@@ -486,6 +555,9 @@ class Service:
         """Return the UID of the financial account associated with
            this service on the passed accounting service
         """
+        if self.is_null():
+            return None
+
         from Acquire.Service import get_service_user_account_uid as \
             _get_service_user_account_uid
 
@@ -506,10 +578,22 @@ class Service:
         return _get_service_user_account_uid(
                     accounting_service_uid=accounting_service.uid())
 
+    def public_skeleton_key(self):
+        """Return the public skeleton key. This is the public
+           key for the matching private skeleton key, which is
+           stored internally, and which should never be shared
+           outside this service. It is used to encrypt data that
+           should only be decryptable by the skeleton key
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._public_skeleton_key
+
     def skeleton_key(self):
         """Return the skeleton key used by this service. This is an
            unchanging key which is stored internally, should never be
-           shared outside the service, and which is used to encrypt
+           shared outside the service, and which is used to decrypt
            all data. Unlocking the service involves loading and
            decrypting this skeleton key
         """
@@ -528,11 +612,17 @@ class Service:
 
     def public_key(self):
         """Return the public key for this service"""
-        return self._pubkey
+        if self.is_null():
+            return None
+        else:
+            return self._pubkey
 
     def public_certificate(self):
         """Return the public signing certificate for this service"""
-        return self._pubcert
+        if self.is_null():
+            return None
+        else:
+            return self._pubcert
 
     def last_key(self):
         """Return the old private key for this service (if it has
@@ -549,7 +639,10 @@ class Service:
            in case we need to verify data signed using the old private
            certificate
         """
-        return self._lastcert
+        if self.is_null():
+            return None
+        else:
+            return self._lastcert
 
     def call_function(self, function, args=None):
         """Call the function 'func' on this service, optionally passing
@@ -560,7 +653,7 @@ class Service:
            the response (and automatically then decrypts the
            response)
         """
-        if self._uid is None:
+        if self.is_null():
             from Acquire.Service import RemoteFunctionCallError
             raise RemoteFunctionCallError(
                 "You cannot call the function '%s' on a null service!" %
@@ -572,7 +665,8 @@ class Service:
         if self.should_refresh_keys():
             self.refresh_keys()
 
-        return _call_function(self.canonical_url(), function=function,
+        return _call_function(service_url=self.canonical_url(),
+                              function=function,
                               args=args,
                               args_key=self.public_key(),
                               public_cert=self.public_certificate(),
@@ -580,18 +674,30 @@ class Service:
 
     def sign(self, message):
         """Sign the specified message"""
+        if self.is_null():
+            raise PermissionError("You cannot sign using a null service!")
+
         return self.private_certificate().sign(message)
 
     def verify(self, signature, message):
         """Verify that this service signed the message"""
+        if self.is_null():
+            raise PermissionError("You cannot verify using a null service!")
+
         self.public_certificate().verify(signature, message)
 
     def encrypt(self, message):
         """Encrypt the passed message"""
+        if self.is_null():
+            raise PermissionError("You cannot encrypt using a null service!")
+
         return self.public_key().encrypt(message)
 
     def decrypt(self, message):
         """Decrypt the passed message"""
+        if self.is_null():
+            raise PermissionError("You cannot decrypt using a null service!")
+
         return self.private_key().decrypt(message)
 
     def sign_data(self, data):
@@ -605,6 +711,9 @@ class Service:
                    "signed_data" : "JSON_ENCODED_DATA",
                    "signature" : "SIG OF JSON_ENCODED_DATA"}
         """
+        if self.is_null():
+            raise PermissionError("You cannot sign using a null service!")
+
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
         data = _json.dumps(data)
@@ -626,6 +735,9 @@ class Service:
            key used to encrypt the data, enabling the service to
            perform key rotation and management.
         """
+        if self.is_null():
+            raise PermissionError("You cannot verify using a null service!")
+
         try:
             from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
@@ -666,6 +778,9 @@ class Service:
                    "fingerprint" : "KEY_FINGERPRINT",
                    "encrypted_data" : "ENCRYPTED_DATA"}
         """
+        if self.is_null():
+            raise PermissionError("You cannot encrypt using a null service!")
+
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         return {"service_uid": str(self.uid()),
                 "canonical_url": str(self.canonical_url()),
@@ -683,6 +798,9 @@ class Service:
            key used to encrypt the data, enabling the service to
            perform key rotation and management.
         """
+        if self.is_null():
+            raise PermissionError("You cannot decrypt using a null service!")
+
         if isinstance(data, str):
             data = _json.loads(data)
 
@@ -719,6 +837,9 @@ class Service:
            are encrypted the password which is encrypted using the
            master key
         """
+        if self.is_null():
+            return {}
+
         dump = {}
 
         from Acquire.ObjectStore import datetime_to_string \
@@ -762,6 +883,9 @@ class Service:
            This returns a dictionary of the keys and datetime that
            they were created, indexed by their key fingerprints
         """
+        if self.is_null():
+            return
+
         # get all of the key fingerprints in this dictionary
         fingerprints = []
         for key in data.keys():
@@ -791,105 +915,81 @@ class Service:
 
         return result
 
-    def whois(self, username=None, user_uid=None, session_uid=None):
-        """Do a whois lookup to map from username to user_uid or
-           vice versa. If 'session_uid' is provided, then also validate
-           that this is a correct login session, and return also
-           the public key and signing certificate for this login session.
+    def get_key(self, fingerprint):
+        """Return the key matching the passed fingerprint"""
+        if self.is_null():
+            return None
 
-           This should return a dictionary with the following keys
-           optionally contained;
+        if self.is_unlocked():
+            if self._privkey.fingerprint() == fingerprint:
+                return self._privkey
+            elif self._privcert.fingerprint() == fingerprint:
+                return self._privcert
 
-           username = name of the user
-           user_uid = uid of the user
-           public_key = public key for the session with uid 'session_uid'
-           public_cert = public certificate for that login session
-        """
-
-        if (username is None) and (user_uid is None):
-            from Acquire.Identity import IdentityServiceError
-            raise IdentityServiceError(
-                    "You must supply either a username "
-                    "or a user's UID for a lookup")
-
-        response = None
-
-        if session_uid is None:
-            args = {}
+            try:
+                if self._lastkey.fingerprint() == fingerprint:
+                    return self._lastkey
+                elif self._lastcert.fingerprint() == fingerprint:
+                    return self._lastcert
+            except:
+                pass
         else:
-            args = {"session_uid": str(session_uid)}
-
-        try:
-            from Acquire.Crypto import get_private_key as _get_private_key
-            from ._function import call_function as _call_function
-
-            if username:
-                args["username"] = str(username)
-                response = _call_function(
-                                self.service_url(), "whois",
-                                public_cert=self.public_certificate(),
-                                response_key=_get_private_key("function"),
-                                args=args)
-                lookup_uid = response["user_uid"]
+            if self._pubkey.fingerprint() == fingerprint:
+                return self._pubkey
+            elif self._pubcert.fingerprint() == fingerprint:
+                return self._pubcert
             else:
-                lookup_uid = None
+                try:
+                    if self._lastkey.fingerprint() == fingerprint:
+                        key = self._lastkey
+                    elif self._lastcert.fingerprint() == fingerprint:
+                        key = self._lastcert
+                except:
+                    pass
 
-            if user_uid:
-                args["user_uid"] = str(user_uid)
-                response = _call_function(
-                    self.service_url(), "whois",
-                    public_cert=self.public_certificate(),
-                    response_key=_get_private_key("function"),
-                    args=args)
-                lookup_username = response["username"]
-            else:
-                lookup_username = None
+        # we need to load the key from objstore
+        unlocked = self.is_unlocked()
+        from Acquire.Service import load_service_key_from_objstore \
+            as _load_service_key_from_objstore
 
-        except Exception as e:
-            from Acquire.Identity import IdentityServiceError
-            raise IdentityServiceError("Failed whois lookup: %s" % str(e))
+        key = _load_service_key_from_objstore(fingerprint)
 
-        if username is None:
-            username = lookup_username
+        if key is None:
+            from Acquire.Crypto import KeyManipulationError
+            raise KeyManipulationError(
+                "Unable to load the key or certificate with "
+                "fingerprint '%s'" % fingerprint)
 
-        elif (lookup_username is not None) and (username != lookup_username):
-            from Acquire.Identity import IdentityServiceError
-            raise IdentityServiceError(
-                "Disagreement of the user who matches "
-                "UID=%s. We think '%s', but the identity service says '%s'" %
-                (user_uid, username, lookup_username))
+        if unlocked:
+            from Acquire.Crypto import PrivateKey as _PrivateKey
+            if type(key) is not _PrivateKey:
+                from Acquire.Crypto import KeyManipulationError
+                raise KeyManipulationError(
+                    "Unable to load the private key or certificate with "
+                    "fingerprint '%s'" % fingerprint)
+        else:
+            from Acquire.Crypto import PublicKey as _PublicKey
+            try:
+                key = key.public_key()
+            except:
+                pass
 
-        if user_uid is None:
-            user_uid = lookup_uid
+            if type(key) is not _PublicKey:
+                from Acquire.Crypto import KeyManipulationError
+                raise KeyManipulationError(
+                    "Unable to load the public key or certificate with "
+                    "fingerprint '%s'" % fingerprint)
 
-        elif (lookup_uid is not None) and (user_uid != lookup_uid):
-            from Acquire.Identity import IdentityServiceError
-            raise IdentityServiceError(
-                    "Disagreement of the user's UID for user "
-                    "'%s'. We think %s, but the identity service says %s" %
-                    (username, user_uid, lookup_uid))
-
-        result = response
-
-        try:
-            result["public_key"] = _PublicKey.from_data(
-                                            response["public_key"])
-        except:
-            pass
-
-        try:
-            result["public_cert"] = _PublicKey.from_data(
-                                            response["public_cert"])
-        except:
-            pass
-
-        return result
+        return key
 
     def is_evolution_of(self, other):
         """Return whether or not this service is an evolution of 'other'.
            Evolving means that this service is the same service as 'other',
            but at a later point in time with newer keys
         """
+        if self.is_null():
+            return False
+
         if self.validation_string() == other.validation_string():
             return True
         elif self.canonical_url() != other.canonical_url():
@@ -905,6 +1005,9 @@ class Service:
         """Return a string created from this object that can be signed
            to verify that all information was transmitted correctly
         """
+        if self.is_null():
+            return None
+
         return "%s:%s:%s:%s:%s:%s:%s:%s:%s" % (
             self._uid, self.canonical_url(), self._service_type,
             self._pubcert.fingerprint(), self._pubkey.fingerprint(),
@@ -917,7 +1020,14 @@ class Service:
 
         data = {}
 
-        data["uid"] = self._uid
+        if self.is_null():
+            return data
+
+        if self._uid.startswith("STAGE1"):
+            data["uid"] = "STAGE1"
+        else:
+            data["uid"] = self._uid
+
         data["service_type"] = self._service_type
         data["service_url"] = self._service_url
 
@@ -959,10 +1069,14 @@ class Service:
 
             data["secret_data"] = _bytes_to_string(secret_data)
             data["skeleton_key"] = self._skeleton_key.to_data(password)
+            data["public_skeleton_key"] = self._public_skeleton_key.to_data()
 
             # the service user secrets are already encrypted
-            data["service_user_secrets"] = _bytes_to_string(
-                                            self._service_user_secrets)
+            if self._service_user_secrets is not None:
+                data["service_user_secrets"] = _bytes_to_string(
+                                                self._service_user_secrets)
+            else:
+                data["service_user_secrets"] = None
         elif self.is_unlocked():
             # sign a validation string so that people can
             # check it has not been tampered with in transit
@@ -987,6 +1101,9 @@ class Service:
         """
         service = Service()
 
+        if data is None or len(data) == 0:
+            return service
+
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import string_to_datetime as \
             _string_to_datetime
@@ -996,8 +1113,11 @@ class Service:
             from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
 
             # get the private info...
-            service._service_user_secrets = _string_to_bytes(
+            try:
+                service._service_user_secrets = _string_to_bytes(
                                                 data["service_user_secrets"])
+            except:
+                service._service_user_secrets = None
 
             service._skeleton_key = _PrivateKey.from_data(data["skeleton_key"],
                                                           password)
@@ -1024,6 +1144,7 @@ class Service:
                 service._lastcert = service._privcert
         else:
             service._skeleton_key = None
+            service._public_skeleton_key = None
             service._privkey = None
             service._privcert = None
             service._lastkey = None
@@ -1037,6 +1158,12 @@ class Service:
 
         service._service_user_uid = data["service_user_uid"]
         service._service_user_name = data["service_user_name"]
+
+        try:
+            service._public_skeleton_key = _PublicKey.from_data(
+                                            data["public_skeleton_key"])
+        except:
+            service._public_skeleton_key = None
 
         service._pubkey = _PublicKey.from_data(data["public_key"])
         service._pubcert = _PublicKey.from_data(data["public_certificate"])
@@ -1056,6 +1183,9 @@ class Service:
         elif service.is_storage_service():
             from Acquire.Storage import StorageService as _StorageService
             service = _StorageService(service)
+        elif service.is_registry_service():
+            from Acquire.Registry import RegistryService as _RegistryService
+            service = _RegistryService(service)
         elif service.is_accounting_service():
             from Acquire.Accounting import AccountingService \
                                         as _AccountingService

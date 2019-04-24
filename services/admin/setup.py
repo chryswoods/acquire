@@ -1,11 +1,12 @@
 
 from Acquire.Service import setup_this_service, add_admin_user
-from Acquire.Service import create_return_value, MissingServiceAccountError
+from Acquire.Service import MissingServiceAccountError
 
 from Acquire.Crypto import OTP
 
+from Acquire.Identity import UserAccount
+
 from admin.register import run as register_account
-from admin.whois import run as whois
 
 
 def run(args):
@@ -14,11 +15,6 @@ def run(args):
        provisioning_uri that you will need to generate one-time-codes
        to log in as the admin user
     """
-
-    status = 0
-    message = None
-    provisioning_uri = None
-
     try:
         service_type = args["service_type"]
     except:
@@ -39,25 +35,33 @@ def run(args):
     except:
         canonical_url = None
 
-    service = setup_this_service(service_type=service_type,
-                                 canonical_url=canonical_url)
+    try:
+        registry_uid = args["registry_uid"]
+    except:
+        registry_uid = None
 
-    # now register the new user account
-    register_args = {"username": username, "password": password}
-    result = register_account(register_args)
+    if username is None or password is None or service_type is None:
+        raise PermissionError(
+            "You need to supply more information to be able to set "
+            "up this service!")
 
-    provisioning_uri = result["provisioning_uri"]
+    (service, user_uid, otp) = setup_this_service(service_type=service_type,
+                                                  canonical_url=canonical_url,
+                                                  registry_uid=registry_uid,
+                                                  username=username,
+                                                  password=password)
 
-    whois_args = {"username": username}
-    result = whois(whois_args)
-    admin_uid = result["user_uid"]
+    if user_uid is None or otp is None:
+        raise PermissionError(
+            "You cannot setup this service because it has already been "
+            "setup and configured!")
 
-    add_admin_user(service, admin_uid)
+    issuer = "%s@%s" % (service.service_type(), service.hostname())
 
-    status = 0
-    message = "Success"
+    provisioning_uri = otp.provisioning_uri(username=username,
+                                            issuer=issuer)
 
-    return_value = create_return_value(status, message)
+    return_value = {}
     return_value["service"] = service.to_data()
     return_value["provisioning_uri"] = provisioning_uri
 

@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Identity import Authorisation
 
 from Acquire.Storage import UserDrives
@@ -23,7 +21,7 @@ def run(args):
     except:
         drive_uid = None
 
-    return_value = create_return_value()
+    return_value = {}
 
     return_value["drives"] = list_to_string(
                                 drives.list_drives(drive_uid=drive_uid))
