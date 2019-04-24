@@ -409,8 +409,6 @@ class Wallet:
             from Acquire.Registry import get_trusted_registry_service \
                 as _get_trusted_registry_service
 
-            print(service_url)
-
             registry = _get_trusted_registry_service(service_uid=service_uid,
                                                      service_url=service_url)
 

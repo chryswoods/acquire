@@ -154,11 +154,11 @@ class Service:
             # this is a testing domain
             return domain
 
-        if service_type is not None and path is None:
-            path = "/t/%s" % service_type
-
-        if path is None:
-            canonical_url = domain
+        if path is None or len(path) == 0:
+            if service_type is None:
+                canonical_url = domain
+            else:
+                canonical_url = "%s/t/%s" % (domain, service_type)
         else:
             canonical_url = "%s%s" % (domain, path)
 
