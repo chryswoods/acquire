@@ -231,7 +231,7 @@ class Registry:
             from Acquire.Service import get_this_service as _get_this_service
             from Acquire.Service import call_function as _call_function
             this_service = _get_this_service(need_private_access=True)
-            result = _call_function(service_url=service.canonical_url(),
+            result = _call_function(service_url=service.service_url(),
                                     function=None,
                                     args=args,
                                     args_key=service.public_key(),
