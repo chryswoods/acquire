@@ -206,7 +206,7 @@ class Service:
         service._path = p.path
 
         service._service_type = service_type
-        service._canonical_url = "%s/%s" % (service._domain, service._path)
+        service._canonical_url = Service.get_canonical_url(service_url)
 
         while service._canonical_url.endswith("/"):
             service._canonical_url = service._canonical_url[0:-1]
