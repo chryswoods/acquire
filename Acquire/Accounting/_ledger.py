@@ -245,7 +245,10 @@ class Ledger:
                                         bucket=bucket)
 
     @staticmethod
-    def perform(transactions, debit_account, credit_account, authorisation,
+    def perform(transaction=None, transactions=None,
+                debit_account=None, credit_account=None,
+                authorisation=None,
+                authorisation_resource=None,
                 is_provisional=False, receipt_by=None, bucket=None):
         """Perform the passed transaction(s) between 'debit_account' and
            'credit_account', recording the 'authorisation' for this
@@ -283,10 +286,13 @@ class Ledger:
         else:
             is_provisional = False
 
-        try:
-            transactions[0]
-        except:
+        if transactions is None:
+            transactions = []
+        elif isinstance(transactions, _Transaction):
             transactions = [transactions]
+
+        if transaction is not None:
+            transactions.insert(0, transaction)
 
         # remove any zero transactions, as they are not worth recording
         t = []
@@ -310,9 +316,13 @@ class Ledger:
         debit_notes = []
         try:
             for transaction in transactions:
-                debit_notes.append(_DebitNote(transaction, debit_account,
-                                              authorisation, is_provisional,
-                                              receipt_by, bucket=bucket))
+                debit_notes.append(_DebitNote(
+                    transaction=transaction,
+                    account=debit_account,
+                    authorisation=authorisation,
+                    authorisation_resource=authorisation_resource,
+                    is_provisional=is_provisional,
+                    receipt_by=receipt_by, bucket=bucket))
 
                 # ensure the receipt_by date for all notes is the same
                 if is_provisional and (receipt_by is None):
@@ -324,7 +334,7 @@ class Ledger:
             debit_error = str(e)
             try:
                 for debit_note in debit_notes:
-                    debit_account._delete_note(debit_note, bucket=bucket)
+                    debit_account._rescind_note(debit_note, bucket=bucket)
             except Exception as e:
                 from Acquire.Accounting import UnbalancedLedgerError
                 raise UnbalancedLedgerError(

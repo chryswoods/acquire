@@ -109,10 +109,9 @@ venv.bak/
 # vscode settings
 .vscode
 
-source/identity/credentials/*.pem
-source/accounting/credentials/*.pem
-source/access/credentials/*.pem
-source/storage/credentials/*.pem
+# Secret key files
+*.pem
+
 source/base_image/Acquire/*
 user/notebooks/.ipynb_checkpoints/
 *secret_key*

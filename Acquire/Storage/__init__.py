@@ -7,11 +7,11 @@ based on permissions routed via the access service
 
 """
 
+from Acquire.Identity import ACLRule, ACLRules
+
 from ._storage_service import *
 from ._errors import *
 from ._buckethandle import *
-from ._aclrule import *
-from ._aclrules import *
 from ._userdrives import *
 from ._fileinfo import *
 from ._driveinfo import *

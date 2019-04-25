@@ -50,29 +50,33 @@ class FileHandle:
        hot and cold storage or pay for extended storage
     """
     def __init__(self, filename=None, remote_filename=None,
-                 aclrules=None, drive_uid=None, user_guid=None,
-                 compress=True):
+                 aclrules=None, drive_uid=None,
+                 compress=True, local_cutoff=None):
         """Construct a handle for the local file 'filename'. This will
            create the initial version of the file that can be uploaded
-           to the storage service.
+           to the storage service. If the file is less than
+           'local_cutoff' bytes then the file will be held directly
+           in this handle. By default local_cutoff is 1 MB
         """
         self._local_filename = None
         self._local_filedata = None
         self._compression = None
         self._compressed_filename = None
         self._drive_uid = drive_uid
-        self._user_guid = None
         self._aclrules = None
 
         if filename is not None:
-            self._user_guid = user_guid
+            if local_cutoff is None:
+                local_cutoff = 1048576
+            else:
+                local_cutoff = int(local_cutoff)
 
             if aclrules is None:
                 # will be automatically set to 'inherit' on the service
                 self._aclrules = None
             else:
-                from Acquire.Storage import create_aclrules as _create_aclrules
-                self._aclrules = _create_aclrules(aclrules=aclrules)
+                from Acquire.Identity import ACLRules as _ACLRules
+                self._aclrules = _ACLRules.create(rule=aclrules)
 
             from Acquire.Access import get_filesize_and_checksum \
                 as _get_filesize_and_checksum
@@ -83,7 +87,7 @@ class FileHandle:
             if compress and _should_compress(filename=filename,
                                              filesize=filesize):
                 import bz2 as _bz2
-                if filesize < 1048576:
+                if filesize < local_cutoff:
                     # this is not big, so better to compress in memory
                     from Acquire.Access import get_size_and_checksum \
                         as _get_size_and_checksum
@@ -104,7 +108,7 @@ class FileHandle:
                         self._compression = "bz2"
                         (filesize, cksum) = _get_filesize_and_checksum(
                                             filename=self._compressed_filename)
-            elif filesize < 1048576:
+            elif filesize < local_cutoff:
                 # this is small enough to hold in memory
                 self._local_filedata = open(filename, "rb").read()
 
@@ -126,6 +130,7 @@ class FileHandle:
         if self._compressed_filename is not None:
             import os as _os
             _os.unlink(self._compressed_filename)
+            self._compressed_filename = None
 
     def __str__(self):
         """Return a string representation of the file"""
@@ -188,10 +193,6 @@ class FileHandle:
         """Return the ACL rules for this file"""
         return self._aclrules
 
-    def user_guid(self):
-        """Return the GUID of the user who has opened/uploaded this file"""
-        return self._user_guid
-
     def filename(self):
         """Return the remote (object store) filename for this file"""
         return self._filename
@@ -236,7 +237,6 @@ class FileHandle:
                 data["aclrules"] = self._aclrules.to_data()
 
             data["drive_uid"] = self.drive_uid()
-            data["user_guid"] = self.user_guid()
 
             if self._local_filedata is not None:
                 from Acquire.ObjectStore import bytes_to_string \

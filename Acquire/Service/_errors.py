@@ -1,7 +1,7 @@
 
 __all__ = ["AccountError", "PackingError", "UnpackingError",
            "RemoteFunctionCallError", "ServiceError", "ServiceAccountError",
-           "MissingServiceAccountError"]
+           "MissingServiceAccountError", "MissingServiceError"]
 
 
 class AccountError(Exception):
@@ -63,4 +63,8 @@ class ServiceAccountError(Exception):
 
 
 class MissingServiceAccountError(Exception):
+    pass
+
+
+class MissingServiceError(Exception):
     pass

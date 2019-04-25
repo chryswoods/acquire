@@ -15,6 +15,7 @@ from ._wallet import *
 from ._errors import *
 from ._cheque import *
 from ._service import *
+from ._credentials import *
 from ._par import *
 
 # The below objects are useful for the client, so are pulled into

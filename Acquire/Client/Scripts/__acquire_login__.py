@@ -35,10 +35,6 @@ def main():
                         default=None,
                         help="Don't remember the password, and don't ask to")
 
-    parser.add_argument('--remove', type=str, nargs="*",
-                        help="Remove locally stored information about the "
-                        "passed account(s)")
-
     parser.add_argument('--remove-service', type=str, nargs="*",
                         help="Remove locally stored information about the "
                         "passed service(s)")
@@ -71,16 +67,7 @@ def main():
 
     do_nothing = True
 
-    if args.remove:
-        for username in args.remove:
-            try:
-                do_nothing = False
-                print("Removing locally stored credentials for '%s'"
-                      % username)
-                Wallet.remove_user_info(username)
-            except Exception as e:
-                print(e)
-                pass
+    wallet = Wallet()
 
     if args.remove_service:
         for service in args.remove_service:
@@ -88,7 +75,7 @@ def main():
                 do_nothing = False
                 print("Removing locally stored information "
                       "about service '%s'" % service)
-                Wallet.remove_service(service)
+                wallet.remove_service(service)
             except Exception as e:
                 print(e)
                 pass
@@ -99,14 +86,12 @@ def main():
     if len(args.url) == 0:
         sys.exit(0)
 
-    wallet = Wallet()
-
     for url in args.url:
         try:
-            wallet.send_password(url, args.username,
-                                 remember_password,
-                                 remember_device,
-                                 dryrun)
+            wallet.send_password(url=url, username=args.username,
+                                 remember_password=remember_password,
+                                 remember_device=remember_device,
+                                 dryrun=dryrun)
         except LoginError as e:
             print("\n%s" % e.args)
         except Exception as e:

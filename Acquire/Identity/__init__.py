@@ -6,10 +6,13 @@ an Acquire Identity Service. The Identity Service is responsible for
 identifying and authenticating users.
 """
 
+from ._aclrule import *
+from ._aclrules import *
 from ._identity_service import *
 from ._loginsession import *
 from ._authorisation import *
 from ._useraccount import *
+from ._usercredentials import *
 from ._errors import *
 
 try:

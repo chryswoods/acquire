@@ -13,7 +13,7 @@ def _get_storage_service(storage_url=None):
         storage_url = _get_storage_url()
 
     from Acquire.Client import Service as _Service
-    service = _Service(storage_url)
+    service = _Service(storage_url, service_type="storage")
 
     if not service.is_storage_service():
         from Acquire.Client import LoginError
@@ -21,9 +21,6 @@ def _get_storage_service(storage_url=None):
             "You can only use a valid storage service to get CloudDrive info! "
             "The service at '%s' is a '%s'" %
             (storage_url, service.service_type()))
-
-    if service.service_url() != storage_url:
-        service.update_service_url(storage_url)
 
     return service
 
@@ -159,7 +156,58 @@ class Drive:
         else:
             return self._storage_service
 
-    def upload(self, filename, uploaded_name=None, aclrules=None):
+    def bulk_upload(self, max_size=None, aclrules=None):
+        """Start the bulk upload of a large number of files to this
+           drive, assuming we have write access to this drive. This
+           will return a bulk upload PAR that can be used to write to a bucket.
+           All of the files written to this bucket will be copied into
+           this drive using the (optionally) supplied aclrules
+           to control access (or "inherit" if no rules are supplied).
+
+            Once you have finished uploading, you must call the
+            "close" function on the BulkUploadPAR so that the files
+            are correctly copied. The filenames as they are written
+            to the PAR will be used, creating new files (and subdrives)
+            as needed
+        """
+        if self.is_null():
+            raise PermissionError(
+                "Cannot perform a bulk upload of files to a null drive")
+
+        from Acquire.Client import Authorisation as _Authorisation
+        from Acquire.Client import PAR as _PAR
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+
+        authorisation = _Authorisation(
+                            resource="bulk_upload %s %s" %
+                            (self._drive_uid, max_size), user=self._user)
+
+        # we need a new private key to secure access to this PAR
+        privkey = _PrivateKey()
+
+        args = {"drive_uid": self._drive_uid,
+                "authorisation": authorisation.to_data(),
+                "encrypt_key": privkey.public_key().to_data()}
+
+        if aclrules is not None:
+            args["aclrules"] = aclrules.to_data()
+
+        if max_size is not None:
+            args["max_size"] = max_size
+
+        # will eventually need to authorise payment...
+
+        response = self.storage_service().call_function(
+                                function="bulk_upload", args=args)
+
+        par = _PAR.from_data(response["bulk_upload_par"])
+
+        par._set_private_key(privkey)
+
+        return par
+
+    def upload(self, filename, uploaded_name=None, aclrules=None,
+               force_par=False):
         """Upload the file at 'filename' to this drive, assuming we have
            write access to this drive. The local file 'filename' will be
            uploaded to the drive as the file called 'filename' (just the
@@ -183,54 +231,55 @@ class Drive:
         from Acquire.Client import PAR as _PAR
         from Acquire.Client import FileMeta as _FileMeta
 
+        local_cutoff = None
+
+        if force_par:
+            # only upload using a PAR
+            local_cutoff = 0
+
         filehandle = _FileHandle(filename=filename,
                                  remote_filename=uploaded_name,
                                  drive_uid=self.uid(),
-                                 user_guid=self._user.guid(),
-                                 aclrules=aclrules)
+                                 aclrules=aclrules,
+                                 local_cutoff=local_cutoff)
 
-        authorisation = _Authorisation(
+        try:
+            authorisation = _Authorisation(
                             resource="upload %s" % filehandle.fingerprint(),
                             user=self._user)
 
-        args = {"filehandle": filehandle.to_data(),
-                "authorisation": authorisation.to_data()}
+            args = {"filehandle": filehandle.to_data(),
+                    "authorisation": authorisation.to_data()}
 
-        if not filehandle.is_localdata():
-            # we will need to upload against a PAR, so need to tell
-            # the service how to encrypt the PAR...
-            privkey = self._user.session_key()
-            args["encryption_key"] = privkey.public_key().to_data()
+            if not filehandle.is_localdata():
+                # we will need to upload against a PAR, so need to tell
+                # the service how to encrypt the PAR...
+                privkey = self._user.session_key()
+                args["encryption_key"] = privkey.public_key().to_data()
 
-        # will eventually need to authorise payment...
+            # will eventually need to authorise payment...
 
-        response = self.storage_service().call_function(
-                                function="upload", args=args)
+            response = self.storage_service().call_function(
+                                    function="upload", args=args)
 
-        filemeta = _FileMeta.from_data(response["filemeta"])
+            filemeta = _FileMeta.from_data(response["filemeta"])
 
-        # if this was a large file, then we will receive a PAR back
-        # which must be used to upload the file
-        if not filehandle.is_localdata():
-            par = _PAR.from_data(response["upload_par"])
-            par.write(privkey).set_object_from_file(
-                                    filehandle.local_filename())
+            # if this was a large file, then we will receive a PAR back
+            # which must be used to upload the file
+            if not filehandle.is_localdata():
+                par = _PAR.from_data(response["upload_par"])
+                par.write(privkey).set_object_from_file(
+                                        filehandle.local_filename())
+                par.close(privkey)
 
-            authorisation = _Authorisation(
-                                resource="uploaded %s" % par.uid(),
-                                user=self._user)
-
-            args = {"drive_uid": self.uid(),
-                    "authorisation": authorisation.to_data(),
-                    "par_uid": par.uid()}
-
-            self.storage_service().call_function(
-                                       function="uploaded", args=args)
-
-        return filemeta
+            return filemeta
+        except:
+            # ensure that any temporary files are removed
+            filehandle.__del__()
+            raise
 
     def download(self, filename, downloaded_name=None, version=None,
-                 dir=None):
+                 dir=None, force_par=False):
         """Download the file called 'filename' from this drive into
            the local directory, or 'dir' if specified,
            ideally called 'filename'
@@ -273,6 +322,9 @@ class Drive:
                 "authorisation": authorisation.to_data(),
                 "encryption_key": privkey.public_key().to_data()}
 
+        if force_par:
+            args["force_par"] = True
+
         if version is not None:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
@@ -308,8 +360,9 @@ class Drive:
                 FILE.flush()
         else:
             from Acquire.Client import PAR as _PAR
-            par = _PAR.from_data(response["upload_par"])
+            par = _PAR.from_data(response["download_par"])
             par.read(privkey).get_object_as_file(downloaded_name)
+            par.close(privkey)
 
             # validate that the size and checksum are correct
             filemeta.assert_correct_data(filename=downloaded_name)
@@ -320,18 +373,6 @@ class Drive:
                 _uncompress(inputfile=downloaded_name,
                             outputfile=downloaded_name,
                             compression_type=filemeta.compression_type())
-
-            # everything is ok, so we don't need the PAR any more
-            authorisation = _Authorisation(
-                                resource="downloaded %s" % par.uid(),
-                                user=self._user)
-
-            args = {"drive_uid": self.uid(),
-                    "authorisation": authorisation.to_data(),
-                    "par_uid": par.uid()}
-
-            self.storage_service().call_function(
-                                       function="downloaded", args=args)
 
         filemeta._set_drive(self)
 

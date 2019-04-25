@@ -8,7 +8,7 @@ __all__ = ["Account", "get_accounts", "create_account",
 
 def _get_accounting_url():
     """Function to discover and return the default accounting url"""
-    return "http://fn.acquire-aaai.com:8080/t/accounting"
+    return "fn.acquire-aaai.com"
 
 
 def _get_accounting_service(accounting_url=None):
@@ -17,7 +17,7 @@ def _get_accounting_service(accounting_url=None):
         accounting_url = _get_accounting_url()
 
     from Acquire.Client import Service as _Service
-    service = _Service(accounting_url)
+    service = _Service(accounting_url, service_type="accounting")
 
     if not service.is_accounting_service():
         from Acquire.Client import LoginError
@@ -25,9 +25,6 @@ def _get_accounting_service(accounting_url=None):
             "You can only use a valid accounting service to get account info! "
             "The service at '%s' is a '%s'" %
             (accounting_url, service.service_type()))
-
-    if service.service_url() != accounting_url:
-        service.update_service_url(accounting_url)
 
     return service
 
@@ -49,12 +46,12 @@ def _get_account_uid(user, account_name, accounting_service=None,
                             "a valid accounting service")
         service = accounting_service
 
-    args = {"user_uid": user.uid(),
+    args = {"user_guid": user.guid(),
             "account_name": str(account_name)}
 
     if user.is_logged_in():
         from Acquire.Client import Authorisation as _Authorisation
-        auth = _Authorisation(user=user)
+        auth = _Authorisation(user=user, resource="get_account_uids")
         args["authorisation"] = auth.to_data()
 
     result = service.call_function(function="get_account_uids", args=args)
@@ -88,7 +85,7 @@ def _get_account_uids(user, accounting_service=None, accounting_url=None):
             "if they have authenticated their login")
 
     from Acquire.Client import Authorisation as _Authorisation
-    auth = _Authorisation(user=user)
+    auth = _Authorisation(user=user, resource="get_account_uids")
     args = {"authorisation": auth.to_data()}
 
     result = service.call_function(function="get_account_uids", args=args)
@@ -149,7 +146,8 @@ def create_account(user, account_name, description=None,
             (account_name, user.name()))
 
     from Acquire.Client import Authorisation as _Authorisation
-    authorisation = _Authorisation(user=user)
+    authorisation = _Authorisation(user=user,
+                                   resource="create_account %s" % account_name)
 
     args = {"account_name": str(account_name),
             "authorisation": authorisation.to_data()}
@@ -178,9 +176,6 @@ def deposit(user, value, description=None,
     """Tell the system to allow the user to deposit 'value' from
        their (real) financial account to the system accounts
     """
-    from Acquire.Client import Authorisation as _Authorisation
-    authorisation = _Authorisation(user=user)
-
     if accounting_service is None:
         service = _get_accounting_service(accounting_url)
     else:
@@ -189,14 +184,18 @@ def deposit(user, value, description=None,
                             "accounting service!")
         service = accounting_service
 
-    args = {"authorisation": authorisation.to_data()}
-
     if description is None:
-        from Acquire.Accounting import create_decimal as _create_decimal
-        args["value"] = str(_create_decimal(value))
-    else:
-        from Acquire.Accounting import Transaction as _Transaction
-        args["transaction"] = _Transaction(value, description).to_data()
+        description = "Deposit"
+
+    from Acquire.Accounting import Transaction as _Transaction
+    transaction = _Transaction(value=value, description=description)
+
+    from Acquire.Client import Authorisation as _Authorisation
+    authorisation = _Authorisation(user=user,
+                                   resource=transaction.fingerprint())
+
+    args = {"authorisation": authorisation.to_data(),
+            "transaction": transaction.to_data()}
 
     result = service.call_function(function="deposit", args=args)
 
@@ -327,11 +326,9 @@ class Account:
         """
         if self.is_null():
             from Acquire.Accounting import create_decimal as _create_decimal
+            from Acquire.Accounting import Balance as _Balance
             self._overdraft_limit = _create_decimal(0)
-            self._balance = _create_decimal(0)
-            self._liability = _create_decimal(0)
-            self._receivable = _create_decimal(0)
-            self._spent_today = _create_decimal(0)
+            self._balance = _Balance()
             return
 
         if force_update:
@@ -358,18 +355,17 @@ class Account:
 
         service = self.accounting_service()
 
-        auth = _Authorisation(resource=self._account_uid, user=self._user)
+        auth = _Authorisation(resource="get_info %s" % self._account_uid,
+                              user=self._user)
 
         args = {"authorisation": auth.to_data(),
                 "account_name": self.name()}
 
         result = service.call_function(function="get_info", args=args)
 
+        from Acquire.Accounting import Balance as _Balance
+        self._balance = _Balance.from_data(result["balance"])
         self._overdraft_limit = _create_decimal(result["overdraft_limit"])
-        self._balance = _create_decimal(result["balance"])
-        self._liability = _create_decimal(result["liability"])
-        self._receivable = _create_decimal(result["receivable"])
-        self._spent_today = _create_decimal(result["spent_today"])
         self._description = result["description"]
 
         self._last_update = _datetime.datetime.now()
@@ -388,22 +384,17 @@ class Account:
     def balance(self, force_update=False):
         """Return the current balance of this account"""
         self._refresh(force_update)
-        return self._balance
+        return self._balance.balance()
 
     def liability(self, force_update=False):
         """Return the current total liability of this account"""
         self._refresh(force_update)
-        return self._liability
+        return self._balance.liability()
 
     def receivable(self, force_update=False):
         """Return the current total accounts receivable of this account"""
         self._refresh(force_update)
-        return self._receivable
-
-    def spent_today(self, force_update=False):
-        """Return the current amount spent today on this account"""
-        self._refresh(force_update)
-        return self._spent_today
+        return self._balance.receivable()
 
     def overdraft_limit(self, force_update=False):
         """Return the overdraft limit of this account"""
@@ -415,7 +406,7 @@ class Account:
            the overdraft limit
         """
         self._refresh(force_update)
-        return (self._balance - self._liability) < -(self._overdraft_limit)
+        return self._balance.is_overdrawn(self._overdraft_limit)
 
     def perform(self, transaction, credit_account, is_provisional=False):
         """Tell this accounting service to apply the transfer described
@@ -446,7 +437,8 @@ class Account:
         from Acquire.Client import Authorisation as _Authorisation
         service = self.accounting_service()
 
-        auth = _Authorisation(resource=self._account_uid, user=self._user)
+        auth = _Authorisation(resource=transaction.fingerprint(),
+                              user=self._user)
 
         if is_provisional:
             is_provisional = True

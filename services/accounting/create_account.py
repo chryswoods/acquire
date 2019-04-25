@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Accounting import Accounts
 from Acquire.Identity import Authorisation
 
@@ -41,19 +39,15 @@ def run(args):
         raise TypeError("The passed authorisation must be of type "
                         "Authorisation")
 
-    authorisation.verify()
-
     # try to create a 'main' account for this user
-    accounts = Accounts(authorisation.user_uid())
+    accounts = Accounts(user_guid=authorisation.user_guid())
     account = accounts.create_account(name=account_name,
-                                      description=description)
+                                      description=description,
+                                      authorisation=authorisation)
 
     account_uid = account.uid()
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     if account_uid:
         return_value["account_uid"] = account_uid

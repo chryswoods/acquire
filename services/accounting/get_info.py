@@ -1,6 +1,5 @@
 
 from Acquire.Service import get_service_account_bucket
-from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Accounts
 
@@ -40,25 +39,18 @@ def run(args):
 
     # load the account
     bucket = get_service_account_bucket()
-    account = Accounts(authorisation.user_uid()).get_account(account_name,
-                                                             bucket=bucket)
+    accounts = Accounts(user_guid=authorisation.user_guid())
+    account = accounts.get_account(account_name, bucket=bucket)
 
     # validate the authorisation for this account
-    authorisation.verify(resource=account.uid())
+    authorisation.verify(resource="get_info %s" % account.uid())
 
-    balance_status = account.balance_status(bucket=bucket)
+    balance = account.balance()
 
-    status = 0
-    message = "Success"
+    return_value = {}
 
-    return_value = create_return_value(status, message)
-
-    if account:
-        return_value["description"] = account.description()
-        return_value["overdraft_limit"] = str(account.get_overdraft_limit())
-
-    if balance_status:
-        for key in balance_status.keys():
-            return_value[key] = str(balance_status[key])
+    return_value["description"] = account.description()
+    return_value["overdraft_limit"] = str(account.get_overdraft_limit())
+    return_value["balance"] = balance.to_data()
 
     return return_value

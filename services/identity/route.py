@@ -3,15 +3,9 @@
 def identity_functions(function, args):
     """This function routes calls to sub-functions, thereby allowing
        a single identity function to stay hot for longer"""
-    if function == "request_login":
-        from admin.request_login import run as _request_login
-        return _request_login(args)
-    elif function == "get_keys":
-        from admin.get_keys import run as _get_keys
-        return _get_keys(args)
-    elif function == "get_status":
-        from admin.get_status import run as _get_status
-        return _get_status(args)
+    if function == "get_session_info":
+        from admin.get_session_info import run as _get_session_info
+        return _get_session_info(args)
     elif function == "login":
         from admin.login import run as _login
         return _login(args)
@@ -24,11 +18,10 @@ def identity_functions(function, args):
     elif function == "request_login":
         from admin.request_login import run as _request_login
         return _request_login(args)
-    elif function == "whois":
-        from admin.whois import run as _whois
-        return _whois(args)
     else:
-        return None
+        from admin.handler import MissingFunctionError
+        raise MissingFunctionError()
+
 
 if __name__ == "__main__":
     import fdk

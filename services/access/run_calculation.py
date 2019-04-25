@@ -1,5 +1,4 @@
 
-from Acquire.Service import create_return_value
 from Acquire.Service import get_this_service
 
 from Acquire.Crypto import PrivateKey
@@ -40,9 +39,7 @@ def run(args):
         cheque = Cheque.from_data(args["cheque"])
 
     if request is None:
-        status = 0
-        message = "No request"
-        return create_return_value(status, message)
+        return
 
     if authorisation is None:
         raise AuthorisationError(
@@ -69,16 +66,9 @@ def run(args):
     # date on which they will expire
     (upload_par, run_par, expires) = job_sheet.request_services()
 
-    status = 0
-    message = "Request has been validated"
-
-    return_value = create_return_value(status, message)
-
     # return to the user the PAR used to upload the input data and
     # the PAR on the compute service to call to trigger
     # the start of the calculation
-    return_value["upload_par"] = upload_par.to_data()
-    return_value["simulation_par"] = run_par.to_data()
-    return_value["expiry_date"] = datetime_to_string(expires)
-
-    return return_value
+    return {"upload_par" : upload_par.to_data(),
+            "simulation_par": run_par.to_data(),
+            "expiry_date" : datetime_to_string(expires)}

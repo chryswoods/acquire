@@ -1,7 +1,8 @@
 
-from Acquire.Service import create_return_value, get_service_account_bucket
 from Acquire.ObjectStore import string_to_decimal, string_to_datetime, \
     list_to_string, ObjectStore, Mutex, datetime_to_string
+
+from Acquire.Service import get_service_account_bucket
 
 from Acquire.Accounting import DebitNote, CreditNote, Account, \
                                Accounts, Ledger, Transaction
@@ -18,9 +19,6 @@ def run(args):
        have been delivered.
     """
 
-    status = 0
-    message = None
-
     credit_notes = []
 
     try:
@@ -34,7 +32,7 @@ def run(args):
         from Acquire.Service import exception_to_string
         raise TypeError(
             "Unable to interpret the cheque.\n\nCAUSE: %s"
-                % exception_to_string(e))
+            % exception_to_string(e))
 
     try:
         spend = args["spend"]
@@ -48,7 +46,7 @@ def run(args):
             from Acquire.Service import exception_to_string
             raise TypeError(
                 "Unable to interpret the spend.\n\nCause: %s"
-                    % exception_to_string(e))
+                % exception_to_string(e))
 
     try:
         resource = str(args["resource"])
@@ -77,7 +75,7 @@ def run(args):
         from Acquire.Service import exception_to_string
         raise TypeError(
             "Unable to interpret the receipt_by date.\n\nCAUSE: %s"
-                % exception_to_string(e))
+            % exception_to_string(e))
 
     # now read the cheque - this will only succeed if the cheque
     # is valid, has been signed, has been sent from the right
@@ -92,11 +90,16 @@ def run(args):
     except:
         description = info["resource"]
 
+    authorisation = info["authorisation"]
+    auth_resource = info["auth_resource"]
+    user_guid = authorisation.user_guid()
+
     # the cheque is valid
     bucket = get_service_account_bucket()
 
     try:
-        debit_account = Account(uid=info["account_uid"], bucket=bucket)
+        debit_account = Account(uid=info["account_uid"],
+                                bucket=bucket)
     except Exception as e:
         from Acquire.Service import exception_to_string
         raise PaymentError(
@@ -111,29 +114,31 @@ def run(args):
             "Cannot find the account to which funds will be creditted:"
             "\n\nCAUSE: %s" % exception_to_string(e))
 
-    user_uid = info["authorisation"].user_uid()
-
     # validate that this account is in a group that can be authorised
-    # by the user
-    if not Accounts(user_uid).contains(account=debit_account,
-                                       bucket=bucket):
+    # by the user (this should eventually go as the ACLs now allow users
+    # to authorised payments from many accounts)
+    accounts = Accounts(user_guid=user_guid)
+    if not accounts.contains(account=debit_account,
+                             bucket=bucket):
         raise PermissionError(
             "The user with UID '%s' cannot authorise transactions from "
             "the account '%s' as they do not own this account." %
-            (user_uid, str(debit_account)))
+            (user_guid, str(debit_account)))
 
     transaction = Transaction(value=info["spend"],
                               description=description)
 
     # we have enough information to perform the transaction
     # - this is provisional as the service must receipt everything
-    transaction_records = Ledger.perform(transactions=transaction,
-                                         debit_account=debit_account,
-                                         credit_account=credit_account,
-                                         authorisation=info["authorisation"],
-                                         is_provisional=True,
-                                         receipt_by=receipt_by,
-                                         bucket=bucket)
+    transaction_records = Ledger.perform(
+                                transactions=transaction,
+                                debit_account=debit_account,
+                                credit_account=credit_account,
+                                authorisation=authorisation,
+                                authorisation_resource=auth_resource,
+                                is_provisional=True,
+                                receipt_by=receipt_by,
+                                bucket=bucket)
 
     # extract all of the credit notes to return to the user,
     # and also to record so that we can check if they have not
@@ -163,11 +168,4 @@ def run(args):
         ObjectStore.set_object_from_json(bucket, receipt_key, info)
         mutex.unlock()
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
-
-    return_value["credit_notes"] = credit_notes
-
-    return return_value
+    return {"credit_notes": credit_notes}

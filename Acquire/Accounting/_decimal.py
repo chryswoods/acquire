@@ -13,12 +13,15 @@ def get_decimal_context():
     return _Context(prec=24)
 
 
-def create_decimal(value):
+def create_decimal(value, default=0):
     """Create a decimal from the passed value. This is a decimal that
        has 6 decimal places and is clamped between
        -1 quadrillion < value < 1 quadrillion
     """
     from decimal import Decimal as _Decimal
+
+    if value is None:
+        return _Decimal(0, get_decimal_context())
 
     try:
         d = _Decimal("%.6f" % value, get_decimal_context())

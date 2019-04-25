@@ -4,12 +4,15 @@ def storage_functions(function, args):
     """This function routes calls to all of the storage service's
        extra functions
     """
-    if function == "download":
+    if function == "bulk_upload":
+        from storage.bulk_upload import run as _bulk_upload
+        return _bulk_upload(args)
+    elif function == "close_par":
+        from storage.close_par import run as _close_par
+        return _close_par(args)
+    elif function == "download":
         from storage.download import run as _download
         return _download(args)
-    elif function == "downloaded":
-        from storage.downloaded import run as _downloaded
-        return _downloaded(args)
     elif function == "list_files":
         from storage.list_files import run as _list_files
         return _list_files(args)
@@ -28,11 +31,10 @@ def storage_functions(function, args):
     elif function == "upload":
         from storage.upload import run as _upload
         return _upload(args)
-    elif function == "uploaded":
-        from storage.uploaded import run as _uploaded
-        return _uploaded(args)
     else:
-        return None
+        from admin.handler import MissingFunctionError
+        raise MissingFunctionError()
+
 
 if __name__ == "__main__":
     import fdk
