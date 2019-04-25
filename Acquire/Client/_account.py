@@ -7,13 +7,13 @@ __all__ = ["Account", "get_accounts", "create_account",
 
 
 def _get_accounting_url():
-    """Function to discover and return the default accounting URL
-    
+    """Function to discover and return the default accounting url
+
        Returns:
             str: Default accounting URL
-
     """
-    return "http://fn.acquire-aaai.com:8080/t/accounting"
+    
+    return "fn.acquire-aaai.com"
 
 
 def _get_accounting_service(accounting_url=None):
@@ -28,7 +28,7 @@ def _get_accounting_service(accounting_url=None):
         accounting_url = _get_accounting_url()
 
     from Acquire.Client import Service as _Service
-    service = _Service(accounting_url)
+    service = _Service(accounting_url, service_type="accounting")
 
     if not service.is_accounting_service():
         from Acquire.Client import LoginError
@@ -36,9 +36,6 @@ def _get_accounting_service(accounting_url=None):
             "You can only use a valid accounting service to get account info! "
             "The service at '%s' is a '%s'" %
             (accounting_url, service.service_type()))
-
-    if service.service_url() != accounting_url:
-        service.update_service_url(accounting_url)
 
     return service
 
@@ -434,11 +431,9 @@ class Account:
         """
         if self.is_null():
             from Acquire.Accounting import create_decimal as _create_decimal
+            from Acquire.Accounting import Balance as _Balance
             self._overdraft_limit = _create_decimal(0)
-            self._balance = _create_decimal(0)
-            self._liability = _create_decimal(0)
-            self._receivable = _create_decimal(0)
-            self._spent_today = _create_decimal(0)
+            self._balance = _Balance()
             return
 
         if force_update:
@@ -473,11 +468,9 @@ class Account:
 
         result = service.call_function(function="get_info", args=args)
 
+        from Acquire.Accounting import Balance as _Balance
+        self._balance = _Balance.from_data(result["balance"])
         self._overdraft_limit = _create_decimal(result["overdraft_limit"])
-        self._balance = _create_decimal(result["balance"])
-        self._liability = _create_decimal(result["liability"])
-        self._receivable = _create_decimal(result["receivable"])
-        self._spent_today = _create_decimal(result["spent_today"])
         self._description = result["description"]
 
         self._last_update = _datetime.datetime.now()
@@ -511,7 +504,7 @@ class Account:
 
         """
         self._refresh(force_update)
-        return self._balance
+        return self._balance.balance()
 
     def liability(self, force_update=False):
         """Return the current total liability of this account
@@ -523,7 +516,7 @@ class Account:
 
         """
         self._refresh(force_update)
-        return self._liability
+        return self._balance.liability()
 
     def receivable(self, force_update=False):
         """Return the current total accounts receivable of this account
@@ -535,19 +528,7 @@ class Account:
         
         """
         self._refresh(force_update)
-        return self._receivable
-
-    def spent_today(self, force_update=False):
-        """Return the current amount spent today on this account
-        
-           Args:
-                force_update (bool, default=False): Force the refresh
-           Returns:
-                Decimal: Amount spent today
-
-        """
-        self._refresh(force_update)
-        return self._spent_today
+        return self._balance.receivable()
 
     def overdraft_limit(self, force_update=False):
         """Return the overdraft limit of this account
@@ -571,7 +552,7 @@ class Account:
                 bool: True if account over overdraft limit, else False
         """
         self._refresh(force_update)
-        return (self._balance - self._liability) < -(self._overdraft_limit)
+        return self._balance.is_overdrawn(self._overdraft_limit)
 
     def perform(self, transaction, credit_account, is_provisional=False):
         """Tell this accounting service to apply the transfer described
@@ -608,7 +589,8 @@ class Account:
         from Acquire.Client import Authorisation as _Authorisation
         service = self.accounting_service()
 
-        auth = _Authorisation(resource=self._account_uid, user=self._user)
+        auth = _Authorisation(resource=transaction.fingerprint(),
+                              user=self._user)
 
         if is_provisional:
             is_provisional = True

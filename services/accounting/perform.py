@@ -1,6 +1,5 @@
 
 from Acquire.Service import get_service_account_bucket
-from Acquire.Service import create_return_value
 
 from Acquire.Accounting import Account, Accounts, Transaction, Ledger
 
@@ -22,9 +21,6 @@ def run(args):
             dict: contains status, status message and transaction
             records if any are available
     """
-
-    status = 0
-    message = None
 
     transaction_records = None
 
@@ -79,7 +75,7 @@ def run(args):
         raise PermissionError("You must supply a valid authorisation "
                               "to perform transactions between accounts")
 
-    authorisation.verify(resource=debit_account_uid)
+    authorisation.assert_once()
     user_guid = authorisation.user_guid()
 
     # load the account from which the transaction will be performed
@@ -107,10 +103,7 @@ def run(args):
                                          is_provisional=is_provisional,
                                          bucket=bucket)
 
-    status = 0
-    message = "Success"
-
-    return_value = create_return_value(status, message)
+    return_value = {}
 
     if transaction_records:
         try:

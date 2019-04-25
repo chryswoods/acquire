@@ -33,6 +33,7 @@ class Authorisation:
 
         from Acquire.ObjectStore import get_datetime_now \
             as _get_datetime_now
+        from Acquire.ObjectStore import create_uuid as _create_uuid
 
         if user is not None:
             from Acquire.Client import User as _User
@@ -50,6 +51,9 @@ class Authorisation:
             self._identity_url = user.identity_service().canonical_url()
             self._identity_uid = user.identity_service_uid()
             self._auth_datetime = _get_datetime_now()
+            self._uid = _create_uuid(short_uid=True,
+                                     include_date=self._auth_datetime)
+            self._siguid = user.signing_key().sign(self._uid)
 
             message = self._get_message(resource)
             self._signature = user.signing_key().sign(message)
@@ -72,6 +76,8 @@ class Authorisation:
             self._identity_url = "some identity_url"
             self._identity_uid = "some identity uid"
             self._auth_datetime = _get_datetime_now()
+            self._uid = _create_uuid(short_uid=True,
+                                     include_date=self._auth_datetime)
             self._is_testing = True
             self._testing_key = testing_key
 
@@ -82,6 +88,7 @@ class Authorisation:
 
             message = self._get_message(resource)
             self._signature = testing_key.sign(message)
+            self._siguid = testing_key.sign(self._uid)
 
             self._last_validated_datetime = _get_datetime_now()
             self._last_verified_resource = resource
@@ -160,6 +167,16 @@ class Authorisation:
         """
         return (user_uid == self._user_uid) and \
                (service_uid == self._identity_uid)
+
+    def uid(self):
+        """Return the UID of this authorisation. This will be signed by
+           the user and can be used a use-once record by a service to
+           validate that they have not seen this authorisation before
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._uid
 
     def user_uid(self):
         """Return the UID of the user who created this authorisation"""
@@ -253,6 +270,164 @@ class Authorisation:
 
         return ((now - self._auth_datetime).seconds > stale_time)
 
+    def _get_user_public_cert(self, scope=None, permissions=None):
+        """Internal function that returns the public certificate
+           of the user who signed this authorisation. This will
+           check that the authorisation was not signed after the
+           user logged out, as well as validating the services
+           that provide the user session keys etc.
+        """
+        must_fetch = False
+
+        try:
+            if scope != self._scope or permissions != self._permissions:
+                must_fetch = True
+        except:
+            must_fetch = True
+
+        if not must_fetch:
+            try:
+                return self._pubcert
+            except:
+                pass
+
+        try:
+            testing_key = self._testing_key
+        except:
+            testing_key = None
+
+        if testing_key is not None:
+            if not self._is_testing:
+                raise PermissionError(
+                    "You cannot pass a test key to a non-testing "
+                    "Authorisation")
+
+            return testing_key
+
+        # we need to get the public signing key for this session
+        from Acquire.Service import get_trusted_service \
+            as _get_trusted_service
+        from Acquire.ObjectStore import get_datetime_now \
+            as _get_datetime_now
+
+        try:
+            identity_service = _get_trusted_service(self._identity_url)
+        except:
+            raise PermissionError(
+                "Unable to verify the authorisation as we do not trust "
+                "the identity service at %s" % self._identity_url)
+
+        if not identity_service.can_identify_users():
+            raise PermissionError(
+                "Cannot verify an Authorisation that does not use a "
+                "valid identity service")
+
+        if identity_service.uid() != self._identity_uid:
+            raise PermissionError(
+                "Cannot auth_once this Authorisation as the actual UID of "
+                "the identity service at '%s' (%s) does not match "
+                "the UID of the service that signed this authorisation "
+                "(%s)" % (self._identity_url, identity_service.uid(),
+                          self._identity_uid))
+
+        response = identity_service.get_session_info(
+                                session_uid=self._session_uid,
+                                scope=scope, permissions=permissions)
+
+        try:
+            user_uid = response["user_uid"]
+        except:
+            pass
+
+        if self._user_uid != user_uid:
+            raise PermissionError(
+                "Cannot verify the authorisation as there is "
+                "disagreement over the UID of the user who signed "
+                "the authorisation. %s versus %s" %
+                (self._user_uid, user_uid))
+
+        try:
+            logout_datetime = _string_to_datetime(
+                                    response["logout_datetime"])
+        except:
+            logout_datetime = None
+
+        if logout_datetime:
+            # the user has logged out from this session - ensure that
+            # the authorisation was created before the user logged out
+            if logout_datetime < self.signature_time():
+                raise PermissionError(
+                    "This authorisation was signed after the user logged "
+                    "out. This means that the authorisation is not valid. "
+                    "Please log in again and create a new authorisation.")
+
+        from Acquire.Crypto import PublicKey as _PublicKey
+        pubcert = _PublicKey.from_data(response["public_cert"])
+        self._pubcert = pubcert
+        self._scope = scope
+        self._permissions = permissions
+        return pubcert
+
+    def assert_once(self, stale_time=7200, scope=None,
+                    permissions=None):
+        """Assert that this is in the one and only time that this
+           service has seen this authorisation. This records the
+           UID of the authorisation to the object store and then
+           verifies that the signature of the UID is correct.
+
+           There is a small race condition if the service asserts
+           the authorisation at the exact same time, but this is
+           a highly unlikely occurance. The aim is to prevent
+           replay attacks.
+        """
+        if self.is_null():
+            raise PermissionError("Cannot assert_once a null Authorisation")
+
+        if self.is_stale(stale_time):
+            raise PermissionError("Cannot assert_once a stale Authorisation")
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+        from Acquire.ObjectStore import get_datetime_now_to_string \
+            as _get_datetime_now_to_string
+
+        bucket = _get_service_account_bucket()
+        authkey = "auth_once/%s" % self._uid
+        now = _get_datetime_now_to_string()
+
+        try:
+            data = _ObjectStore.get_string_object(bucket=bucket, key=authkey)
+        except:
+            data = None
+
+        if data is not None:
+            raise PermissionError(
+                "Cannot auth_once the authorisation as it has been used "
+                "before on this service!")
+
+        # This is the first time this authorisation has been seen.
+        # Record this to the object store to prevent anyone else
+        # from using this authorisation on this service. There is a
+        # small race condition here, but this would be extremely
+        # challenging to exploit, and mitigating it would be a
+        # significant performance problem. Ideally the object store
+        # would have a "test_and_set" to enable us to set only if
+        # the previous value is None
+        _ObjectStore.set_string_object(bucket=bucket, key=authkey,
+                                       string_data=now)
+
+        # Now validate that the signature of the UID is correct
+        public_cert = self._get_user_public_cert(scope=scope,
+                                                 permissions=permissions)
+
+        try:
+            public_cert.verify(self._siguid, self._uid)
+        except:
+            raise PermissionError(
+                "Cannot auth_once the authorisation as the signature "
+                "is invalid!")
+
     def is_verified(self, refresh_time=3600, stale_time=7200):
         """Return whether or not this authorisation has been verified. Note
            that this will cache any verification for 'refresh_time' (in
@@ -279,7 +454,7 @@ class Authorisation:
 
     def verify(self, resource=None, refresh_time=3600, stale_time=7200,
                force=False, accept_partial_match=False,
-               return_identifiers=True):
+               scope=None, permissions=None, return_identifiers=True):
         """Verify that this is a valid authorisation provided by the
            user for the passed 'resource'. This will
            cache the verification for 'refresh_time' (in seconds), but
@@ -296,6 +471,13 @@ class Authorisation:
            'resource', e.g. if you have previously verified that
            "create ABC123" is the verified resource, then this will
            still verify if "ABC123" if the partially-accepted match
+
+           If 'scope' is passed, then verify that the user logged in
+           and signed the authorisation with the required 'scope'.
+
+           If 'permissions' is passed, then verify that the user
+           logged in and signed the authorisation with at least
+           the specified 'permissions'
 
            If 'testing_key' is passed, then this object is being
            tested as part of the unit tests
@@ -335,115 +517,24 @@ class Authorisation:
                     else:
                         return
 
-        try:
-            testing_key = self._testing_key
-        except:
-            testing_key = None
+        # Now validate that the signature of the UID is correct
+        public_cert = self._get_user_public_cert(scope=scope,
+                                                 permissions=permissions)
 
-        if testing_key is not None:
-            if not self._is_testing:
-                raise PermissionError(
-                    "You cannot pass a test key to a non-testing "
-                    "Authorisation")
-
-            message = self._get_message(resource=resource,
-                                        matched_resource=matched_resource)
-
-            try:
-                testing_key.verify(self._signature, message)
-            except Exception as e:
-                from Acquire.Service import exception_to_string
-                raise PermissionError(exception_to_string(e))
-
-            from Acquire.ObjectStore import get_datetime_now \
-                as _get_datetime_now
-
-            self._last_validated_datetime = _get_datetime_now()
-            self._last_verified_resource = resource
-            self._last_verified_key = testing_key
-
-            if return_identifiers:
-                return self.identifiers()
-            else:
-                return
+        message = self._get_message(resource=resource,
+                                    matched_resource=matched_resource)
 
         try:
-            # we need to get the public signing key for this session
-            from Acquire.Service import get_trusted_service \
-                as _get_trusted_service
-            from Acquire.ObjectStore import get_datetime_now \
-                as _get_datetime_now
-
-            try:
-                identity_service = _get_trusted_service(
-                                                    self._identity_url)
-            except:
-                raise PermissionError(
-                    "Unable to verify the authorisation as we do not trust "
-                    "the identity service at %s" % self._identity_url)
-
-            if not identity_service.can_identify_users():
-                raise PermissionError(
-                    "Cannot verify an Authorisation that does not use a valid "
-                    "identity service")
-
-            if identity_service.uid() != self._identity_uid:
-                raise PermissionError(
-                    "Cannot verify this Authorisation as the actual UID of "
-                    "the identity service at '%s' (%s) does not match "
-                    "the UID of the service that signed this authorisation "
-                    "(%s)" % (self._identity_url, identity_service.uid(),
-                              self._identity_uid))
-
-            response = identity_service.whois(
-                                    user_uid=self._user_uid,
-                                    session_uid=self._session_uid)
-
-            try:
-                logout_datetime = _string_to_datetime(
-                                        response["logout_datetime"])
-            except:
-                logout_datetime = None
-
-            if logout_datetime:
-                # the user has logged out from this session - ensure that
-                # the authorisation was created before the user logged out
-                if logout_datetime < self.signature_time():
-                    raise PermissionError(
-                        "This authorisation was signed after the user logged "
-                        "out. This means that the authorisation is not valid. "
-                        "Please log in again and create a new authorisation.")
-
-            message = self._get_message(resource=resource,
-                                        matched_resource=matched_resource)
-
-            from Acquire.Crypto import PublicKey as _PublicKey
-            pubcert = _PublicKey.from_data(response["public_cert"])
-            pubcert.verify(self._signature, message)
-
-            self._last_validated_datetime = _get_datetime_now()
-            self._last_verified_resource = resource
-            self._last_verified_key = None
-        except PermissionError:
-            raise
-        except Exception as e:
-            print(self.to_data())
-            print(resource)
-            if resource:
-                raise PermissionError(
-                    "Cannot verify the authorisation for resource %s: %s" %
-                    (resource, str(e)))
-            else:
-                raise PermissionError(
-                    "Cannot verify the authorisation: %s" %
-                    (str(e)))
+            public_cert.verify(self._signature, message)
         except:
-            if resource:
-                raise PermissionError(
-                    "Cannot verify the authorisation for resource %s" %
-                    resource)
-            else:
-                raise PermissionError("Cannot verify the authorisation")
+            raise PermissionError(
+                "Cannot verify the authorisation as the signature "
+                "for resource '%s' is invalid!" % resource)
+
+        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+        self._last_validated_datetime = _get_datetime_now()
+        self._last_verified_resource = resource
+        self._last_verified_key = public_cert
 
         if return_identifiers:
             return self.identifiers()
@@ -465,8 +556,11 @@ class Authorisation:
             auth._session_uid = data["session_uid"]
             auth._identity_url = data["identity_url"]
             auth._identity_uid = data["identity_uid"]
-            auth._auth_datetime = _string_to_datetime(data["auth_datetime"])
+            auth._uid = data["uid"]
+            parts = auth._uid.split("/")
+            auth._auth_datetime = _string_to_datetime(parts[0])
             auth._signature = _string_to_bytes(data["signature"])
+            auth._siguid = _string_to_bytes(data["siguid"])
             auth._last_validated_datetime = None
 
             if "is_testing" in data:
@@ -490,8 +584,9 @@ class Authorisation:
         data["session_uid"] = str(self._session_uid)
         data["identity_url"] = str(self._identity_url)
         data["identity_uid"] = str(self._identity_uid)
-        data["auth_datetime"] = _datetime_to_string(self._auth_datetime)
+        data["uid"] = self._uid
         data["signature"] = _bytes_to_string(self._signature)
+        data["siguid"] = _bytes_to_string(self._siguid)
 
         try:
             data["is_testing"] = self._is_testing

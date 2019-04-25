@@ -2,7 +2,6 @@
 import os
 
 from Acquire.Service import get_this_service, get_service_account_bucket
-from Acquire.Service import create_return_value
 
 from Acquire.ObjectStore import ObjectStore
 
@@ -25,5 +24,3 @@ def run(args):
     bucket = get_service_account_bucket()
 
     ObjectStore.delete_all_objects(bucket)
-
-    return {"status": status, "message": message}

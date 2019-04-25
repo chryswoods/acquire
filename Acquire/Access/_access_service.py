@@ -43,8 +43,12 @@ class AccessService(_Service):
         from admin.handler import create_handler as _create_handler
         
         handler = _create_handler(_access_functions)
+<<<<<<< HEAD
 
         return handler(function, args)
+=======
+        return handler(function=function, args=args)
+>>>>>>> devel
 
     def get_trusted_storage_service(self):
         """Return a trusted storage service

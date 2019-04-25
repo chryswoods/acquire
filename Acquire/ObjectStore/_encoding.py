@@ -39,17 +39,35 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "get_datetime_future",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
-           "create_uuid"]
+           "date_and_hour_to_datetime",
+           "create_uuid", "create_uid"]
 
 
-def create_uuid():
+def create_uuid(short_uid=False, include_date=None):
     """Return a newly created random uuid. This is highly likely
-       to be globally unique
+       to be globally unique. If 'short_uid' is True, then a shorter,
+       potentially less unique UID will be generated. If
+       'include_date' is passed, then the passed date will
+       be encoded into the UID
 
        Returns:
             str: Random UUID
     """
-    return str(_uuid.uuid4())
+    uid = str(_uuid.uuid4())
+
+    if short_uid:
+        uid = uid[:8]
+
+    if include_date is not None:
+        include_date = datetime_to_datetime(include_date)
+        uid = "%s/%s" % (include_date.replace(tzinfo=None).isoformat(), uid)
+
+    return uid
+
+
+def create_uid(short_uid=False, include_date=None):
+    """Synonym for create_uuid"""
+    return create_uuid(short_uid=short_uid, include_date=include_date)
 
 
 def string_to_encoded(s):
@@ -150,7 +168,7 @@ def decimal_to_string(d):
     return str(d)
 
 
-def string_to_decimal(s):
+def string_to_decimal(s, default=0):
     """Return the decimal that had been encoded via 'decimal_to_string'.
        This string must have been created via 'decimal_to_string'
 
@@ -160,7 +178,7 @@ def string_to_decimal(s):
             Decimal: Decimal version of string
     """
     from Acquire.Accounting import create_decimal as _create_decimal
-    return _create_decimal(s)
+    return _create_decimal(s, default=default)
 
 
 def datetime_to_string(d):
@@ -216,6 +234,15 @@ def date_and_time_to_datetime(date, time=_datetime.time(0)):
             datetime: UTC datetime
     """
     return datetime_to_datetime(_datetime.datetime.combine(date, time))
+
+
+def date_and_hour_to_datetime(date, hour):
+    """Return the passed date and hour as a UTC datetime. By
+       default the time is hour:00:00 (first second of the hour)
+    """
+    return datetime_to_datetime(
+                _datetime.datetime.combine(date,
+                                           _datetime.time(hour=hour)))
 
 
 def get_datetime_now():

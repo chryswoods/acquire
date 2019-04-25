@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.Client import PublicKey, Authorisation
 
 from Acquire.Storage import DriveInfo, ACLRules
@@ -59,7 +57,7 @@ def run(args):
                             max_size=max_size,
                             aclrules=aclrules)
 
-    return_value = create_return_value()
+    return_value = {}
 
     if par is not None:
         return_value["bulk_upload_par"] = par.to_data()

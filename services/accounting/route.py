@@ -1,4 +1,5 @@
 
+
 def accounting_functions(function, args):
     """This function routes calls to all of the accounting service's
        extra functions
@@ -30,7 +31,9 @@ def accounting_functions(function, args):
         from accounting.perform import run as _perform
         return _perform(args)
     else:
-        return None
+        from admin.handler import MissingFunctionError
+        raise MissingFunctionError()
+
 
 if __name__ == "__main__":
     import fdk

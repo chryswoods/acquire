@@ -12,10 +12,14 @@ def test_service_object(tmpdir_factory):
     push_is_running_service()
 
     try:
-        service = IdentityService(Service(service_type="identity",
-                                          service_url="test_identity"))
+        service = Service.create(service_type="identity",
+                                 service_url="identity")
 
         assert(service.uid() is not None)
+        assert(service.uid().startswith("STAGE1"))
+
+        service.create_stage2(service_uid="Z9-Z8", response=service.uid())
+
         assert(service.is_identity_service())
         assert(not service.should_refresh_keys())
         assert(service.is_unlocked())

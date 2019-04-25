@@ -1,22 +1,18 @@
 
-import base64 as _base64
-
 from cachetools import cached as _cached
 from cachetools import LRUCache as _LRUCache
 
 _cache_local_serviceinfo = _LRUCache(maxsize=5)
 _cache_local_serviceinfos = _LRUCache(maxsize=5)
-_cache_remote_serviceinfo = _LRUCache(maxsize=20)
 
 __all__ = ["get_trusted_service", "get_trusted_services",
-           "get_remote_service", "get_checked_remote_service",
            "clear_services_cache"]
 
 
 def clear_services_cache():
     """Clear the caches of loaded services"""
     _cache_local_serviceinfo.clear()
-    _cache_remote_serviceinfo.clear()
+    _cache_local_serviceinfos.clear()
 
 
 # Cached as the list of all trusted remote service information
@@ -68,14 +64,21 @@ def get_trusted_services():
     else:
         # this is running on the client
         from Acquire.Client import Wallet as _Wallet
-        return _Wallet.get_services()
+        wallet = _Wallet()
+        return wallet.get_services()
 
 
 # Cached as the remote service information will not change too often
 @_cached(_cache_local_serviceinfo)
-def get_trusted_service(service_url=None, service_uid=None):
+def get_trusted_service(service_url=None, service_uid=None,
+                        service_type=None, autofetch=True):
     """Return the trusted service info for the service with specified
        service_url or service_uid"""
+    if service_url is not None:
+        from Acquire.Service import Service as _Service
+        service_url = _Service.get_canonical_url(service_url,
+                                                 service_type=service_type)
+
     from Acquire.Service import is_running_service as _is_running_service
 
     if _is_running_service():
@@ -89,26 +92,48 @@ def get_trusted_service(service_url=None, service_uid=None):
 
         service = _get_this_service()
 
-        if service.canonical_url() == service_url:
+        if service_url is not None and service.canonical_url() == service_url:
+            # we trust ourselves :-)
+            return service
+
+        if service_uid is not None and service.uid() == service_uid:
             # we trust ourselves :-)
             return service
 
         bucket = _get_service_account_bucket()
-
         uidkey = None
+        data = None
 
         if service_uid is not None:
             uidkey = "_trusted/uid/%s" % service_uid
-            data = _ObjectStore.get_object_from_json(bucket, uidkey)
+            try:
+                data = _ObjectStore.get_object_from_json(bucket, uidkey)
+            except:
+                pass
         elif service_url is not None:
             urlkey = "_trusted/url/%s" % _url_to_encoded(service_url)
-            uidkey = _ObjectStore.get_string_object(bucket, urlkey)
-            if uidkey is not None:
-                data = _ObjectStore.get_object_from_json(bucket, uidkey)
-        else:
-            data = None
+            try:
+                uidkey = _ObjectStore.get_string_object(bucket, urlkey)
+                if uidkey is not None:
+                    data = _ObjectStore.get_object_from_json(bucket, uidkey)
+            except:
+                pass
 
-        if data is None:
+        if data is not None:
+            remote_service = _Service.from_data(data)
+
+            if remote_service.should_refresh_keys():
+                # need to update the keys in our copy of the service
+                remote_service.refresh_keys()
+
+                if uidkey is not None:
+                    _ObjectStore.set_object_from_json(
+                                                    bucket, uidkey,
+                                                    remote_service.to_data())
+
+            return remote_service
+
+        if not autofetch:
             from Acquire.Service import ServiceAccountError
             if service_uid is not None:
                 raise ServiceAccountError(
@@ -119,86 +144,23 @@ def get_trusted_service(service_url=None, service_uid=None):
                     "We do not trust the service at URL '%s'" %
                     service_url)
 
-        remote_service = _Service.from_data(data)
+        # we can try to fetch this data - we will ask our own
+        # registry
+        from Acquire.Registry import get_trusted_registry_service \
+            as _get_trusted_registry_service
+        registry = _get_trusted_registry_service(service_uid=service.uid())
+        service = registry.get_service(service_uid=service_uid,
+                                       service_url=service_url)
 
-        if remote_service.should_refresh_keys():
-            # need to update the keys in our copy of the service
-            remote_service.refresh_keys()
-
-            if uidkey is not None:
-                _ObjectStore.set_object_from_json(bucket, uidkey,
-                                                  remote_service.to_data())
-
-        return remote_service
+        from Acquire.Service import trust_service as _trust_service
+        _trust_service(service)
+        return service
     else:
         # this is running on the client
-        from Acquire.Client import Service as _Service
-        return _Service(service_url=service_url, service_uid=service_uid)
-
-
-# Cached to stop us sending too many requests for info to remote services
-@_cached(_cache_remote_serviceinfo)
-def get_remote_service(service_url):
-    """This function returns the service info for the service at
-       'service_url'
-    """
-    from Acquire.Crypto import get_private_key as _get_private_key
-    from Acquire.Service import call_function as _call_function
-    from Acquire.Service import Service as _Service
-
-    key = _get_private_key("function")
-
-    try:
-        response = _call_function(service_url, response_key=key)
-    except Exception as e:
-        from Acquire.Service import ServiceError
-        raise ServiceError("Cannot get information about '%s': %s" %
-                           (service_url, str(e)))
-
-    from Acquire.Crypto import SignatureVerificationError \
-        as _SignatureVerificationError
-
-    try:
-        return _Service.from_data(response["service_info"],
-                                  verify_data=True)
-    except _SignatureVerificationError:
-        raise
-    except Exception as e:
-        from Acquire.Service import ServiceError
-        raise ServiceError(
-                "Cannot extract service info for '%s' from '%s': %s" %
-                (service_url, str(response), str(e)))
-
-
-def get_checked_remote_service(service_url, public_cert):
-    """This function returns the service info for the service at
-       'service_url'. This checks that the info has been signed
-       correctly by the passed public certificate
-    """
-    from Acquire.Crypto import get_private_key as _get_private_key
-    from Acquire.Service import call_function as _call_function
-    from Acquire.Service import Service as _Service
-
-    key = _get_private_key("function")
-
-    try:
-        response = _call_function(service_url, response_key=key,
-                                  public_cert=public_cert)
-    except Exception as e:
-        from Acquire.Service import ServiceError
-        raise ServiceError("Cannot get information about '%s': %s" %
-                           (service_url, str(e)))
-
-    from Acquire.Crypto import SignatureVerificationError \
-        as _SignatureVerificationError
-
-    try:
-        return _Service.from_data(response["service_info"],
-                                  verify_data=True)
-    except _SignatureVerificationError:
-        raise
-    except Exception as e:
-        from Acquire.Service import ServiceError
-        raise ServiceError(
-                "Cannot extract service info for '%s' from '%s': %s" &
-                (service_url, str(response), str(e)))
+        from Acquire.Client import Wallet as _Wallet
+        wallet = _Wallet()
+        service = wallet.get_service(service_uid=service_uid,
+                                     service_url=service_url,
+                                     service_type=service_type,
+                                     autofetch=autofetch)
+        return service

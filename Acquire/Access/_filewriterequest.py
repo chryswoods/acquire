@@ -279,7 +279,7 @@ class FileWriteRequest(_Request):
 
         else:
             self._account_uid = account.uid()
-            self._accounting_service_url = account.accounting_service()\
+            self._accounting_service_url = account.accounting_service() \
                                                   .canonical_url()
 
             self._authorisation = _Authorisation(

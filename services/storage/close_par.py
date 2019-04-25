@@ -1,6 +1,4 @@
 
-from Acquire.Service import create_return_value
-
 from Acquire.ObjectStore import ObjectStore
 
 from Acquire.Service import get_service_account_bucket
@@ -25,5 +23,3 @@ def run(args):
             "that you have permission to issue a close request")
 
     ObjectStore.close_par(par_uid=par_uid, url_checksum=url_checksum)
-
-    return create_return_value()

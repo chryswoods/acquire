@@ -1,22 +1,5 @@
 
-from cachetools import LRUCache as _LRUCache
-from cachetools import cached as _cached
-
 __all__ = ["Service"]
-
-_cache_service_lookup = _LRUCache(maxsize=5)
-
-
-@_cached(_cache_service_lookup)
-def _get_remote_service(service_url):
-    """Call this function to get the Service info of a remote Service.
-       This will check if we have seen the service before. If so, then
-       we will ensure that this is the correct service. If not, then
-       we will prompt the user to validate that this is the right
-       service
-    """
-    from Acquire.Client import Wallet as _Wallet
-    return _Wallet.get_service(service_url)
 
 
 class Service:
@@ -29,7 +12,8 @@ class Service:
        i.e. during construction it will transform into the class
        of the type of service, e.g. Acquire.Identity.IdentityService
     """
-    def __init__(self, service_url=None, service_uid=None):
+    def __init__(self, service_url=None, service_uid=None,
+                 service_type=None):
         """Construct the service that is accessed at the remote
            URL 'service_url'. This will fetch and return the
            details of the remote service. This wrapper is a
@@ -45,13 +29,14 @@ class Service:
         """
         try:
             from Acquire.Client import Wallet as _Wallet
-            service = _Wallet.get_service(service_url)
+            service = _Wallet().get_service(service_url=service_url,
+                                            service_uid=service_uid,
+                                            service_type=service_type)
 
             from copy import copy as _copy
             self.__dict__ = _copy(service.__dict__)
             self.__class__ = service.__class__
         except Exception as e:
-            _cache_service_lookup.clear()
             self._failed = True
             raise e
 
@@ -200,11 +185,6 @@ class Service:
         """Return whether or not the canonical URL of this service
            is connected to via https
         """
-        self._fail()
-        return None
-
-    def update_service_url(self, service_url):
-        """Update the service url to be 'service_url'"""
         self._fail()
         return None
 
@@ -398,19 +378,10 @@ class Service:
         self._fail()
         return None
 
-    def whois(self, username=None, user_uid=None, session_uid=None):
-        """Do a whois lookup to map from username to user_uid or
-           vice versa. If 'session_uid' is provided, then also validate
-           that this is a correct login session, and return also
-           the public key and signing certificate for this login session.
-
-           This should return a dictionary with the following keys
-           optionally contained;
-
-           username = name of the user
-           user_uid = uid of the user
-           public_key = public key for the session with uid 'session_uid'
-           public_cert = public certificate for that login session
+    def get_session_info(self, session_uid,
+                         scope=None, permissions=None):
+        """Return information about the passed session,
+           optionally limited to the provided scope and permissions
         """
         self._fail()
         return None
