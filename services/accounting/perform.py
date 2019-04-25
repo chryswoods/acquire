@@ -68,7 +68,7 @@ def run(args):
         raise PermissionError("You must supply a valid authorisation "
                               "to perform transactions between accounts")
 
-    authorisation.verify(resource=transaction.fingerprint())
+    authorisation.assert_once()
     user_guid = authorisation.user_guid()
 
     # load the account from which the transaction will be performed

@@ -40,14 +40,31 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
            "date_and_hour_to_datetime",
-           "create_uuid"]
+           "create_uuid", "create_uid"]
 
 
-def create_uuid():
+def create_uuid(short_uid=False, include_date=None):
     """Return a newly created random uuid. This is highly likely
-       to be globally unique
+       to be globally unique. If 'short_uid' is True, then a shorter,
+       potentially less unique UID will be generated. If
+       'include_date' is passed, then the passed date will
+       be encoded into the UID
     """
-    return str(_uuid.uuid4())
+    uid = str(_uuid.uuid4())
+
+    if short_uid:
+        uid = uid[:8]
+
+    if include_date is not None:
+        include_date = datetime_to_datetime(include_date)
+        uid = "%s/%s" % (include_date.replace(tzinfo=None).isoformat(), uid)
+
+    return uid
+
+
+def create_uid(short_uid=False, include_date=None):
+    """Synonym for create_uuid"""
+    return create_uuid(short_uid=short_uid, include_date=include_date)
 
 
 def string_to_encoded(s):
