@@ -66,17 +66,11 @@ class MockedRequests:
 
     @staticmethod
     def get(url, data, timeout=None):
-        if url.startswith("http"):
-            return _original_requests.get(url, data=data)
-        else:
-            return MockedRequests._perform(url, data, is_post=False)
+        return MockedRequests._perform(url, data, is_post=False)
 
     @staticmethod
     def post(url, data, timeout=None):
-        if url.startswith("http"):
-            return _original_requests.post(url, data=data)
-        else:
-            return MockedRequests._perform(url, data, is_post=True)
+        return MockedRequests._perform(url, data, is_post=True)
 
     @staticmethod
     def _perform(url, data, is_post=False):
@@ -89,9 +83,9 @@ class MockedRequests:
             pop_testing_objstore
 
         if url.startswith("http://"):
-            url = url[8:]
+            url = url[7:]
         elif url.startswith("https://"):
-            url = url[9:]
+            url = url[8:]
 
         if url.startswith("identity"):
             push_testing_objstore(_services["identity"])
