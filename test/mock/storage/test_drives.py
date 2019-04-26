@@ -182,8 +182,7 @@ def test_drives(authenticated_user, tempdir):
     assert(versions[0] == filemeta)
     assert(versions[1] == new_filemeta)
 
-    (filename, new_filemeta) = drive.download(filemeta.filename(),
-                                              dir=tempdir, force_par=True)
+    (filename, new_filemeta) = drive.download(filemeta.filename(), dir=tempdir)
 
     # make sure that the two files are identical
     with open(filename, "rb") as FILE:
