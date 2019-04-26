@@ -16,6 +16,11 @@ def _getcontext():
 def _create_decimal(value):
     """Create a decimal from the passed value. This is a decimal that
        has 6 decimal places and is clamped between 0 <= value < 1 quadrillion
+
+       Args:
+            value: Value to convert to Decimal
+       Returns:
+            Decimal: Decimal with value
     """
     from decimal import Decimal as _Decimal
 
@@ -119,17 +124,29 @@ class Transaction:
         return self.__eq__(other) or self.__lt__(other)
 
     def is_null(self):
-        """Return whether or not this is a null transaction"""
+        """Return whether or not this is a null transaction
+        
+           Returns:
+                bool: True if transaction is null, else False             
+        """
         return self._value == 0 and self._description is None
 
     def value(self):
         """Return the value of this transaction. This will be always greater
            than or equal to zero
+
+           Returns:
+                Decimal: Value of this transaction
+                
         """
         return self._value
 
     def description(self):
-        """Return the description of this transaction"""
+        """Return the description of this transaction
+           
+           Returns:
+                str: Description of transaction
+        """
         return self._description
 
     def fingerprint(self):
@@ -142,6 +159,9 @@ class Transaction:
     def maximum_transaction_value():
         """Return the maximum value for a single transaction. Currently this
            is 999999.999999 so that a transaction fits into a f013.6 string
+
+           Returns:
+                Decimal: Maximum transaction value
         """
         return _create_decimal(999999.999999)
 
@@ -149,6 +169,11 @@ class Transaction:
     def round(value):
         """Round the passed floating point value to the precision
            level of the transaction (currently 6 decimal places)
+
+           Args:
+                value (float): Value to convert to Decimal
+           Returns:
+                Decimal: Rounded value
         """
         return _create_decimal(value)
 
@@ -157,6 +182,12 @@ class Transaction:
         """Split the passed transaction described by 'description' with value
            'value' into a list of transactions that fit the maximum transaction
            limit.
+
+           Args:
+                value (float): Value to split between transactions
+                description (str): Description of transactions
+           Returns:
+                list: List of Transactions
         """
         value = _create_decimal(value)
 
@@ -207,7 +238,12 @@ class Transaction:
     @staticmethod
     def from_data(data):
         """Return a newly constructed transaction from the passed dictionary
-           that has been decoded from json
+           that has been decoded from JSON
+
+           Args:
+                data (dict): Dictionary from JSON
+           Returns:
+                Transaction: Object created from JSON
         """
         transaction = Transaction()
 
@@ -220,7 +256,10 @@ class Transaction:
 
     def to_data(self):
         """Return this transaction as a dictionary that can be encoded
-           to json
+           to JSON
+
+           Returns:
+                dict: Dictionary of this object serialisable to JSON
         """
         data = {}
 

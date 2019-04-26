@@ -2,6 +2,10 @@
 import os
 import sys
 
+''' Uses OpenSSL to generate cryptographic keys using the username and passphrase
+    passed in from the command line
+'''
+
 name = sys.argv[1]
 passphrase = sys.argv[2]
 

@@ -37,6 +37,10 @@ class TransactionRecord:
     def __init__(self, uid=None, bucket=None):
         """Load the transaction record from the object store using the
            passed UID
+
+           Args:
+                uid (str, default=None): UID for transaction record
+                bucket (dict, default=None): Bucket to load data from
         """
         if uid:
             self._load_transaction(uid, bucket)
@@ -72,47 +76,80 @@ class TransactionRecord:
     def reload(self):
         """Reload this transaction record from the object store. This is
            necessary if, e.g., the state of the record has been updated
+
+           Returns:
+                None
         """
         self._load_transaction(self.uid())
 
     def is_null(self):
-        """Return whether or not this is a null record"""
+        """Return whether or not this is a null record
+        
+           Returns:
+            bool: True if this record is null, else False
+        """
         return self._debit_note is None
 
     def description(self):
-        """Return the description of this transaction"""
+        """Return the description of this transaction
+        
+           Returns:
+                str: Description of this transaction
+        """
         if self.is_null():
             return None
         else:
             return self.transaction().description()
 
     def value(self):
-        """Return the value of this transaction"""
+        """Return the value of this transaction
+        
+           Returns:
+                Decimal: Value of this transaction
+        """
         if self.is_null():
             return 0
         else:
             return self.transaction().value()
 
     def uid(self):
-        """Return the UID for this transaction record"""
+        """Return the UID for this transaction record
+        
+           Returns:
+                str: UID for this transaction record
+        """
         if self.is_null():
             return None
         else:
             return self.debit_note().uid()
 
     def transaction(self):
-        """Return the transaction underlying this record"""
+        """Return the transaction underlying this record
+
+           Returns:
+                Transaction: Transaction underlying this TransactionRecord
+
+        """
         if self.is_null():
             return None
         else:
             return self.debit_note().transaction()
 
     def transaction_state(self):
-        """Return the current state of this transaction"""
+        """Return the current state of this transaction
+
+           Returns:
+                Enum: State of transaction
+
+        """
         return self._transaction_state
 
     def assert_matching_refund(self, refund):
-        """Assert that the passed refund matches this transaction"""
+        """Assert that the passed refund matches this transaction
+        
+           Args:
+                refund (Refund): Refund to check
+        """
         if self.is_null():
             if not refund.is_null():
                 raise UnmatchedRefundError(
@@ -176,7 +213,11 @@ class TransactionRecord:
                 (str(receipt), str(self), " | ".join(errors)))
 
     def credit_account_uid(self):
-        """Return the UID of the account to which value has been credited"""
+        """Return the UID of the account to which value has been credited
+        
+           Returns:
+                str: Account UID to which value has been credited
+        """
         if self.is_null():
             return None
         else:
@@ -186,6 +227,9 @@ class TransactionRecord:
         """Return the credit note for this transaction. This is the note
            recording that value has been credited to an account. A
            TransactionRecord is the pairing of a DebitNote with a CreditNote
+
+           Returns:
+                CreditNote: CreditNote for this transaction
         """
         return self._credit_note
 
@@ -193,18 +237,29 @@ class TransactionRecord:
         """Return the debit note for this transaction. This is the note
            recording that value has been debited to an account. A
            TransactionRecord is the pairing of a DebitNote with a CreditNote
+
+           Returns:
+                DebitNote: DebitNote for this transaction
         """
         return self._debit_note
 
     def debit_account_uid(self):
-        """Return the UID of the account from which value has been debited"""
+        """Return the UID of the account from which value has been debited
+
+           Returns:
+                str: Account UID from which value debited
+        """
         if self.is_null():
             return None
         else:
             return self.debit_note().account_uid()
 
     def datetime(self):
-        """Return the datetime when this transaction was applied"""
+        """Return the datetime when this transaction was applied
+        
+           Returns:
+                datetime: Datetime at which transaction was applied
+        """
         if self.is_null():
             return None
         else:
@@ -213,41 +268,80 @@ class TransactionRecord:
     def is_direct(self):
         """Return whether or not this transaction was direct (so was not
            provisional and so didn't need a receipt)
+
+           Returns:
+                bool: True if direct transaction, else False
         """
         return self._transaction_state == TransactionState.DIRECT
 
     def is_receipted(self):
-        """Return whether or not this transaction has been receipted"""
+        """Return whether or not this transaction has been receipted
+        
+           Returns:
+                bool: True if transaction receipted, else False
+
+        """
         return self._transaction_state == TransactionState.RECEIPTED
 
     def is_refunded(self):
-        """Return whether or not this transaction has been refunded"""
+        """Return whether or not this transaction has been refunded
+        
+           Returns:
+                bool: True if transaction refunded, else False
+        """
         return self._transaction_state == TransactionState.REFUNDED
 
     def is_provisional(self):
-        """Return whether or not this transaction is provisional"""
+        """Return whether or not this transaction is provisional
+        
+           Returns:
+                bool: True if transaction is provisional, else False
+        """
         return self._transaction_state == TransactionState.PROVISIONAL
 
     def is_refund(self):
-        """Return whether or not this transaction is a refund"""
+        """Return whether or not this transaction is a refund
+        
+           Returns:
+                bool: True if transaction is a refund, else False
+        
+        """
         return self._refund is not None
 
     def is_receipt(self):
-        """Return whether or not this transaction is a receipt"""
+        """Return whether or not this transaction is a receipt
+        
+           Returns:
+                bool: True if transaction is a receipt, else False
+        
+        """
         return self._receipt is not None
 
     def get_refund_info(self):
-        """Return the reason for the refund"""
+        """Return the reason for the refund
+        
+           Returns:
+                Refund: Refund for this transaction
+        """
         return self._refund
 
     def get_receipt_info(self):
-        """Return the receipt underlying this transaction"""
+        """Return the receipt underlying this transaction
+        
+           Returns:
+                Receipt: Receipt for this transaction
+        
+        """
         return self._receipt
 
     def original_transaction_record(self):
         """If this is a receipt or refund transaction then return the
            original transaction record that this is receipting or refunding.
            Otherwise returns a null TransactionRecord
+
+           Returns:
+                TransactionRecord
+
         """
         if self.is_receipt():
             return TransactionRecord(self.get_receipt_info().transaction_uid())
@@ -260,6 +354,9 @@ class TransactionRecord:
         """If this is a receipt or refund transaction then return the
            original transaction that this is receipting or refunding.
            Otherwise returns a null Transaction
+
+           Returns:
+                TransactionRecord
         """
         if self.is_receipt() or self.is_refund():
             return self.original_transaction_record().transaction()
@@ -268,13 +365,26 @@ class TransactionRecord:
             return _Transaction()
 
     def _load_transaction(self, uid, bucket=None):
-        """Load this transaction from the object store"""
+        """Load this transaction from the object store
+           
+           Args:
+                uid (str): UID of transaction to load
+                bucket (dict): Bucket to load data from
+           Returns:
+                None
+        """
         from Acquire.Accounting import Ledger as _Ledger
         self.__dict__ = _copy(_Ledger.load_transaction(
                                         uid, bucket=bucket).__dict__)
 
     def _save_transaction(self, bucket=None):
-        """Save this transaction to the object store"""
+        """Save this transaction to the object store
+           
+           Args:
+                bucket (dict): Bucket to load data from
+           Returns:
+                None
+        """
         from Acquire.Accounting import Ledger as _Ledger
         _Ledger.save_transaction(self, bucket=bucket)
 
@@ -286,6 +396,14 @@ class TransactionRecord:
            'expected_state', and if it does, to update the transaction
            state to 'new_state'. This returns the loaded (and updated)
            transaction
+
+           Args:
+                expected_state (TransactionState): State of transaction
+                new_state (TransactionState): State to update transaction to
+                bucket (dict): Bucket to load data from
+
+           Returns:
+                Transaction: Updated transaction
         """
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
@@ -340,8 +458,13 @@ class TransactionRecord:
 
     @staticmethod
     def from_data(data):
-        """Construct and return a new Transaction from the passed json-decoded
+        """Construct and return a new Transaction from the passed JSON-decoded
             dictionary
+
+            Args:
+                data (dict): Dictionary from JSON
+            Returns:
+                TransactionRecord: Created from JSON
         """
         record = TransactionRecord()
 
@@ -370,7 +493,10 @@ class TransactionRecord:
 
     def to_data(self):
         """Return this transaction as a dictionary that can be
-           encoded to json
+           encoded to JSON
+
+           Returns:
+                dict: Dictionary serialisable to JSON
         """
         data = {}
 

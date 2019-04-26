@@ -11,14 +11,28 @@ class Ledger:
     """
     @staticmethod
     def get_key(uid):
-        """Return the object store key for the transactionrecord with
+        """Return the object store key for the transaction record with
            UID=uid
+
+           Args:
+                uid (str): UID to get key ofr
+           Returns:
+                str: Object store key for UID
+
         """
         return "accounting/transactions/%s" % (str(uid))
 
     @staticmethod
     def load_transaction(uid, bucket=None):
-        """Load the transactionrecord with UID=uid from the ledger"""
+        """Load the transactionrecord with UID=uid from the ledger
+        
+           Args:
+                uid (str): UID of transaction to load
+                bucket (dict, default=None): Bucket to load data from
+           Returns:
+                TransactionRecord: Transaction with that UID
+
+        """
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
                 as _get_service_account_bucket
@@ -39,7 +53,14 @@ class Ledger:
 
     @staticmethod
     def save_transaction(record, bucket=None):
-        """Save the passed transactionrecord to the object store"""
+        """Save the passed transaction record to the object store
+        
+           Args:
+                record (TransactionRecord): To save
+                bucket (dict, default=None): Bucket to save data from
+           Returns:
+                None
+        """
         from Acquire.Accounting import TransactionRecord as _TransactionRecord
 
         if not isinstance(record, _TransactionRecord):
@@ -160,6 +181,14 @@ class Ledger:
            transaction. Note that you can only receipt a transaction once!
            This returns the (already recorded) TransactionRecord for the
            receipt
+
+           Args:
+                receipt (Receipt): Receipt to use for transaction
+                bucket (default=None): Bucket to load data from
+
+           Returns:
+                list: List of TransactionRecords
+
         """
         from Acquire.Accounting import Receipt as _Receipt
         from Acquire.Accounting import Account as _Account
@@ -264,6 +293,22 @@ class Ledger:
 
            Note that if several transactions are passed, then they must all
            succeed. If one of them fails then they are immediately refunded.
+
+           Args:
+                transactions (list) : List of Transactions to process
+                debit_account (Account): Account to debit
+                credit_account (Account): Account to credit
+                authorisation (Authorisation): Authorisation for
+                the transactions
+                is_provisional (bool, default=False): Whether the transactions
+                are provisional
+                receipt_by (datetime, default=None): Date by which transactions
+                must be receipted
+                bucket (dict): Bucket to load data from
+
+            Returns:
+                list: List of TransactionRecords
+                
         """
         from Acquire.Accounting import Account as _Account
         from Acquire.Identity import Authorisation as _Authorisation
@@ -422,6 +467,18 @@ class Ledger:
            from the passed paired debit- and credit-note(s). This will write
            the transaction record(s) to the object store, and will also return
            the record(s).
+
+           Args:
+                paired_notes (list): List of PairedNotes
+                is_provisional (bool, default=False): Whether transactions
+                are provisional or not
+                receipt (Receipt, default=None): Receipt to use
+                refund (Refund): Refund to use
+                bucket (dict): Bucket to read data from
+
+           Returns:
+                TransactionRecord: Holds record of transactions
+
         """
         from Acquire.Accounting import Receipt as _Receipt
         from Acquire.Accounting import Refund as _Refund
@@ -467,7 +524,7 @@ class Ledger:
             return records
 
         except:
-            # an error occuring here will break the system, which will
+            # an error occurring here will break the system, which will
             # require manual cleaning. Mark this as broken!
             try:
                 Ledger._set_truly_broken(paired_notes, bucket)

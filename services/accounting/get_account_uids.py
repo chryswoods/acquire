@@ -11,7 +11,15 @@ class ListAccountsError(Exception):
 
 
 def run(args):
-    """This function is called to handle requests for the UIDs of accounts"""
+    """This function is called to handle requests for the UIDs of accounts
+    
+        Args:
+            args (dict): data regarding account to be queried
+
+        Returns:
+            dict: contains status, status message and account UIDs
+    
+    """
 
     status = 0
     message = None

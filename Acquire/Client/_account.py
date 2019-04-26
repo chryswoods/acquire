@@ -7,12 +7,23 @@ __all__ = ["Account", "get_accounts", "create_account",
 
 
 def _get_accounting_url():
-    """Function to discover and return the default accounting url"""
+    """Function to discover and return the default accounting url
+
+       Returns:
+            str: Default accounting URL
+    """
+    
     return "fn.acquire-aaai.com"
 
 
 def _get_accounting_service(accounting_url=None):
-    """Function to return the accounting service for the system"""
+    """Function to return the accounting service for the system
+    
+       Args:
+            accounting_url (str, default=None): Accounting URL
+       Returns:
+            Service: Accounting service for system
+    """
     if accounting_url is None:
         accounting_url = _get_accounting_url()
 
@@ -33,6 +44,15 @@ def _get_account_uid(user, account_name, accounting_service=None,
                      accounting_url=None):
     """Return the UID of the account called 'account_name' that
         belongs to passed user on the passed accounting_service
+
+        Args:
+            user (User): User for query
+            account_name (str): Name of account
+            accounting_service (Service, default=None): Accounting service
+            to check
+            accounting_url (str, default=None): Account URL
+        Returns:
+            str: UID of account named 'account_name'
     """
     if account_name is None:
         # return the UID of the default account for this user
@@ -70,6 +90,16 @@ def _get_account_uid(user, account_name, accounting_service=None,
 def _get_account_uids(user, accounting_service=None, accounting_url=None):
     """Return the names and UIDs of all of the accounts that belong
         to the passed user on the passed accounting_service
+
+        Args:
+            user (User): User for query
+            accounting_service (Service, default=None): Accounting
+            service to check
+            accounting_url (str, default=None): Accounting URL
+        
+        Returns:
+            list: Names and UIDs of accounts beloning to passed user
+            on passed service
     """
     if accounting_service is None:
         service = _get_accounting_service(accounting_url)
@@ -96,6 +126,15 @@ def _get_account_uids(user, accounting_service=None, accounting_url=None):
 def get_accounts(user, accounting_service=None, accounting_url=None):
     """Return all of the accounts of the passed user. Note that the
     user must be authenticated to call this function
+
+       Args:
+            user (User): User for query
+            accounting_service (Service, default=None): Accounting
+            service to check
+            accounting_url (str, default=None): Accounting URL
+       Returns:
+            list: List of accounts of the passed user
+
     """
     if accounting_service is None:
         service = _get_accounting_service(accounting_url)
@@ -130,7 +169,17 @@ def create_account(user, account_name, description=None,
         user, calling the account 'account_name' and optionally
         passing in an account description. Note that the user must
         have authorised the login
+
+        Args:
+            user (User): User to create account for
+            account_name (str): Name of account to create
+            accounting_service (Service, default=None): Accounting
+            service on which to create account
+            accounting_url (str, default=None): Accounting URL
+        Returns:
+            Account: New account
     """
+
     if accounting_service is None:
         service = _get_accounting_service(accounting_url)
     else:
@@ -175,6 +224,17 @@ def deposit(user, value, description=None,
             accounting_service=None, accounting_url=None):
     """Tell the system to allow the user to deposit 'value' from
        their (real) financial account to the system accounts
+
+       Args:
+            user (User): User to authorise
+            value (Decimal): Value to deposit
+            description (str): Description of deposit
+            accounting_service (Service, default=None): Accounting
+            service to make deposit
+            accounting_url (str): Accounting URl
+       Returns:
+            TODO - return value here
+
     """
     if accounting_service is None:
         service = _get_accounting_service(accounting_url)
@@ -223,6 +283,13 @@ class Account:
         """Construct the Account with the passed account_name, which is owned
            by the passed user. The account must already exist on the service,
            or else an exception will be raised
+
+           Args:
+                user (User, default=None): User to create account for
+                account_name (str, default=None): Name of account
+                accounting_service (Service, default=None): Service on which to 
+                create account
+                accounting_url (str, default=None): Accounting URL
         """
         if user is not None:
             if account_name is None:
@@ -274,41 +341,69 @@ class Account:
         return not self.__eq__(other)
 
     def is_null(self):
-        """Return whether or not this is a null account"""
+        """Return whether or not this is a null account
+        
+           Returns:
+                bool: True if account null, else False
+        """
         return self._account_uid is None
 
     def uid(self):
-        """Return the UID of this account"""
+        """Return the UID of this account
+        
+           Returns:
+                str: Account UID
+        
+        """
         return self._account_uid
 
     def guid(self):
         """Return the globally unique UID of this account. This is a
            combination of the UID of the accounting service and the
            UID of the account
+
+           Returns:
+                str: Globally unique UID of this account
         """
         return "%s@%s" % (self.accounting_service().uid(), self.uid())
 
     def name(self):
-        """Return the name of this account"""
+        """Return the name of this account
+
+           Returns:
+                str: Name of this account
+        """
         if self.is_null():
             return None
         else:
             return self._account_name
 
     def owner(self):
-        """Return the user who owns this account"""
+        """Return the user who owns this account
+        
+           Returns:
+                str: Name of owner
+        
+        """
         if self.is_null():
             return None
         else:
             return self._user
 
     def user(self):
-        """Synonym for owner"""
+        """Synonym for owner
+        
+           Returns:
+                str: Name of owner
+        """
         return self.owner()
 
     def is_logged_in(self):
         """Return whether or not the user has an authenticated login
            to this account
+
+           Returns:
+                bool: True if user logged in, else False
         """
         try:
             return self._user.is_logged_in()
@@ -316,13 +411,23 @@ class Account:
             return False
 
     def last_update_time(self):
-        """Return the time of the last update of the balance"""
+        """Return the time of the last update of the balance
+        
+           Returns:
+                datetime: Datetime of last update of the account
+                balance
+        """
         return self._last_update
 
     def _refresh(self, force_update=False):
         """Refresh the current status of this account. This fetches
            the latest data, e.g. balance, limits etc. Note that this
            limits you to refreshing at most once every five seconds...
+
+           Args:
+                force_update (bool, default=False): Force the refresh
+           Returns:
+                None
         """
         if self.is_null():
             from Acquire.Accounting import create_decimal as _create_decimal
@@ -371,39 +476,80 @@ class Account:
         self._last_update = _datetime.datetime.now()
 
     def accounting_service(self):
-        """Return the accounting service managing this account"""
+        """Return the accounting service managing this account
+        
+           Returns:
+                Service: Accounting service managing this account
+        """
         return self._accounting_service
 
     def description(self):
-        """Return the description of this account"""
+        """Return the description of this account
+        
+           Returns:
+                str: Description of account
+        """
         if not self._description:
             self._refresh()
 
         return self._description
 
     def balance(self, force_update=False):
-        """Return the current balance of this account"""
+        """Return the current balance of this account
+        
+           Args:
+                force_update (bool, default=False): Force the refresh
+           Returns:
+                Decimal: Balance of the account
+
+        """
         self._refresh(force_update)
         return self._balance.balance()
 
     def liability(self, force_update=False):
-        """Return the current total liability of this account"""
+        """Return the current total liability of this account
+        
+           Args:
+                force_update (bool, default=False): Force the refresh
+           Returns:
+                Decimal: Liability of the account
+
+        """
         self._refresh(force_update)
         return self._balance.liability()
 
     def receivable(self, force_update=False):
-        """Return the current total accounts receivable of this account"""
+        """Return the current total accounts receivable of this account
+        
+           Args:
+                force_update (bool, default=False): Force the refresh
+           Returns:
+                Decimal: Accounts receivable of the account
+        
+        """
         self._refresh(force_update)
         return self._balance.receivable()
 
     def overdraft_limit(self, force_update=False):
-        """Return the overdraft limit of this account"""
+        """Return the overdraft limit of this account
+        
+           Args:
+                force_update (bool, default=False): Force the refresh
+           Returns:
+                Decimal: Overdraft limit of account
+        
+        """
         self._refresh(force_update)
         return self._overdraft_limit
 
     def is_beyond_overdraft_limit(self, force_update=False):
         """Return whether or not the current balance is beyond
            the overdraft limit
+
+           Args:
+                force_update (bool, default=False): Force the refresh
+           Returns:
+                bool: True if account over overdraft limit, else False
         """
         self._refresh(force_update)
         return self._balance.is_overdrawn(self._overdraft_limit)
@@ -414,6 +560,12 @@ class Account:
            that the user must have logged into this account so that they
            have authorised this transaction. This returns the record
            of this transaction
+
+           Args:
+                transaction (Transaction): Transaction to perform
+                credit_account (Account): Account to credit
+                is_provisional (bool, default=False): Is transaction
+                provisional
         """
         if not self.is_logged_in():
             raise PermissionError("You cannot transfer value from '%s' to "
@@ -458,6 +610,13 @@ class Account:
     def receipt(self, credit_note, receipted_value=None):
         """Receipt the passed credit note that contains a request to
            transfer value from another account to the passed account
+
+           Args:
+                credit_note (CreditNote): CreditNote to use to create
+                receipt
+                receipted_value (Decimal, default=None): Receipted value
+            Returns:
+                TransactionRecord: Record of this transaction
         """
         if not self.is_logged_in():
             raise PermissionError("You cannot receipt a credit note as the "
@@ -489,6 +648,11 @@ class Account:
     def refund(self, credit_note):
         """Refunds the passed credit note that contained a transfer of
            from another account to the passed account
+
+           Args:
+                credit_note (CreditNote): Credit note to refund
+           Returns:
+                TransactionRecord: Record of this transaction
         """
         if not self.is_logged_in():
             raise PermissionError("You cannot refund a credit note as the "

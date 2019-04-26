@@ -11,6 +11,13 @@ from Acquire.Service import ServiceAccountError
 def run(args):
     """Call this function to trust the passed accounting service,
        specifically to trust that we can move money using that service.
+
+       Args:
+            args(dict): containing data on the service we want
+            to trust
+
+       Returns:
+            dict: containing status, status message and passed in args
     """
     service_url = args["service_url"]
 

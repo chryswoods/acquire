@@ -4,7 +4,15 @@ from Acquire.ObjectStore import string_to_bytes
 
 
 def run(args):
-    """This function return the status and service info"""
+    """This function return the status and service info
+
+    Args:
+        args (dict): Dictionary containing challenge information
+
+    Returns:
+        dict: containing information about the service
+    
+    """
 
     try:
         challenge = args["challenge"]

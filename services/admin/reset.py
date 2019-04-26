@@ -10,6 +10,12 @@ def run(args):
     """This function completely resets a service and deletes
        all data. This resets back to the original state.
        Obviously you should be really sure you want to do this!
+
+       Args:
+            args: unused
+
+       Returns:
+         dict: containing status of reset
     """
 
     status = 0

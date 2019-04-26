@@ -10,7 +10,12 @@ import sys
 def one_hot_spare():
     """Call this function to ensure that there is one hot spare
        copy of route waiting to service the next request
+
+       Args: None
+       Returns: None
+
     """
+    
     pass
 
 

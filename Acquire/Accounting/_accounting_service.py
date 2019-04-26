@@ -24,6 +24,13 @@ class AccountingService(_Service):
     def _call_local_function(self, function, args):
         """Internal function called to short-cut local 'remote'
            function calls
+
+           Args:
+                function (function): Function to route
+                args: Arguments to pass to routed function
+
+            Returns:
+                function: A handler function
         """
         from accounting.route import accounting_functions \
             as _accounting_functions

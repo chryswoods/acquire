@@ -19,7 +19,14 @@ def _one_hot_spare():
        to spin up another hot spare ready to process another request.
        This ensures that, if a user makes a request while this
        thread is busy, then the cold-start time to spin up another
-       thread has been mitigated."""
+       thread has been mitigated.
+
+       Args:
+            None
+        Returns:
+            None
+       
+       """
     devnull = open(os.devnull, "w")
     subprocess.Popen(["nohup", sys.executable, "one_hot_spare.py"],
                      stdout=devnull,
@@ -32,6 +39,16 @@ def _route_function(function, args, additional_functions=None):
        If 'additional_functions' is supplied then this will also
        pass the function through 'additional_functions' to find a
        match
+
+       Args:
+        function (str): select the function to call
+        args: arguments to be passed to the function
+        additional_functions (function, optional): another function used to
+        process the function and arguments
+
+        Returns:
+            function : selected function
+
     """
     if function is None:
         from admin.root import run as _root
@@ -92,7 +109,17 @@ def _handle(function=None, additional_functions=None, args={}):
        to add additional functions then add them via the
        'additional_functions' argument. This should accept 'function'
        and 'args', returning some output if the function is found,
-       or 'None' if the function is not available"""
+       or 'None' if the function is not available
+
+       Args:
+        additional_functions (function, optional): function to route
+        args (dict): arguments to be routed with function\
+
+        Returns:
+            function: the routed function
+
+       
+       """
 
     from Acquire.Service import start_profile, end_profile
 
@@ -115,9 +142,21 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None,
        to add additional functions then add them via the
        'additional_functions' argument. This should accept 'function'
        and 'args', returning some output if the function is found,
-       or 'None' if the function is not available"""
+       or 'None' if the function is not available
+       
+       Args:
+        additional_functions (function): function to be routed
+        ctx: currently unused
+        data (str): to be passed as arguments to other functions
+        TODO - expand this
+        loop: currently unused
 
-    # make sure we set the flag to say that this code is running
+        Returns:
+            dict: JSON serialisable dict
+
+       """
+
+    # Make sure we set the flag to say that this code is running
     # as part of a service
     from Acquire.Service import push_is_running_service, \
         pop_is_running_service, unpack_arguments, \
@@ -159,8 +198,16 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None,
 
 
 def create_async_handler(additional_functions=None):
-    """Function that creates the handler functions for all standard functions,
-       plus the passed additional_functions
+    """Function that creates the async handler functions for all standard
+        functions, plus the passed additional_functions
+
+        Args:
+            additional_functions (optional): other function for which to
+            create an async handler
+
+        Returns:
+            function: an async instance of the _base_handler function
+
     """
     async def async_handler(ctx, data=None, loop=None):
         return _base_handler(additional_functions=additional_functions,
@@ -171,6 +218,16 @@ def create_async_handler(additional_functions=None):
 
 def create_handler(additional_functions=None):
     def handler(ctx=None, data=None, loop=None, function=None, args=None):
+        """Function that creates the handler functions for all standard functions,
+       plus the passed additional_functions
+
+       Args:
+            additional_functions (optional): other function for which to
+            create a handler
+
+        Returns:
+            function: A handler function
+        """
         return _base_handler(additional_functions=additional_functions,
                              ctx=ctx, data=data, loop=loop,
                              function=function, args=args)

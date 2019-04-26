@@ -13,6 +13,13 @@ class TransactionError(Exception):
 def run(args):
     """This function is called to handle requests to perform transactions
        between accounts
+
+       Args:
+            args (dict): data for account transfers
+
+        Returns:
+            dict: contains status, status message and transaction
+            records if any are available
     """
 
     transaction_records = None

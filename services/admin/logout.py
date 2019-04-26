@@ -5,7 +5,15 @@ from Acquire.Identity import LoginSession, Authorisation
 def run(args):
     """This function will allow the current user to authorise
        a logout from the current session - this will be authorised
-       by signing the request to logout"""
+       by signing the request to logout
+       
+       Args:
+        args (dict): contains identifying information about the session
+    
+        Returns:
+            dict: contains data on the success of the logout request
+       
+       """
 
     session_uid = args["session_uid"]
 

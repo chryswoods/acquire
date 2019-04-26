@@ -20,7 +20,16 @@ class RequestError(Exception):
 
 
 def run(args):
-    """This function is used to handle requests to access resources"""
+    """This function is used to handle requests to access resources
+    
+        Args:
+            args (dict): dictionary containing data to check if a calculation
+                         can be run
+            
+        Returns:
+            dict: dictionary containing the PARs describing the job to be run
+    
+    """
 
     status = 0
     message = None
