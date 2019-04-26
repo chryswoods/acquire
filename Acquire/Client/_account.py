@@ -98,7 +98,7 @@ def _get_account_uids(user, accounting_service=None, accounting_url=None):
             accounting_url (str, default=None): Accounting URL
         
         Returns:
-            list: Names and UIDs of accounts beloning to passed user
+            list: Names and UIDs of accounts belonging to passed user
             on passed service
     """
     if accounting_service is None:
