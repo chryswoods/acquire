@@ -258,13 +258,6 @@ class Cheque:
 
         info["receipt_by"] = receipt_by
 
-<<<<<<< HEAD
-        # print(info)
-
-        # Everything now checks out - return the read cheque
-=======
-        # everything now checks out - return the read cheque
->>>>>>> devel
         return info
 
     def cash(self, spend, resource, receipt_within=3600):

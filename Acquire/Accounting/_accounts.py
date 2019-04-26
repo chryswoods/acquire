@@ -187,7 +187,6 @@ class Accounts:
         return accounts
 
     def get_account(self, name, bucket=None):
-<<<<<<< HEAD
         """Return the account called 'name' from this group
         
             Args:
@@ -197,11 +196,8 @@ class Accounts:
             Returns:
                 :obj:`Account`: Account object        
         """
-=======
-        """Return the account called 'name' from this group"""
         self._assert_is_readable()
 
->>>>>>> devel
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
                 as _get_service_account_bucket
@@ -228,7 +224,6 @@ class Accounts:
         return _Account(uid=account_uid, bucket=bucket)
 
     def contains(self, account, bucket=None):
-<<<<<<< HEAD
         """Return whether or not this group contains the passed account
         
             Args:
@@ -237,11 +232,8 @@ class Accounts:
             Returns:
                 bool : True if account in group, else False
         """
-=======
-        """Return whether or not this group contains the passed account"""
         self._assert_is_readable()
 
->>>>>>> devel
         from Acquire.Accounting import Account as _Account
         if not isinstance(account, _Account):
             raise TypeError("The passed account must be of type Account")
