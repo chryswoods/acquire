@@ -578,7 +578,7 @@ class Drive:
            file
 
            Args:
-                filename: Filename for listing of versions
+                filename (str): Filename for listing of versions
                 include_metadata (bool, default=False): If True include
                 metadata for the returned files
            Returns:

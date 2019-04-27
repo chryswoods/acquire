@@ -9,12 +9,22 @@ def compress(inputfile=None, outputfile=None,
        file called 'outputfile', or to a tmpfile. The name of the
        file will be returned. If this is compressing data,
        then it will return the compressed data
+
+       Args:
+            inputfile (str, default=None): Name of file to compress
+            outputfile (str, default=None): Name of compressed file
+            inputdata (str, default=None): Data to be compressed
+            compression_type (str, default="bz2"): Compression type,
+            currently only bz2 supported
+       Returns:
+            bytes: Compressed data
     """
     import os as _os
 
     if compression_type == "bz2":
         import bz2 as _bz2
 
+        block_size = 1048576
         if inputfile is not None:
             IFILE = open(inputfile, "rb")
 
@@ -27,11 +37,11 @@ def compress(inputfile=None, outputfile=None,
                 OFILE = _bz2.BZ2File(bz2file, "wb", compresslevel=9)
 
                 # compress data in MB blocks
-                data = IFILE.read(1048576)
+                data = IFILE.read(block_size)
 
                 while data:
                     OFILE.write(data)
-                    data = IFILE.read(1048576)
+                    data = IFILE.read(block_size)
 
                 IFILE.close()
                 OFILE.close()
@@ -68,12 +78,22 @@ def uncompress(inputfile=None, outputfile=None,
        file called 'outputfile', or to a tmpfile. The name of the
        file will be returned. If this is uncompressing data,
        then it will return the uncompressed data
+
+       Args:
+            inputfile (str, default=None): Name of file to decompress
+            outputfile (str, default=None): Name of decompressed file
+            inputdata (str, default=None): Data to be decompressed
+            compression_type (str, default="bz2"): Compression type,
+            currently only bz2 supported
+       Returns:
+            bytes: Decompressed data
     """
     import os as _os
 
     if compression_type == "bz2":
         import bz2 as _bz2
 
+        block_size = 1048576
         if inputfile is not None:
             IFILE = _bz2.BZ2File(inputfile, "rb")
 
@@ -86,11 +106,11 @@ def uncompress(inputfile=None, outputfile=None,
                 OFILE = open(bz2file, "wb")
 
                 # compress data in MB blocks
-                data = IFILE.read(1048576)
+                data = IFILE.read(block_size)
 
                 while data:
                     OFILE.write(data)
-                    data = IFILE.read(1048576)
+                    data = IFILE.read(block_size)
 
                 IFILE.close()
                 OFILE.close()
@@ -124,6 +144,12 @@ def create_new_file(filename, dir=None):
     """Create a new file in directory 'dir' (default current directory)
        called 'filename'. If the file already exists, then create a new
        file with name derived from 'filename'
+
+        Args:
+            filename (str): Name of file to create
+            dir (str, default=None): Directory in which to create file
+        Returns:
+            None
     """
     import os as _os
 

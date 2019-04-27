@@ -18,6 +18,20 @@ class PAR:
 
        The PAR is created encrypted, so can only be used by the
        person or service that has access to the decryption key
+
+       Args:
+            url (str, default=None): URL for access
+            key (str, default=None): Key for request
+            encrypt_key (str, default=None): Key used to encrypt
+            the PAR
+            expires_datatime (datetime, default=None): Datetime at 
+            which the PAR expires
+            is_readable (bool, default=False): If True read access granted
+            is_writeable (bool, default=False): If True write access granted
+            is_executable (bool, default=False): If True PAR triggers a calculation
+            driver_details (str, default=None): Contains extra details for PAR
+            creation
+
     """
     def __init__(self, url=None, key=None,
                  encrypt_key=None,
@@ -133,6 +147,11 @@ class PAR:
            to use the PAR without having to always supply
            the key (by definition, you are the only person
            who has the key)
+
+           Args:
+                privkey (str): Private key to use for this PAR
+           Returns:
+                None
         """
         from Acquire.Crypto import PrivateKey as _PrivateKey
 
@@ -144,6 +163,12 @@ class PAR:
     def _get_privkey(self, decrypt_key=None):
         """Return the private key used to decrypt the PAR, passing in
            the user-supplied key if needed
+
+           Args:
+                decrypt_key (str): Key to decrypt the PAR
+           Returns:
+                str: Key for decryption of PAR
+
         """
         try:
             if self._privkey is not None:
@@ -162,7 +187,11 @@ class PAR:
         return decrypt_key
 
     def is_null(self):
-        """Return whether or not this is null"""
+        """Return whether or not this is null
+        
+           Returns:
+                bool: True if PAR is null, else False
+        """
         return self._uid is None
 
     @staticmethod
@@ -171,6 +200,11 @@ class PAR:
            for validating data, and is also used to create a checksum
            of the URL so that the user can demonstrate that they can
            decrypt this PAR
+
+           Args:
+                data (str): Data to checksum
+           Returns:
+                str: MD5 checksum of data
         """
         from hashlib import md5 as _md5
         md5 = _md5()
@@ -185,7 +219,15 @@ class PAR:
         """Return the URL at which the bucket/object can be accessed. This
            will raise a PARTimeoutError if the url has less than 30 seconds
            of validity left. Note that you must pass in the key used to
-           decrypt the PAR"""
+           decrypt the PAR
+           
+           Args:
+                decrypt_key (str, default=None): Key for decryption of data
+           Returns:
+                TODO - ensure this is correct
+                str: Decrypted data
+
+           """
         if self.seconds_remaining(buffer=30) <= 0:
             from Acquire.Client import PARTimeoutError
             raise PARTimeoutError(
@@ -194,14 +236,22 @@ class PAR:
         return self._get_privkey(decrypt_key).decrypt(self._url)
 
     def service_url(self):
-        """Return the URL of the service that created this PAR"""
+        """Return the URL of the service that created this PAR
+        
+           Returns:
+                str: URL of service that created this PAR
+        """
         if self.is_null():
             return None
         else:
             return self._service_url
 
     def service(self):
-        """Return the service that created this PAR"""
+        """Return the service that created this PAR
+        
+           Returns:
+                Service: Service object that created this PAR
+        """
         service_url = self.service_url()
 
         if service_url is not None:
@@ -214,13 +264,20 @@ class PAR:
             return None
 
     def uid(self):
-        """Return the UID of this PAR"""
+        """Return the UID of this PAR
+        
+           Returns:
+                str: UID of this PAR
+        """
         return self._uid
 
     def driver_details(self):
         """Return the driver details for this PAR. This is used only
            on the service that created the PAR, and returns an empty
            dictionary if the details are not available
+
+           Returns:
+                str: Driver details for this PAR
         """
         if self._driver_details is None:
             return {}
@@ -230,6 +287,9 @@ class PAR:
     def driver(self):
         """Return the driver behind this PAR - this is only available on
            the service
+
+           Returns:
+                str: Driver behind this PAR
         """
         try:
             return self.driver_details()["driver"]
@@ -239,40 +299,81 @@ class PAR:
     def fingerprint(self):
         """Return a fingerprint for this PAR that can be used
            in authorisations
+
+           TODO - Should this be a more detailed fingerprint?
+
+           Returns:
+                str: UID for this PAR
         """
         return self._uid
 
     def is_readable(self):
-        """Return whether or not this PAR gives read access"""
+        """Return whether or not this PAR gives read access
+
+           Returns:
+                bool: True if PAR gives read access
+        """
         return self._is_readable
 
     def is_writeable(self):
-        """Return whether or not this PAR gives write access"""
+        """Return whether or not this PAR gives write access
+        
+           Returns:    
+                bool: True if PAR gives write access
+        
+        """
         return self._is_writeable
 
     def is_executable(self):
-        """Return whether or not this is an executable job"""
+        """Return whether or not this is an executable job
+        
+           Returns:
+                bool: True if PAR is for an executable job
+        """
         return self._is_executable
 
     def key(self):
         """Return the key for the object this accesses - this is None
-           if the PAR grants access to the entire bucket"""
+           if the PAR grants access to the entire bucket
+           
+           Returns:
+                str: Key for the object this accesses
+           
+           """
         return self._key
 
     def is_bucket(self):
-        """Return whether or not this PAR is for an entire bucket"""
+        """Return whether or not this PAR is for an entire bucket
+        
+           Returns:
+                bool: True if this PAR is for a bucket, else False    
+    
+        """
         return (self._key is None) and not (self.is_executable())
 
     def is_calculation(self):
-        """Return whether or not this PAR is for a calculation"""
+        """Return whether or not this PAR is for a calculation
+        
+           Returns:
+                bool: True if PAR is for calculation, else False
+        """
         return self._is_executable
 
     def is_object(self):
-        """Return whether or not this PAR is for a single object"""
+        """Return whether or not this PAR is for a single object
+        
+           Returns:
+                bool: True if PAR is for a single object, else False
+        """
         return self._key is not None
 
     def expires_when(self):
-        """Return when this PAR expires (or expired)"""
+        """Return when this PAR expires (or expired)
+        
+           Returns:
+                datetime: Time at which this PAR expires
+        
+        """
         if self.is_null():
             return None
         else:
@@ -285,14 +386,20 @@ class PAR:
            than 60. This will subtract 'buffer' seconds from the actual
            validity to provide a buffer against race conditions (function
            says this is valid when it is not)
+
+           Args:
+                buffer (int, default=30): buffer PAR validity (seconds)
+           Returns:
+                datetime: Seconds remaining on PAR validity
         """
         from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
-        now = _get_datetime_now()
 
         buffer = float(buffer)
 
         if buffer < 0:
             buffer = 0
+
+        now = _get_datetime_now()
 
         delta = (self._expires_datetime - now).total_seconds() - buffer
 
@@ -302,7 +409,14 @@ class PAR:
             return delta
 
     def read(self, decrypt_key=None):
-        """Return an object that can be used to read data from this PAR"""
+        """Return an object that can be used to read data from this PAR
+
+           Args:
+                decrypt_key (str, default=None): Key to decrypt this PAR
+           Returns:
+                BucketReader or ObjectReader: Object that can be used to 
+                read this PAR
+        """
         if not self.is_readable():
             from Acquire.Client import PARPermissionsError
             raise PARPermissionsError(
@@ -314,7 +428,15 @@ class PAR:
             return ObjectReader(self, self._get_privkey(decrypt_key))
 
     def write(self, decrypt_key=None):
-        """Return an object that can be used to write data to this PAR"""
+        """Return an object that can be used to write data to this PAR
+        
+           Args:
+                decrypt_key (str, default=None): Key to decrypt this PAR
+           Returns:
+                BucketReader or ObjectReader: Object that can be used to 
+                write to this PAR
+           
+        """
         if not self.is_writeable():
             from Acquire.Client import PARPermissionsError
             raise PARPermissionsError(
@@ -328,6 +450,12 @@ class PAR:
     def execute(self, decrypt_key=None):
         """Return an object that can be used to control execution of
            this PAR
+
+           Args:
+                decrypt_key (str, default=None): Key to decrypt this PAR
+           Returns:
+                ComputeRunner: Object that can be used to control execution
+                of this PAR
         """
         if not self.is_executable():
             from Acquire.Client import PARPermissionsError
@@ -340,6 +468,11 @@ class PAR:
         """Close this PAR - this closes and deletes the PAR. You must
            pass in the decryption key so that you can validate that
            you have permission to read (and thus close) this PAR
+
+           Args:
+                decrypt_key (str, default=None): Key to decrypt this PAR
+           Returns:
+                None
         """
         if self.is_null():
             return
@@ -364,6 +497,12 @@ class PAR:
     def to_data(self, passphrase=None):
         """Return a json-serialisable dictionary that contains all data
            for this object
+
+           Args:
+                passphrase (str, default=None): Passphrase to use to 
+                encrypt PAR
+           Returns:
+                dict: JSON serialisable dictionary
         """
         data = {}
 
@@ -407,6 +546,12 @@ class PAR:
     def from_data(data, passphrase=None):
         """Return a PAR constructed from the passed json-deserliased
            dictionary
+
+           Args:
+                data (dict): JSON-deserialised dictionary from which to
+                create PAR
+            Returns:
+                PAR: PAR object created from dict
         """
         if data is None or len(data) == 0:
             return PAR()
@@ -448,6 +593,11 @@ class PAR:
 def _url_to_filepath(url):
     """Internal function used to strip the "file://" from the beginning
        of a file url
+
+       Args:
+            url (str): URL to clean
+       Returns:
+            str: URL string with file:// removed
     """
     return url[7:]
 
@@ -455,13 +605,25 @@ def _url_to_filepath(url):
 def _read_local(url):
     """Internal function used to read data from the local testing object
        store
+
+       Args:
+            url (str): URL from which to read data
+       Returns:
+            bytes: Data read from file
     """
     with open("%s._data" % _url_to_filepath(url), "rb") as FILE:
         return FILE.read()
 
 
 def _read_remote(url):
-    """Internal function used to read data from a remote URL"""
+    """Internal function used to read data from a remote URL
+    
+       Args:
+            url (str): Remote URL from which to read data
+       Returns:
+            str: HTTP request content
+
+    """
     status_code = None
     response = None
 
@@ -487,7 +649,13 @@ def _read_remote(url):
 
 
 def _list_local(url):
-    """Internal function to list all of the objects keys below 'url'"""
+    """Internal function to list all of the objects keys below 'url'
+    
+       Args:
+            url (str): URL from which to read data
+       Returns:
+            list: List of object keys
+    """
     local_dir = _url_to_filepath(url)
 
     keys = []
@@ -509,12 +677,27 @@ def _list_local(url):
 
 
 def _list_remote(url):
-    """Internal function to list all of the objects keys below 'url'"""
+    """Internal function to list all of the objects keys below 'url'
+
+       Currently unimplemented
+    
+       Args:
+            url (str): URL from which to read data
+       Returns:
+            list: Empty list
+    """
     return []
 
 
 def _write_local(url, data):
-    """Internal function used to write data to a local file"""
+    """Internal function used to write data to a local file
+    
+       Args:
+            url (str): URL to write data to
+            data (bytes): Data to write
+       Returns:
+            None    
+    """
     filename = "%s._data" % _url_to_filepath(url)
 
     try:
@@ -530,7 +713,14 @@ def _write_local(url, data):
 
 
 def _write_remote(url, data):
-    """Internal function used to write data to the passed remote URL"""
+    """Internal function used to write data to the passed remote URL
+    
+       Args:
+            url (str): Remote URL to write data to
+            data (bytes): Data to write
+       Returns:
+            None    
+    """
     try:
         from Acquire.Stubs import requests as _requests
         response = _requests.put(url, data=data)
@@ -552,6 +742,12 @@ def _join_bucket_and_prefix(url, prefix):
     """Join together the passed url and prefix, returning the
        url directory and the remainig part which is the start
        of the file name
+
+       Args:
+            url (str): URL to combine
+            prefix (str): Prefix to combine
+       Returns:
+            str: URL and prefix processed concatenated
     """
     if prefix is None:
         return url
@@ -564,6 +760,11 @@ def _join_bucket_and_prefix(url, prefix):
 class BucketReader:
     """This class provides functions to enable reading data from a
        bucket via a PAR
+
+       Args:
+            par (PAR, default=None): PAR to use for data access
+            decrypt_key (str, default=None): Key to decrypt data in bucket
+
     """
     def __init__(self, par=None, decrypt_key=None):
         if par:
@@ -587,7 +788,13 @@ class BucketReader:
 
     def get_object(self, key):
         """Return the binary data contained in the key 'key' in the
-           passed bucket"""
+           passed bucket
+           
+           Args:
+                key (str): Key to access data in bucket
+           Returns:
+                bytes: Data referred to by key
+        """
         if self._par is None:
             from Acquire.Client import PARError
             raise PARError("You cannot read data from an empty PAR")
@@ -609,14 +816,26 @@ class BucketReader:
 
     def get_object_as_file(self, key, filename):
         """Get the object contained in the key 'key' in the passed 'bucket'
-           and writing this to the file called 'filename'"""
+           and writing this to the file called 'filename'
+
+           Args:
+                key (str): Key to access data in bucket
+           Returns:
+                None          
+        """
         objdata = self.get_object(key)
 
         with open(filename, "wb") as FILE:
             FILE.write(objdata)
 
     def get_string_object(self, key):
-        """Return the string in 'bucket' associated with 'key'"""
+        """Return the string in 'bucket' associated with 'key'
+        
+           Args:
+                key (str): Key to access data in bucket
+           Returns:
+                str: String referred to by key
+        """
         data = self.get_object(key)
 
         try:
