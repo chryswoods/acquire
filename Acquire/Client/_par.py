@@ -696,7 +696,7 @@ def _write_local(url, data):
             url (str): URL to write data to
             data (bytes): Data to write
        Returns:
-            None    
+            None
     """
     filename = "%s._data" % _url_to_filepath(url)
 
@@ -740,7 +740,7 @@ def _write_remote(url, data):
 
 def _join_bucket_and_prefix(url, prefix):
     """Join together the passed url and prefix, returning the
-       url directory and the remainig part which is the start
+       url directory and the remaining part which is the start
        of the file name
 
        Args:
@@ -847,14 +847,26 @@ class BucketReader:
 
     def get_object_from_json(self, key):
         """Return an object constructed from json stored at 'key' in
-           the passed bucket. This raises an exception if there is no
-           data or the PAR has expired
+           the passed bucket. This raises an exception if ther
+           
+           Args:
+                key (str): Key to access object
+            Returns:
+                Object: Objet created from JSON
         """
         data = self.get_string_object(key)
         return _json.loads(data)
 
     def get_all_object_names(self, prefix=None):
-        """Returns the names of all objects in the passed bucket"""
+        """Returns the names of all objects in the bucket at
+           the URL for the PAR for this BucketWriter
+        
+           Args:
+                prefix (str, default=None): Prefix to filename
+           Returns:
+                list: List of files in bucket at that URL
+        
+        """
         (url, part) = _join_bucket_and_prefix(self._url, prefix)
 
         if url.startswith("file://"):
@@ -881,7 +893,15 @@ class BucketReader:
         return matches
 
     def get_all_objects(self, prefix=None):
-        """Return all of the objects in the passed bucket"""
+        """Return all of the objects in the bucket at the URL
+           for this BucketWriter object
+
+            Args:
+                prefix (str): Prefix for filen
+            Returns:
+                dict: Dictionary of objects
+        
+        """
         names = self.get_all_object_names(prefix)
 
         objects = {}
@@ -897,7 +917,14 @@ class BucketReader:
         return objects
 
     def get_all_strings(self, prefix=None):
-        """Return all of the strings in the passed bucket"""
+        """Return all of the strings in the passed bucket
+        
+            Args:
+                prefix (str): Prefix for file
+            Returns:
+                dict: Dictionary of objects
+
+        """
         objects = self.get_all_objects(prefix)
 
         names = list(objects.keys())
@@ -915,6 +942,11 @@ class BucketReader:
 class BucketWriter:
     """This class provides functions to enable writing data to a
        bucket via a PAR
+
+       Args:
+            par (PAR, default=None): PAR for writing with this BucketWriter object
+            decrypt_key (str, default=None): key to access URL at which the 
+            bucket/object can be accessed
     """
     def __init__(self, par=None, decrypt_key=None):
         if par:
@@ -937,7 +969,15 @@ class BucketWriter:
             self._par = None
 
     def set_object(self, key, data):
-        """Set the value of 'key' in 'bucket' to binary 'data'"""
+        """Set the value of 'key' in 'bucket' to binary 'data'
+        
+            Args:
+                key (str): Key to access object
+                data (bytes): Data to write
+            Returns:
+                None
+
+        """
         if self._par is None:
             from Acquire.Client import PARError
             raise PARError("You cannot write data to an empty PAR")
@@ -952,6 +992,8 @@ class BucketWriter:
         else:
             url = "%s/%s" % (url, key)
 
+        # TODO - Why is this function being returned instead
+        # of being called here? It doesn't return anything itself
         if url.startswith("file://"):
             return _write_local(url, data)
         else:
@@ -959,23 +1001,51 @@ class BucketWriter:
 
     def set_object_from_file(self, key, filename):
         """Set the value of 'key' in 'bucket' to equal the contents
-           of the file located by 'filename'"""
+           of the file located by 'filename'
+           
+            Args:
+                key (str): Key for file
+                filename (str): File to write
+            Returns:
+                None
+        """
         with open(filename, "rb") as FILE:
             data = FILE.read()
             self.set_object(key, data)
 
     def set_string_object(self, key, string_data):
-        """Set the value of 'key' in 'bucket' to the string 'string_data'"""
+        """Set the value of 'key' in 'bucket' to the string 'string_data'
+        
+            Args:
+                key (str): Key for object
+                string_data (str): String data to write
+            Returns:
+                None
+        """
         self.set_object(key, string_data.encode("utf-8"))
 
     def set_object_from_json(self, key, data):
         """Set the value of 'key' in 'bucket' to equal to contents
-           of 'data', which has been encoded to json"""
+           of 'data', which has been encoded to json
+           
+            Args:
+                key (str): Key for data
+                data (str): JSON data
+
+            Returns:
+                None
+           """
         self.set_string_object(key, _json.dumps(data))
 
 
 class ObjectReader:
-    """This class provides functions for reading an object via a PAR"""
+    """This class provides functions for reading an object via a PAR
+
+        Args:
+            par (PAR, default=None): PAR to use to reading the object
+            decrypt_key (str, default=None): Key for accessing object  
+
+    """
     def __init__(self, par=None, decrypt_key=None):
         if par:
             if not isinstance(par, PAR):
@@ -997,7 +1067,11 @@ class ObjectReader:
             self._par = None
 
     def get_object(self):
-        """Return the binary data contained in this object"""
+        """Return the binary data contained in this object
+        
+            Returns:
+                bytes: Object as binary data
+        """
         if self._par is None:
             from Acquire.Client import PARError
             raise PARError("You cannot read data from an empty PAR")
@@ -1011,7 +1085,14 @@ class ObjectReader:
 
     def get_object_as_file(self, filename):
         """Get the object contained in this PAR and write this to
-           the file called 'filename'"""
+           the file called 'filename'
+           
+           Args:
+                filename (str): Filename to write object to
+            Returns:
+                None
+
+           """
         objdata = self.get_object()
 
         with open(filename, "wb") as FILE:
@@ -1019,7 +1100,11 @@ class ObjectReader:
 
     def get_string_object(self):
         """Return the object behind this PAR as a string (raises exception
-           if it is not a string)'"""
+           if it is not a string)'
+
+            Returns:
+                bytes: Object associated with this PAR as bytes   
+        """
         data = self.get_object()
 
         try:
@@ -1033,6 +1118,10 @@ class ObjectReader:
         """Return an object constructed from json stored at behind
            this PAR. This raises an exception if there is no data
            or the PAR has expired
+
+           Returns:
+                Object: Object created from JSON data
+
         """
         data = self.get_string_object()
         return _json.loads(data)
@@ -1041,6 +1130,10 @@ class ObjectReader:
 class ObjectWriter(ObjectReader):
     """This is an extension of ObjectReader that also allows writing to
        the object via the PAR
+
+       Args:
+            par (PAR, default=None): PAR for writing  the object
+            decrypt_key (str, default=None): Key for accessing object
     """
     def __init__(self, par=None, decrypt_key=None):
         if par:
@@ -1063,7 +1156,9 @@ class ObjectWriter(ObjectReader):
             self._par = None
 
     def set_object(self, data):
-        """Set the value of the object behind this PAR to the binary 'data'"""
+        """Set the value of the object behind this PAR to the binary 'data'
+        
+        """
         if self._par is None:
             from Acquire.Client import PARError
             raise PARError("You cannot write data to an empty PAR")
