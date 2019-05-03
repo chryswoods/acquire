@@ -279,6 +279,9 @@ def get_datetime_future(weeks=0, days=0, hours=0, minutes=0, seconds=0,
             minutes (int, default=0): Number of minutes in future
             seconds (int, default=0): Number of seconds in future
             timedelta (datetime.timedelta, default=0): Timedelta from now
+      Returns:
+            datetime: Datetime at a point in the future
+
     """
     delta = _datetime.timedelta(weeks=weeks, days=days, hours=hours,
                                 minutes=minutes, seconds=seconds)
