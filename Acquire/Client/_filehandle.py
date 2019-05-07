@@ -166,16 +166,16 @@ class FileHandle:
 
     def is_null(self):
         """Return whether or not this this null
-        
+
         Returns:
-            bool: True if handle null, else False       
-        
+            bool: True if handle null, else False
+
         """
         return self._filename is None
 
     def is_compressed(self):
         """Return whether or not the file is compressed on transport
-        
+
            Returns:
                 bool: True if compressed, else False
         """
@@ -227,7 +227,7 @@ class FileHandle:
         """Return the local filename for this file
 
            Returns:
-                str: Local filename for file        
+                str: Local filename for file
         """
         if self.is_localdata():
             return None
@@ -238,7 +238,7 @@ class FileHandle:
 
     def drive_uid(self):
         """Return the UID of the drive on which this file is located
-        
+
            Returns:
                 str: UID for drive
         """
@@ -246,15 +246,15 @@ class FileHandle:
 
     def aclrules(self):
         """Return the ACL rules for this file
-        
+
            Returns:
-                str: ACL rules for file        
+                str: ACL rules for file
         """
         return self._aclrules
 
     def filename(self):
         """Return the remote (object store) filename for this file
-        
+
            Returns:
                 str: Filename
         """
@@ -273,7 +273,7 @@ class FileHandle:
 
     def checksum(self):
         """Return the checksum of the contents of this file
-        
+
            Returns:
                 str: MD5 checksum for file
         """
@@ -337,7 +337,7 @@ class FileHandle:
            will also contain the packed version of that file data
 
            Args:
-                data (dict): JSON-deserialised dictionary 
+                data (dict): JSON-deserialised dictionary
            Returns:
                 FileHandle: FileHandle object created from dictionary
         """

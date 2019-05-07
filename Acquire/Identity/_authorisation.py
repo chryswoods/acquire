@@ -24,6 +24,9 @@ class Authorisation:
 
         self._signature = None
         self._last_validated_datetime = None
+        self._scope = None
+        self._permissions = None
+        self._pubcert = None
 
         if resource is not None:
             if user is None and testing_key is None:
@@ -412,8 +415,8 @@ class Authorisation:
         # small race condition here, but this would be extremely
         # challenging to exploit, and mitigating it would be a
         # significant performance problem. Ideally the object store
-        # would have a "test_and_set" to enable us to set only if
-        # the previous value is None
+        # would have a "test_and_set" to enable us to set only if
+        # the previous value is None
         _ObjectStore.set_string_object(bucket=bucket, key=authkey,
                                        string_data=now)
 

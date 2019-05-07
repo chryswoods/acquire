@@ -14,12 +14,12 @@ def _sanitise_bucket_name(bucket_name):
     """This function sanitises the passed bucket name. It will always
         return a valid bucket name. If "None" is passed, then a new,
         unique bucket name will be generated
-        
+
         Args:
             bucket_name (str): Bucket name to clean
         Returns:
             str: Cleaned bucket name
-        
+
         """
 
     if bucket_name is None:
@@ -51,6 +51,7 @@ def _clean_key(key):
         # to shorten keys and use this function to lookup long keys
 
     return key
+
 
 def _get_object_url_for_region(region, uri):
     """Internal function used to get the full URL to the passed PAR URI
@@ -135,7 +136,7 @@ class OCI_ObjectStore:
             bucket (dict): Bucket to hold data
             bucket_name (str): Name of bucket to create
             compartment (str): Compartment in which to create bucket
-           
+
            Returns:
                 dict: New bucket
         """
@@ -186,9 +187,11 @@ class OCI_ObjectStore:
            Args:
                 bucket (dict): Bucket to hold data
                 bucket_name (str): Name of bucket to create
-                compartment (str, default=None): Compartment in which to create bucket
-                create_if_needed (bool, default=None): If True, create bucket, else do 
-                not 
+                compartment (str, default=None): Compartment in which to
+                create bucket
+                create_if_needed (bool, default=None): If True, create bucket,
+                else do
+                not
 
            Returns:
                 dict: New bucket
@@ -254,7 +257,7 @@ class OCI_ObjectStore:
     @staticmethod
     def get_bucket_name(bucket):
         """Return the name of the passed bucket
-        
+
            Args:
                 bucket (dict): Bucket holding data
            Returns:
@@ -270,7 +273,7 @@ class OCI_ObjectStore:
                 bucket (dict): Bucket holding data
            Returns:
                 bool: True if bucket empty, else False
-           
+
         """
         objects = bucket["client"].list_objects(bucket["namespace"],
                                                 bucket["bucket_name"],
@@ -336,7 +339,7 @@ class OCI_ObjectStore:
 
            Args:
                 bucket (dict): Bucket to create PAR for
-                encrypt_key (PublicKey): Public key to 
+                encrypt_key (PublicKey): Public key to
                 encrypt PAR
                 key (str, default=None): Key
                 readable (bool, default=True): If bucket is readable
@@ -479,7 +482,7 @@ class OCI_ObjectStore:
            Args:
                 par (PAR, default=None): PAR to close bucket
                 par_uid (str, default=None): UID for PAR
-                url_checksum (str, default=None): Checksum to 
+                url_checksum (str, default=None): Checksum to
                 pass to PARRegistry
            Returns:
                 None
@@ -612,7 +615,7 @@ class OCI_ObjectStore:
            Args:
                 bucket (dict): Bucket containing data
                 key (str): Key for data
-            
+
            Returns:
                 bytes: Binary data
         """
@@ -629,13 +632,13 @@ class OCI_ObjectStore:
     @staticmethod
     def get_all_object_names(bucket, prefix=None):
         """Returns the names of all objects in the passed bucket
-           
+
            Args:
                 bucket (dict): Bucket containing data
                 prefix (str): Prefix for data
            Returns:
-                list: List of all objects in bucket    
-        
+                list: List of all objects in bucket
+
         """
         if prefix is not None:
             prefix = _clean_key(prefix)
@@ -667,7 +670,7 @@ class OCI_ObjectStore:
     @staticmethod
     def set_object(bucket, key, data):
         """Set the value of 'key' in 'bucket' to binary 'data'
-        
+
            Args:
                 bucket (dict): Bucket containing data
                 key (str): Key for data in bucket
@@ -689,10 +692,10 @@ class OCI_ObjectStore:
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
         """Deletes all objects...
-        
-           Args: 
+
+           Args:
                 bucket (dict): Bucket containing data
-                prefix (str, default=None): Prefix for data, 
+                prefix (str, default=None): Prefix for data,
                 currently unused
             Returns:
                 None
@@ -706,7 +709,7 @@ class OCI_ObjectStore:
     @staticmethod
     def delete_object(bucket, key):
         """Removes the object at 'key'
-        
+
            Args:
                 bucket (dict): Bucket containing data
                 key (str): Key for data

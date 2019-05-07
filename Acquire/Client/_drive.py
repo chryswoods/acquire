@@ -33,7 +33,7 @@ def _get_storage_service(storage_url=None):
 
 def _create_drive(user, name, drivemeta, storage_service):
     """Internal function used to create a Drive
-    
+
        Args:
             user (User): User for drive
             name (str): Name for drive
@@ -67,7 +67,7 @@ def _get_drive(user, name=None, storage_service=None, storage_url=None,
             name (str, default=None): Name for drive
             storage_service (Service, default=None): Service object to use
             storage_url (str, default=None): URL for storage
-            autocreate (bool): If True create drive automatically, 
+            autocreate (bool): If True create drive automatically,
             if False do not
        Returns:
             Drive: Drive object
@@ -110,7 +110,7 @@ class Drive:
        a single storage service and can be shared amongst several
        users. Each drive has a unique UID, with users assiging
        their own shorthand names.
-       
+
     """
     def __init__(self, user=None, name=None, storage_service=None,
                  storage_url=None, autocreate=True):
@@ -139,7 +139,7 @@ class Drive:
 
     def is_null(self):
         """Return whether or not this drive is null
-        
+
            Returns:
                 bool: True if null, else False
         """
@@ -173,7 +173,7 @@ class Drive:
 
     def name(self):
         """Return the name given to this drive by the user
-        
+
            Returns:
                 str: Name of drive
         """
@@ -181,10 +181,10 @@ class Drive:
 
     def uid(self):
         """Return the UID of this drive
-           
+
            Returns:
                 str: UID of drive
-                
+
         """
         return self._drive_uid
 
@@ -203,11 +203,11 @@ class Drive:
 
     def storage_service(self):
         """Return the storage service for this drive
-        
+
         Returns:
             Service: Storage service for drive
-        
-        
+
+
         """
         if self.is_null():
             return None
@@ -288,7 +288,8 @@ class Drive:
                 filename (str): Name of file to upload
                 uploaded_name (str, default=None): Name of file once uploaded
                 aclrules (str, default=None): ACL rules for file
-                force_par (bool, default=False): If True force a pre-authenticated
+                force_par (bool, default=False): If True force a
+                pre-authenticated
                 request be created for the upload
             Returns:
                 FileMeta: Object containing metadata on the uploaded file
@@ -370,12 +371,13 @@ class Drive:
 
            Args:
                 filename (str): Name of file to download
-                downloaded_name (str, default=None): Name of file once downloaded
-                version (datetime, default=None): Datetime denoting version 
+                downloaded_name (str, default=None): Name of file once
+                downloaded
+                version (datetime, default=None): Datetime denoting version
                 of file to use
                 dir (str, default=None): Directory for file
-                force_par (bool, default=False): If True force a pre-authenticated
-                request be created for the download
+                force_par (bool, default=False): If True force a
+                pre-authenticated request be created for the download
            Returns:
                 FileMeta: Object containing metadata on the uploaded file
 
@@ -474,7 +476,7 @@ class Drive:
                 user (User): Name of file to download
                 drive_uid (str, default=None): UID of drive
                 storage_service (Service): Service for drives
-                storage_url (str): URL for storage service          
+                storage_url (str): URL for storage service
            Returns:
                 list: List of DriveMetas for the drives
 
@@ -510,7 +512,8 @@ class Drive:
 
            Args:
                 user (User): User for drives
-                storage_service (Service, default=None): Storage service to query
+                storage_service (Service, default=None): Storage service to
+                query
                 storage_url (str): URL for storage service
            Returns:
                 list: List of DriveMetas for the drives

@@ -22,10 +22,10 @@ class JobSheet:
 
     def is_null(self):
         """Return whether or not this JobSheet is null
-        
+
         Returns:
             bool: True if uid is set, False otherwise
-        
+
         """
         return self._uid is None
 
@@ -34,7 +34,7 @@ class JobSheet:
 
             Returns:
                 str: UID of the object
-        
+
         """
         return self._uid
 
@@ -57,7 +57,7 @@ class JobSheet:
 
             Returns:
                 None or Request: If no uid set None, else job request
-        
+
         """
         if self.is_null():
             return None
@@ -69,7 +69,7 @@ class JobSheet:
 
             Returns:
                 None or Authorisation: If no uid set None, else Authorisation
-        
+
         """
         if self.is_null():
             return None
@@ -156,7 +156,7 @@ class JobSheet:
 
             Returns:
                 None
-        
+
         """
         from Acquire.Service import assert_running_service \
             as _assert_running_service
