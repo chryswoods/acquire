@@ -14,7 +14,14 @@ function datetime_to_datetime(d)
 function datetime_to_string(d)
 {
     d = datetime_to_datetime(d);
-    return d.toISOString();
+    d = d.toISOString();
+
+    if (d.endsWith("Z"))
+    {
+        d = d.substr(0, d.length-1);
+    }
+
+    return d;
 }
 
 /** Convert the passed string back into a datetime */

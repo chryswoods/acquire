@@ -337,6 +337,16 @@ class PrivateKey
         }
     }
 
+    async encrypt(message)
+    {
+        if (this.is_null()){ return undefined;}
+        else
+        {
+            var pubkey = await this.public_key();
+            return await pubkey.encrypt(message);
+        }
+    }
+
     async decrypt(message)
     {
         if (this.is_null()){ return undefined;}
@@ -362,6 +372,29 @@ class PublicKey
     is_null()
     {
         return this._key == undefined;
+    }
+
+    async bytes()
+    {
+        if (this.is_null()){ return undefined; }
+        else
+        {
+            var pem = await _exportPublicKey(this._key);
+            return pem;
+        }
+    }
+
+    async fingerprint()
+    {
+        if (this.is_null()){ return undefined; }
+        else
+        {
+            //the fingerprint is an md5 of the pem
+            var b = await this.bytes();
+            var m = md5(b);
+
+            return m.match(/(..?)/g).join(":");
+        }
     }
 
     async encrypt(message)

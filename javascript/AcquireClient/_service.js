@@ -79,6 +79,7 @@ class Service
 
         data["public_key"] = await this._pubkey.to_data();
         data["public_certificate"] = await this._pubcert.to_data();
+        data["last_certificate"] = await this._lastcert.to_data();
 
         data["last_key_update"] = datetime_to_string(this._last_key_update);
         data["key_update_interval"] = this._key_update_interval;
@@ -104,6 +105,8 @@ class Service
         service._pubkey = await PublicKey.from_data(data["public_key"])
         service._pubcert = await PublicKey.from_data(
                                             data["public_certificate"])
+        service._lastcert = await PublicKey.from_data(
+                                            data["last_certificate"]);
 
         service._last_key_update = string_to_datetime(data["last_key_update"])
         service._key_update_interval = parseFloat(data["key_update_interval"])
