@@ -1,15 +1,29 @@
 
+_private_keys = {};
+
+/** Return the session-scoped private key called 'name' */
+function get_private_key(name)
+{
+    if (name in _private_keys)
+    {
+        return _private_keys[name];
+    }
+    else
+    {
+        var private_key = new PrivateKey();
+        _private_keys[name] = private_key;
+        return private_key;
+    }
+}
+
+/** Provide a handle around one of the remote Acquire Services.
+ *  Use this class to manage the services, and to simplify secure
+ *  calling of the service functions. This class strongly
+ *  mirrors Acquire.Client.Service, so look to this for
+ *  documentation
+ */
 class Service
 {
-    /** Construct a service that is accessed at 'service_url'.
-     *  This will automatically connect to the service to obtain
-     *  the necessary service information.
-     *
-     *  Args:
-     *      service_url = URL of the service to connect to
-     *      service_uid = UID of the service to connect to
-     *      service_type = expected type of the service
-     */
     constructor({service_url=undefined, service_uid=undefined,
                  service_type=undefined} = {})
     {
@@ -18,26 +32,60 @@ class Service
         this._service_type = service_type;
     }
 
-    /** Return whether or not this is a null Service */
     is_null()
     {
         return this._uid == undefined;
     }
 
-    /** Return the UID of this service */
     uid()
     {
         return this._uid;
     }
 
-    /** Return the type of this Service */
+    canonical_url()
+    {
+        if (this.is_null()){ return undefined; }
+        else
+        {
+            return this._canonical_url;
+        }
+    }
+
+    service_url(prefer_https=true)
+    {
+        if (this.is_null()){ return undefined; }
+        else
+        {
+            var scheme = "http";
+
+            if (prefer_https && ("https" in this._schemes))
+            {
+                scheme = "https";
+            }
+            else
+            {
+                scheme = this._schemes[0];
+            }
+
+            var port = this._ports[scheme]
+
+            if ((port == undefined) || (port.length == 0))
+            {
+                return `${scheme}://${this._domain}${this._path}`;
+            }
+            else
+            {
+                return `${scheme}://${this._domain}:${port}${this._path}`;
+            }
+        }
+    }
+
     service_type()
     {
         if (this.is_null()){ return undefined; }
         else { return this._service_type; }
     }
 
-    /** Return the UID of the registry that registered this service */
     registry_uid()
     {
         if (this.is_null()){ return undefined; }
@@ -58,6 +106,40 @@ class Service
     {
         if (this.is_null()){ return undefined; }
         else{ return this._pubcert;}
+    }
+
+    should_refresh_keys()
+    {
+        return false;
+    }
+
+    async refresh_keys()
+    {
+        return;
+    }
+
+    async call_function(func, args=undefined)
+    {
+        if (this.is_null())
+        {
+            throw new RemoteFunctionCallError(
+                "You cannot call a function on a null service!");
+        }
+
+        if (this.should_refresh_keys())
+        {
+            await this.refresh_keys();
+        }
+
+        var response_key = get_private_key("function");
+
+        result = await call_function({service_url:this.service_url(),
+                                      func:func, args:args,
+                                      args_key:this.public_key(),
+                                      public_cert:this.public_certificate(),
+                                      response_key:response_key});
+
+        return result;
     }
 
     async to_data()

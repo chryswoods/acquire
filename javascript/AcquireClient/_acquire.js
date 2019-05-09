@@ -25,5 +25,12 @@ async function test_acquire()
                                         response_key:response_key});
 
     var s = await Service.from_data(response["service_data"]);
+
+    response = await s.call_function("get_service", args);
+
+    s = await Service.from_data(response["service_data"]);
+
     console.log(s);
+    console.log(s.canonical_url());
+    console.log(s.service_url());
 }
