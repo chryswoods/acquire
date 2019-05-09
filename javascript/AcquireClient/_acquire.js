@@ -7,8 +7,6 @@
 
 async function test_acquire()
 {
-    console.log(`NOW = ${get_datetime_now_to_string()}`);
-
     var service_url = root_server["a0-a0"]["service_url"];
     var pubkey = await PublicKey.from_data(
                         root_server["a0-a0"]["public_key"]);
@@ -25,11 +23,6 @@ async function test_acquire()
                                         args_key:pubkey,
                                         response_key:response_key});
 
-    console.log(response);
-
     var s = await Service.from_data(response["service_data"]);
     console.log(s);
-
-    var data = await s.to_data();
-    console.log(JSON.stringify(data));
 }

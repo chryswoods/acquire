@@ -13,9 +13,6 @@ async function unpack_arguments({args=undefined, key=undefined,
                                  is_return_value=false,
                                  func=undefined, service=undefined})
 {
-    console.log(`unpack_arguments ${args}`);
-    console.log(args);
-
     var data = await args;
 
     if (data == undefined)
@@ -67,7 +64,24 @@ async function unpack_arguments({args=undefined, key=undefined,
 
     if (is_encrypted)
     {
-        //lots to do here
+        var encrypted_data = string_to_bytes(data["data"]);
+        var fingerprint = data["fingerprint"];
+
+        var my_fingerprint = await key.fingerprint();
+
+        if (fingerprint != my_fingerprint)
+        {
+            throw new RemoteFunctionCallError(
+                "Cannot decrypt result - conflicting fingerprints " +
+                `${fingerprint} versus ${my_fingerprint}`);
+        }
+
+        decrypted_data = await key.decrypt(encrypted_data);
+        decrypted_data = JSON.parse(decrypted_data);
+
+        return await unpack_arguments({args:decrypted_data,
+                                       is_return_value:is_return_value,
+                                       func:func, service:service});
     }
 
     if (payload == undefined)
@@ -98,8 +112,6 @@ async function pack_return_value({func=undefined, payload=undefined,
     {
         func = payload["function"];
     }
-
-    console.log(`function = ${func}`);
 
     result = {};
 
@@ -177,8 +189,6 @@ async function call_function({service_url=undefined, func=undefined,
 
     var response = null;
 
-    console.log(`call_function args_json = ${args_json}`);
-
     response = fetch(service_url,
     {
         method: 'post',
@@ -196,9 +206,9 @@ async function call_function({service_url=undefined, func=undefined,
     }
     catch(err)
     {
-        console.log(`ERROR CALLING FUNCTION ${service_url} ${body}`);
-        console.log(`ERROR == ${err}`);
-        return undefined;
+        throw new RemoteFunctionCallError(
+            `Error calling function ${service_url} ` +
+            `Error = ${err}`);
     }
 
     var result = undefined;
@@ -209,13 +219,14 @@ async function call_function({service_url=undefined, func=undefined,
     }
     catch(err)
     {
-        console.log(`ERROR CALLING FUNCTION ${service_url} ${args_json}`);
-        console.log(`ERROR EXTRACTING JSON ${response}`);
-        console.log(`ERROR = ${err}`);
-        return undefined;
+        throw new RemoteFunctionCallError(
+            `Error extracting json from function ${service_url} ` +
+            `json = ${args_json}, Error = ${err}`);
     }
 
-    return await unpack_return_value({return_value:result, key:response_key,
-                                      public_cert:public_cert, func:func,
-                                      service:service_url});
+    result = await unpack_return_value({return_value:result, key:response_key,
+                                        public_cert:public_cert, func:func,
+                                        service:service_url});
+
+    return result;
 }
