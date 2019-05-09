@@ -1,4 +1,18 @@
 
+/** Return the current datetime (UTC) */
+function get_datetime_now()
+{
+    return datetime_to_datetime(new Date());
+}
+
+/** Return the current datetime (UTC) as a iso-formatted string
+ *  that is suitable for Acquire
+ */
+function get_datetime_now_to_string()
+{
+    return datetime_to_string(new Date());
+}
+
 /** Standardise the passed datetime into UTC */
 function datetime_to_datetime(d)
 {
