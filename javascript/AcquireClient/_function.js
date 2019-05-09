@@ -53,18 +53,24 @@ async function unpack_arguments({args=undefined, key=undefined,
                 "Only encrypted results can be signed");
         }
 
-        signature = data["signature"];
-
-        if (signature == undefined)
+        if (!("signature" in data))
         {
             throw new RemoteFunctionCallError(
                 "We requested the data was signed, but no signature found!");
         }
+
+        signature = string_to_bytes(data["signature"]);
     }
 
     if (is_encrypted)
     {
         var encrypted_data = string_to_bytes(data["data"]);
+
+        if (signature != undefined)
+        {
+            await public_cert.verify(signature, encrypted_data);
+        }
+
         var fingerprint = data["fingerprint"];
 
         var my_fingerprint = await key.fingerprint();

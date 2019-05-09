@@ -283,6 +283,17 @@ function fernet_decrypt(key, data)
     return result;
 }
 
+/** Function that verifies the signature of the passed message signed
+ *  using the private counterpart of this public key
+ */
+async function _verifySignature(key, signature, data)
+{
+    key = await key;
+
+    // this is something we will attempt at a much later point!
+    console.log("NEED TO IMPLEMENT SIGNATURE VERIFICATION!!!");
+}
+
 /** Function that encrypts the passed data with the passed public key */
 async function _encryptData(key, data)
 {
@@ -525,6 +536,15 @@ class PublicKey
             var m = md5(b);
 
             return m.match(/(..?)/g).join(":");
+        }
+    }
+
+    async verify(signature, message)
+    {
+        if (this.is_null()){ return undefined; }
+        else
+        {
+            await _verifySignature(this._key, signature, message);
         }
     }
 

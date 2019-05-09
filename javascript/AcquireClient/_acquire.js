@@ -21,6 +21,7 @@ async function test_acquire()
     var response = await call_function({service_url: service_url,
                                         func:func, args:args,
                                         args_key:pubkey,
+                                        public_cert:pubcert,
                                         response_key:response_key});
 
     var s = await Service.from_data(response["service_data"]);
