@@ -9,13 +9,21 @@ async function test_acquire()
 {
     console.log(`NOW = ${get_datetime_now_to_string()}`);
 
-    service_url = root_server["a0-a0"]["service_url"];
+    var service_url = root_server["a0-a0"]["service_url"];
+    var pubkey = await PublicKey.from_data(
+                        root_server["a0-a0"]["public_key"]);
+    var pubcert = await PublicKey.from_data(
+                        root_server["a0-a0"]["public_certificate"])
 
     var func = "get_service";
     var args = {"service_uid": "a0-a0"};
 
+    var response_key = new PrivateKey();
+
     var response = await call_function({service_url: service_url,
-                                        func:func, args:args});
+                                        func:func, args:args,
+                                        args_key:pubkey,
+                                        response_key:response_key});
 
     console.log(response);
 

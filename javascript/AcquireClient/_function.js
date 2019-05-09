@@ -109,7 +109,37 @@ async function pack_return_value({func=undefined, payload=undefined,
     result["payload"] = payload;
     result["synctime"] = now;
 
-    return JSON.stringify(result);
+    if (response_key != undefined)
+    {
+        var bytes = await response_key.bytes();
+        bytes = string_to_utf8_bytes(bytes);
+        bytes = bytes_to_string(bytes);
+        result["encryption_public_key"] = bytes;
+
+        if (public_cert != undefined)
+        {
+            var fingerprint = await public_cert.fingerprint();
+            result["sign_with_service_key"] = fingerprint;
+        }
+    }
+
+    var result_json = JSON.stringify(result);
+
+    if (key != undefined)
+    {
+        // encrypt what we send to the server
+        result_data = await key.encrypt(result_json);
+        var fingerprint = await key.fingerprint();
+
+        result = {};
+        result["data"] = bytes_to_string(result_data);
+        result["encrypted"] = true;
+        result["fingerprint"] = fingerprint;
+        result["synctime"] = now;
+        result_json = JSON.stringify(result);
+    }
+
+    return result_json;
 }
 
 async function pack_arguments({func=undefined, args=undefined,
