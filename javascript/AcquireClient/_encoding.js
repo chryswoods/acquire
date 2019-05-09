@@ -67,3 +67,15 @@ function utf8_bytes_to_string(b)
 {
     return new TextDecoder("utf-8").decode(b);
 }
+
+/** Function to create url-safe strings */
+function string_to_safestring(s)
+{
+    return bytes_to_string(string_to_utf8_bytes(s));
+}
+
+/** Function to return the original encoded string */
+function safestring_to_string(s)
+{
+    return utf8_bytes_to_string(string_to_bytes(s));
+}

@@ -1,13 +1,4 @@
 
-
-class RemoteFunctionCallError
-{
-    constructor(error)
-    {
-        this.message = error;
-    }
-}
-
 async function unpack_arguments({args=undefined, key=undefined,
                                  public_cert=undefined,
                                  is_return_value=false,

@@ -113,6 +113,27 @@ class Service
         return false;
     }
 
+    async get_service({service_uid=undefined, service_url=undefined})
+    {
+        if (this.is_null()){ return undefined; }
+        else if (service_uid == this._uid ||
+                 service_url == this._canonical_url)
+        {
+            return this;
+        }
+        else
+        {
+            var func = "get_service";
+            var args = {"service_uid": service_uid,
+                        "service_url": service_url};
+
+            result = await this.call_function(func, args);
+
+            var service = await Service.from_data(result["service_data"]);
+            return service;
+        }
+    }
+
     async refresh_keys()
     {
         return;
