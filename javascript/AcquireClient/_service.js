@@ -103,10 +103,11 @@ class Service
         service._service_user_name = data["service_user_name"];
 
         service._pubkey = await PublicKey.from_data(data["public_key"])
+
         service._pubcert = await PublicKey.from_data(
-                                            data["public_certificate"])
+                                            data["public_certificate"], true)
         service._lastcert = await PublicKey.from_data(
-                                            data["last_certificate"]);
+                                            data["last_certificate"], true);
 
         service._last_key_update = string_to_datetime(data["last_key_update"])
         service._key_update_interval = parseFloat(data["key_update_interval"])

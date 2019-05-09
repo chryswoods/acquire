@@ -48,8 +48,10 @@ function _convertPemToBinary(pem)
     for(var i = 0;i < lines.length;i++){
         if (lines[i].trim().length > 0 &&
             lines[i].indexOf('-BEGIN PRIVATE KEY-') < 0 &&
+            lines[i].indexOf('-BEGIN ENCRYPTED PRIVATE KEY-') < 0 &&
             lines[i].indexOf('-BEGIN PUBLIC KEY-') < 0 &&
             lines[i].indexOf('-END PRIVATE KEY-') < 0 &&
+            lines[i].indexOf('-END ENCRYPTED PRIVATE KEY-') < 0 &&
             lines[i].indexOf('-END PUBLIC KEY-') < 0) {
         encoded += lines[i].trim()
         }
@@ -73,7 +75,32 @@ async function _importPublicKey(pemKey)
         name: "RSA-OAEP",
         modulusLength: 8*_rsa_key_size,
         publicExponent: 65537,
-        extractable: false,
+        extractable: true,
+        hash: {
+            name: "SHA-256"
+        }
+    };
+
+    var public_key = await crypto.subtle.importKey(
+                        "spki", bin, encryptAlgorithm,
+                        true, ["encrypt"]
+                        );
+
+    return public_key;
+}
+
+
+/** Function to import and return the public cert from the passed pemfile */
+async function _importPublicCert(pemKey)
+{
+    //convert the pem key to binary
+    var bin = _convertPemToBinary(pemKey);
+
+    var encryptAlgorithm = {
+        name: "RSA-OAEP",
+        modulusLength: 8*_rsa_key_size,
+        publicExponent: 65537,
+        extractable: true,
         hash: {
             name: "SHA-256"
         }
@@ -91,6 +118,42 @@ async function _importPublicKey(pemKey)
 async function _exportPublicKey(key) {
     let exported = await window.crypto.subtle.exportKey('spki', key);
     let pem = _convertBinaryToPem(exported, "PUBLIC KEY");
+    return pem;
+}
+
+/** Function to import and return the private key from the passed pemfile.
+ *  Note that this doesn't, yet, work with encrypted pem files
+ */
+async function _importPrivateKey(pemKey, passphrase)
+{
+    //convert the pem key to binary
+    var bin = _convertPemToBinary(pemKey);
+
+    var encryptAlgorithm = {
+        name: "RSA-OAEP",
+        modulusLength: 8*_rsa_key_size,
+        publicExponent: 65537,
+        extractable: true,
+        hash: {
+            name: "SHA-256"
+        }
+    };
+
+    var private_key = await crypto.subtle.importKey(
+                        "spki", bin, encryptAlgorithm,
+                        true, ["encrypt", "decrypt", "sign", "verify"]
+                        );
+
+    return private_key;
+}
+
+/** Function to convert a private key to a PEM file. Currently
+ *  this does not encrypt the PEM file. It will one day, when
+ *  if will use the supplied passphrase
+ */
+async function _exportPrivateKey(key, passphrase) {
+    let exported = await window.crypto.subtle.exportKey('spki', key);
+    let pem = _convertBinaryToPem(exported, "PRIVATE KEY");
     return pem;
 }
 
@@ -287,7 +350,9 @@ async function _decryptData(key, data)
     return result;
 }
 
-/** Function to generate a public/private key pair */
+/** Function to generate a public/private key pair used for
+ *  encrypting and decrypting
+ */
 async function _generateKeypair()
 {
     keys = await window.crypto.subtle.generateKey(
@@ -297,8 +362,27 @@ async function _generateKeypair()
             publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
             hash: {name: "SHA-256"}
         },
-        false,
+        true,  /* the key must be extractable */
         ["encrypt", "decrypt"]
+    );
+
+    return keys;
+}
+
+/** Function to generate a public/private key pair used for
+ *  signing and verifying
+ */
+async function _generateCertpair()
+{
+    keys = await window.crypto.subtle.generateKey(
+        {
+            name: "RSA-OAEP",
+            modulusLength: 8*_rsa_key_size,
+            publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+            hash: {name: "SHA-256"}
+        },
+        true,  /* the key must be extractable */
+        ["sign", "verify"]
     );
 
     return keys;
@@ -327,6 +411,16 @@ class PrivateKey
         return this._keys == undefined;
     }
 
+    async fingerprint()
+    {
+        if (this.is_null()){ return undefined; }
+        else
+        {
+            var key = await this.public_key();
+            return await key.fingerprint();
+        }
+    }
+
     async public_key()
     {
         if (this.is_null()){ return undefined;}
@@ -334,6 +428,17 @@ class PrivateKey
         {
             var keys = await this._keys;
             return new PublicKey(keys.publicKey);
+        }
+    }
+
+    async bytes(passphrase)
+    {
+        if (this.is_null()){ return undefined; }
+        else
+        {
+            var keys = await this._keys;
+            var pem = await _exportPrivateKey(keys.privateKey, passphrase);
+            return pem;
         }
     }
 
@@ -356,11 +461,37 @@ class PrivateKey
             return await _decryptData(keys.privateKey, message);
         }
     }
+
+    async to_data(passphrase)
+    {
+        if (this.is_null()){ return undefined; }
+        else
+        {
+            var bytes = await this.bytes(passphrase);
+
+            var data = {};
+            data["bytes"] = bytes_to_string(bytes);
+
+            return data;
+        }
+    }
+
+    static async read_bytes(bytes, passphrase)
+    {
+        var privkey = await _importPrivateKey(bytes, passphrase);
+        return privkey;
+    }
+
+    static async from_data(data, passphrase)
+    {
+        var pem = string_to_bytes(data["bytes"]);
+        pem = utf8_bytes_to_string(pem);
+        return await PrivateKey.read_bytes(pem, passphrase);
+    }
 }
 
 /** This class provides a simple handle to a public key. This
- *  can be used to encrypt data for Acquire, and also to
- *  verify signatures
+ *  can be used to encrypt data for Acquire and verify signatures
  */
 class PublicKey
 {
@@ -415,7 +546,7 @@ class PublicKey
         return data;
     }
 
-    static async from_data(data)
+    static async from_data(data, is_certificate=false)
     {
         if (data == undefined){ return undefined;}
 
@@ -426,7 +557,14 @@ class PublicKey
         var pem = string_to_bytes(data["bytes"]);
         pem = utf8_bytes_to_string(pem);
 
-        key._key = await _importPublicKey(pem);
+        if (is_certificate)
+        {
+            key._key = await _importPublicCert(pem);
+        }
+        else
+        {
+            key._key = await _importPublicKey(pem);
+        }
 
         return key;
     }
