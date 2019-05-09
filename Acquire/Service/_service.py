@@ -1224,7 +1224,12 @@ class Service:
             service._privkey = None
             service._privcert = None
             service._lastkey = None
-            service._lastcert = _PublicKey.from_data(data["last_certificate"])
+            try:
+                service._lastcert = _PublicKey.from_data(
+                                                    data["last_certificate"])
+            except:
+                service._lastcert = None
+
             service._service_user_secrets = None
 
         service._uid = data["uid"]

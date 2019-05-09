@@ -225,8 +225,6 @@ async function _encryptData(key, data)
 {
     key = await key;
 
-    console.log(`encrypt ${data} using ${key}`);
-
     // we will encrypt the message using fernet, and send that prefixed
     // by the RSA-encrypted secret. The fernet secret is a random 32 bytes
     // that are then base64 encoded
@@ -376,9 +374,7 @@ class PublicKey
         if (this.is_null()){ return undefined; }
 
         var pem = await _exportPublicKey(this._key);
-        console.log(`to_data pem = ${pem}`);
         var b = bytes_to_string(string_to_utf8_bytes(pem));
-        console.log(`b = ${b}`);
 
         var data = {};
         data["bytes"] = b;
@@ -394,10 +390,8 @@ class PublicKey
 
         var b = data["bytes"];
 
-        console.log(`bytes = ${data["bytes"]}`);
         var pem = string_to_bytes(data["bytes"]);
         pem = utf8_bytes_to_string(pem);
-        console.log(`pem = ${pem}`);
 
         key._key = await _importPublicKey(pem);
 
