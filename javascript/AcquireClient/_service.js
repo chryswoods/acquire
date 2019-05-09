@@ -48,6 +48,18 @@ class Service
         }
     }
 
+    public_key()
+    {
+        if (this.is_null()){ return undefined; }
+        else{ return this._pubkey;}
+    }
+
+    public_certificate()
+    {
+        if (this.is_null()){ return undefined; }
+        else{ return this._pubcert;}
+    }
+
     async to_data()
     {
         var data = {};

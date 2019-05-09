@@ -23,21 +23,26 @@ function string_to_datetime(s)
     return datetime_to_datetime(Date.parse(s));
 }
 
-/** Convert the passed string back to bytes */
+/** Function to convert from a string back to binary */
 function string_to_bytes(s)
 {
-    s = unescape(encodeURIComponent(s));
-    return atob(s);
+    return base64js.toByteArray(s);
 }
 
-/** Convert the passed string to a utf-8 string */
+/** Function to convert binary data to a string */
+function bytes_to_string(b)
+{
+    return base64js.fromByteArray(b);
+}
+
+/** Convert the passed string to a utf-8 array of bytes */
 function string_to_utf8_bytes(s)
 {
     return new TextEncoder("utf-8").encode(s);
 }
 
-/** Convert the passed bytes to a safe string */
-function bytes_to_string(b)
+/** Convert the passed array of utf-8 encoded bytes into a string  */
+function utf8_bytes_to_string(b)
 {
-    return btoa(b);
+    return new TextDecoder("utf-8").decode(b);
 }
