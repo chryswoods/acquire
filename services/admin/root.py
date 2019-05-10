@@ -11,7 +11,7 @@ def run(args):
 
     Returns:
         dict: containing information about the service
-    
+
     """
 
     try:
