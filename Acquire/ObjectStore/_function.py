@@ -5,6 +5,10 @@ __all__ = ["Function"]
 class Function:
     """This is the base class of functions that can be stored to
        the ObjectStore for later execution
+
+       Args:
+            function (callable): Function to call
+
     """
     def __init__(self, function=None, **kwargs):
         """Create a function from the passed function, optionally

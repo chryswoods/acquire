@@ -12,6 +12,12 @@ class Mutex:
        if it has successfully written its secret to this key. If
        not, then another thread must hold the mutex, and we have
        to wait...
+
+       Args:
+            key (str): Key to use for mutex
+            timeout (int, default=10): Timeout for mutex in seconds
+            lease_time (int, default=10): Lease time for mutex in seconds
+            bucket (dict): Bucket holding data
     """
     def __init__(self, key=None, timeout=10, lease_time=10, bucket=None):
         """Create the mutex. The immediately tries to lock the mutex

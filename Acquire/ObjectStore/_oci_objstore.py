@@ -339,14 +339,12 @@ class OCI_ObjectStore:
 
            Args:
                 bucket (dict): Bucket to create PAR for
-                encrypt_key (PublicKey): Public key to
-                encrypt PAR
-                key (str, default=None): Key
+                encrypt_key (PublicKey): Public key to encrypt PAR
+                key (str, default=None): Key for PAR
                 readable (bool, default=True): If bucket is readable
                 writeable (bool, default=False): If bucket is writeable
-                duration (int, default=3600): Duration PAR should be
-                valid for in seconds
-                cleanup_function (function, default=None): Cleanup
+                duration (int, default=3600): PAR validity duration in seconds
+                cleanup_function (callable, default=None): Cleanup
                 function to be passed to PARRegistry
 
            Returns:
@@ -615,7 +613,6 @@ class OCI_ObjectStore:
            Args:
                 bucket (dict): Bucket containing data
                 key (str): Key for data
-
            Returns:
                 bytes: Binary data
         """

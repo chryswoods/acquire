@@ -13,6 +13,13 @@ _objstore_backend = None
 
 
 def use_testing_object_store_backend(backend):
+    """ For testing a local object store may be used
+
+        Args:
+            backend (Object): Backend object store to use
+        Returns:
+            None
+    """
     from ._testing_objstore import Testing_ObjectStore as _Testing_ObjectStore
     set_object_store_backend(_Testing_ObjectStore)
     bucket = "%s/testing_objstore" % backend
@@ -27,6 +34,11 @@ def use_testing_object_store_backend(backend):
 
 
 def use_oci_object_store_backend():
+    """ Use the Oracle Cloud Infrastructure object store
+
+        Returns:
+            None
+    """
     from ._oci_objstore import OCI_ObjectStore as _OCI_ObjectStore
     set_object_store_backend(_OCI_ObjectStore)
 
@@ -44,7 +56,6 @@ class ObjectStore:
                 bucket_name (str): Name for bucket
                 compartment (str, default=None): Compartment to store
                 the bucket
-
            Returns:
                 dict: New bucket
         """
@@ -65,9 +76,7 @@ class ObjectStore:
                 bucket_name (str): Name for bucket
                 compartment (str, default=None): Compartment to store
                 the bucket
-                create_if_needed (bool, default=True): Create new bucket if
-                true, don't if False
-
+                create_if_needed (bool, default=True): Create new bucket if True
             Returns:
                 dict: Requested bucket
 
@@ -77,37 +86,70 @@ class ObjectStore:
 
     @staticmethod
     def get_bucket_name(bucket):
-        """Return the name of the passed bucket"""
+        """ Return the name of the passed bucket
+
+            Args:
+                bucket (dict): Bucket containing data
+            Returns:
+                str: Name of bucket
+        """
         return _objstore_backend.get_bucket_name(bucket)
 
     @staticmethod
     def is_bucket_empty(bucket):
-        """Return whether or not the passed bucket is empty"""
+        """ Return whether or not the passed bucket is empty
+
+            Args:
+                bucket (dict): Bucket containing data
+            Returns:
+                bool: True if bucket empty
+        """
         return _objstore_backend.is_bucket_empty(bucket)
 
     @staticmethod
     def delete_bucket(bucket, force=False):
-        """Delete the passed bucket. This should be used with caution.
-           Normally you can only delete a bucket if it is empty. If
-           'force' is True then it will remove all objects/pars from
-           the bucket first, and then delete the bucket. This
-           can cause a LOSS OF DATA!
+        """ Delete the passed bucket. This should be used with caution.
+            Normally you can only delete a bucket if it is empty. If
+            'force' is True then it will remove all objects/pars from
+            the bucket first, and then delete the bucket. This
+            can cause a LOSS OF DATA!
+
+            Args:
+                bucket (dict): Bucket containing data
+                force (bool, default=True): If True remove all objects
+                and PARs first
+            Returns:
+                None
         """
         return _objstore_backend.delete_bucket(bucket=bucket, force=force)
 
     @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
                    writeable=False, duration=3600, cleanup_function=None):
-        """Create a pre-authenticated request for the passed bucket and
-           key (if key is None then the request is for the entire bucket).
-           This will return a PAR object that will contain a URL that can
-           be used to access the object/bucket. If writeable is true, then
-           the URL will also allow the object/bucket to be written to.
-           PARs are time-limited. Set the lifetime in seconds by passing
-           in 'duration' (by default this is one hour). Note that you must
-           pass in a public key that will be used to encrypt this PAR. This is
-           necessary as the PAR grants access to anyone who can decrypt
-           the URL
+        """ Create a pre-authenticated request for the passed bucket and
+            key (if key is None then the request is for the entire bucket).
+            This will return a PAR object that will contain a URL that can
+            be used to access the object/bucket. If writeable is true, then
+            the URL will also allow the object/bucket to be written to.
+            PARs are time-limited. Set the lifetime in seconds by passing
+            in 'duration' (by default this is one hour). Note that you must
+            pass in a public key that will be used to encrypt this PAR. This is
+            necessary as the PAR grants access to anyone who can decrypt
+            the URL
+
+            Args:
+                bucket (dict): Bucket containing data
+                encrypt_key (PublicKey): Key for encrypting PAR
+                key (str): Key for PAR
+                readable (bool): If True bucket is readable
+                readable (bool, default=True): If bucket is readable
+                writeable (bool, default=False): If bucket is writeable
+                duration (int, default=3600): PAR validity duration in seconds
+                cleanup_function (callable, default=None): Cleanup
+                function to be passed to PARRegistry
+            Returns:
+                PAR: PAR
+           
         """
         from Acquire.Client import PAR as _PAR
 
@@ -124,8 +166,15 @@ class ObjectStore:
 
     @staticmethod
     def close_par(par=None, par_uid=None, url_checksum=None):
-        """Close the passed PAR, which provides access to data in the
-           passed bucket
+        """ Close the passed PAR, which provides access to data in the
+            passed bucket
+
+            Args:
+                par (PAR, default=None): PAR to close
+                par_uid (str, default=None): UID for PAR to close
+                url_checksum (str, default=None): Checksum for URL
+            Returns:
+                None
         """
         _objstore_backend.close_par(par=par,
                                     par_uid=par_uid,
@@ -133,14 +182,29 @@ class ObjectStore:
 
     @staticmethod
     def get_object(bucket, key):
-        """Return the binary data contained in the key 'key' in the
-           passed bucket"""
+        """ Return the binary data contained in the key 'key' in the
+            passed bucket
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                bytes: Binary data at key
+        """
         return _objstore_backend.get_object(bucket, key)
 
     @staticmethod
     def get_object_as_file(bucket, key, filename):
-        """Get the object contained in the key 'key' in the passed 'bucket'
-           and writing this to the file called 'filename'"""
+        """ Get the object contained in the key 'key' in the passed 'bucket'
+            and writing this to the file called 'filename'
+           
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+                filename (str): Filename to write data to
+            Returns:
+                None
+        """
         data = ObjectStore.get_object(bucket, key)
 
         with open(filename, "wb") as FILE:
@@ -148,30 +212,55 @@ class ObjectStore:
 
     @staticmethod
     def get_string_object(bucket, key):
-        """Return the string in 'bucket' associated with 'key'"""
+        """ Return the string in 'bucket' associated with 'key'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                str: String object at key
+        """
         data = ObjectStore.get_object(bucket, key)
         return data.decode("utf-8")
 
     @staticmethod
     def get_object_from_json(bucket, key):
-        """Return an object constructed from json stored at 'key' in
-           the passed bucket. This returns None if there is no data
-           at this key
+        """ Return an object constructed from json stored at 'key' in
+            the passed bucket. This returns None if there is no data
+            at this key
+            
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                str: String object at key
         """
         data = ObjectStore.get_string_object(bucket, key)
         return _json.loads(data)
 
     @staticmethod
     def take_object(bucket, key):
-        """Take (delete) the object from the object store, returning
-           the object
+        """ Take (delete) the object from the object store, returning
+            the object
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                bytes: Binary data at key
         """
         return _objstore_backend.take_object(bucket, key)
 
     @staticmethod
     def take_string_object(bucket, key):
-        """Take (delete) the string object from the object store, returning
-           the object
+        """ Take (delete) the string object from the object store, returning
+            the object
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                str: String object at key
         """
         data = ObjectStore.take_object(bucket, key)
         return data.decode("utf-8")
@@ -181,6 +270,13 @@ class ObjectStore:
         """Take (delete) the object contained in the
            key 'key' in the passed 'bucket'
            and writing this to the file called 'filename'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+                filename (str): Filename to write data to
+            Returns:
+                None
         """
         data = ObjectStore.take_object(bucket, key)
 
@@ -191,18 +287,42 @@ class ObjectStore:
     def take_object_from_json(bucket, key):
         """Take (delete) the object from the object store, returning
            the json-deserialised object
+
+           Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                Object: Python object
         """
         data = ObjectStore.take_string_object(bucket, key)
         return _json.loads(data)
 
     @staticmethod
     def get_all_object_names(bucket, prefix=None):
-        """Returns the names of all objects in the passed bucket"""
+        """ Returns the names of all objects in the passed bucket.
+            If prefix is passed only keys starting with that prefix
+            will be returned.
+
+            Args:
+                bucket (dict): Bucket containing data
+                prefix (str): Prefix for object keys
+            Returns:
+                list: List of objects in bucket
+        """
         return _objstore_backend.get_all_object_names(bucket, prefix)
 
     @staticmethod
     def get_all_objects(bucket, prefix=None):
-        """Return all of the objects in the passed bucket"""
+        """ Return all of the objects in the passed bucket.
+            If prefix is passed only objects with keys starting with 
+            that prefix will be returned.
+
+            Args:
+                bucket (dict): Bucket containing data
+                prefix (str): Prefix for object keys
+            Returns:
+                list: List of objects
+        """
         objects = {}
         names = ObjectStore.get_all_object_names(bucket, prefix)
 
@@ -213,8 +333,15 @@ class ObjectStore:
 
     @staticmethod
     def get_all_objects_from_json(bucket, prefix=None):
-        """Return all of the objects in the passed bucket as
-           json-deserialised objects
+        """ Return all of the objects in the passed bucket as
+            JSON-deserialised objects. If prefix is passed only
+            objects with keys starting with that prefix will be returned.
+
+            Args:
+                bucket (dict): Bucket containing data
+                prefix (str): Prefix for object keys
+            Returns:
+                dict: Dictionary of objects
         """
         objects = ObjectStore.get_all_objects(bucket, prefix)
 
@@ -231,7 +358,16 @@ class ObjectStore:
 
     @staticmethod
     def get_all_strings(bucket, prefix=None):
-        """Return all of the strings in the passed bucket"""
+        """ Return all of the strings in the passed bucket.
+            If prefix is passed only objects with keys starting with
+            that prefix will be returned.
+
+            Args:
+                bucket (dict): Bucket containing data
+                prefix (str): Prefix for object keys
+            Returns:
+                dict: Dictionary of strings
+        """
         objects = ObjectStore.get_all_objects(bucket, prefix)
 
         names = list(objects.keys())
@@ -247,24 +383,46 @@ class ObjectStore:
 
     @staticmethod
     def set_object(bucket, key, data):
-        """Set the value of 'key' in 'bucket' to binary 'data'"""
+        """ Set the value of 'key' in 'bucket' to binary 'data'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                None
+        """
         _objstore_backend.set_object(bucket, key, data)
 
     @staticmethod
     def set_object_from_file(bucket, key, filename):
-        """Set the value of 'key' in 'bucket' to equal the contents
-           of the file located by 'filename'"""
+        """ Set the value of 'key' in 'bucket' to equal the contents
+            of the file located by 'filename'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+                filename (str): Filename to read data from
+            Returns:
+                None
+        """
         ObjectStore.set_object(bucket, key,
                                open(filename, 'rb').read())
 
     @staticmethod
     def set_ins_object_from_json(bucket, key, data):
-        """Set the value of 'key' in 'bucket' to equal to contents
-           of 'data', which has been encoded to json, if (and only if)
-           this key has not already been set (ins = 'if not set').
-           This returns the object at this key after the operation
-           (either the set object or the value that was previously
-           set
+        """ Set the value of 'key' in 'bucket' to equal to contents
+            of 'data', which has been encoded to json, if (and only if)
+            this key has not already been set (ins = 'if not set').
+            This returns the object at this key after the operation
+            (either the set object or the value that was previously
+            set
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+                data (str): Data to store
+            Returns:
+                str: Data at key
         """
         from Acquire.ObjectStore import Mutex as _Mutex
         m = _Mutex(bucket=bucket, key=key)
@@ -293,6 +451,13 @@ class ObjectStore:
            (ins = 'if not set'). This returns the object at this
            key after the operation (either the set string, or the value
            that was previously set)
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+                string_data (str): Data to store
+            Returns:
+                str: Data at key
         """
         from Acquire.ObjectStore import Mutex as _Mutex
         m = _Mutex(bucket=bucket, key=key)
@@ -316,30 +481,66 @@ class ObjectStore:
 
     @staticmethod
     def set_string_object(bucket, key, string_data):
-        """Set the value of 'key' in 'bucket' to the string 'string_data'"""
+        """ Set the value of 'key' in 'bucket' to the string 'string_data'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+                string_data (str): Data to store
+            Returns:
+                None
+        """
         ObjectStore.set_object(bucket, key,
                                string_data.encode("utf-8"))
 
     @staticmethod
     def set_object_from_json(bucket, key, data):
-        """Set the value of 'key' in 'bucket' to equal to contents
-           of 'data', which has been encoded to json"""
+        """ Set the value of 'key' in 'bucket' to equal to contents
+            of 'data', which has been encoded to json
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+                data (str): Data to store
+            Returns:
+                None
+        """
         ObjectStore.set_string_object(bucket, key, _json.dumps(data))
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
-        """Deletes all objects..."""
+        """ Deletes all objects in bucket
+
+            Args:
+                bucket (dict): Bucket containing data
+                prefix (str, default=None): Prefix for keys
+            Returns:
+                None
+        """
         _objstore_backend.delete_all_objects(bucket, prefix)
 
     @staticmethod
     def delete_object(bucket, key):
-        """Removes the object at 'key'"""
+        """ Removes the object at 'key'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for object
+            Returns:
+                None
+        """
         _objstore_backend.delete_object(bucket, key)
 
     @staticmethod
     def clear_all_except(bucket, keys):
-        """Removes all objects from the passed 'bucket' except those
-           whose keys are or start with any key in 'keys'
+        """ Removes all objects from the passed 'bucket' except those
+            whose keys are or start with any key in 'keys'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for object
+            Returns:
+                None
         """
         names = ObjectStore.get_all_object_names(bucket)
 
@@ -356,15 +557,26 @@ class ObjectStore:
 
     @staticmethod
     def get_size_and_checksum(bucket, key):
-        """Return the object size (in bytes) and checksum of the
-           object in the passed bucket at the specified key
+        """ Return the object size (in bytes) and checksum of the
+            object in the passed bucket at the specified key
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for object
+            Returns:
+                tuple (int, str): Size and MD5 checksum of object
         """
         return _objstore_backend.get_size_and_checksum(bucket, key)
 
 
 def set_object_store_backend(backend):
-    """Set the backend that is used to actually connect to
-       the object store. This can only be set once in the program!
+    """ Set the backend that is used to actually connect to
+        the object store. This can only be set once in the program!
+
+        Args:
+            backend (Object): Backend object store to use
+        Returns:
+            None
     """
     global _objstore_backend
 
