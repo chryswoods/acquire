@@ -24,11 +24,12 @@ class PAR:
             key (str, default=None): Key for request
             encrypt_key (str, default=None): Key used to encrypt
             the PAR
-            expires_datatime (datetime, default=None): Datetime at 
+            expires_datatime (datetime, default=None): Datetime at
             which the PAR expires
             is_readable (bool, default=False): If True read access granted
             is_writeable (bool, default=False): If True write access granted
-            is_executable (bool, default=False): If True PAR triggers a calculation
+            is_executable (bool, default=False): If True PAR triggers a
+            calculation
             driver_details (str, default=None): Contains extra details for PAR
             creation
 
@@ -188,7 +189,7 @@ class PAR:
 
     def is_null(self):
         """Return whether or not this is null
-        
+
            Returns:
                 bool: True if PAR is null, else False
         """
@@ -220,7 +221,7 @@ class PAR:
            will raise a PARTimeoutError if the url has less than 30 seconds
            of validity left. Note that you must pass in the key used to
            decrypt the PAR
-           
+
            Args:
                 decrypt_key (str, default=None): Key for decryption of data
            Returns:
@@ -237,7 +238,7 @@ class PAR:
 
     def service_url(self):
         """Return the URL of the service that created this PAR
-        
+
            Returns:
                 str: URL of service that created this PAR
         """
@@ -248,7 +249,7 @@ class PAR:
 
     def service(self):
         """Return the service that created this PAR
-        
+
            Returns:
                 Service: Service object that created this PAR
         """
@@ -265,7 +266,7 @@ class PAR:
 
     def uid(self):
         """Return the UID of this PAR
-        
+
            Returns:
                 str: UID of this PAR
         """
@@ -317,16 +318,16 @@ class PAR:
 
     def is_writeable(self):
         """Return whether or not this PAR gives write access
-        
-           Returns:    
+
+           Returns:
                 bool: True if PAR gives write access
-        
+
         """
         return self._is_writeable
 
     def is_executable(self):
         """Return whether or not this is an executable job
-        
+
            Returns:
                 bool: True if PAR is for an executable job
         """
@@ -335,25 +336,25 @@ class PAR:
     def key(self):
         """Return the key for the object this accesses - this is None
            if the PAR grants access to the entire bucket
-           
+
            Returns:
                 str: Key for the object this accesses
-           
+
            """
         return self._key
 
     def is_bucket(self):
         """Return whether or not this PAR is for an entire bucket
-        
+
            Returns:
-                bool: True if this PAR is for a bucket, else False    
-    
+                bool: True if this PAR is for a bucket, else False
+
         """
         return (self._key is None) and not (self.is_executable())
 
     def is_calculation(self):
         """Return whether or not this PAR is for a calculation
-        
+
            Returns:
                 bool: True if PAR is for calculation, else False
         """
@@ -361,7 +362,7 @@ class PAR:
 
     def is_object(self):
         """Return whether or not this PAR is for a single object
-        
+
            Returns:
                 bool: True if PAR is for a single object, else False
         """
@@ -369,10 +370,10 @@ class PAR:
 
     def expires_when(self):
         """Return when this PAR expires (or expired)
-        
+
            Returns:
                 datetime: Time at which this PAR expires
-        
+
         """
         if self.is_null():
             return None
@@ -414,7 +415,7 @@ class PAR:
            Args:
                 decrypt_key (str, default=None): Key to decrypt this PAR
            Returns:
-                BucketReader or ObjectReader: Object that can be used to 
+                BucketReader or ObjectReader: Object that can be used to
                 read this PAR
         """
         if not self.is_readable():
@@ -429,13 +430,13 @@ class PAR:
 
     def write(self, decrypt_key=None):
         """Return an object that can be used to write data to this PAR
-        
+
            Args:
                 decrypt_key (str, default=None): Key to decrypt this PAR
            Returns:
-                BucketReader or ObjectReader: Object that can be used to 
+                BucketReader or ObjectReader: Object that can be used to
                 write to this PAR
-           
+
         """
         if not self.is_writeable():
             from Acquire.Client import PARPermissionsError
@@ -499,7 +500,7 @@ class PAR:
            for this object
 
            Args:
-                passphrase (str, default=None): Passphrase to use to 
+                passphrase (str, default=None): Passphrase to use to
                 encrypt PAR
            Returns:
                 dict: JSON serialisable dictionary
@@ -617,7 +618,7 @@ def _read_local(url):
 
 def _read_remote(url):
     """Internal function used to read data from a remote URL
-    
+
        Args:
             url (str): Remote URL from which to read data
        Returns:
@@ -650,7 +651,7 @@ def _read_remote(url):
 
 def _list_local(url):
     """Internal function to list all of the objects keys below 'url'
-    
+
        Args:
             url (str): URL from which to read data
        Returns:
@@ -680,7 +681,7 @@ def _list_remote(url):
     """Internal function to list all of the objects keys below 'url'
 
        Currently unimplemented
-    
+
        Args:
             url (str): URL from which to read data
        Returns:
@@ -691,7 +692,7 @@ def _list_remote(url):
 
 def _write_local(url, data):
     """Internal function used to write data to a local file
-    
+
        Args:
             url (str): URL to write data to
             data (bytes): Data to write
@@ -714,12 +715,12 @@ def _write_local(url, data):
 
 def _write_remote(url, data):
     """Internal function used to write data to the passed remote URL
-    
+
        Args:
             url (str): Remote URL to write data to
             data (bytes): Data to write
        Returns:
-            None    
+            None
     """
     try:
         from Acquire.Stubs import requests as _requests
@@ -789,7 +790,7 @@ class BucketReader:
     def get_object(self, key):
         """Return the binary data contained in the key 'key' in the
            passed bucket
-           
+
            Args:
                 key (str): Key to access data in bucket
            Returns:
@@ -821,7 +822,7 @@ class BucketReader:
            Args:
                 key (str): Key to access data in bucket
            Returns:
-                None          
+                None
         """
         objdata = self.get_object(key)
 
@@ -830,7 +831,7 @@ class BucketReader:
 
     def get_string_object(self, key):
         """Return the string in 'bucket' associated with 'key'
-        
+
            Args:
                 key (str): Key to access data in bucket
            Returns:

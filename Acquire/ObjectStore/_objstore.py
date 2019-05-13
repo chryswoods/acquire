@@ -59,7 +59,7 @@ class ObjectStore:
            identified by 'compartment'. If 'create_if_needed' is True
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
-           
+
            Args:
                 bucket (dict): Bucket to store data in
                 bucket_name (str): Name for bucket

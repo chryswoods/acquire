@@ -78,7 +78,7 @@ def string_to_encoded(s):
             s (str): String to encode
        Returns:
             str: Unicode string s encoded to UTF-8
-       
+
     """
     return bytes_to_string(s.encode("utf-8"))
 
@@ -91,7 +91,7 @@ def encoded_to_string(b):
             b (bytes): base64 utf-8 byte string
        Returns:
             str: UTF-8 string converted from byte string
-       
+
     """
     return string_to_bytes(b).decode("utf-8")
 
@@ -103,7 +103,7 @@ def url_to_encoded(url):
        Args:
             url (str): URL to encode
        Returns:
-            bytes: base64 encoded bytes object   
+            bytes: base64 encoded bytes object
 
     """
     return _base64.b64encode(url.encode("utf-8")).decode("utf-8")
@@ -128,8 +128,8 @@ def bytes_to_string(b):
        Args:
             b (bytes): binary bytes to encode
        Returns:
-            str: UTF-8 encoded string object             
-       
+            str: UTF-8 encoded string object
+
     """
     if b is None:
         return None
@@ -143,7 +143,7 @@ def string_to_bytes(s):
        this can only convert strings that were encoded using
        bytes_to_string - you cannot use this to convert
        arbitrary strings to bytes
-       
+
        Args:
             s (str): base64 byte object to decode
        Returns:
@@ -185,7 +185,7 @@ def datetime_to_string(d):
     """Return the passed datetime encoded to a string. This will be a
        standard iso-formatted time in the UTC timezone (converting
        to UTC if the passed datetime is for another timezone)
-       
+
        Args:
             d (datetime): Datetime to convert to string
        Returns:
