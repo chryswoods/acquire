@@ -288,11 +288,12 @@ class Authorisation:
         except:
             must_fetch = True
 
-        if not must_fetch:
-            try:
-                return self._pubcert
-            except:
-                pass
+        if self._pubcert is not None:
+            if not must_fetch:
+                try:
+                    return self._pubcert
+                except:
+                    pass
 
         try:
             testing_key = self._testing_key
@@ -366,6 +367,7 @@ class Authorisation:
 
         from Acquire.Crypto import PublicKey as _PublicKey
         pubcert = _PublicKey.from_data(response["public_cert"])
+
         self._pubcert = pubcert
         self._scope = scope
         self._permissions = permissions
@@ -426,10 +428,10 @@ class Authorisation:
 
         try:
             public_cert.verify(self._siguid, self._uid)
-        except:
+        except Exception as e:
             raise PermissionError(
                 "Cannot auth_once the authorisation as the signature "
-                "is invalid!")
+                "is invalid! % s" % str(e))
 
     def is_verified(self, refresh_time=3600, stale_time=7200):
         """Return whether or not this authorisation has been verified. Note
