@@ -14,6 +14,13 @@ __all__ = ["Testing_ObjectStore"]
 
 
 def _get_driver_details_from_par(par):
+    """ Get driver details from passed PAR
+        
+        Args:
+            par (PAR): PAR to query
+        Returns:
+            dict: Dictionary of driver details
+    """
     from Acquire.ObjectStore import datetime_to_string \
         as _datetime_to_string
 
@@ -31,6 +38,14 @@ def _get_driver_details_from_par(par):
 
 
 def _get_driver_details_from_data(data):
+    """ Get driver details from passed data
+
+        Args:
+            data (dict): Dictionary containing driver details
+        Returns:
+            dict: Dictionary of driver details
+
+    """
     from Acquire.ObjectStore import string_to_datetime \
         as _string_to_datetime
 
@@ -50,10 +65,17 @@ class Testing_ObjectStore:
     """
     @staticmethod
     def create_bucket(bucket, bucket_name, compartment=None):
-        """Create and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. This will raise an
-           ObjectStoreError if this bucket already exists
+        """ Create and return a new bucket in the object store called
+            'bucket_name', optionally placing it into the compartment
+            identified by 'compartment'. This will raise an
+            ObjectStoreError if this bucket already exists
+
+            Args:
+                bucket (dict): Bucket to hold data
+                bucket_name (str): Name for new bucket
+                compartment (str, default=None): Compartment for new bucket
+            Returns:
+                dict: New bucket
         """
         bucket_name = str(bucket_name)
 
@@ -77,11 +99,20 @@ class Testing_ObjectStore:
     @staticmethod
     def get_bucket(bucket, bucket_name, compartment=None,
                    create_if_needed=True):
-        """Find and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. If 'create_if_needed' is True
-           then the bucket will be created if it doesn't exist. Otherwise,
-           if the bucket does not exist then an exception will be raised.
+        """ Find and return a new bucket in the object store called
+            'bucket_name', optionally placing it into the compartment
+            identified by 'compartment'. If 'create_if_needed' is True
+            then the bucket will be created if it doesn't exist. Otherwise,
+            if the bucket does not exist then an exception will be raised.
+
+            Args:
+                bucket (dict): Bucket to hold data
+                bucket_name (str): Name for bucket
+                compartment (str): Compartment for bucket
+                create_if_needed (bool, default=True): If True
+                create bucket if it doesn't already exist
+            Returns:
+                dict: Bucket
         """
         bucket_name = str(bucket_name)
 
@@ -106,21 +137,40 @@ class Testing_ObjectStore:
 
     @staticmethod
     def get_bucket_name(bucket):
-        """Return the name of the passed bucket"""
+        """ Return the name of the passed bucket
+
+            Args:
+                bucket (dict): Bucket
+            Returns:
+                str: Name of bucket
+        """
         return _os.path.split(bucket)[1]
 
     @staticmethod
     def is_bucket_empty(bucket):
-        """Return whether or not the passed bucket is empty"""
+        """ Return whether or not the passed bucket is empty
+
+            Args:
+                bucket (dict): Bucket to query
+            Returns:
+                bool: True if bucket is empty
+        """
         return len(_os.listdir(bucket)) == 0
 
     @staticmethod
     def delete_bucket(bucket, force=False):
-        """Delete the passed bucket. This should be used with caution.
-           Normally you can only delete a bucket if it is empty. If
-           'force' is True then it will remove all objects/pars from
-           the bucket first, and then delete the bucket. This
-           can cause a LOSS OF DATA!
+        """ Delete the passed bucket. This should be used with caution.
+            Normally you can only delete a bucket if it is empty. If
+            'force' is True then it will remove all objects/pars from
+            the bucket first, and then delete the bucket. This
+            can cause a LOSS OF DATA!
+
+            Args:
+                bucket (dict): Bucket containing data
+                force (bool, default=False): If True delete all objects/PARs
+                from bucket before deleting bucket
+            Returns:
+                None
         """
         is_empty = Testing_ObjectStore.is_bucket_empty(bucket=bucket)
 
@@ -138,16 +188,29 @@ class Testing_ObjectStore:
     @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
                    writeable=False, duration=3600, cleanup_function=None):
-        """Create a pre-authenticated request for the passed bucket and
-           key (if key is None then the request is for the entire bucket).
-           This will return a PAR object that will contain a URL that can
-           be used to access the object/bucket. If writeable is true, then
-           the URL will also allow the object/bucket to be written to.
-           PARs are time-limited. Set the lifetime in seconds by passing
-           in 'duration' (by default this is one hour). Note that you must
-           pass in a public key that will be used to encrypt this PAR. This is
-           necessary as the PAR grants access to anyone who can decrypt
-           the URL
+        """ Create a pre-authenticated request for the passed bucket and
+            key (if key is None then the request is for the entire bucket).
+            This will return a PAR object that will contain a URL that can
+            be used to access the object/bucket. If writeable is true, then
+            the URL will also allow the object/bucket to be written to.
+            PARs are time-limited. Set the lifetime in seconds by passing
+            in 'duration' (by default this is one hour). Note that you must
+            pass in a public key that will be used to encrypt this PAR. This is
+            necessary as the PAR grants access to anyone who can decrypt
+            the URL
+
+            Args:
+                bucket (dict): Bucket containing data
+                encrypt_key (PublicKey): Key for encrypting PAR
+                key (str): Key for PAR
+                readable (bool): If True bucket is readable
+                readable (bool, default=True): If bucket is readable
+                writeable (bool, default=False): If bucket is writeable
+                duration (int, default=3600): PAR validity duration in seconds
+                cleanup_function (callable, default=None): Cleanup
+                function to be passed to PARRegistry
+            Returns:
+                PAR: PAR
         """
         from Acquire.Crypto import PublicKey as _PublicKey
 
@@ -210,8 +273,15 @@ class Testing_ObjectStore:
 
     @staticmethod
     def close_par(par=None, par_uid=None, url_checksum=None):
-        """Close the passed PAR, which provides access to data in the
-           passed bucket
+        """ Close the passed PAR, which provides access to data in the
+            passed bucket
+
+            Args:
+                par (PAR, default=None): PAR to close
+                par_uid (str, default=None): UID of PAR to close
+                url_checksum (str, default=None): Checksum for URL
+            Returns:
+                None
         """
         from Acquire.ObjectStore import PARRegistry as _PARRegistry
 
@@ -236,8 +306,15 @@ class Testing_ObjectStore:
 
     @staticmethod
     def get_object(bucket, key):
-        """Return the binary data contained in the key 'key' in the
-           passed bucket"""
+        """ Return the binary data contained in the key 'key' in the
+            passed bucket
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                bytes: Binary data at key
+        """
 
         with _rlock:
             filepath = "%s/%s._data" % (bucket, key)
@@ -249,8 +326,14 @@ class Testing_ObjectStore:
 
     @staticmethod
     def take_object(bucket, key):
-        """Take (delete) the object from the object store, returning
-           the object
+        """ Take (delete) the object from the object store, returning
+                    the object
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                bytes: Binary data at key
         """
         with _rlock:
             filepath = "%s/%s._data" % (bucket, key)
@@ -264,7 +347,16 @@ class Testing_ObjectStore:
 
     @staticmethod
     def get_all_object_names(bucket, prefix=None):
-        """Returns the names of all objects in the passed bucket"""
+        """ Returns the names of all objects in the passed bucket.
+            If prefix is passed only keys starting with that prefix
+            will be returned.
+
+            Args:
+                bucket (dict): Bucket containing data
+                prefix (str): Prefix for object keys
+            Returns:
+                list: List of objects in bucket
+        """
 
         root = bucket
 
@@ -303,7 +395,14 @@ class Testing_ObjectStore:
 
     @staticmethod
     def set_object(bucket, key, data):
-        """Set the value of 'key' in 'bucket' to binary 'data'"""
+        """ Set the value of 'key' in 'bucket' to binary 'data'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for data
+            Returns:
+                None
+        """
 
         filename = "%s/%s._data" % (bucket, key)
 
@@ -323,7 +422,14 @@ class Testing_ObjectStore:
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
-        """Deletes all objects..."""
+        """ Deletes all objects in bucket
+
+            Args:
+                bucket (dict): Bucket containing data
+                prefix (str, default=None): Prefix for keys
+            Returns:
+                None
+        """
         if prefix:
             _shutil.rmtree("%s/%s" % (bucket, prefix), ignore_errors=True)
         else:
@@ -331,7 +437,14 @@ class Testing_ObjectStore:
 
     @staticmethod
     def delete_object(bucket, key):
-        """Removes the object at 'key'"""
+        """ Removes the object at 'key'
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for object
+            Returns:
+                None
+        """
         try:
             _os.remove("%s/%s._data" % (bucket, key))
         except:
@@ -339,8 +452,14 @@ class Testing_ObjectStore:
 
     @staticmethod
     def get_size_and_checksum(bucket, key):
-        """Return the object size (in bytes) and checksum of the
-           object in the passed bucket at the specified key
+        """ Return the object size (in bytes) and checksum of the
+            object in the passed bucket at the specified key
+
+            Args:
+                bucket (dict): Bucket containing data
+                key (str): Key for object
+            Returns:
+                tuple (int, str): Size and MD5 checksum of object
         """
         filepath = "%s/%s._data" % (bucket, key)
 

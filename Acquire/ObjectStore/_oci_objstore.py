@@ -136,7 +136,6 @@ class OCI_ObjectStore:
             bucket (dict): Bucket to hold data
             bucket_name (str): Name of bucket to create
             compartment (str): Compartment in which to create bucket
-
            Returns:
                 dict: New bucket
         """
@@ -189,10 +188,7 @@ class OCI_ObjectStore:
                 bucket_name (str): Name of bucket to create
                 compartment (str, default=None): Compartment in which to
                 create bucket
-                create_if_needed (bool, default=None): If True, create bucket,
-                else do
-                not
-
+                create_if_needed (bool, default=None): If True, create bucket
            Returns:
                 dict: New bucket
 
@@ -478,7 +474,7 @@ class OCI_ObjectStore:
            passed bucket
 
            Args:
-                par (PAR, default=None): PAR to close bucket
+                par (PAR, default=None): PAR to close
                 par_uid (str, default=None): UID for PAR
                 url_checksum (str, default=None): Checksum to
                 pass to PARRegistry
@@ -632,7 +628,7 @@ class OCI_ObjectStore:
 
            Args:
                 bucket (dict): Bucket containing data
-                prefix (str): Prefix for data
+                prefix (str, default=None): Prefix for data
            Returns:
                 list: List of all objects in bucket
 
@@ -672,7 +668,6 @@ class OCI_ObjectStore:
                 bucket (dict): Bucket containing data
                 key (str): Key for data in bucket
                 data (bytes): Binary data to store in bucket
-
            Returns:
                 None
         """

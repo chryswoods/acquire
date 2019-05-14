@@ -171,7 +171,7 @@ class ObjectStore:
 
             Args:
                 par (PAR, default=None): PAR to close
-                par_uid (str, default=None): UID for PAR to close
+                par_uid (str, default=None): UID of PAR to close
                 url_checksum (str, default=None): Checksum for URL
             Returns:
                 None

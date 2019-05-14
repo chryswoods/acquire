@@ -11,15 +11,25 @@ class PARRegistry:
     """
     @staticmethod
     def register(par, url_checksum, details_function, cleanup_function=None):
-        """Register the passed PAR, passing in the checksum of
-           the PAR's secret URL (so we can verify the close),
-           and optionally supplying a cleanup_function that is
-           called when the PAR is closed. The passed 'details_function'
-           should be used to extract the object-store driver-specific
-           details from the PAR and convert them into a dictionary.
-           The signature should be;
+        """ Register the passed PAR, passing in the checksum of
+            the PAR's secret URL (so we can verify the close),
+            and optionally supplying a cleanup_function that is
+            called when the PAR is closed. The passed 'details_function'
+            should be used to extract the object-store driver-specific
+            details from the PAR and convert them into a dictionary.
+            The signature should be;
 
-           driver_details = details_function(par)
+            driver_details = details_function(par)
+
+            Args:
+                par (PAR): PAR to register
+                url_checksum (str): Checksum for PAR URL
+                details_function (callable): Function to extract object-store
+                driver-specific details from PAR
+                cleanup_function (callable): Cleanup function
+            Returns:
+                None
+
         """
         from Acquire.Service import is_running_service as _is_running_service
 
@@ -73,15 +83,23 @@ class PARRegistry:
 
     @staticmethod
     def get(par_uid, details_function, url_checksum=None):
-        """Return the PAR that matches the passed PAR_UID.
-           If 'url_checksum' is supplied then this verifies that
-           the checksum of the secret URL is correct.
+        """ Return the PAR that matches the passed PAR_UID.
+            If 'url_checksum' is supplied then this verifies that
+            the checksum of the secret URL is correct.
 
-           This returns the PAR with a completed 'driver_details'.
-           The 'driver_details' is created from the dictionary
-           of data saved with the PAR. The signature should be;
+            This returns the PAR with a completed 'driver_details'.
+            The 'driver_details' is created from the dictionary
+            of data saved with the PAR. The signature should be;
 
-           driver_details = details_function(data)
+            driver_details = details_function(data)
+
+            Args:
+                par_uid (str): UID for PAR
+                details_function (callable): Function to extract object-store
+                driver-specific details from PAR
+                url_checksum (str): Checksum for PAR URL
+            Returns:
+                PAR: PAR matching PAR_UID
         """
         if par_uid is None or len(par_uid) == 0:
             return
@@ -136,9 +154,14 @@ class PARRegistry:
 
     @staticmethod
     def close(par):
-        """Close the passed PAR. This will remove the registration
-           for the PAR and will also call the associated
-           cleanup_function (if any)
+        """ Close the passed PAR. This will remove the registration
+            for the PAR and will also call the associated
+            cleanup_function (if any)
+
+            Args:
+                par (PAR): PAR to close
+            Returns:
+                None
         """
         from Acquire.Service import is_running_service as _is_running_service
 
