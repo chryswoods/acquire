@@ -11,6 +11,10 @@ class Service:
        a service. This is a metamorphic (shape-shifting) class,
        i.e. during construction it will transform into the class
        of the type of service, e.g. Acquire.Identity.IdentityService
+
+       Args:
+            service_url (str): URL of service
+            service_uid (str): UID of service
     """
     def __init__(self, service_url=None, service_uid=None,
                  service_type=None):
@@ -22,10 +26,6 @@ class Service:
 
             service = Acquire.Client.Service("https://identity_service_url")
             service.__class__ == Acquire.Identity.IdentityService
-
-            Args:
-                service_url (str): URL of service
-                service_uid (str): UID of service
         """
         try:
             from Acquire.Client import Wallet as _Wallet
@@ -53,7 +53,11 @@ class Service:
         return "Service(failed setup!)"
 
     def uuid(self):
-        """Synonym for uid"""
+        """ Synonym for uid
+
+            Returns:
+                str: UUID of Service
+        """
         return self.uid()
 
     def uid(self):

@@ -31,7 +31,6 @@ class Credentials:
 
            Returns:
                 str: Username held for these credentials
-
         """
         if self.is_null():
             return None
@@ -176,9 +175,6 @@ class Credentials:
                 as additional salt
            Returns:
                 str: Hashed and salted password
-
-
-
         """
         from Acquire.Crypto import Hash as _Hash
 

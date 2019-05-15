@@ -68,7 +68,6 @@ def _get_drive(user, name=None, storage_service=None, storage_url=None,
             storage_service (Service, default=None): Service object to use
             storage_url (str, default=None): URL for storage
             autocreate (bool): If True create drive automatically,
-            if False do not
        Returns:
             Drive: Drive object
 
@@ -111,6 +110,12 @@ class Drive:
        users. Each drive has a unique UID, with users assiging
        their own shorthand names.
 
+       Args:
+            user (User): User to use drive
+            name (str, default=None): Name for drive
+            storage_service (Service, default=None): Service service to use
+            storage_url (str, default=None): URL for storage
+            autocreate (bool, default=True): If True create drive automatically
     """
     def __init__(self, user=None, name=None, storage_service=None,
                  storage_url=None, autocreate=True):
@@ -151,7 +156,6 @@ class Drive:
 
            Returns:
                 str: Access Control List for the user
-
         """
         try:
             return self._acl
@@ -289,8 +293,7 @@ class Drive:
                 uploaded_name (str, default=None): Name of file once uploaded
                 aclrules (str, default=None): ACL rules for file
                 force_par (bool, default=False): If True force a
-                pre-authenticated
-                request be created for the upload
+                pre-authenticated request be created for the upload
             Returns:
                 FileMeta: Object containing metadata on the uploaded file
         """

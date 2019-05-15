@@ -1122,7 +1122,6 @@ class ObjectReader:
 
            Returns:
                 Object: Object created from JSON data
-
         """
         data = self.get_string_object()
         return _json.loads(data)
@@ -1157,8 +1156,12 @@ class ObjectWriter(ObjectReader):
             self._par = None
 
     def set_object(self, data):
-        """Set the value of the object behind this PAR to the binary 'data'
-        
+        """ Set the value of the object behind this PAR to the binary 'data'
+
+            Args:
+                data (bytes): Binary data to set
+            Returns:
+                None
         """
         if self._par is None:
             from Acquire.Client import PARError
@@ -1172,27 +1175,48 @@ class ObjectWriter(ObjectReader):
             return _write_remote(url, data)
 
     def set_object_from_file(self, filename):
-        """Set the value of the object behind this PAR to equal the contents
-           of the file located by 'filename'"""
+        """ Set the value of the object behind this PAR to equal the contents
+            of the file located by 'filename'
+
+            Args:
+                filename (str): File to read in
+        """
         with open(filename, "rb") as FILE:
             data = FILE.read()
             self.set_object(data)
 
     def set_string_object(self, string_data):
-        """Set the value of the object behind this PAR to the
-           string 'string_data'
+        """ Set the value of the object behind this PAR to the
+            string 'string_data'
+
+            Args:
+                string_data (str): String data
+            Returns:
+                None
         """
         self.set_object(string_data.encode("utf-8"))
 
     def set_object_from_json(self, data):
-        """Set the value of the object behind this PAR to equal to contents
-           of 'data', which has been encoded to json"""
+        """ Set the value of the object behind this PAR to equal to contents
+            of 'data', which has been encoded to json
+
+            Args:
+                data (str): JSON encoded data
+            Returns:
+                None
+        """
         self.set_string_object(_json.dumps(data))
 
 
 class ComputeRunner:
-    """This class provides functions for executing a calculation
-       pre-authorised by the passed PAR
+    """ This class provides functions for executing a calculation
+        pre-authorised by the passed PAR
+
+        Args:
+            par (PAR): PAR for calculation
+            decrypt_key (str): Decryption key for PAR
+        Returns:
+            None
     """
     def __init__(self, par=None, decrypt_key=None):
         if par:

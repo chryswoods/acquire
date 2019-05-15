@@ -21,8 +21,7 @@ def _should_compress(filename, filesize):
             filename (str): Filename
             filesize (int): Size of file in bytes
        Returns:
-            bool: True if file should be compressed, else
-            False
+            bool: True if file should be compressed
     """
     if filesize < 128:
         return False

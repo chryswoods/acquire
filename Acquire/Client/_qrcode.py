@@ -3,7 +3,11 @@ __all__ = ["create_qrcode", "has_qrcode"]
 
 
 def has_qrcode():
-    """Return whether or not we support creating QR codes"""
+    """ Return whether or not we support creating QR codes
+    
+        Returns:
+            None
+    """
     try:
         import qrcode as _qrcode
         return _qrcode is not None
@@ -12,7 +16,13 @@ def has_qrcode():
 
 
 def create_qrcode(uri):
-    """Return a QR code for the passed URI"""
+    """ Return a QR code for the passed URI
+    
+        Args:
+            uri (str): URI for which to create QR code
+        Returns:
+            Image: Image containing QR code
+    """
     try:
         import qrcode as _qrcode
     except:
