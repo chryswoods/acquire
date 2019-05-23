@@ -70,10 +70,10 @@ def _get_random_sentence():
 
     import random as _random
 
-    adj = adjs[_random.randint(0, len(adjs)-1)]
-    animal = animals[_random.randint(0, len(animals)-1)]
-    verb = verbs[_random.randint(0, len(verbs)-1)]
-    adv = advs[_random.randint(0, len(advs)-1)]
+    adj = _random.choice(adjs)
+    animal = _random.choice(animals)
+    verb = _random.choice(verbs)
+    adv = _random.choice(advs)
 
     return "%s %s %s %s" % (adj, animal, verb, adv)
 
