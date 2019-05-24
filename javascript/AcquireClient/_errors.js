@@ -1,36 +1,36 @@
 
-class RemoteFunctionCallError
+function RemoteFunctionCallError(message)
 {
-    constructor(error)
-    {
-        console.log(`RemoteFunctionCallError(${error})`);
-        this.message = error;
-    }
+    console.log(`RemoteFunctionCallError(${message})`);
+    const error = new Error(message);
+    return error;
 }
 
-class PermissionError
+RemoteFunctionCallError.prototype = Object.create(Error.prototype);
+
+function PermissionError(message)
 {
-    constructor(error)
-    {
-        console.log(`PermissionError(${error})`);
-        this.message = error;
-    }
+    console.log(`PermissionError(${message})`);
+    const error = new Error(message);
+    return error;
 }
 
-class LoginError
+PermissionError.prototype = Object.create(Error.prototype);
+
+function LoginError(message)
 {
-    constructor(error)
-    {
-        console.log(`LoginError(${error})`);
-        this.message = error;
-    }
+    console.log(`LoginError(${message})`);
+    const error = new Error(message);
+    return error;
 }
 
-class ServiceError
+LoginError.prototype = Object.create(Error.prototype);
+
+function ServiceError(message)
 {
-    constructor(error)
-    {
-        console.log(`ServiceError(${error})`);
-        this.message = error;
-    }
+    console.log(`ServiceError(${message})`);
+    const error = new Error(message);
+    return error;
 }
+
+ServiceError.prototype = Object.create(Error.prototype);

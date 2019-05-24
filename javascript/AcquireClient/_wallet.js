@@ -83,13 +83,13 @@ class Wallet
                                             public_cert:registry_pubcert,
                                             response_key:response_key});
 
-        var registry = await Service.from_data(response["service_data"]);
+        var registry = await Service.from_data(response["service_info"]);
         await this._save_service(registry);
         return registry;
     }
 
     async get_service({service_uid=undefined, service_url=undefined,
-        service_type=undefined, autofetch=true})
+                       service_type=undefined, autofetch=true})
     {
         var service = undefined;
 
@@ -139,12 +139,31 @@ class Wallet
             }
 
             // we now need to connect to a trusted registry
-            var registry = await this._get_trusted_registry_service(
+            try
+            {
+                var registry = await this._get_trusted_registry_service(
                                               {service_uid:service_uid,
                                                service_url:service_url});
+            }
+            catch(err)
+            {
+                throw new ServiceError(
+                    `Cannot get service ${service_uid} : ${service_url} ` +
+                    `because we can't load the registry! ${err}`);
+            }
 
-            service = await registry.get_service({service_uid:service_uid,
-                                                  service_url:service_url});
+            try
+            {
+                service = await registry.get_service(
+                                                {service_uid:service_uid,
+                                                 service_url:service_url});
+            }
+            catch(err)
+            {
+                throw new ServiceError(
+                    `Cannot get service ${service_uid} : ${service_url} ` +
+                    `because of error ${err}`);
+            }
 
             must_write = true;
         }

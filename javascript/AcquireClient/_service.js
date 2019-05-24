@@ -80,6 +80,11 @@ class Service
         }
     }
 
+    can_identify_users()
+    {
+        return true;
+    }
+
     service_type()
     {
         if (this.is_null()){ return undefined; }
@@ -127,9 +132,18 @@ class Service
             var args = {"service_uid": service_uid,
                         "service_url": service_url};
 
-            result = await this.call_function(func, args);
+            try
+            {
+                var result = await this.call_function(func, args);
+            }
+            catch(err)
+            {
+                throw new ServiceError(
+                    `Unable to get service because of failed function ` +
+                    `call: ${err}`);
+            }
 
-            var service = await Service.from_data(result["service_data"]);
+            var service = await Service.from_data(result["service_info"]);
             return service;
         }
     }
@@ -194,26 +208,42 @@ class Service
     {
         var service = new Service();
 
-        service._uid = data["uid"];
-        service._service_type = data["service_type"];
-        service._canonical_url = data["canonical_url"];
-        service._domain = data["domain"];
-        service._ports = data["ports"];
-        service._schemes = data["schemes"];
-        service._path = data["path"];
+        if (data == undefined)
+        {
+            throw new ServiceError(
+                "Cannot construct a new Service from empty data!");
+        }
 
-        service._service_user_uid = data["service_user_uid"];
-        service._service_user_name = data["service_user_name"];
+        try
+        {
+            service._uid = data["uid"];
+            service._service_type = data["service_type"];
+            service._canonical_url = data["canonical_url"];
+            service._domain = data["domain"];
+            service._ports = data["ports"];
+            service._schemes = data["schemes"];
+            service._path = data["path"];
 
-        service._pubkey = await PublicKey.from_data(data["public_key"])
+            service._service_user_uid = data["service_user_uid"];
+            service._service_user_name = data["service_user_name"];
 
-        service._pubcert = await PublicKey.from_data(
+            service._pubkey = await PublicKey.from_data(data["public_key"])
+
+            service._pubcert = await PublicKey.from_data(
                                             data["public_certificate"], true)
-        service._lastcert = await PublicKey.from_data(
+            service._lastcert = await PublicKey.from_data(
                                             data["last_certificate"], true);
 
-        service._last_key_update = string_to_datetime(data["last_key_update"])
-        service._key_update_interval = parseFloat(data["key_update_interval"])
+            service._last_key_update = string_to_datetime(
+                                            data["last_key_update"])
+            service._key_update_interval = parseFloat(
+                                            data["key_update_interval"])
+        }
+        catch(err)
+        {
+            throw new ServiceError(
+                `Cannot construct service from ${data}`);
+        }
 
         return service;
     }

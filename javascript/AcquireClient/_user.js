@@ -1,4 +1,42 @@
 
+
+function _get_identity_url()
+{
+    return "fn.acquire-aaai.com";
+}
+
+async function _get_identity_service({identity_url=undefined})
+{
+    if (identity_url == undefined)
+    {
+        identity_url = _get_identity_url();
+    }
+
+    var wallet = new Wallet();
+    var service = undefined;
+
+    try
+    {
+        service = await wallet.get_service({service_url:identity_url});
+    }
+    catch(err)
+    {
+        throw new LoginError(
+            `Have not received the identity service info from ` +
+            `the identity service at '${identity_url}'\n\nCAUSE: ${err}`);
+    }
+
+    if (!service.can_identify_users())
+    {
+        throw new LoginError(
+            `You can only use a valid identity service to log in! ` +
+            `The service at '${identity_url}' is a ` +
+            `'${service.service_type()}`);
+    }
+
+    return service;
+}
+
 /** Mirror of the Python Acquire.Client.User class */
 class User
 {
@@ -8,7 +46,7 @@ class User
     {
         this._username = username;
         this._status = "EMPTY";
-        this._identity_service = None;
+        this._identity_service = undefined;
         this._scope = scope;
         this._permissions = permissions;
 
@@ -30,11 +68,11 @@ class User
 
         if (auto_logout)
         {
-            this._auto_logout = True;
+            this._auto_logout = true;
         }
         else
         {
-            this._auto_logout = False;
+            this._auto_logout = false;
         }
     }
 
@@ -82,7 +120,7 @@ class User
 
         if (this._user_uid == undefined)
         {
-            throw PermissionError(
+            throw new PermissionError(
                 "You cannot get the user UID until after you have logged in");
         }
 
@@ -105,7 +143,7 @@ class User
     {
         if (this._status == "ERROR")
         {
-            throw LoginError(this._error_string);
+            throw new LoginError(this._error_string);
         }
     }
 
@@ -143,21 +181,21 @@ class User
         }
     }
 
-    identity_service()
+    async identity_service()
     {
         if (this._identity_service != undefined)
         {
             return this._identity_service;
         }
 
-        identity_service = _get_identity_service(
+        var identity_service = await _get_identity_service(
                                 {identity_url:this.identity_service_url()});
 
         if (this._identity_uid != undefined)
         {
             if (identity_service.uid() != this._identity_uid)
             {
-                throw LoginError(
+                throw new LoginError(
                     `The UID of the identity service at ` +
                     `'${this.identity_service_url()}', which is ` +
                     `${identity_service.uid()}, does not match that ` +
@@ -266,7 +304,7 @@ class User
         {
             service = this.identity_service();
 
-            args = {"session_uid": self._session_uid}
+            args = {"session_uid": this._session_uid}
 
             if (this.is_logged_in())
             {
@@ -278,7 +316,7 @@ class User
             else
             {
                 resource = `logout ${this._session_uid}`;
-                signature = await self.signing_key().sign(resource);
+                signature = await this.signing_key().sign(resource);
                 args["signature"] = bytes_to_string(signature);
             }
 
@@ -311,7 +349,7 @@ class User
         }
         catch(_err)
         {
-            throw UserError(
+            throw new UserError(
                 `Cannot register the user '${username}' on ` +
                 `the identity service at '${identity_url}'!`);
         }
@@ -338,27 +376,35 @@ class User
         return result;
     }
 
-    async request_login({login_message:undefined})
+    async request_login()
     {
+        try
+        {
         this._check_for_error();
 
         if (!this.is_empty())
         {
-            throw LoginError(
+            throw new LoginError(
                 "You cannot try to log in twice using the same " +
                 "User object. Create another object if you want " +
                 "to try to log in again.");
         }
 
-        session_key = PrivateKey();
-        signing_key = PrivateKey();
+        var session_key = new PrivateKey();
+        var signing_key = new PrivateKey();
 
-        args = {"username": self._username,
-                "public_key": session_key.public_key().to_data(),
-                "public_certificate": signing_key.public_key().to_data(),
-                "scope": self._scope,
-                "permissions": self._permissions
-                };
+        var public_session_key = await session_key.public_key();
+        var public_signing_key = await signing_key.public_key();
+
+        var session_key_data = await public_session_key.to_data();
+        var signing_key_data = await public_signing_key.to_data();
+
+        var args = {"username": this._username,
+                    "public_key": session_key_data,
+                    "public_certificate": signing_key_data,
+                    "scope": this._scope,
+                    "permissions": this._permissions
+                   };
 
         try
         {
@@ -370,50 +416,36 @@ class User
         catch(_err)
         {}
 
-        if (login_message == undefined)
-        {
-            try
-            {
-                login_message = _get_random_sentence();
-            }
-            catch(_err)
-            {}
-        }
-        else
-        {
-            args["login_message"] = login_message;
-        }
-
-        var identity_service = self.identity_service();
+        var identity_service = await this.identity_service();
 
         var result = await identity_service.call_function(
                                 {func:"request_login", args:args});
+
+        var login_url = undefined;
 
         try
         {
             login_url = result["login_url"];
         }
         catch(_err)
-        {
-            login_url = undefined;
-        }
+        {}
 
         if (login_url == undefined)
         {
             error = `Failed to login. Could not extract the login URL! ` +
                     `Result is ${result}`;
             this._set_error_state(error);
-            throw LoginError(error);
+            throw new LoginError(error);
         }
+
+        session_uid = undefined;
 
         try
         {
             session_uid = result["session_uid"];
         }
         catch(_err)
-        {
-            session_uid = undefined;
-        }
+        {}
 
         if (session_uid == undefined)
         {
@@ -421,8 +453,10 @@ class User
                     `session UID! Result is ${result}`;
 
             this._set_error_state(error);
-            throw LoginError(error);
+            throw new LoginError(error);
         }
+
+        console.log("HERE");
 
         this._login_url = result["login_url"];
         this._session_key = session_key;
@@ -434,13 +468,18 @@ class User
         return {"login_url": this._login_url,
                 "session_uid": session_uid,
                 "short_uid": LoginSession.to_short_uid(session_uid)};
+        }
+        catch(err)
+        {
+            console.log(err);
+        }
     }
 
     async _poll_session_status()
     {
-        service = self.identity_service();
+        service = this.identity_service();
 
-        args = {"session_uid": self._session_uid};
+        args = {"session_uid": this._session_uid};
 
         result = await service.call_function({func:"get_session_info",
                                               args:args});
@@ -464,9 +503,9 @@ class User
     {
         this._check_for_error();
 
-        if (!self.is_logging_in())
+        if (!this.is_logging_in())
         {
-            return self.is_logged_in();
+            return this.is_logged_in();
         }
 
         polling_delta = int(polling_delta);
@@ -489,7 +528,7 @@ class User
                 {
                     return true;
                 }
-                else if (!self.is_logging_in())
+                else if (!this.is_logging_in())
                 {
                     return false;
                 }

@@ -7,7 +7,7 @@
 
 async function test_acquire()
 {
-    var wallet = new Wallet();
+    /*var wallet = new Wallet();
 
     //wallet.clear();
 
@@ -21,5 +21,13 @@ async function test_acquire()
 
     id_service = await wallet.get_service({service_uid:"a0-a1"});
 
-    console.log(id_service);
+    console.log(id_service);*/
+
+    user = new User({username:"chryswoods"});
+
+    console.log(user);
+
+    result = await user.request_login();
+
+    console.log(result);
 }
