@@ -139,7 +139,7 @@ class Service
         return;
     }
 
-    async call_function(func, args=undefined)
+    async call_function({func=undefined, args=undefined})
     {
         if (this.is_null())
         {

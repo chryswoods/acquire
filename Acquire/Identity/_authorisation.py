@@ -288,11 +288,12 @@ class Authorisation:
         except:
             must_fetch = True
 
-        if not must_fetch:
-            try:
-                return self._pubcert
-            except:
-                pass
+        if self._pubcert is not None:
+            if not must_fetch:
+                try:
+                    return self._pubcert
+                except:
+                    pass
 
         try:
             testing_key = self._testing_key
@@ -424,12 +425,17 @@ class Authorisation:
         public_cert = self._get_user_public_cert(scope=scope,
                                                  permissions=permissions)
 
+        if public_cert is None:
+            raise PermissionError(
+                "There is no public certificate for this user in "
+                "scope '%s' with permissions '%s'" % (scope, permissions))
+
         try:
             public_cert.verify(self._siguid, self._uid)
         except:
             raise PermissionError(
                 "Cannot auth_once the authorisation as the signature "
-                "is invalid!")
+                "is invalid! %s")
 
     def is_verified(self, refresh_time=3600, stale_time=7200):
         """Return whether or not this authorisation has been verified. Note

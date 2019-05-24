@@ -9,7 +9,7 @@ async function test_acquire()
 {
     var wallet = new Wallet();
 
-    wallet.clear();
+    //wallet.clear();
 
     var service = await wallet.get_service({service_uid:"a0-a0"});
 

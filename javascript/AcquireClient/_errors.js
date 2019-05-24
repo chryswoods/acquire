@@ -17,6 +17,15 @@ class PermissionError
     }
 }
 
+class LoginError
+{
+    constructor(error)
+    {
+        console.log(`LoginError(${error})`);
+        this.message = error;
+    }
+}
+
 class ServiceError
 {
     constructor(error)
