@@ -263,15 +263,14 @@ class Wallet
         return {};
     }
 
+    _set_userinfo({userinfo=undefined, user_uid=undefined,
+                   identity_uid=undefined})
+    {}
+
     async send_password({url, username=undefined, password=undefined,
-                         otpcode=undefined, remember_password=true,
+                         otpcode=undefined,
                          remember_device=false, dryrun=false})
     {
-        if (!remember_password)
-        {
-            remember_device = false;
-        }
-
         // the login URL is http[s]://something.com?id=XXXX/YY.YY.YY.YY
         // where XXXX is the service_uid of the service we should
         // connect with, and YY.YY.YY.YY is the short_uid of the login
@@ -347,8 +346,6 @@ class Wallet
             user_uid = userinfo["user_uid"];
         }
 
-        console.log(`Logging in using username ${username}`);
-
         var device_uid = undefined;
 
         if ("device_uid" in userinfo)
@@ -372,7 +369,7 @@ class Wallet
         }
 
         console.log(`Logging in to ${service.canonical_url()}, ` +
-                    `session ${short_uid}...`);
+                    `session ${short_uid} with username ${username}...`);
 
         if (dryrun)
         {
@@ -390,12 +387,7 @@ class Wallet
                                          otpcode:otpcode, short_uid:short_uid,
                                          device_uid:device_uid});
 
-            console.log(creds);
-            console.log(service.uid());
-
             var cred_data = await creds.to_data({identity_uid:service.uid()});
-
-            console.log(cred_data);
 
             var args = {"credentials": cred_data,
                         "user_uid": user_uid,
@@ -404,17 +396,13 @@ class Wallet
 
             var response = await service.call_function({func:"login",
                                                         args:args});
-
-            console.log(response);
-            console.log("SUCCEEDED");
         }
         catch(err)
         {
-            console.log("FAILED");
             throw new LoginError("Failed to log in", err);
         }
 
-        if (!remember_password)
+        if (!remember_device)
         {
             return;
         }
@@ -436,14 +424,13 @@ class Wallet
             return;
         }
 
-        if (user_uid == undefined)
+        if (!user_uid)
         {
             // can't save anything
             return;
         }
 
         userinfo["username"] = username;
-        userinfo["password"] = password;
 
         try
         {

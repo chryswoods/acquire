@@ -12,12 +12,15 @@ async function login()
         var username = document.getElementById("username").value;
         var password = document.getElementById("password").value;
         var otpcode = document.getElementById("otpcode").value;
+        var remember_device = document.getElementById("remember_device").value;
+        var url = document.getElementById("url").value;
 
         var wallet = new Wallet();
-        var url = "https://login.acquire-aaai.com?id=a0-a0/68.4f.87.5c";
-        console.log(`Login to ${url}`);
         await wallet.send_password({url:url, username:username,
-                                    password:password, otpcode:otpcode});
+                                    password:password, otpcode:otpcode,
+                                    remember_device: remember_device});
+
+        console.log("LOGIN SUCCESS!");
     }
     catch(err)
     {

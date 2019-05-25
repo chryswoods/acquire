@@ -136,13 +136,9 @@ class Credentials
     {
         var encoded_password = multi_md5(identity_uid, password);
 
-        console.log(`encoded_password = ${encoded_password}`);
-
         encoded_password = Credentials.encode_device_uid(
                                         {encoded_password:encoded_password,
                                          device_uid:device_uid});
-
-        console.log(`with device_uid = ${encoded_password}`);
 
         return encoded_password;
     }
@@ -163,11 +159,6 @@ class Credentials
                                              device_uid:device_uid,
                                              password:password});
 
-        console.log(`identity_uid = ${identity_uid}`);
-        console.log(`device_uid = ${device_uid}`);
-        console.log(`password = ${password}`);
-        console.log(`encoded_password = ${encoded_password}`);
-
         // if the device_uid is not set, then create a random one
         // so that an attacker does not know...
         if (!device_uid)
@@ -178,19 +169,12 @@ class Credentials
         var data = [encoded_password, device_uid, otpcode];
         var string_data = data.join("|");
 
-        console.log(`string_data = ${string_data}`);
-
         var uname_shortid = md5(username) + md5(short_uid);
-
-        console.log(`uname_shortid = ${uname_shortid}`);
 
         var symkey = new SymmetricKey({symmetric_key:uname_shortid});
         string_data = await symkey.encrypt(string_data);
-        var result = bytes_to_string(data);
 
-        console.log(`string_data = ${result}`);
-
-        return result;
+        return bytes_to_string(string_data);
     }
 
     static async unpackage({data, username, short_uid, random_sleep=150})

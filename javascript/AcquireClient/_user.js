@@ -42,7 +42,7 @@ class User
 {
     constructor({username=undefined, identity_url=undefined,
                  identity_uid=undefined, scope=undefined,
-                 permissions=undefined, auto_logout=true})
+                 permissions=undefined, auto_logout=true} = {})
     {
         this._username = username;
         this._status = "EMPTY";

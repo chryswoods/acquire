@@ -269,6 +269,7 @@ function fernet_encrypt(key, data)
     });
 
     encrypted = token.encode(data);
+    encrypted = string_to_utf8_bytes(encrypted);
 
     return encrypted;
 }
@@ -280,13 +281,22 @@ function fernet_decrypt(key, data)
 {
     var token = new fernet.Token({
         secret: new fernet.Secret(key),
-        token: data,
+        token: utf8_bytes_to_string(data),
         ttl: 0
     });
 
     var result = token.decode();
 
     return result;
+}
+
+/** Randomly generate a good symmetric key */
+function _generate_symmetric_key()
+{
+    var array = new Uint8Array(32);
+    window.crypto.getRandomValues(array);
+    var secret = _base64ArrayBuffer(array);
+    return secret;
 }
 
 /** Function that verifies the signature of the passed message signed
@@ -597,7 +607,7 @@ class PublicKey
 
 class SymmetricKey
 {
-    constructor({symmetric_key=undefined, auto_generate=true})
+    constructor({symmetric_key=undefined, auto_generate=true} = {})
     {
         this._symkey = undefined;
 
@@ -626,24 +636,17 @@ class SymmetricKey
         return m.match(/(..?)/g).join(":");
     }
 
-    async encrypt(message)
+    encrypt(message)
     {
         if (!this._symkey)
         {
             this._symkey = _generate_symmetric_key();
         }
 
-        var token = new fernet.Token(
-                        {secret: new fernet.Secret(this._symkey)});
-
-        var encrypted = await token.encode(message);
-
-        var output = string_to_utf8_bytes(encrypted);
-
-        return output;
+        return fernet_encrypt(this._symkey, message);
     }
 
-    async decrypt(message)
+    decrypt(message)
     {
         if (!this._symkey)
         {
@@ -651,12 +654,6 @@ class SymmetricKey
                                       "with a null key!");
         }
 
-        var token = new fernet.Token({
-                        secret: new fernet.Secret(this._symkey),
-                        token: message, ttl: 0});
-
-        var result = await token.decode();
-
-        return result;
+        return fernet_decrypt(this._symkey, message);
     }
 }

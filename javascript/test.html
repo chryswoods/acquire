@@ -17,9 +17,11 @@
   <section class="content">
     <div id="test-page">
       <form>
+        <label for="url">Login URL</label> : <input type="text" id="url" /><br/>
         <label for="username">Username</label> : <input type="text" id="username" /><br/>
         <label for="password">Password</label> : <input type="password" id="password" /><br/>
         <label for="otpcode">OTPCode</label> : <input type="password" id="otpcode" /><br/>
+        <label for="remember_device">remember device?</label> : <input type="checkbox" id="remember_device" value="true" /><br/>
         <input type="button" onclick="login()" value="Submit">
       </form>
       <script>test_acquire()</script>
