@@ -16,6 +16,12 @@
 <body translate="no">
   <section class="content">
     <div id="test-page">
+      <form>
+        <label for="username">Username</label> : <input type="text" id="username" /><br/>
+        <label for="password">Password</label> : <input type="password" id="password" /><br/>
+        <label for="otpcode">OTPCode</label> : <input type="password" id="otpcode" /><br/>
+        <input type="button" onclick="login()" value="Submit">
+      </form>
       <script>test_acquire()</script>
     </div>
   </section>

@@ -404,9 +404,6 @@ class User
                     "permissions": this._permissions
                    };
 
-        console.log(args);
-        console.log(JSON.stringify(args));
-
         try
         {
             hostname = socket.gethostname();
@@ -447,7 +444,7 @@ class User
             throw new LoginError(error);
         }
 
-        session_uid = undefined;
+        var session_uid = undefined;
 
         try
         {
@@ -472,9 +469,11 @@ class User
         this._status = "LOGGING_IN";
         this._user_uid = undefined;
 
+        var short_uid = session_uid.substring(0,8);
+
         return {"login_url": this._login_url,
                 "session_uid": session_uid,
-                "short_uid": LoginSession.to_short_uid(session_uid)};
+                "short_uid": short_uid};
     }
 
     async _poll_session_status()

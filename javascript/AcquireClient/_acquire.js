@@ -5,6 +5,29 @@
  * for (some) of the classes available in Acquire.Client
  */
 
+async function login()
+{
+    try
+    {
+        var username = document.getElementById("username").value;
+        var password = document.getElementById("password").value;
+        var otpcode = document.getElementById("otpcode").value;
+
+        var wallet = new Wallet();
+        var url = "https://login.acquire-aaai.com?id=a0-a0/68.4f.87.5c";
+        console.log(`Login to ${url}`);
+        await wallet.send_password({url:url, username:username,
+                                    password:password, otpcode:otpcode});
+    }
+    catch(err)
+    {
+        console.log(`LOGIN FAILED: ${err}`);
+        console.log(err);
+        var obj = JSON.parse(JSON.stringify(err));
+        console.log(obj);
+    }
+}
+
 async function test_acquire()
 {
     try
@@ -25,17 +48,20 @@ async function test_acquire()
 
         console.log(id_service);*/
 
-        user = new User({username:"chryswoods"});
+        /*user = new User({username:"chryswoods"});
 
         console.log(user);
 
         result = await user.request_login();
 
-        console.log(result);
+        console.log(user);
+
+        console.log(result);*/
     }
     catch(err)
     {
-        console.log(`UNCAUGHT EXCEPTION: ${err}`);
+        console.log(`UNCAUGHT EXCEPTION`);
+        console.log(err);
         var obj = JSON.parse(JSON.stringify(err));
         console.log(obj);
     }

@@ -32,6 +32,18 @@ function _readData(name)
     }
 }
 
+/** https://stackoverflow.com/questions/901115/
+ *          how-can-i-get-query-string-values-in-javascript */
+function _getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, '\\$&');
+    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
+
 class Wallet
 {
     constructor()
@@ -179,5 +191,269 @@ class Wallet
         }
 
         return service;
+    }
+
+    async _find_userinfo({username=undefined, password=undefined})
+    {
+        /*userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
+
+        userinfos = []
+
+        for userfile in userfiles:
+            try:
+                userinfo = _read_json(userfile)
+                if _could_match(userinfo, username, password):
+                    userinfos.append((userinfo["username"], userinfo))
+            except:
+                pass
+
+        userinfos.sort(key=lambda x: x[0])
+
+        if len(userinfos) == 1:
+            return self._unlock_userinfo(userinfos[0][1])
+
+        if len(userinfos) == 0:
+            if username is None:
+                username = _input("Please type your username: ")
+
+            userinfo = {"username": username}
+
+            if password is not None:
+                userinfo["password"] = password
+
+            return userinfo
+
+        _output("Please choose the account by typing in its number, "
+                "or type a new username if you want a different account.")
+
+        for (i, (username, userinfo)) in enumerate(userinfos):
+            _output("[%d] %s {%s}" % (i+1, username, userinfo["user_uid"]))
+
+        max_tries = 5
+
+        for i in range(0, max_tries):
+            reply = _input(
+                    "\nMake your selection (1 to %d) " %
+                    (len(userinfos))
+                )
+
+            try:
+                idx = int(reply) - 1
+            except:
+                idx = None
+
+            if idx is None:
+                # interpret this as a username
+                return self._find_userinfo(username=reply, password=password)
+            elif idx < 0 or idx >= len(userinfos):
+                _output("Invalid account.")
+            else:
+                return self._unlock_userinfo(userinfos[idx][1])
+
+            if i < max_tries-1:
+                _output("Try again...")
+
+        userinfo = {}
+
+        if username is not None:
+            userinfo["username"] = username
+
+        return userinfo*/
+
+        return {};
+    }
+
+    async send_password({url, username=undefined, password=undefined,
+                         otpcode=undefined, remember_password=true,
+                         remember_device=false, dryrun=false})
+    {
+        if (!remember_password)
+        {
+            remember_device = false;
+        }
+
+        // the login URL is http[s]://something.com?id=XXXX/YY.YY.YY.YY
+        // where XXXX is the service_uid of the service we should
+        // connect with, and YY.YY.YY.YY is the short_uid of the login
+        try
+        {
+            var idcode = _getParameterByName('id', url);
+        }
+        catch(err)
+        {
+            throw new LoginError(
+                `Cannot identify the session of service information ` +
+                `from the login URL ${url}. This should have ` +
+                `id=XX-XX/YY.YY.YY.YY as a query parameter.`, err);
+        }
+
+        try
+        {
+            var result = idcode.split("/");
+            var service_uid = result[0];
+            var short_uid = result[1];
+        }
+        catch(err)
+        {
+            throw new LoginError(
+                `Cannot identify the session of service information ` +
+                `from the login URL ${url}. This should have ` +
+                `id=XX-XX/YY.YY.YY.YY as a query parameter.`, err);
+        }
+
+        // now get the service
+        try
+        {
+            var service = await this.get_service({service_uid:service_uid});
+        }
+        catch(err)
+        {
+            throw new LoginError(
+                `Cannot find the service with UID ${service_uid}`, err);
+        }
+
+        if (!service.can_identify_users())
+        {
+            throw new LoginError(
+                `Service ${service} is unable to identify users! ` +
+                `You cannot log into something that is not a valid ` +
+                `identity service!`);
+        }
+
+        var userinfo = await this._find_userinfo({username:username,
+                                                  password:password});
+
+        if (!username)
+        {
+            try
+            {
+                username = userinfo["username"];
+            }
+            catch(_err)
+            {
+                throw new LoginError("You must supply the username!");
+            }
+
+            if (!username)
+            {
+                throw new LoginError("You must supply the username!");
+            }
+        }
+
+        var user_uid = undefined;
+
+        if ("user_uid" in userinfo)
+        {
+            user_uid = userinfo["user_uid"];
+        }
+
+        console.log(`Logging in using username ${username}`);
+
+        var device_uid = undefined;
+
+        if ("device_uid" in userinfo)
+        {
+            device_uid = userinfo["device_uid"];
+        }
+
+        if (password == undefined)
+        {
+            password = await this._get_user_password({userinfo:userinfo});
+        }
+
+        if (otpcode == undefined)
+        {
+            otpcode = await this._get_otpcode({userinfo:userinfo});
+        }
+        else
+        {
+            // user if providing the primary OTP, so this is not a device
+            device_uid = undefined;
+        }
+
+        console.log(`Logging in to ${service.canonical_url()}, ` +
+                    `session ${short_uid}...`);
+
+        if (dryrun)
+        {
+            console.log(`Calling ${service.canonical_url} with username=` +
+                        `${username}, password=${password}, otpcode=` +
+                        `${otpcode}, remember_device=${remember_device}, ` +
+                        `device_uid=${device_uid}, short_uid=${short_uid}, ` +
+                        `user_uid=${user_uid}`);
+            return;
+        }
+
+        try
+        {
+            var creds = Credentials({username:username, password:password,
+                                     otpcode:otpcode, short_uid:short_uid,
+                                     device_uid:device_uid});
+
+            var cred_data = await creds.to_data(identity_uid=service.uid());
+
+            var args = {"credentials": cred_data,
+                        "user_uid": user_uid,
+                        "remember_device": remember_device,
+                        "short_uid": short_uid}
+
+            var response = service.call_function({function:"login",
+                                                  args:args});
+            console.log("SUCCEEDED!");
+        }
+        catch(err)
+        {
+            console.log("FAILED");
+            throw new LoginError("Failed to log in", err);
+        }
+
+        if (!remember_password)
+        {
+            return;
+        }
+
+        try
+        {
+            var returned_user_uid = response["user_uid"];
+
+            if (returned_user_uid != user_uid)
+            {
+                // change of user?
+                userinfo = {};
+                user_uid = returned_user_uid;
+            }
+        }
+        catch(_err)
+        {
+            //no user_uid so nothing to save
+            return;
+        }
+
+        if (user_uid == undefined)
+        {
+            // can't save anything
+            return;
+        }
+
+        userinfo["username"] = username;
+        userinfo["password"] = password;
+
+        try
+        {
+            userinfo["device_uid"] = response["device_uid"];
+        }
+        catch(_err)
+        {}
+
+        try
+        {
+            userinfo["otpsecret"] = response["otpsecret"];
+        }
+        catch(_err)
+        {}
+
+        this._set_userinfo({userinfo:userinfo,
+                            user_uid:user_uid,
+                            identity_uid:service.uid()});
     }
 }
