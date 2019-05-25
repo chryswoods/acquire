@@ -291,7 +291,6 @@ async function _verifySignature(key, signature, data)
     key = await key;
 
     // this is something we will attempt at a much later point!
-    console.log("NEED TO IMPLEMENT SIGNATURE VERIFICATION!!!");
 }
 
 /** Function that encrypts the passed data with the passed public key */

@@ -17,17 +17,22 @@ async function unpack_arguments({args=undefined, key=undefined,
     {
         payload = data["payload"];
 
-        if ("error" in payload)
+        if ("exception" in payload)
         {
-            throw new RemoteFunctionCallError(payload["error"]);
+            throw new RemoteFunctionCallError(
+                "Error calling remote function", payload["exception"]);
         }
-
-        if ("status" in payload)
+        else if ("error" in payload)
+        {
+            throw new RemoteFunctionCallError(
+                    "Error calling remote function", payload["error"]);
+        }
+        else if ("status" in payload)
         {
             if (payload["status"] != 0)
             {
-                var err = JSON.stringify(payload);
-                throw new RemoteFunctionCallError(err);
+                throw new RemoteFunctionCallError(
+                    "Error calling remote function", payload);
             }
         }
     }
@@ -204,8 +209,7 @@ async function call_function({service_url=undefined, func=undefined,
     catch(err)
     {
         throw new RemoteFunctionCallError(
-            `Error calling function ${service_url} ` +
-            `Error = ${err}`);
+            `Error calling function ${service_url}`, err);
     }
 
     var result = undefined;
@@ -217,13 +221,21 @@ async function call_function({service_url=undefined, func=undefined,
     catch(err)
     {
         throw new RemoteFunctionCallError(
-            `Error extracting json from function ${service_url} ` +
-            `json = ${args_json}, Error = ${err}`);
+            `Error extracting json from function ${service_url}`, err);
     }
 
-    result = await unpack_return_value({return_value:result, key:response_key,
-                                        public_cert:public_cert, func:func,
-                                        service:service_url});
+    try
+    {
+        result = await unpack_return_value(
+                            {return_value:result, key:response_key,
+                             public_cert:public_cert, func:func,
+                             service:service_url});
+    }
+    catch(err)
+    {
+        throw new RemoteFunctionCallError(
+            `Error upacking result from function ${service_url}`, err);
+    }
 
     return result;
 }

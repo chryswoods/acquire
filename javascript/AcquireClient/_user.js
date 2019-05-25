@@ -378,8 +378,6 @@ class User
 
     async request_login()
     {
-        try
-        {
         this._check_for_error();
 
         if (!this.is_empty())
@@ -406,6 +404,9 @@ class User
                     "permissions": this._permissions
                    };
 
+        console.log(args);
+        console.log(JSON.stringify(args));
+
         try
         {
             hostname = socket.gethostname();
@@ -418,8 +419,16 @@ class User
 
         var identity_service = await this.identity_service();
 
-        var result = await identity_service.call_function(
-                                {func:"request_login", args:args});
+        try
+        {
+            var result = await identity_service.call_function(
+                                    {func:"request_login", args:args});
+        }
+        catch(err)
+        {
+            throw new PermissionError(
+                "Cannot request a login as the function call failed", err);
+        }
 
         var login_url = undefined;
 
@@ -456,8 +465,6 @@ class User
             throw new LoginError(error);
         }
 
-        console.log("HERE");
-
         this._login_url = result["login_url"];
         this._session_key = session_key;
         this._signing_key = signing_key;
@@ -468,11 +475,6 @@ class User
         return {"login_url": this._login_url,
                 "session_uid": session_uid,
                 "short_uid": LoginSession.to_short_uid(session_uid)};
-        }
-        catch(err)
-        {
-            console.log(err);
-        }
     }
 
     async _poll_session_status()

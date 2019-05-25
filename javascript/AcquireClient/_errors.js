@@ -1,36 +1,44 @@
 
-function RemoteFunctionCallError(message)
+class RemoteFunctionCallError extends Error
 {
-    console.log(`RemoteFunctionCallError(${message})`);
-    const error = new Error(message);
-    return error;
+    constructor(message, cause=undefined)
+    {
+        super(message);
+        this.name = "RemoteFunctionCallError";
+        this.details = message;
+        this.cause = cause;
+    }
 }
 
-RemoteFunctionCallError.prototype = Object.create(Error.prototype);
-
-function PermissionError(message)
+class PermissionError extends Error
 {
-    console.log(`PermissionError(${message})`);
-    const error = new Error(message);
-    return error;
+    constructor(message, cause=undefined)
+    {
+        super(message);
+        this.name = "PermissionError";
+        this.details = message;
+        this.cause = cause;
+    }
 }
 
-PermissionError.prototype = Object.create(Error.prototype);
-
-function LoginError(message)
+class LoginError extends Error
 {
-    console.log(`LoginError(${message})`);
-    const error = new Error(message);
-    return error;
+    constructor(message, cause=undefined)
+    {
+        super(message);
+        this.name = "LoginError";
+        this.details = message;
+        this.cause = cause;
+    }
 }
 
-LoginError.prototype = Object.create(Error.prototype);
-
-function ServiceError(message)
+class ServiceError extends Error
 {
-    console.log(`ServiceError(${message})`);
-    const error = new Error(message);
-    return error;
+    constructor(message, cause=undefined)
+    {
+        super(message);
+        this.name = "ServiceError";
+        this.details = message;
+        this.cause = cause;
+    }
 }
-
-ServiceError.prototype = Object.create(Error.prototype);

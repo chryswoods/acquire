@@ -106,7 +106,6 @@ class Wallet
 
             if (data != undefined)
             {
-                console.log(`Loading service from ${data}`);
                 data = JSON.parse(data);
                 service = await Service.from_data(data);
             }
@@ -121,7 +120,6 @@ class Wallet
                 var data = _readData(`wallet/service_uid/${suid}`);
                 if (data != undefined)
                 {
-                    console.log(`Loading service from ${data}`);
                     data = JSON.parse(data);
                     service = await Service.from_data(data);
                 }

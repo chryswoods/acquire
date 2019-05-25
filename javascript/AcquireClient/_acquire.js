@@ -7,27 +7,36 @@
 
 async function test_acquire()
 {
-    /*var wallet = new Wallet();
+    try
+    {
+        /*var wallet = new Wallet();
 
-    //wallet.clear();
+        //wallet.clear();
 
-    var service = await wallet.get_service({service_uid:"a0-a0"});
+        var service = await wallet.get_service({service_uid:"a0-a0"});
 
-    console.log(service);
+        console.log(service);
 
-    service = await wallet.get_service({service_url:service.canonical_url()});
+        service = await wallet.get_service({service_url:service.canonical_url()});
 
-    console.log(service);
+        console.log(service);
 
-    id_service = await wallet.get_service({service_uid:"a0-a1"});
+        id_service = await wallet.get_service({service_uid:"a0-a1"});
 
-    console.log(id_service);*/
+        console.log(id_service);*/
 
-    user = new User({username:"chryswoods"});
+        user = new User({username:"chryswoods"});
 
-    console.log(user);
+        console.log(user);
 
-    result = await user.request_login();
+        result = await user.request_login();
 
-    console.log(result);
+        console.log(result);
+    }
+    catch(err)
+    {
+        console.log(`UNCAUGHT EXCEPTION: ${err}`);
+        var obj = JSON.parse(JSON.stringify(err));
+        console.log(obj);
+    }
 }
