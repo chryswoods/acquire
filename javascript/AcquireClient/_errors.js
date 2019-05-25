@@ -21,6 +21,17 @@ class PermissionError extends Error
     }
 }
 
+class DecryptionError extends Error
+{
+    constructor(message, cause=undefined)
+    {
+        super(message);
+        this.name = "DecryptionError";
+        this.details = message;
+        this.cause = cause;
+    }
+}
+
 class LoginError extends Error
 {
     constructor(message, cause=undefined)

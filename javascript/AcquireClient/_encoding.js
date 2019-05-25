@@ -79,3 +79,32 @@ function safestring_to_string(s)
 {
     return utf8_bytes_to_string(string_to_bytes(s));
 }
+
+/** Return the passed unicode string encoded to a safely
+ *  encoded base64 utf-8 string
+*/
+function string_to_encoded(s)
+{
+    return bytes_to_string(string_to_utf8_bytes(s));
+}
+
+/** Return the passed encoded base64 utf-8 string converted
+ *  back into a unicode string
+ */
+function encoded_to_string(b)
+{
+    return utf8_bytes_to_string(string_to_bytes(b));
+}
+
+/** Mirror of create_uuid
+ *  Copied from
+ *  https://stackoverflow.com/questions/105034/
+ *                          create-guid-uuid-in-javascript
+*/
+function create_uuid()
+{
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4)
+                                                                .toString(16)
+    )
+}

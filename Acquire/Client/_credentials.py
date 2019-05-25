@@ -176,9 +176,6 @@ class Credentials:
                 as additional salt
            Returns:
                 str: Hashed and salted password
-
-
-
         """
         from Acquire.Crypto import Hash as _Hash
 
@@ -247,7 +244,11 @@ class Credentials:
         data = [encoded_password, device_uid, otpcode]
         string_data = "|".join(data)
 
+        print("string_data = %s" % string_data)
+
         uname_shortid = _Hash.md5(username) + _Hash.md5(short_uid)
+
+        print("uname_shortid = %s" % uname_shortid)
 
         data = _SymmetricKey(symmetric_key=uname_shortid).encrypt(string_data)
         result = _bytes_to_string(data)

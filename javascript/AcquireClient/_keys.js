@@ -1,5 +1,11 @@
 
 
+/** Mirror of Acquire.Crypto.Hash.multi_md5 */
+function multi_md5(data1, data2)
+{
+    return md5(md5(data1) + md5(data2));
+}
+
 /** Function used as part of converting a key to a pem file */
 function _arrayBufferToBase64String(arrayBuffer)
 {
@@ -586,5 +592,71 @@ class PublicKey
         }
 
         return key;
+    }
+}
+
+class SymmetricKey
+{
+    constructor({symmetric_key=undefined, auto_generate=true})
+    {
+        this._symkey = undefined;
+
+        if (symmetric_key)
+        {
+            this._symkey = string_to_encoded(md5(symmetric_key));
+        }
+        else
+        {
+            if (auto_generate)
+            {
+                this._symkey = _generate_symmetric_key();
+            }
+        }
+    }
+
+    fingerprint()
+    {
+        if (!self._symkey)
+        {
+            return undefined;
+        }
+
+        var m = md5(self._symkey);
+
+        return m.match(/(..?)/g).join(":");
+    }
+
+    async encrypt(message)
+    {
+        if (!this._symkey)
+        {
+            this._symkey = _generate_symmetric_key();
+        }
+
+        var token = new fernet.Token(
+                        {secret: new fernet.Secret(this._symkey)});
+
+        var encrypted = await token.encode(message);
+
+        var output = string_to_utf8_bytes(encrypted);
+
+        return output;
+    }
+
+    async decrypt(message)
+    {
+        if (!this._symkey)
+        {
+            throw new DecryptionError("You cannot decrypt a message " +
+                                      "with a null key!");
+        }
+
+        var token = new fernet.Token({
+                        secret: new fernet.Secret(this._symkey),
+                        token: message, ttl: 0});
+
+        var result = await token.decode();
+
+        return result;
     }
 }

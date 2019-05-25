@@ -386,20 +386,27 @@ class Wallet
 
         try
         {
-            var creds = Credentials({username:username, password:password,
-                                     otpcode:otpcode, short_uid:short_uid,
-                                     device_uid:device_uid});
+            var creds = new Credentials({username:username, password:password,
+                                         otpcode:otpcode, short_uid:short_uid,
+                                         device_uid:device_uid});
 
-            var cred_data = await creds.to_data(identity_uid=service.uid());
+            console.log(creds);
+            console.log(service.uid());
+
+            var cred_data = await creds.to_data({identity_uid:service.uid()});
+
+            console.log(cred_data);
 
             var args = {"credentials": cred_data,
                         "user_uid": user_uid,
                         "remember_device": remember_device,
                         "short_uid": short_uid}
 
-            var response = service.call_function({function:"login",
-                                                  args:args});
-            console.log("SUCCEEDED!");
+            var response = await service.call_function({func:"login",
+                                                        args:args});
+
+            console.log(response);
+            console.log("SUCCEEDED");
         }
         catch(err)
         {
