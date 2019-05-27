@@ -367,6 +367,7 @@ class Authorisation:
 
         from Acquire.Crypto import PublicKey as _PublicKey
         pubcert = _PublicKey.from_data(response["public_cert"])
+
         self._pubcert = pubcert
         self._scope = scope
         self._permissions = permissions
@@ -432,10 +433,10 @@ class Authorisation:
 
         try:
             public_cert.verify(self._siguid, self._uid)
-        except:
+        except Exception as e:
             raise PermissionError(
                 "Cannot auth_once the authorisation as the signature "
-                "is invalid! %s")
+                "is invalid! % s" % str(e))
 
     def is_verified(self, refresh_time=3600, stale_time=7200):
         """Return whether or not this authorisation has been verified. Note
