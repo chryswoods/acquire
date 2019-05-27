@@ -61,25 +61,55 @@ Acquire.Login.set_progress = function(text, percent)
    Acquire.Login.show_panel("progress");
 }
 
-Acquire.Login.show_fail = function(message)
+/** Show the failure page - if 'detail' is an exception this will
+ *  try to get the most useful human-meaningful error message
+ *  that can be quickly displayed
+ */
+Acquire.Login.show_fail = function(message, detail=undefined)
 {
-    let label = document.getElementById("acquire.fail.label");
+    let label = document.getElementById("acquire.fail.header");
 
     if (label)
     {
         label.textContent = message;
     }
 
+    label = document.getElementById("acquire.fail.message");
+
+    if (detail)
+    {
+        while (detail.cause)
+        {
+            detail = detail.cause;
+        }
+
+        if (detail.error)
+        {
+            detail = detail.error;
+        }
+    }
+    if (label && detail)
+    {
+        label.textContent = `${detail}`;
+    }
+
     Acquire.Login.show_panel("fail");
 }
 
-Acquire.Login.show_success = function(message)
+Acquire.Login.show_success = function(message, detail=undefined)
 {
-    let label = document.getElementById("acquire.success.label");
+    let label = document.getElementById("acquire.success.header");
 
     if (label)
     {
         label.textContent = message;
+    }
+
+    label = document.getElementById("acquire.success.message");
+
+    if (label && detail)
+    {
+        label.textContent = detail;
     }
 
     Acquire.Login.show_panel("success");
@@ -126,16 +156,80 @@ Acquire.Login.show_user_password = function(message)
     Acquire.Login.show_panel("userpassword");
 }
 
-/** Function used to submit the username and password */
-Acquire.Login.submit_userpassword = async function(wallet, username, password)
+/** Function used to complete the login */
+Acquire.Login.complete_login = async function(wallet, otpcode=undefined,
+                                              remember_device=false)
 {
     let service = Acquire.Login._identity_service;
     let short_uid = Acquire.Login._short_uid;
+    let username = Acquire.Login._username;
+    let password = Acquire.Login._password;
+
+    console.log(service);
+    console.log(short_uid);
+    console.log(username);
+    console.log(password);
+    console.log(otpcode);
+    console.log(remember_device);
+
+    try
+    {
+        await wallet.send_password({service:service,
+                                    short_uid:short_uid,
+                                    username:username,
+                                    password:password,
+                                    otpcode:otpcode,
+                                    remember_device:remember_device});
+    }
+    catch(err)
+    {
+        console.log(err);
+        let obj = JSON.parse(JSON.stringify(err));
+        console.log(obj);
+
+        Acquire.Login.show_fail(`Unable to to log in!`, err);
+        return;
+    }
+
+    Acquire.Login.show_success("Login successful!");
+}
+
+/** Function used to handle submission of a user otpcode */
+Acquire.Login.submit_otp = async function (wallet, otpcode, remember_device)
+{
+    Acquire.Login.set_progress("Submitting credentials...", 50);
+    Acquire.Login.complete_login(wallet, otpcode, remember_device)
+}
+
+/** Function used to submit the username and password */
+Acquire.Login.submit_userpassword = async function(wallet, username, password)
+{
+    Acquire.Login.set_progress("Submitting credentials...", 50);
+    let service = Acquire.Login._identity_service;
 
     if (!service)
     {
         return;
     }
+
+    Acquire.Login._username = username;
+    Acquire.Login._password = password;
+
+    try
+    {
+        //try to complete the login - this will use a saved device
+        //otpcode if possible
+        await Acquire.Login.complete_login(wallet);
+    }
+    catch(_err)
+    {
+        console.log(_err);
+    }
+
+    //this failed because either the user doesn't have an otpcode
+    //or because something was wrong with the old otpcode. Ask
+    //the user for a manual otpcode
+    Acquire.Login.show_panel("otpcode");
 }
 
 /** Function used to submit the login URL and kick-off the process
@@ -256,7 +350,7 @@ Acquire.Login.initialise = async function()
             {
                 if (reminder)
                 {
-                    reminder.style.display = "hidden";
+                    reminder.style.display = "none";
                 }
 
                 Acquire.Login.submit_url(wallet, service_uid, short_uid);
@@ -288,8 +382,6 @@ Acquire.Login.initialise = async function()
         let password = data["password"];
         let ok = true;
 
-        console.log(data);
-
         if (username)
         {
             if (remind_username){ remind_username.style.display = "none";}
@@ -312,7 +404,7 @@ Acquire.Login.initialise = async function()
 
         if (!ok){ return;}
 
-        await Acquire.Login.submit_userpassword(username, password);
+        await Acquire.Login.submit_userpassword(wallet, username, password);
     }
     Acquire.Login._handles["userpassword"] = handle_userpassword_form;
 
@@ -399,5 +491,9 @@ Acquire.Login.initialise = async function()
     if (service_uid)
     {
         await Acquire.Login.submit_url(wallet, service_uid, short_uid);
+    }
+    else
+    {
+        Acquire.Login.show_panel("url");
     }
 }

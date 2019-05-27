@@ -367,23 +367,46 @@ Acquire.Wallet = class
         return [service_uid, short_uid];
     }
 
-    async send_password({url, username=undefined, password=undefined,
-                         otpcode=undefined,
-                         remember_device=false, dryrun=false})
+    async _get_user_password({userinfo=undefined})
     {
-        let [service_uid, short_uid] =
-                    Acquire.Wallet.get_login_details_from_url(url);
+        throw new Acquire.LoginError(
+                    "You must supply a username and password!");
+    }
 
-        // now get the service
-        let service = undefined;
-        try
+    async _get_otpcode({userinfo=undefined, username=undefined,
+                        password=undefined, service=undefined})
+    {
+        throw new Acquire.LoginError(
+                    "You must supply an OTPCode");
+    }
+
+    async send_password({url=undefined, username=undefined,
+                         password=undefined, otpcode=undefined,
+                         remember_device=false, dryrun=false,
+                         service=undefined, short_uid=undefined})
+    {
+        if (!service)
         {
-            service = await this.get_service({service_uid:service_uid});
+            let service_uid = undefined;
+            [service_uid, short_uid] =
+                        Acquire.Wallet.get_login_details_from_url(url);
+
+            // now get the service
+            try
+            {
+                service = await this.get_service({service_uid:service_uid});
+            }
+            catch(err)
+            {
+                throw new Acquire.LoginError(
+                    `Cannot find the service with UID ${service_uid}`, err);
+            }
         }
-        catch(err)
+
+        if (!short_uid)
         {
             throw new Acquire.LoginError(
-                `Cannot find the service with UID ${service_uid}`, err);
+                "You need to specify the short_uid of the login session!");
         }
 
         if (!service.can_identify_users())
@@ -435,7 +458,10 @@ Acquire.Wallet = class
 
         if (otpcode == undefined)
         {
-            otpcode = await this._get_otpcode({userinfo:userinfo});
+            otpcode = await this._get_otpcode({userinfo:userinfo,
+                                               username:username,
+                                               password:password,
+                                               service:service});
         }
         else
         {

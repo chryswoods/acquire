@@ -114,12 +114,12 @@
             Two-step Verification -
             Get a verification code from your Authenticator app
             <span class="contact-form__remind-input"
-                  id="acquire.otpcode.remind-input">
+                  id="acquire.otpcode.reminder">
               (*) you must supply a 2-step verification code
             </span>
           </label>
           <input class="contact-form__input contact-form__input--text"
-                 id="acquire.otpcode.input" type="text"/>
+                 id="acquire.otpcode.input" name="otpcode" type="text"/>
         </div>
 
         <div class="contact-form__input-group">
@@ -136,9 +136,15 @@
     </div>
 
     <div id="acquire.success.panel">
+      <h1 class="content__heading" id="acquire.success.header">
+          Success
+      </h1>
+      <p class="content__lede" id="acquire.success.message">
+          Success Message
+      </p>
       <form class="content__form contact-form"
         id="acquire.success.form">
-        <label id="acquire.success.label">Text</label>
+        <label id="acquire.success.label"></label>
         <button class="contact-form__button"
                 id="acquire.success.submit"
                 type="submit">Login Again</button>
@@ -149,9 +155,15 @@
     </div>
 
     <div id="acquire.fail.panel">
-        <form class="content__form contact-form"
+      <h1 class="content__heading" id="acquire.fail.header">
+        Failed
+      </h1>
+      <p class="content__lede" id="acquire.fail.message">
+        Failure Message
+      </p>
+      <form class="content__form contact-form"
         id="acquire.fail.form">
-        <label id="acquire.fail.label">Text</label>
+        <label id="acquire.fail.label"></label>
         <button class="contact-form__button"
                 id="acquire.fail.submit"
                 type="submit">Try Again</button>
