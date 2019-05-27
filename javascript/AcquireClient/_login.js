@@ -247,7 +247,8 @@ Acquire.Login.submit_url = async function(wallet, service_uid, short_uid)
     catch(err)
     {
         console.log(err);
-        Acquire.Login.show_fail("Could not connect to the registry service!");
+        Acquire.Login.show_fail("Could not connect to the registry service!",
+                                err);
         return;
     }
 
@@ -259,7 +260,8 @@ Acquire.Login.submit_url = async function(wallet, service_uid, short_uid)
     catch(err)
     {
         console.log(err);
-        Acquire.Login.show_fail("Could not connect to the login service!");
+        Acquire.Login.show_fail("Could not connect to the login service!",
+                                err);
         return;
     }
 
@@ -271,7 +273,8 @@ Acquire.Login.submit_url = async function(wallet, service_uid, short_uid)
     catch(err)
     {
         console.log(err);
-        Acquire.Login.show_fail("Could not get the login session info!");
+        Acquire.Login.show_fail("Could not get the login session info!",
+                                err);
         return
     }
 
