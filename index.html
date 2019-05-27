@@ -487,6 +487,114 @@ Acquire.ServiceError = class extends Error
         this.cause = cause;
     }
 }
+/** Below functions are all for the form-to-json code.
+ *
+ *  Form to JSON code is inspired heavily from excellent tutorial here
+ *  https://code.lengstorf.com/get-form-values-as-json/
+ */
+
+Acquire.Form = {};
+
+/**
+  * Checks that an element has a non-empty `name` and `value` property.
+  * @param  {Element} element  the element to check
+  * @return {Bool}             true if the element is an input, false if not
+*/
+Acquire.Form.isValidElement = function (element)
+{
+    return element.name && element.value;
+};
+
+/**
+  * Checks if an element’s value can be saved (e.g. not an unselected checkbox).
+  * @param  {Element} element  the element to check
+  * @return {Boolean}          true if the value should be added, false if not
+*/
+Acquire.Form.isValidValue = function (element)
+{
+    return !['checkbox', 'radio'].includes(element.type) || element.checked;
+};
+
+/**
+  * Checks if an input is a checkbox, because checkboxes allow multiple values.
+  * @param  {Element} element  the element to check
+  * @return {Boolean}          true if the element is a checkbox, false if not
+*/
+Acquire.Form.isCheckbox = function (element)
+{
+    return element.type === 'checkbox';
+};
+
+/**
+  * Checks if an input is a `select` with the `multiple` attribute.
+  * @param  {Element} element  the element to check
+  * @return {Boolean}          true if the element is a multiselect, false if not
+*/
+Acquire.Form.isMultiSelect = function (element)
+{
+    return element.options && element.multiple;
+};
+
+/**
+  * Retrieves the selected options from a multi-select as an array.
+  * @param  {HTMLOptionsCollection} options  the options for the select
+  * @return {Array}                          an array of selected option values
+*/
+Acquire.Form.getSelectValues = function (options)
+{
+    return [].reduce.call(options, function (values, option) {
+        return option.selected ? values.concat(option.value) : values;
+    }, []);
+};
+
+/**
+  * Retrieves input data from a form and returns it as a JSON object.
+  * @param  {HTMLFormControlsCollection} elements  the form elements
+  * @return {Object}                               form data as an object literal
+  */
+Acquire.Form.formToJSON = function (elements)
+{
+    return [].reduce.call(elements, function (data, element) {
+        // Make sure the element has the required properties and
+        // should be added.
+        if (Acquire.Form.isValidElement(element) &&
+            Acquire.Form.isValidValue(element))
+        {
+            /*
+             * Some fields allow for more than one value, so we need to check if this
+             * is one of those fields and, if so, store the values as an array.
+             */
+            if (Acquire.Form.isCheckbox(element))
+            {
+                var values = (data[element.name] || []).concat(element.value);
+                if (values.length == 1)
+                {
+                    values = values[0];
+                }
+                data[element.name] = values;
+            }
+            else if (Acquire.Form.isMultiSelect(element))
+            {
+                data[element.name] = Acquire.Form.getSelectValues(element);
+            }
+            else
+            {
+                data[element.name] = element.value;
+            }
+        }
+
+        return data;
+    },
+    {});
+};
+
+Acquire.Form.getFormSubmitData = function(form, event)
+{
+    // make sure that we don't submit the page as we are
+    // handling the form ourselves
+    event.preventDefault();
+    return Acquire.Form.formToJSON(form.elements);
+}
 
 Acquire.unpack_arguments = async function(
                                 {args=undefined, key=undefined,
@@ -1484,6 +1592,23 @@ Acquire.root_server = {"a0-a0":
                          "public_key": _a0_a0_public_key,
                          "public_certificate": _a0_a0_public_certificate}};
 
+Acquire.Login = {};
+
+Acquire.Login._panels = {};
+
+Acquire.Login.initialise = function()
+{
+    let panels = ["intro", "userpassword", "otpcode", "result", "progress"];
+
+    /* Find all of the panels in the html page and initially set them
+       as invisible */
+    panels.forEach(function(panel)
+    {
+        let panel_element = document.getElementById(`acquire.${panel}.panel`);
+        panel_element.style.display = "none";
+        Acquire.Login._panels[panel] = panel_element;
+    });
+}
 /** Below function inspired by TOTP generator at
  * https://www.thepolyglotdeveloper.com/2014/10/generate-time-based-one-time-passwords-javascript/
  *
@@ -2915,4 +3040,27 @@ Acquire.Wallet = class
                             user_uid:user_uid,
                             identity_uid:service.uid()});
     }
-}</script> </head> <body translate="no"> <section class="content"> <div id="acquire.intro.panel"> <p>Intro panel</p> </div> <div id="acquire.userpassword.panel"> <p>Username and password</p> </div> <div id="acquire.otpcode.panel"> <p>OTPCode panel</p> </div> <div id="acquire.result.panel"> <p>Result of login</p> </div> <div id="acquire.progress.panel"> <label id="acquire.progress.text"></label> </div> </section> </body> </html> 
+}</script> </head> <body translate="no"> <section class="content"> <div id="acquire.intro.panel"> <p>acquire.intro.panel</p> </div> <div id="acquire.userpassword.panel"> <p>Username and password</p> </div> <div id="acquire.otpcode.panel"> <form class="content__form contact-form" id="acquire.otpcode.form"> <div class="contact-form__input-group"> <label class="contact-form__input-group" id="acquire.otpcode.label" for="acquire.otpcode.input"> Two-step Verification Get a verification code from your Authenticator app <span class="contact-form__remind-input" id="acquire.otpcode.remind-input"> (*) you must supply a 2-step verification code </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.otpcode.input" type="text"> </div> <div class="contact-form__input-group"> <p class="contact-form__label--checkbox-group">Remember device</p> <input class="contact-form__input contact-form__input--checkbox" id="acquire.otpcode.remember_device" type="checkbox" value="true"> </div> <button class="contact-form__button" type="submit">Login</button> <script>Acquire.handleOTPFormSubmit = function (event)
+          {
+              let data = Acquire.Form.getFormSubmitData(form, event);
+
+              let remind_input = document.getElementById(
+                                        "acquire.otpcode.remind-input");
+
+              // make sure that we have everything we need...
+              if (data["otpcode"])
+              {
+                  remind_input.style.display = "none";
+                  let otpcode = data["otpcode"];
+                  let remember_device = data["remember_device"];
+
+                  Acquire.Login.submit_otp(otpcode, remember_device);
+              }
+              else
+              {
+                  remind_input.style.display = "inline";
+              }
+          };
+
+          let form = document.getElementById('acquire.otpcode.form');
+          form.addEventListener('submit', Acquire.handleOTPFormSubmit);</script> </form> </div> <div id="acquire.result.panel"> <label id="acquire.result.text">acquire.result.text</label> </div> <div id="acquire.progress.panel"> <label id="acquire.progress.text">acquire.progress.text</label> </div> </section> <script>Acquire.Login.initialise();</script> </body> </html> 

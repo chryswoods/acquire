@@ -33,26 +33,149 @@
 
 <body translate="no">
   <section class="content">
-    <div id="acquire.intro.panel">
-      <p>Intro panel</p>
+
+    <div id="acquire.url.panel">
+      <form class="content__form contact-form"
+        id="acquire.url.form">
+        <div class="contact-form__input-group">
+          <label class="contact-form__label"
+                id="acquire.url.label"
+                for="acquire.url.input">
+            login url
+            <span class="contact-form__remind-input"
+                  id="acquire.url.reminder">
+              (*) you must supply a valid login url
+            </span>
+          </label>
+          <input class="contact-form__input contact-form__input--text"
+                id="acquire.url.input" name="url"
+                type="text" autofill="url"
+                autocomplete="acquire.url.current"/>
+        </div>
+        <button class="contact-form__button"
+                id="acquire.url.submit"
+                type="submit">Login</button>
+      </form>
     </div>
 
     <div id="acquire.userpassword.panel">
-      <p>Username and password</p>
+      <form class="content__form contact-form"
+            id="acquire.userpassword.form">
+        <div class="contact-form__input-group">
+          <label class="contact-form__label"
+                 id="acquire.username.label"
+                 for="acquire.username.input">
+            username
+            <span class="contact-form__remind-input"
+                  id="acquire.username.reminder">
+              (*) you must supply a username
+            </span>
+          </label>
+          <input class="contact-form__input contact-form__input--text"
+                 id="acquire.username.input" name="username"
+                 type="text" autofill="username"
+                 autocomplete="acquire.username.current"/>
+        </div>
+        <div class="contact-form__input-group">
+          <label class="contact-form__label"
+                 id="acquire.password.label"
+                 for="acquire.password.input">
+            password
+            <span class="contact-form__remind-input"
+                  id="acquire.password.reminder">
+              (*) you must supply a password
+            </span>
+          </label>
+          <input class="contact-form__input contact-form__input--text"
+                 id="acquire.password.input" name="password"
+                 type="password" autofill="password"
+                 autocomplete="acquire.password.current"/>
+        </div>
+        <button class="contact-form__button"
+                id="acquire.userpassword.submit"
+                type="submit">Login</button>
+      </form>
     </div>
 
     <div id="acquire.otpcode.panel">
-      <p>OTPCode panel</p>
+      <form class="content__form contact-form"
+            id="acquire.otpcode.form">
+
+        <div class="contact-form__input-group">
+          <label class="contact-form__label"
+                 id="acquire.otpcode.label"
+                 for="acquire.otpcode.input">
+            Two-step Verification -
+            Get a verification code from your Authenticator app
+            <span class="contact-form__remind-input"
+                  id="acquire.otpcode.remind-input">
+              (*) you must supply a 2-step verification code
+            </span>
+          </label>
+          <input class="contact-form__input contact-form__input--text"
+                 id="acquire.otpcode.input" type="text"/>
+        </div>
+
+        <div class="contact-form__input-group">
+          <p class="contact-form__label--checkbox-group">Remember device</p>
+            <input class="contact-form__input contact-form__input--checkbox"
+                   id="acquire.otpcode.remember_device" type="checkbox"
+                   value="true"/>
+        </div>
+
+        <button class="contact-form__button"
+                id="acquire.otpcode.submit"
+                type="submit">Login</button>
+      </form>
     </div>
 
-    <div id="acquire.result.panel">
-      <p>Result of login</p>
+    <div id="acquire.success.panel">
+      <form class="content__form contact-form"
+        id="acquire.success.form">
+        <button class="contact-form__button"
+                id="acquire.success.submit"
+                type="submit">Login Again</button>
+        <button id="acquire.progress.close",
+                class="contact-form__button" \
+                type="input" onclick="window.close()">Close page</button>
+      </form>
+    </div>
+
+    <div id="acquire.fail.panel">
+        <form class="content__form contact-form"
+        id="acquire.fail.form">
+        <button class="contact-form__button"
+                id="acquire.fail.submit"
+                type="submit">Try Again</button>
+        <button id="acquire.progress.close",
+                class="contact-form__button" \
+                type="input" onclick="window.close()">Close page</button>
+      </form>
     </div>
 
     <div id="acquire.progress.panel">
-      <label id="acquire.progress.text"></label>
+      <form class="content__form contact-form"
+            id="acquire.progress.form">
+        <label class="contact-form__label"
+               id="acquire.progress.label">
+          Progress...
+        </label>
+        <div id="acquire.progress.progress" class="login-progress">
+          <div id="acquire.progress.bar" class="login-bar"></div>
+        </div>
+        <button class="contact-form__button"
+                id="acquire.progress.submit"
+                type="submit">Cancel</button>
+        <button id="acquire.progress.close",
+                class="contact-form__button" \
+                type="input" onclick="window.close()">Close page</button>
+      </form>
     </div>
   </section>
+
+  <script>
+    Acquire.Login.initialise();
+  </script>
 </body>
 
 </html>
