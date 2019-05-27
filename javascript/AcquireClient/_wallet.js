@@ -329,9 +329,7 @@ Acquire.Wallet = class
                    identity_uid=undefined})
     {}
 
-    async send_password({url, username=undefined, password=undefined,
-                         otpcode=undefined,
-                         remember_device=false, dryrun=false})
+    static get_login_details_from_url(url)
     {
         // the login URL is http[s]://something.com?id=XXXX/YY.YY.YY.YY
         // where XXXX is the service_uid of the service we should
@@ -365,6 +363,16 @@ Acquire.Wallet = class
                 `from the login URL ${url}. This should have ` +
                 `id=XX-XX/YY.YY.YY.YY as a query parameter.`, err);
         }
+
+        return [service_uid, short_uid];
+    }
+
+    async send_password({url, username=undefined, password=undefined,
+                         otpcode=undefined,
+                         remember_device=false, dryrun=false})
+    {
+        let [service_uid, short_uid] =
+                    Acquire.Wallet.get_login_details_from_url(url);
 
         // now get the service
         let service = undefined;
