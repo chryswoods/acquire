@@ -41,22 +41,18 @@ function getUrlVars(url) {
 /** Write local data to the browser with 'name' == 'value' */
 function writeData(name, value)
 {
-    if (typeof(Storage) != "undefined") {
+    if (typeof(Storage) != "undefined")
+    {
         localStorage.setItem(name, value);
-        console.log(`SAVED ${name} == ${value}`);
-    } else {
-        console.log("Sorry - no web storage support. Cannot cache details!");
     }
 }
 
 /** Remove local data at key 'name' */
 function clearData(name)
 {
-    if (typeof(Storage) !== "undefined") {
+    if (typeof(Storage) !== "undefined")
+    {
         return localStorage.removeItem(name);
-    } else {
-        console.log("Sorry - no web storage support. Cannot cache details!");
-        return null;
     }
 }
 

@@ -1,106 +1,116 @@
 
-async function unpack_arguments({args=undefined, key=undefined,
+Acquire.unpack_arguments = async function(
+                                {args=undefined, key=undefined,
                                  public_cert=undefined,
                                  is_return_value=false,
                                  func=undefined, service=undefined})
 {
-    var data = await args;
+    let data = await args;
 
     if (data == undefined)
     {
         data = {};
     }
 
-    var payload = undefined;
+    let payload = undefined;
 
     if ("payload" in data)
     {
         payload = data["payload"];
 
-        if ("error" in payload)
+        if ("exception" in payload)
         {
-            throw new RemoteFunctionCallError(payload["error"]);
+            throw new Acquire.RemoteFunctionCallError(
+                "Error calling remote function", payload["exception"]);
         }
-
-        if ("status" in payload)
+        else if ("error" in payload)
+        {
+            throw new Acquire.RemoteFunctionCallError(
+                    "Error calling remote function", payload["error"]);
+        }
+        else if ("status" in payload)
         {
             if (payload["status"] != 0)
             {
-                var err = JSON.stringify(payload);
-                throw new RemoteFunctionCallError(err);
+                throw new Acquire.RemoteFunctionCallError(
+                    "Error calling remote function", payload);
             }
         }
     }
 
-    var is_encrypted = ("encrypted" in data);
-    var signature = undefined;
+    let is_encrypted = ("encrypted" in data);
+    let signature = undefined;
 
     if (public_cert != undefined)
     {
         if (!is_encrypted)
         {
-            throw new RemoteFunctionCallError(
+            throw new Acquire.RemoteFunctionCallError(
                 "Cannot unpack result as should be signed, but isn't. " +
                 "Only encrypted results can be signed");
         }
 
         if (!("signature" in data))
         {
-            throw new RemoteFunctionCallError(
+            throw new Acquire.RemoteFunctionCallError(
                 "We requested the data was signed, but no signature found!");
         }
 
-        signature = string_to_bytes(data["signature"]);
+        signature = Acquire.string_to_bytes(data["signature"]);
     }
 
     if (is_encrypted)
     {
-        var encrypted_data = string_to_bytes(data["data"]);
+        let encrypted_data = Acquire.string_to_bytes(data["data"]);
 
         if (signature != undefined)
         {
             await public_cert.verify(signature, encrypted_data);
         }
 
-        var fingerprint = data["fingerprint"];
+        let fingerprint = data["fingerprint"];
 
-        var my_fingerprint = await key.fingerprint();
+        let my_fingerprint = await key.fingerprint();
 
         if (fingerprint != my_fingerprint)
         {
-            throw new RemoteFunctionCallError(
+            throw new Acquire.RemoteFunctionCallError(
                 "Cannot decrypt result - conflicting fingerprints " +
                 `${fingerprint} versus ${my_fingerprint}`);
         }
 
-        decrypted_data = await key.decrypt(encrypted_data);
+        let decrypted_data = await key.decrypt(encrypted_data);
         decrypted_data = JSON.parse(decrypted_data);
 
-        return await unpack_arguments({args:decrypted_data,
+        return await Acquire.unpack_arguments(
+                                      {args:decrypted_data,
                                        is_return_value:is_return_value,
                                        func:func, service:service});
     }
 
     if (payload == undefined)
     {
-        throw new RemoteFunctionCallError(
+        throw new Acquire.RemoteFunctionCallError(
             "Strange - no payload by this point in the call?");
     }
 
     return payload["return"];
 }
 
-async function unpack_return_value({return_value=undefined,
+Acquire.unpack_return_value = async function(
+                                   {return_value=undefined,
                                     key=undefined, public_cert=undefined,
                                     func=undefined, service=undefined})
 {
-    return await unpack_arguments({args:return_value,
+    return await Acquire.unpack_arguments(
+                                  {args:return_value,
                                    key:key, public_cert:public_cert,
                                    is_return_value:true,
                                    func:func, service:service});
 }
 
-async function pack_return_value({func=undefined, payload=undefined,
+Acquire.pack_return_value = async function(
+                                 {func=undefined, payload=undefined,
                                   key=undefined, response_key=undefined,
                                   public_cert=undefined,
                                   private_cert=undefined})
@@ -110,9 +120,9 @@ async function pack_return_value({func=undefined, payload=undefined,
         func = payload["function"];
     }
 
-    result = {};
+    let result = {};
 
-    var now = get_datetime_now_to_string();
+    let now = Acquire.get_datetime_now_to_string();
 
     result["function"] = func;
     result["payload"] = payload;
@@ -120,28 +130,28 @@ async function pack_return_value({func=undefined, payload=undefined,
 
     if (response_key != undefined)
     {
-        var bytes = await response_key.bytes();
-        bytes = string_to_utf8_bytes(bytes);
-        bytes = bytes_to_string(bytes);
+        let bytes = await response_key.bytes();
+        bytes = Acquire.string_to_utf8_bytes(bytes);
+        bytes = Acquire.bytes_to_string(bytes);
         result["encryption_public_key"] = bytes;
 
         if (public_cert != undefined)
         {
-            var fingerprint = await public_cert.fingerprint();
+            let fingerprint = await public_cert.fingerprint();
             result["sign_with_service_key"] = fingerprint;
         }
     }
 
-    var result_json = JSON.stringify(result);
+    let result_json = JSON.stringify(result);
 
     if (key != undefined)
     {
         // encrypt what we send to the server
-        result_data = await key.encrypt(result_json);
-        var fingerprint = await key.fingerprint();
+        let result_data = await key.encrypt(result_json);
+        let fingerprint = await key.fingerprint();
 
         result = {};
-        result["data"] = bytes_to_string(result_data);
+        result["data"] = Acquire.bytes_to_string(result_data);
         result["encrypted"] = true;
         result["fingerprint"] = fingerprint;
         result["synctime"] = now;
@@ -151,17 +161,20 @@ async function pack_return_value({func=undefined, payload=undefined,
     return result_json;
 }
 
-async function pack_arguments({func=undefined, args=undefined,
+Acquire.pack_arguments = async function(
+                              {func=undefined, args=undefined,
                                key=undefined, response_key=undefined,
                                public_cert=undefined})
 {
-    return await pack_return_value({func:func, payload:args,
+    return await Acquire.pack_return_value(
+                                   {func:func, payload:args,
                                     key:key, response_key:response_key,
                                     public_cert:public_cert});
 }
 
 /** Call the specified URL */
-async function call_function({service_url=undefined, func=undefined,
+Acquire.call_function = async function(
+                             {service_url=undefined, func=undefined,
                               args=undefined, args_key=undefined,
                               response_key=undefined, public_cert=undefined})
 {
@@ -174,38 +187,36 @@ async function call_function({service_url=undefined, func=undefined,
 
     if (response_key == undefined)
     {
-        args_json = await pack_arguments({func:func, args:args, key:args_key});
+        args_json = await Acquire.pack_arguments(
+                                    {func:func, args:args, key:args_key});
     }
     else
     {
         var pubkey = await response_key.public_key();
-        args_json = await pack_arguments({func:func, args:args, key:args_key,
+        args_json = await Acquire.pack_arguments(
+                                         {func:func, args:args, key:args_key,
                                           response_key:pubkey,
                                           public_cert:public_cert});
     }
 
     var response = null;
 
-    response = fetch(service_url,
-    {
-        method: 'post',
-        headers: {
-            'Accept': 'application/json, test/plain, */*',
-            'Content-Type': 'application/json'
-            },
-        body: args_json
-    })
-    .then(response => response.json());
-
     try
     {
-        response = await response;
+        response = await fetch(service_url,
+                        {method: 'post',
+                         headers: {
+                            'Accept': 'application/json, test/plain, */*',
+                            'Content-Type': 'application/json'
+                         },
+                         body: args_json});
+
+        response = await response.json();
     }
     catch(err)
     {
-        throw new RemoteFunctionCallError(
-            `Error calling function ${service_url} ` +
-            `Error = ${err}`);
+        throw new Acquire.RemoteFunctionCallError(
+            `Error calling function ${service_url}`, err);
     }
 
     var result = undefined;
@@ -216,14 +227,22 @@ async function call_function({service_url=undefined, func=undefined,
     }
     catch(err)
     {
-        throw new RemoteFunctionCallError(
-            `Error extracting json from function ${service_url} ` +
-            `json = ${args_json}, Error = ${err}`);
+        throw new Acquire.RemoteFunctionCallError(
+            `Error extracting json from function ${service_url}`, err);
     }
 
-    result = await unpack_return_value({return_value:result, key:response_key,
-                                        public_cert:public_cert, func:func,
-                                        service:service_url});
+    try
+    {
+        result = await Acquire.unpack_return_value(
+                            {return_value:result, key:response_key,
+                             public_cert:public_cert, func:func,
+                             service:service_url});
+    }
+    catch(err)
+    {
+        throw new Acquire.RemoteFunctionCallError(
+            `Error upacking result from function ${service_url}`, err);
+    }
 
     return result;
 }

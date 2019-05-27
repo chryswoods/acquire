@@ -19,8 +19,16 @@ def run(args):
     username = args["username"]
     public_key = PublicKey.from_data(args["public_key"])
     public_cert = PublicKey.from_data(args["public_certificate"])
-    scope = args["scope"]
-    permissions = args["permissions"]
+
+    try:
+        scope = args["scope"]
+    except:
+        scope = None
+
+    try:
+        permissions = args["permissions"]
+    except:
+        permissions = None
 
     try:
         hostname = args["hostname"]
