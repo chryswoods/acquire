@@ -1,19 +1,19 @@
 
-
-function _get_identity_url()
+Acquire.Private._get_identity_url = function()
 {
     return "fn.acquire-aaai.com";
 }
 
-async function _get_identity_service({identity_url=undefined})
+Acquire.Private._get_identity_service = async function(
+                                            {identity_url=undefined})
 {
     if (identity_url == undefined)
     {
-        identity_url = _get_identity_url();
+        identity_url = Acquire.Private._get_identity_url();
     }
 
-    var wallet = new Wallet();
-    var service = undefined;
+    let wallet = new Acquire.Wallet();
+    let service = undefined;
 
     try
     {
@@ -21,9 +21,9 @@ async function _get_identity_service({identity_url=undefined})
     }
     catch(err)
     {
-        throw new LoginError(
+        throw new Acquire.LoginError(
             `Have not received the identity service info from ` +
-            `the identity service at '${identity_url}'\n\nCAUSE: ${err}`);
+            `the identity service at '${identity_url}'`, err);
     }
 
     if (!service.can_identify_users())
@@ -38,7 +38,7 @@ async function _get_identity_service({identity_url=undefined})
 }
 
 /** Mirror of the Python Acquire.Client.User class */
-class User
+Acquire.User = class
 {
     constructor({username=undefined, identity_url=undefined,
                  identity_uid=undefined, scope=undefined,
@@ -120,7 +120,7 @@ class User
 
         if (this._user_uid == undefined)
         {
-            throw new PermissionError(
+            throw new Acquire.PermissionError(
                 "You cannot get the user UID until after you have logged in");
         }
 
@@ -143,7 +143,7 @@ class User
     {
         if (this._status == "ERROR")
         {
-            throw new LoginError(this._error_string);
+            throw new Acquire.LoginError(this._error_string);
         }
     }
 
@@ -188,14 +188,25 @@ class User
             return this._identity_service;
         }
 
-        var identity_service = await _get_identity_service(
+        let identity_service = undefined;
+
+        try
+        {
+            identity_service = await Acquire.Private._get_identity_service(
                                 {identity_url:this.identity_service_url()});
+        }
+        catch(err)
+        {
+            throw new Acquire.LoginError(
+                `Unable to get the identity service at ` +
+                `'${this.identity_service_url()}'`, err);
+        }
 
         if (this._identity_uid != undefined)
         {
             if (identity_service.uid() != this._identity_uid)
             {
-                throw new LoginError(
+                throw new Acquire.LoginError(
                     `The UID of the identity service at ` +
                     `'${this.identity_service_url()}', which is ` +
                     `${identity_service.uid()}, does not match that ` +
@@ -256,7 +267,7 @@ class User
 
     login_qr_code()
     {
-        return _create_qrcode(this._login_url);
+        return Acquire.Private._create_qrcode(this._login_url);
     }
 
     scope()
@@ -302,22 +313,22 @@ class User
     {
         if (this.is_logged_in() | this.is_logging_in())
         {
-            service = this.identity_service();
+            let service = this.identity_service();
 
-            args = {"session_uid": this._session_uid}
+            let args = {"session_uid": this._session_uid}
 
             if (this.is_logged_in())
             {
-                authorisation = new Authorisation(
+                let authorisation = new Acquire.Authorisation(
                                     {resource:`logout ${this._session_uid}`,
                                      user:this});
                 args["authorisation"] = authorisation.to_data();
             }
             else
             {
-                resource = `logout ${this._session_uid}`;
-                signature = await this.signing_key().sign(resource);
-                args["signature"] = bytes_to_string(signature);
+                let resource = `logout ${this._session_uid}`;
+                let signature = await this.signing_key().sign(resource);
+                args["signature"] = Acquire.bytes_to_string(signature);
             }
 
             result = await service.call_function({func:"logout", args:args});
@@ -332,16 +343,19 @@ class User
                            password=undefined,
                            identity_url=undefined})
     {
-        service = _get_identity_service({identity_url:identity_url});
+        let service = Acquire.Private._get_identity_service(
+                                            {identity_url:identity_url});
 
-        encoded_password = await Credentials.encode_password(
+        let encoded_password = await Acquire.Credentials.encode_password(
                                     {identity_uid:service.uid(),
                                      password:password});
 
-        args = {"username": username,
-                "password": encoded_password}
+        let args = {"username": username,
+                    "password": encoded_password}
 
-        result = await service.call_function({func:"register", args:args});
+        let result = await service.call_function({func:"register", args:args});
+
+        let provisioning_uri = undefined;
 
         try
         {
@@ -359,7 +373,7 @@ class User
 
         try
         {
-            otpsecret = re.search('secret=([\w\d+]+)&issuer',
+            let otpsecret = re.search('secret=([\w\d+]+)&issuer',
                                   provisioning_uri).groups()[0];
             result["otpsecret"] = otpsecret;
         }
@@ -368,7 +382,8 @@ class User
 
         try
         {
-            result["qrcode"] = _create_qrcode(provisioning_uri);
+            result["qrcode"] = Acquire.Private._create_qrcode(
+                                                        provisioning_uri);
         }
         catch(_err)
         {}
@@ -382,121 +397,122 @@ class User
 
         if (!this.is_empty())
         {
-            throw new LoginError(
+            throw new Acquire.LoginError(
                 "You cannot try to log in twice using the same " +
                 "User object. Create another object if you want " +
                 "to try to log in again.");
         }
 
-        var session_key = new PrivateKey();
-        var signing_key = new PrivateKey();
-
-        var public_session_key = await session_key.public_key();
-        var public_signing_key = await signing_key.public_key();
-
-        var session_key_data = await public_session_key.to_data();
-        var signing_key_data = await public_signing_key.to_data();
-
-        var args = {"username": this._username,
-                    "public_key": session_key_data,
-                    "public_certificate": signing_key_data,
-                    "scope": this._scope,
-                    "permissions": this._permissions
-                   };
-
         try
         {
-            hostname = socket.gethostname();
-            ipaddr = socket.gethostbyname(hostname);
-            args["hostname"] = hostname;
-            args["ipaddr"] = ipaddr;
-        }
-        catch(_err)
-        {}
+            let session_key = new Acquire.PrivateKey();
+            let signing_key = new Acquire.PrivateKey();
 
-        var identity_service = await this.identity_service();
+            let public_session_key = await session_key.public_key();
+            let public_signing_key = await signing_key.public_key();
 
-        try
-        {
-            var result = await identity_service.call_function(
-                                    {func:"request_login", args:args});
+            let session_key_data = await public_session_key.to_data();
+            let signing_key_data = await public_signing_key.to_data();
+
+            let args = {"username": this._username,
+                        "public_key": session_key_data,
+                        "public_certificate": signing_key_data,
+                        "scope": this._scope,
+                        "permissions": this._permissions
+                    };
+
+            try
+            {
+                let hostname = socket.gethostname();
+                let ipaddr = socket.gethostbyname(hostname);
+                args["hostname"] = hostname;
+                args["ipaddr"] = ipaddr;
+            }
+            catch(_err)
+            {}
+
+            let identity_service = await this.identity_service();
+            let result = undefined;
+
+            result = await identity_service.call_function(
+                                        {func:"request_login", args:args});
+
+            var login_url = undefined;
+
+            try
+            {
+                login_url = result["login_url"];
+            }
+            catch(_err)
+            {}
+
+            if (login_url == undefined)
+            {
+                error = `Failed to login. Could not extract the login URL! ` +
+                        `Result is ${result}`;
+                this._set_error_state(error);
+                throw new Acquire.LoginError(error);
+            }
+
+            let session_uid = undefined;
+
+            try
+            {
+                session_uid = result["session_uid"];
+            }
+            catch(_err)
+            {}
+
+            if (session_uid == undefined)
+            {
+                error = `Failed to login. Could not extract the login ` +
+                        `session UID! Result is ${result}`;
+
+                this._set_error_state(error);
+                throw new Acquire.LoginError(error);
+            }
+
+            this._login_url = result["login_url"];
+            this._session_key = session_key;
+            this._signing_key = signing_key;
+            this._session_uid = session_uid;
+            this._status = "LOGGING_IN";
+            this._user_uid = undefined;
+
+            var short_uid = session_uid.substring(0,8);
+
+            return {"login_url": this._login_url,
+                    "session_uid": session_uid,
+                    "short_uid": short_uid};
         }
         catch(err)
         {
-            throw new PermissionError(
-                "Cannot request a login as the function call failed", err);
-        }
-
-        var login_url = undefined;
-
-        try
-        {
-            login_url = result["login_url"];
-        }
-        catch(_err)
-        {}
-
-        if (login_url == undefined)
-        {
-            error = `Failed to login. Could not extract the login URL! ` +
-                    `Result is ${result}`;
+            error = "Could not complete login!";
             this._set_error_state(error);
-            throw new LoginError(error);
+            throw new Acquire.LoginError(error, err);
         }
-
-        var session_uid = undefined;
-
-        try
-        {
-            session_uid = result["session_uid"];
-        }
-        catch(_err)
-        {}
-
-        if (session_uid == undefined)
-        {
-            error = `Failed to login. Could not extract the login ` +
-                    `session UID! Result is ${result}`;
-
-            this._set_error_state(error);
-            throw new LoginError(error);
-        }
-
-        this._login_url = result["login_url"];
-        this._session_key = session_key;
-        this._signing_key = signing_key;
-        this._session_uid = session_uid;
-        this._status = "LOGGING_IN";
-        this._user_uid = undefined;
-
-        var short_uid = session_uid.substring(0,8);
-
-        return {"login_url": this._login_url,
-                "session_uid": session_uid,
-                "short_uid": short_uid};
     }
 
     async _poll_session_status()
     {
-        service = this.identity_service();
+        let ervice = this.identity_service();
 
-        args = {"session_uid": this._session_uid};
+        let args = {"session_uid": this._session_uid};
 
-        result = await service.call_function({func:"get_session_info",
-                                              args:args});
+        let result = await service.call_function({func:"get_session_info",
+                                                  args:args});
 
-        status = result["session_status"];
+        let status = result["session_status"];
         this._set_status(status);
 
         if (this.is_logged_in())
         {
             if (this._user_uid == undefined)
             {
-                user_uid = result["user_uid"];
+                let user_uid = result["user_uid"];
                 assert(user_uid != undefined);
                 this._user_uid = user_uid;
             }
-
         }
     }
 
@@ -546,7 +562,7 @@ class User
                 timeout = 1;
             }
 
-            start_time = get_datetime_now();
+            let start_time = get_datetime_now();
 
             while ((get_datetime_now() - start_time).seconds < timeout)
             {

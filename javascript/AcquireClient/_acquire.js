@@ -1,3 +1,11 @@
+'use strict'
+
+/** Holder for the Acquire "namespace" */
+let Acquire = {};
+
+/** "namespace" for all of the private Acquire classes/functions */
+Acquire.Private = {};
+
 /**
  * Acquire Javascript Library. This provides some native JS classes
  * that match the API of the Acquire.Client Python library. This
@@ -5,17 +13,17 @@
  * for (some) of the classes available in Acquire.Client
  */
 
-async function login()
+Acquire.login = async function ()
 {
     try
     {
-        var username = document.getElementById("username").value;
-        var password = document.getElementById("password").value;
-        var otpcode = document.getElementById("otpcode").value;
-        var remember_device = document.getElementById("remember_device").value;
-        var url = document.getElementById("url").value;
+        let username = document.getElementById("username").value;
+        let password = document.getElementById("password").value;
+        let otpcode = document.getElementById("otpcode").value;
+        let remember_device = document.getElementById("remember_device").value;
+        let url = document.getElementById("url").value;
 
-        var wallet = new Wallet();
+        let wallet = new Acquire.Wallet();
         await wallet.send_password({url:url, username:username,
                                     password:password, otpcode:otpcode,
                                     remember_device: remember_device});
@@ -26,12 +34,12 @@ async function login()
     {
         console.log(`LOGIN FAILED: ${err}`);
         console.log(err);
-        var obj = JSON.parse(JSON.stringify(err));
+        let obj = JSON.parse(JSON.stringify(err));
         console.log(obj);
     }
 }
 
-async function test_acquire()
+Acquire.test_acquire = async function()
 {
     try
     {
@@ -65,7 +73,7 @@ async function test_acquire()
     {
         console.log(`UNCAUGHT EXCEPTION`);
         console.log(err);
-        var obj = JSON.parse(JSON.stringify(err));
+        let obj = JSON.parse(JSON.stringify(err));
         console.log(obj);
     }
 }

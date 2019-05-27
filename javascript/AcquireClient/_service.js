@@ -1,17 +1,17 @@
 
-_private_keys = {};
+Acquire.Private._private_keys = {};
 
 /** Return the session-scoped private key called 'name' */
-function get_private_key(name)
+Acquire.get_private_key = function(name)
 {
-    if (name in _private_keys)
+    if (name in Acquire.Private._private_keys)
     {
-        return _private_keys[name];
+        return Acquire.Private._private_keys[name];
     }
     else
     {
-        var private_key = new PrivateKey();
-        _private_keys[name] = private_key;
+        let private_key = new Acquire.PrivateKey();
+        Acquire.Private._private_keys[name] = private_key;
         return private_key;
     }
 }
@@ -22,7 +22,7 @@ function get_private_key(name)
  *  mirrors Acquire.Client.Service, so look to this for
  *  documentation
  */
-class Service
+Acquire.Service = class
 {
     constructor({service_url=undefined, service_uid=undefined,
                  service_type=undefined} = {})
@@ -56,7 +56,7 @@ class Service
         if (this.is_null()){ return undefined; }
         else
         {
-            var scheme = "http";
+            let scheme = "http";
 
             if (prefer_https && ("https" in this._schemes))
             {
@@ -67,7 +67,7 @@ class Service
                 scheme = this._schemes[0];
             }
 
-            var port = this._ports[scheme]
+            let port = this._ports[scheme]
 
             if ((port == undefined) || (port.length == 0))
             {
@@ -96,7 +96,7 @@ class Service
         if (this.is_null()){ return undefined; }
         else
         {
-            var root = this.uid().split("-")[0];
+            let root = this.uid().split("-")[0];
             return `${root}-${root}`;
         }
     }
@@ -120,7 +120,10 @@ class Service
 
     async get_service({service_uid=undefined, service_url=undefined})
     {
-        if (this.is_null()){ return undefined; }
+        if (this.is_null())
+        {
+            return undefined;
+        }
         else if (service_uid == this._uid ||
                  service_url == this._canonical_url)
         {
@@ -128,23 +131,23 @@ class Service
         }
         else
         {
-            var func = "get_service";
-            var args = {"service_uid": service_uid,
+            let func = "get_service";
+            let args = {"service_uid": service_uid,
                         "service_url": service_url};
 
             try
             {
-                var result = await this.call_function(func, args);
+                let result = await this.call_function({func:func, args:args});
+                let service = await Acquire.Service.from_data(
+                                                result["service_info"]);
+                return service;
             }
             catch(err)
             {
-                throw new ServiceError(
+                throw new Acquire.ServiceError(
                     `Unable to get service because of failed function ` +
-                    `call: ${err}`);
+                    `call`, err);
             }
-
-            var service = await Service.from_data(result["service_info"]);
-            return service;
         }
     }
 
@@ -157,7 +160,7 @@ class Service
     {
         if (this.is_null())
         {
-            throw new RemoteFunctionCallError(
+            throw new Acquire.RemoteFunctionCallError(
                 "You cannot call a function on a null service!");
         }
 
@@ -166,20 +169,29 @@ class Service
             await this.refresh_keys();
         }
 
-        var response_key = get_private_key("function");
+        let response_key = Acquire.get_private_key("function");
 
-        result = await call_function({service_url:this.service_url(),
+        try
+        {
+            let result = await Acquire.call_function(
+                                     {service_url:this.service_url(),
                                       func:func, args:args,
                                       args_key:this.public_key(),
                                       public_cert:this.public_certificate(),
                                       response_key:response_key});
 
-        return result;
+            return result;
+        }
+        catch(err)
+        {
+            throw new Acquire.RemoteFunctionCallError(
+                        `Error calling ${func} on ${this}`, err);
+        }
     }
 
     async to_data()
     {
-        var data = {};
+        let data = {};
 
         if (this.is_null()){ return data; }
 
@@ -198,7 +210,8 @@ class Service
         data["public_certificate"] = await this._pubcert.to_data();
         data["last_certificate"] = await this._lastcert.to_data();
 
-        data["last_key_update"] = datetime_to_string(this._last_key_update);
+        data["last_key_update"] = Acquire.datetime_to_string(
+                                            this._last_key_update);
         data["key_update_interval"] = this._key_update_interval;
 
         return data;
@@ -206,11 +219,11 @@ class Service
 
     static async from_data(data)
     {
-        var service = new Service();
+        let service = new Acquire.Service();
 
-        if (data == undefined)
+        if (!data)
         {
-            throw new ServiceError(
+            throw new Acquire.ServiceError(
                 "Cannot construct a new Service from empty data!");
         }
 
@@ -227,22 +240,23 @@ class Service
             service._service_user_uid = data["service_user_uid"];
             service._service_user_name = data["service_user_name"];
 
-            service._pubkey = await PublicKey.from_data(data["public_key"])
+            service._pubkey = await Acquire.PublicKey.from_data(
+                                                        data["public_key"])
 
-            service._pubcert = await PublicKey.from_data(
+            service._pubcert = await Acquire.PublicKey.from_data(
                                             data["public_certificate"], true)
-            service._lastcert = await PublicKey.from_data(
+            service._lastcert = await Acquire.PublicKey.from_data(
                                             data["last_certificate"], true);
 
-            service._last_key_update = string_to_datetime(
+            service._last_key_update = Acquire.string_to_datetime(
                                             data["last_key_update"])
             service._key_update_interval = parseFloat(
                                             data["key_update_interval"])
         }
         catch(err)
         {
-            throw new ServiceError(
-                `Cannot construct service from ${data}`);
+            throw new Acquire.ServiceError(
+                `Cannot construct service from ${data}`, err);
         }
 
         return service;

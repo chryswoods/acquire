@@ -1,7 +1,6 @@
 
 
-class Credentials
-{
+Acquire.Credentials = class {
     constructor({username=undefined, short_uid=undefined,
                  device_uid=undefined, password=undefined,
                  otpcode=undefined})
@@ -89,7 +88,8 @@ class Credentials
             return undefined;
         }
 
-        return await Credentials.package({identity_uid:identity_uid,
+        return await Acquire.Credentials.package(
+                                         {identity_uid:identity_uid,
                                           short_uid:this._short_uid,
                                           username:this._username,
                                           password:this._password,
@@ -100,12 +100,14 @@ class Credentials
 
     static async from_data(data, username, short_uid, random_sleep=150)
     {
-        var result = await Credentials.unpackage({data:data,
+        let result = await Acquire.Credentials.unpackage(
+                                                 {data:data,
                                                   username:username,
                                                   short_uid:short_uid,
                                                   random_sleep:random_sleep});
 
-        return new Credentials({username:result["username"],
+        return new Acquire.Credentials(
+                               {username:result["username"],
                                 short_uid:result["short_uid"],
                                 device_uid:result["device_uid"],
                                 password:result["password"],
@@ -116,7 +118,7 @@ class Credentials
     {
         if (this.is_null() | this._username != username)
         {
-            throw new PermissionError(
+            throw new Acquire.PermissionError(
                 "Disagreement for the username for the matched credentials");
         }
     }
@@ -128,15 +130,15 @@ class Credentials
             return encoded_password;
         }
 
-        var result = md5(encoded_password + device_uid);
+        let result = md5(encoded_password + device_uid);
         return result;
     }
 
     static encode_password({password, identity_uid, device_uid=undefined})
     {
-        var encoded_password = multi_md5(identity_uid, password);
+        let encoded_password = Acquire.multi_md5(identity_uid, password);
 
-        encoded_password = Credentials.encode_device_uid(
+        encoded_password = Acquire.Credentials.encode_device_uid(
                                         {encoded_password:encoded_password,
                                          device_uid:device_uid});
 
@@ -149,12 +151,12 @@ class Credentials
     {
         if ((!username) | (!password) | (!otpcode))
         {
-            throw new PermissionError(
+            throw new Acquire.PermissionError(
                 "You must supply a username, password and otpcode " +
                 "to be able to log in!");
         }
 
-        var encoded_password = Credentials.encode_password(
+        let encoded_password = Acquire.Credentials.encode_password(
                                             {identity_uid:identity_uid,
                                              device_uid:device_uid,
                                              password:password});
@@ -163,26 +165,26 @@ class Credentials
         // so that an attacker does not know...
         if (!device_uid)
         {
-            device_uid = create_uuid();
+            device_uid = Acquire.create_uuid();
         }
 
-        var data = [encoded_password, device_uid, otpcode];
-        var string_data = data.join("|");
+        let data = [encoded_password, device_uid, otpcode];
+        let string_data = data.join("|");
 
-        var uname_shortid = md5(username) + md5(short_uid);
+        let uname_shortid = md5(username) + md5(short_uid);
 
-        var symkey = new SymmetricKey({symmetric_key:uname_shortid});
+        let symkey = new Acquire.SymmetricKey({symmetric_key:uname_shortid});
         string_data = await symkey.encrypt(string_data);
 
-        return bytes_to_string(string_data);
+        return Acquire.bytes_to_string(string_data);
     }
 
     static async unpackage({data, username, short_uid, random_sleep=150})
     {
-        var uname_shortid = md5(username) + md5(short_uid);
+        let uname_shortid = md5(username) + md5(short_uid);
         data = string_to_bytes(data);
 
-        var symkey = new SymmetricKey({symmetric_key:uname_shortid});
+        let symkey = new Acquire.SymmetricKey({symmetric_key:uname_shortid});
 
         try
         {
@@ -195,7 +197,7 @@ class Credentials
 
         if (!data)
         {
-            throw new PermissionError(
+            throw new Acquire.PermissionError(
                 "Cannot unpackage/decrypt the credentials");
         }
 
@@ -203,10 +205,10 @@ class Credentials
 
         if (data.length < 3)
         {
-            throw new PermissionError(`Invalid credentials! ${data}`);
+            throw new Acquire.PermissionError(`Invalid credentials! ${data}`);
         }
 
-        var result = {"username": username,
+        let result = {"username": username,
                       "short_uid": short_uid,
                       "device_uid": data[1],
                       "password": data[0],

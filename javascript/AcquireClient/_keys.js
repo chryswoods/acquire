@@ -1,39 +1,38 @@
 
-
 /** Mirror of Acquire.Crypto.Hash.multi_md5 */
-function multi_md5(data1, data2)
+Acquire.multi_md5 = function(data1, data2)
 {
     return md5(md5(data1) + md5(data2));
 }
 
 /** Function used as part of converting a key to a pem file */
-function _arrayBufferToBase64String(arrayBuffer)
+Acquire.Private._arrayBufferToBase64String = function(arrayBuffer)
 {
-    var byteArray = new Uint8Array(arrayBuffer)
-    var byteString = ''
-    for (var i=0; i<byteArray.byteLength; i++) {
+    let byteArray = new Uint8Array(arrayBuffer)
+    let byteString = ''
+    for (let i=0; i<byteArray.byteLength; i++) {
         byteString += String.fromCharCode(byteArray[i])
     }
     return btoa(byteString)
 }
 
 /** Function to convert a base64 string to an array buffer */
-function _base64StringToArrayBuffer(b64str)
+Acquire.Private._base64StringToArrayBuffer = function(b64str)
 {
-    var byteStr = atob(b64str)
-    var bytes = new Uint8Array(byteStr.length)
-    for (var i = 0; i < byteStr.length; i++) {
+    let byteStr = atob(b64str)
+    let bytes = new Uint8Array(byteStr.length)
+    for (let i = 0; i < byteStr.length; i++) {
         bytes[i] = byteStr.charCodeAt(i)
     }
     return bytes.buffer
 }
 
 /** Function used to convert binary key date to pem */
-function _convertBinaryToPem(binaryData, label) {
-    var base64Cert = _arrayBufferToBase64String(binaryData)
-    var pemCert = "-----BEGIN " + label + "-----\n"
-    var nextIndex = 0
-    var lineLength
+Acquire.Private._convertBinaryToPem = function(binaryData, label) {
+    let base64Cert = Acquire.Private._arrayBufferToBase64String(binaryData)
+    let pemCert = "-----BEGIN " + label + "-----\n"
+    let nextIndex = 0
+    let lineLength
     while (nextIndex < base64Cert.length) {
         if (nextIndex + 64 <= base64Cert.length) {
         pemCert += base64Cert.substr(nextIndex, 64) + "\n"
@@ -47,11 +46,11 @@ function _convertBinaryToPem(binaryData, label) {
 }
 
 /** Function to convert pemfile info binary data used for js crypto */
-function _convertPemToBinary(pem)
+Acquire.Private._convertPemToBinary = function(pem)
 {
-    var lines = pem.split('\n')
-    var encoded = ''
-    for(var i = 0;i < lines.length;i++){
+    let lines = pem.split('\n')
+    let encoded = ''
+    for(let i = 0;i < lines.length;i++){
         if (lines[i].trim().length > 0 &&
             lines[i].indexOf('-BEGIN PRIVATE KEY-') < 0 &&
             lines[i].indexOf('-BEGIN ENCRYPTED PRIVATE KEY-') < 0 &&
@@ -62,24 +61,24 @@ function _convertPemToBinary(pem)
         encoded += lines[i].trim()
         }
     }
-    return _base64StringToArrayBuffer(encoded)
+    return Acquire.Private._base64StringToArrayBuffer(encoded)
 }
 
 /** Hard code the key size (in bytes) as javascript web crypto doesn't
  *  seem to have a way to query this programatically. 256 bytes (2048 bit)
  *  is used on the server in all of the python functions
 */
-var _rsa_key_size = 256;
+Acquire.Private._rsa_key_size = 256;
 
-/** Function to import and return the public key from the passed pemfile */
-async function _importPublicKey(pemKey)
+/** Funcion to import and return the public key from the passed pemfile */
+Acquire.Private._importPublicKey = async function(pemKey)
 {
     //convert the pem key to binary
-    var bin = _convertPemToBinary(pemKey);
+    let bin = Acquire.Private._convertPemToBinary(pemKey);
 
-    var encryptAlgorithm = {
+    let encryptAlgorithm = {
         name: "RSA-OAEP",
-        modulusLength: 8*_rsa_key_size,
+        modulusLength: 8*Acquire.Private._rsa_key_size,
         publicExponent: 65537,
         extractable: true,
         hash: {
@@ -87,24 +86,32 @@ async function _importPublicKey(pemKey)
         }
     };
 
-    var public_key = await crypto.subtle.importKey(
-                        "spki", bin, encryptAlgorithm,
-                        true, ["encrypt"]
-                        );
+    try
+    {
+        let public_key = await crypto.subtle.importKey(
+                            "spki", bin, encryptAlgorithm,
+                            true, ["encrypt"]
+                            );
 
-    return public_key;
+        return public_key;
+    }
+    catch(err)
+    {
+        throw new Acquire.KeyManipulationError(
+            "Cannot import public key!", err);
+    }
 }
 
 
 /** Function to import and return the public cert from the passed pemfile */
-async function _importPublicCert(pemKey)
+Acquire.Private._importPublicCert = async function(pemKey)
 {
     //convert the pem key to binary
-    var bin = _convertPemToBinary(pemKey);
+    let bin = Acquire.Private._convertPemToBinary(pemKey);
 
-    var encryptAlgorithm = {
+    let encryptAlgorithm = {
         name: "RSA-OAEP",
-        modulusLength: 8*_rsa_key_size,
+        modulusLength: 8*Acquire.Private._rsa_key_size,
         publicExponent: 65537,
         extractable: true,
         hash: {
@@ -112,32 +119,40 @@ async function _importPublicCert(pemKey)
         }
     };
 
-    var public_key = await crypto.subtle.importKey(
-                        "spki", bin, encryptAlgorithm,
-                        true, ["encrypt"]
-                        );
+    try
+    {
+        let public_key = await crypto.subtle.importKey(
+                            "spki", bin, encryptAlgorithm,
+                            true, ["encrypt"]
+                            );
 
-    return public_key;
+        return public_key;
+    }
+    catch(err)
+    {
+        throw new Acquire.KeyManipulationError(
+            "Cannot import public certificate!", err);
+    }
 }
 
 /** Function to convert a public key to a PEM file */
-async function _exportPublicKey(key) {
+Acquire.Private._exportPublicKey = async function(key) {
     let exported = await window.crypto.subtle.exportKey('spki', key);
-    let pem = _convertBinaryToPem(exported, "PUBLIC KEY");
+    let pem = Acquire.Private._convertBinaryToPem(exported, "PUBLIC KEY");
     return pem;
 }
 
 /** Function to import and return the private key from the passed pemfile.
  *  Note that this doesn't, yet, work with encrypted pem files
  */
-async function _importPrivateKey(pemKey, passphrase)
+Acquire.Private._importPrivateKey = async function(pemKey, passphrase)
 {
     //convert the pem key to binary
-    var bin = _convertPemToBinary(pemKey);
+    let bin = Acquire.Private._convertPemToBinary(pemKey);
 
-    var encryptAlgorithm = {
+    let encryptAlgorithm = {
         name: "RSA-OAEP",
-        modulusLength: 8*_rsa_key_size,
+        modulusLength: 8*Acquire.Private._rsa_key_size,
         publicExponent: 65537,
         extractable: true,
         hash: {
@@ -145,28 +160,36 @@ async function _importPrivateKey(pemKey, passphrase)
         }
     };
 
-    var private_key = await crypto.subtle.importKey(
-                        "spki", bin, encryptAlgorithm,
-                        true, ["encrypt", "decrypt", "sign", "verify"]
-                        );
+    try
+    {
+        let private_key = await crypto.subtle.importKey(
+                            "spki", bin, encryptAlgorithm,
+                            true, ["encrypt", "decrypt", "sign", "verify"]
+                            );
 
-    return private_key;
+        return private_key;
+    }
+    catch(err)
+    {
+        throw new Acquire.KeyManipulationError(
+            "Cannot import private key", err);
+    }
 }
 
 /** Function to convert a private key to a PEM file. Currently
  *  this does not encrypt the PEM file. It will one day, when
  *  if will use the supplied passphrase
  */
-async function _exportPrivateKey(key, passphrase) {
+Acquire.Private._exportPrivateKey = async function(key, passphrase) {
     let exported = await window.crypto.subtle.exportKey('spki', key);
-    let pem = _convertBinaryToPem(exported, "PRIVATE KEY");
+    let pem = Acquire.Private._convertBinaryToPem(exported, "PRIVATE KEY");
     return pem;
 }
 
 /** Function that concatenates two arrays together -
  *  thanks to http://2ality.com/2015/10/concatenating-typed-arrays.html
  */
-function _concatenate(resultConstructor, ...arrays)
+Acquire.Private._concatenate = function(resultConstructor, ...arrays)
 {
     let totalLength = 0;
     for (let arr of arrays)
@@ -206,103 +229,115 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 */
-function _base64ArrayBuffer(arrayBuffer)
+Acquire.Private._base64ArrayBuffer = function(arrayBuffer)
 {
-    var base64    = ''
-    var encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    let base64    = '';
+    let encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
-    var bytes         = new Uint8Array(arrayBuffer)
-    var byteLength    = bytes.byteLength
-    var byteRemainder = byteLength % 3
-    var mainLength    = byteLength - byteRemainder
+    let bytes         = new Uint8Array(arrayBuffer);
+    let byteLength    = bytes.byteLength;
+    let byteRemainder = byteLength % 3;
+    let mainLength    = byteLength - byteRemainder;
 
-    var a, b, c, d
-    var chunk
+    let a, b, c, d = undefined;
+    let chunk = undefined;
 
     // Main loop deals with bytes in chunks of 3
-    for (var i = 0; i < mainLength; i = i + 3) {
+    for (let i = 0; i < mainLength; i = i + 3) {
       // Combine the three bytes into a single integer
-      chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2]
+      chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
 
       // Use bitmasks to extract 6-bit segments from the triplet
-      a = (chunk & 16515072) >> 18 // 16515072 = (2^6 - 1) << 18
-      b = (chunk & 258048)   >> 12 // 258048   = (2^6 - 1) << 12
-      c = (chunk & 4032)     >>  6 // 4032     = (2^6 - 1) << 6
-      d = chunk & 63               // 63       = 2^6 - 1
+      a = (chunk & 16515072) >> 18; // 16515072 = (2^6 - 1) << 18
+      b = (chunk & 258048)   >> 12; // 258048   = (2^6 - 1) << 12
+      c = (chunk & 4032)     >>  6; // 4032     = (2^6 - 1) << 6
+      d = chunk & 63;               // 63       = 2^6 - 1
 
       // Convert the raw binary segments to the appropriate ASCII encoding
-      base64 += encodings[a] + encodings[b] + encodings[c] + encodings[d]
+      base64 += encodings[a] + encodings[b] + encodings[c] + encodings[d];
     }
 
     // Deal with the remaining bytes and padding
     if (byteRemainder == 1) {
-      chunk = bytes[mainLength]
+      chunk = bytes[mainLength];
 
-      a = (chunk & 252) >> 2 // 252 = (2^6 - 1) << 2
+      a = (chunk & 252) >> 2; // 252 = (2^6 - 1) << 2
 
       // Set the 4 least significant bits to zero
-      b = (chunk & 3)   << 4 // 3   = 2^2 - 1
+      b = (chunk & 3)   << 4; // 3   = 2^2 - 1
 
-      base64 += encodings[a] + encodings[b] + '=='
+      base64 += encodings[a] + encodings[b] + '==';
     } else if (byteRemainder == 2) {
-      chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1]
+      chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1];
 
-      a = (chunk & 64512) >> 10 // 64512 = (2^6 - 1) << 10
-      b = (chunk & 1008)  >>  4 // 1008  = (2^6 - 1) << 4
+      a = (chunk & 64512) >> 10; // 64512 = (2^6 - 1) << 10
+      b = (chunk & 1008)  >>  4; // 1008  = (2^6 - 1) << 4
 
       // Set the 2 least significant bits to zero
-      c = (chunk & 15)    <<  2 // 15    = 2^4 - 1
+      c = (chunk & 15)    <<  2; // 15    = 2^4 - 1
 
-      base64 += encodings[a] + encodings[b] + encodings[c] + '='
+      base64 += encodings[a] + encodings[b] + encodings[c] + '=';
     }
 
-    return base64
+    return base64;
 }
 
 /** Function to perform symmetric encryption using fernet - encrypts
  *  'data' with 'key'
  */
-function fernet_encrypt(key, data)
+Acquire.Private.fernet_encrypt = function(key, data)
 {
-    var token = new fernet.Token({
+    let token = new fernet.Token({
         secret: new fernet.Secret(key)
     });
 
-    encrypted = token.encode(data);
-    encrypted = string_to_utf8_bytes(encrypted);
-
-    return encrypted;
+    try
+    {
+        let encrypted = token.encode(data);
+        encrypted = Acquire.string_to_utf8_bytes(encrypted);
+        return encrypted;
+    }
+    catch(err)
+    {
+        throw new Acquire.EncryptionError("Cannot encrypt data", err);
+    }
 }
 
 /** Function to perform symmetric decryption using fernet - decrypts
  *  'data' with 'key'
  */
-function fernet_decrypt(key, data)
+Acquire.Private.fernet_decrypt = function(key, data)
 {
-    var token = new fernet.Token({
+    let token = new fernet.Token({
         secret: new fernet.Secret(key),
-        token: utf8_bytes_to_string(data),
+        token: Acquire.utf8_bytes_to_string(data),
         ttl: 0
     });
 
-    var result = token.decode();
-
-    return result;
+    try
+    {
+        let result = token.decode();
+        return result;
+    }
+    catch(err)
+    {
+        throw new Acquire.DecryptionError("Cannot decrypt data", err);
+    }
 }
 
 /** Randomly generate a good symmetric key */
-function _generate_symmetric_key()
+Acquire.Private._generate_symmetric_key = function()
 {
-    var array = new Uint8Array(32);
+    let array = new Uint8Array(32);
     window.crypto.getRandomValues(array);
-    var secret = _base64ArrayBuffer(array);
+    let secret = Acquire.Private._base64ArrayBuffer(array);
     return secret;
 }
 
 /** Function that verifies the signature of the passed message signed
  *  using the private counterpart of this public key
  */
-async function _verifySignature(key, signature, data)
+Acquire.Private._verifySignature = async function(key, signature, data)
 {
     key = await key;
 
@@ -310,121 +345,156 @@ async function _verifySignature(key, signature, data)
 }
 
 /** Function that encrypts the passed data with the passed public key */
-async function _encryptData(key, data)
+Acquire.Private._encryptData = async function(key, data)
 {
-    key = await key;
+    try
+    {
+        key = await key;
 
-    // we will encrypt the message using fernet, and send that prefixed
-    // by the RSA-encrypted secret. The fernet secret is a random 32 bytes
-    // that are then base64 encoded
-    var array = new Uint8Array(32);
-    window.crypto.getRandomValues(array);
-    var secret = _base64ArrayBuffer(array);
+        // we will encrypt the message using fernet, and send that prefixed
+        // by the RSA-encrypted secret. The fernet secret is a random 32 bytes
+        // that are then base64 encoded
+        let array = new Uint8Array(32);
+        window.crypto.getRandomValues(array);
+        let secret = Acquire.Private._base64ArrayBuffer(array);
 
-    var token = new fernet.Token({
-        secret: new fernet.Secret(secret)
-    });
+        let token = new fernet.Token({
+            secret: new fernet.Secret(secret)
+        });
 
-    encrypted = token.encode(data);
+        let encrypted = token.encode(data);
 
-    // now we will encrypt the fernet secret using the public key
-    let result = await window.crypto.subtle.encrypt(
-                    {
-                        name: "RSA-OAEP"
-                    },
-                    key,
-                    string_to_utf8_bytes(secret).buffer
-                );
+        // now we will encrypt the fernet secret using the public key
+        let result = await window.crypto.subtle.encrypt(
+                        {
+                            name: "RSA-OAEP"
+                        },
+                        key,
+                        Acquire.string_to_utf8_bytes(secret).buffer
+                    );
 
-    // finally concatenate both outputs together into a single binary array
-    var output = new Uint8Array(result);
-    output = _concatenate(Uint8Array, output, string_to_utf8_bytes(encrypted));
+        // finally concatenate both outputs together into a single binary array
+        let output = new Uint8Array(result);
+        output = Acquire.Private._concatenate(
+                                    Uint8Array,
+                                    output,
+                                    Acquire.string_to_utf8_bytes(encrypted));
 
-    return output;
+        return output;
+    }
+    catch(err)
+    {
+        throw new Acquire.EncryptionError(
+            "Failed to encrypt the data!", err);
+    }
 }
 
 /** Function that decrypts the passed data with the passed private key */
-async function _decryptData(key, data)
+Acquire.Private._decryptData = async function(key, data)
 {
-    // the first rsa_key_size bytes hold the rsa-encrypted fernet
-    // secret to decode the rest of the message
-    let secret = await window.crypto.subtle.decrypt(
-                {
-                    name: "RSA-OAEP",
-                },
-                key,
-                data.slice(0,_rsa_key_size))
-            ;
+    try
+    {
+        // the first rsa_key_size bytes hold the rsa-encrypted fernet
+        // secret to decode the rest of the message
+        let secret = await window.crypto.subtle.decrypt(
+                    {
+                        name: "RSA-OAEP",
+                    },
+                    key,
+                    data.slice(0,Acquire.Private._rsa_key_size))
+                ;
 
-    secret = utf8_bytes_to_string(secret);
+        secret = Acquire.utf8_bytes_to_string(secret);
 
-    if (data.length <= _rsa_key_size){
-        // the secret is the message - no fernet decoding needed
-        return secret;
+        if (data.length <= Acquire.Private._rsa_key_size){
+            // the secret is the message - no fernet decoding needed
+            return secret;
+        }
+
+        data = Acquire.utf8_bytes_to_string(
+                                    data.slice(Acquire.Private._rsa_key_size,
+                                            data.length));
+
+        let token = new fernet.Token({
+            secret: new fernet.Secret(secret),
+            token: data,
+            ttl: 0
+        });
+
+        let result = token.decode();
+
+        return result;
     }
-
-    data = utf8_bytes_to_string(data.slice(_rsa_key_size, data.length));
-
-    var token = new fernet.Token({
-        secret: new fernet.Secret(secret),
-        token: data,
-        ttl: 0
-    });
-
-    let result = token.decode();
-
-    return result;
+    catch(err)
+    {
+        throw new Acquire.DecryptionError("Cannot decrypt data", err);
+    }
 }
 
 /** Function to generate a public/private key pair used for
  *  encrypting and decrypting
  */
-async function _generateKeypair()
+Acquire.Private._generateKeypair = async function()
 {
-    keys = await window.crypto.subtle.generateKey(
-        {
-            name: "RSA-OAEP",
-            modulusLength: 8*_rsa_key_size,
-            publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-            hash: {name: "SHA-256"}
-        },
-        true,  /* the key must be extractable */
-        ["encrypt", "decrypt"]
-    );
+    try
+    {
+        let keys = await window.crypto.subtle.generateKey(
+            {
+                name: "RSA-OAEP",
+                modulusLength: 8*Acquire.Private._rsa_key_size,
+                publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+                hash: {name: "SHA-256"}
+            },
+            true,  /* the key must be extractable */
+            ["encrypt", "decrypt"]
+        );
 
-    return keys;
+        await keys;
+        return keys;
+    }
+    catch(err)
+    {
+        throw new Acquire.KeyManipulationError("Unable to generate keys", err);
+    }
 }
 
 /** Function to generate a public/private key pair used for
  *  signing and verifying
  */
-async function _generateCertpair()
+Acquire.Private._generateCertpair = async function()
 {
-    keys = await window.crypto.subtle.generateKey(
-        {
-            name: "RSA-OAEP",
-            modulusLength: 8*_rsa_key_size,
-            publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-            hash: {name: "SHA-256"}
-        },
-        true,  /* the key must be extractable */
-        ["sign", "verify"]
-    );
+    try
+    {
+        let keys = await window.crypto.subtle.generateKey(
+            {
+                name: "RSA-OAEP",
+                modulusLength: 8*Acquire.Private._rsa_key_size,
+                publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+                hash: {name: "SHA-256"}
+            },
+            true,  /* the key must be extractable */
+            ["sign", "verify"]
+        );
 
-    return keys;
+        return keys;
+    }
+    catch(err)
+    {
+        throw new Acquire.KeyManipulationError("Unable to generate keys", err);
+    }
 }
 
 /** This class provides a simple handle to a private key. This
  *  can be used to decrypt data for Acquire, and also to
  *  sign messages
  */
-class PrivateKey
+Acquire.PrivateKey = class
 {
     constructor(auto_generate=true)
     {
         if (auto_generate)
         {
-            this._keys = _generateKeypair();
+            this._keys = Acquire.Private._generateKeypair();
         }
         else
         {
@@ -442,7 +512,7 @@ class PrivateKey
         if (this.is_null()){ return undefined; }
         else
         {
-            var key = await this.public_key();
+            let key = await this.public_key();
             return await key.fingerprint();
         }
     }
@@ -452,8 +522,8 @@ class PrivateKey
         if (this.is_null()){ return undefined;}
         else
         {
-            var keys = await this._keys;
-            return new PublicKey(keys.publicKey);
+            let keys = await this._keys;
+            return new Acquire.PublicKey(keys.publicKey);
         }
     }
 
@@ -462,8 +532,9 @@ class PrivateKey
         if (this.is_null()){ return undefined; }
         else
         {
-            var keys = await this._keys;
-            var pem = await _exportPrivateKey(keys.privateKey, passphrase);
+            let keys = await this._keys;
+            let pem = await Acquire.Private._exportPrivateKey(
+                                                keys.privateKey, passphrase);
             return pem;
         }
     }
@@ -473,7 +544,7 @@ class PrivateKey
         if (this.is_null()){ return undefined;}
         else
         {
-            var pubkey = await this.public_key();
+            let pubkey = await this.public_key();
             return await pubkey.encrypt(message);
         }
     }
@@ -483,8 +554,9 @@ class PrivateKey
         if (this.is_null()){ return undefined;}
         else
         {
-            var keys = await this._keys;
-            return await _decryptData(keys.privateKey, message);
+            let keys = await this._keys;
+            return await Acquire.Private._decryptData(keys.privateKey,
+                                                      message);
         }
     }
 
@@ -493,10 +565,10 @@ class PrivateKey
         if (this.is_null()){ return undefined; }
         else
         {
-            var bytes = await this.bytes(passphrase);
+            let bytes = await this.bytes(passphrase);
 
-            var data = {};
-            data["bytes"] = bytes_to_string(bytes);
+            let data = {};
+            data["bytes"] = Acquire.bytes_to_string(bytes);
 
             return data;
         }
@@ -504,22 +576,26 @@ class PrivateKey
 
     static async read_bytes(bytes, passphrase)
     {
-        var privkey = await _importPrivateKey(bytes, passphrase);
+        let keys = await Acquire.Private._importPrivateKey(bytes,
+                                                           passphrase);
+
+        let privkey = new Acquire.PrivateKey(false);
+        privkey._keys = keys;
         return privkey;
     }
 
     static async from_data(data, passphrase)
     {
-        var pem = string_to_bytes(data["bytes"]);
-        pem = utf8_bytes_to_string(pem);
-        return await PrivateKey.read_bytes(pem, passphrase);
+        let pem = Acquire.string_to_bytes(data["bytes"]);
+        pem = Acquire.utf8_bytes_to_string(pem);
+        return await Acquire.PrivateKey.read_bytes(pem, passphrase);
     }
 }
 
 /** This class provides a simple handle to a public key. This
  *  can be used to encrypt data for Acquire and verify signatures
  */
-class PublicKey
+Acquire.PublicKey = class
 {
     constructor(public_key=undefined)
     {
@@ -536,7 +612,7 @@ class PublicKey
         if (this.is_null()){ return undefined; }
         else
         {
-            var pem = await _exportPublicKey(this._key);
+            let pem = await Acquire.Private._exportPublicKey(this._key);
             return pem;
         }
     }
@@ -547,8 +623,8 @@ class PublicKey
         else
         {
             //the fingerprint is an md5 of the pem
-            var b = await this.bytes();
-            var m = md5(b);
+            let b = await this.bytes();
+            let m = md5(b);
 
             return m.match(/(..?)/g).join(":");
         }
@@ -559,23 +635,24 @@ class PublicKey
         if (this.is_null()){ return undefined; }
         else
         {
-            await _verifySignature(this._key, signature, message);
+            await Acquire.Private._verifySignature(this._key,
+                                                   signature, message);
         }
     }
 
     async encrypt(message)
     {
-        return await _encryptData(this._key, message);
+        return await Acquire.Private._encryptData(this._key, message);
     }
 
     async to_data()
     {
         if (this.is_null()){ return undefined; }
 
-        var pem = await _exportPublicKey(this._key);
-        var b = bytes_to_string(string_to_utf8_bytes(pem));
+        let pem = await Acquire.Private._exportPublicKey(this._key);
+        let b = Acquire.bytes_to_string(Acquire.string_to_utf8_bytes(pem));
 
-        var data = {};
+        let data = {};
         data["bytes"] = b;
 
         return data;
@@ -585,27 +662,27 @@ class PublicKey
     {
         if (data == undefined){ return undefined;}
 
-        var key = new PublicKey();
+        let key = new Acquire.PublicKey();
 
-        var b = data["bytes"];
+        let b = data["bytes"];
 
-        var pem = string_to_bytes(data["bytes"]);
-        pem = utf8_bytes_to_string(pem);
+        let pem = Acquire.string_to_bytes(data["bytes"]);
+        pem = Acquire.utf8_bytes_to_string(pem);
 
         if (is_certificate)
         {
-            key._key = await _importPublicCert(pem);
+            key._key = await Acquire.Private._importPublicCert(pem);
         }
         else
         {
-            key._key = await _importPublicKey(pem);
+            key._key = await Acquire.Private._importPublicKey(pem);
         }
 
         return key;
     }
 }
 
-class SymmetricKey
+Acquire.SymmetricKey = class
 {
     constructor({symmetric_key=undefined, auto_generate=true} = {})
     {
@@ -613,13 +690,13 @@ class SymmetricKey
 
         if (symmetric_key)
         {
-            this._symkey = string_to_encoded(md5(symmetric_key));
+            this._symkey = Acquire.string_to_encoded(md5(symmetric_key));
         }
         else
         {
             if (auto_generate)
             {
-                this._symkey = _generate_symmetric_key();
+                this._symkey = Acquire.Private._generate_symmetric_key();
             }
         }
     }
@@ -631,7 +708,7 @@ class SymmetricKey
             return undefined;
         }
 
-        var m = md5(self._symkey);
+        let m = md5(self._symkey);
 
         return m.match(/(..?)/g).join(":");
     }
@@ -640,20 +717,21 @@ class SymmetricKey
     {
         if (!this._symkey)
         {
-            this._symkey = _generate_symmetric_key();
+            this._symkey = Acquire.Private._generate_symmetric_key();
         }
 
-        return fernet_encrypt(this._symkey, message);
+        return Acquire.Private.fernet_encrypt(this._symkey, message);
     }
 
     decrypt(message)
     {
         if (!this._symkey)
         {
-            throw new DecryptionError("You cannot decrypt a message " +
+            throw new Acquire.DecryptionError(
+                                      "You cannot decrypt a message " +
                                       "with a null key!");
         }
 
-        return fernet_decrypt(this._symkey, message);
+        return Acquire.Private.fernet_decrypt(this._symkey, message);
     }
 }

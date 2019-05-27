@@ -1,5 +1,5 @@
 
-class RemoteFunctionCallError extends Error
+Acquire.RemoteFunctionCallError = class extends Error
 {
     constructor(message, cause=undefined)
     {
@@ -10,7 +10,7 @@ class RemoteFunctionCallError extends Error
     }
 }
 
-class PermissionError extends Error
+Acquire.PermissionError = class extends Error
 {
     constructor(message, cause=undefined)
     {
@@ -21,7 +21,18 @@ class PermissionError extends Error
     }
 }
 
-class DecryptionError extends Error
+Acquire.EncryptionError = class extends Error
+{
+    constructor(message, cause=undefined)
+    {
+        super(message);
+        this.name = "EncryptionError";
+        this.details = message;
+        this.cause = cause;
+    }
+}
+
+Acquire.DecryptionError = class extends Error
 {
     constructor(message, cause=undefined)
     {
@@ -32,7 +43,18 @@ class DecryptionError extends Error
     }
 }
 
-class LoginError extends Error
+Acquire.KeyManipulationError = class extends Error
+{
+    constructor(message, cause=undefined)
+    {
+        super(message);
+        this.name = "KeyManipulationError";
+        this.details = message;
+        this.cause = cause;
+    }
+}
+
+Acquire.LoginError = class extends Error
 {
     constructor(message, cause=undefined)
     {
@@ -43,7 +65,7 @@ class LoginError extends Error
     }
 }
 
-class ServiceError extends Error
+Acquire.ServiceError = class extends Error
 {
     constructor(message, cause=undefined)
     {

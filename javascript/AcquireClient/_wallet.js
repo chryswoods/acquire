@@ -1,30 +1,37 @@
 
 /** Write local data to the browser with 'name' == 'value' */
-function _writeData(name, value)
+Acquire.Private._writeWalletData = function(name, value)
 {
     if (typeof(Storage) != "undefined")
     {
-        localStorage.setItem(name, value);
+        let key = `Acquire/Wallet/${name}`;
+        localStorage.setItem(key, value);
+        //console.log(`SAVED ${key} = ${value}`);
     }
 }
 
 /** Remove local data at key 'name' */
-function _clearData(name)
+Acquire.Private._clearWalletData = function(name)
 {
-    if (typeof(Storage) !== "undefined")
+    if (typeof(Storage) != "undefined")
     {
-        return localStorage.removeItem(name);
+        let key = `Acquire/Wallet/${name}`;
+        console.log(`REMOVE KEY ${key}`);
+        return localStorage.removeItem(key);
     }
 }
 
 /** Read local data from the browser at key 'name'. Returns
  *  NULL if no such data exists
  */
-function _readData(name)
+Acquire.Private._readWalletData = function(name)
 {
-    if (typeof(Storage) !== "undefined")
+    if (typeof(Storage) != "undefined")
     {
-        return localStorage.getItem(name);
+        let key = `Acquire/Wallet/${name}`;
+        let value = localStorage.getItem(key);
+        //console.log(`READ ${key} == ${value}`);
+        return value;
     }
     else
     {
@@ -34,17 +41,18 @@ function _readData(name)
 
 /** https://stackoverflow.com/questions/901115/
  *          how-can-i-get-query-string-values-in-javascript */
-function _getParameterByName(name, url) {
+Acquire.Private._getParameterByName = function(name, url)
+{
     if (!url) url = window.location.href;
     name = name.replace(/[\[\]]/g, '\\$&');
-    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
-        results = regex.exec(url);
-    if (!results) return null;
+    let regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)');
+    let results = regex.exec(url);
+    if (!results) return undefined;
     if (!results[2]) return '';
     return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
 
-class Wallet
+Acquire.Wallet = class
 {
     constructor()
     {}
@@ -52,114 +60,157 @@ class Wallet
     /** Clear the wallet */
     clear()
     {
-        localStorage.clear();
+        for (let key in localStorage)
+        {
+            if (key.startsWith("Acquire/Wallet"))
+            {
+                console.log(`Deleting ${key}`);
+                localStorage.removeItem(key);
+            }
+        }
     }
 
     /** Save the passed service to browser storage */
     async _save_service(service)
     {
-        var data = await service.to_data();
+        let data = await service.to_data();
         data = JSON.stringify(data);
-        _writeData(`wallet/service_uid/${service.uid()}`, data);
-        var url = string_to_safestring(service.canonical_url());
-        _writeData(`wallet/service_url/${url}`, service.uid());
+        Acquire.Private._writeWalletData(`service_uid/${service.uid()}`, data);
+        let url = Acquire.string_to_safestring(service.canonical_url());
+        Acquire.Private._writeWalletData(`service_url/${url}`, service.uid());
     }
 
-    async _get_trusted_registry_service({service_url=undefined,
-                                         service_uid=undefined})
+    async _get_trusted_registry_service()
     {
         //have we loaded the central registry before?
         try
         {
-            var registry = await this.get_service({service_uid:"a0-a0",
+            let registry = await this.get_service({service_uid:"a0-a0",
                                                    autofetch:false});
             return registry;
         }
         catch(err)
         {}
 
-        //we need to bootstrap to get the registry
-        var registry_url = root_server["a0-a0"]["service_url"];
-        var registry_pubkey = await PublicKey.from_data(
-                                     root_server["a0-a0"]["public_key"]);
-        var registry_pubcert = await PublicKey.from_data(
-                                   root_server["a0-a0"]["public_certificate"])
+        try
+        {
+            console.log("BOOTSTRAPPING REGISTRY");
+            //we need to bootstrap to get the registry
+            let registry_url = Acquire.root_server["a0-a0"]["service_url"];
+            let registry_pubkey = await Acquire.PublicKey.from_data(
+                            Acquire.root_server["a0-a0"]["public_key"]);
+            let registry_pubcert = await Acquire.PublicKey.from_data(
+                            Acquire.root_server["a0-a0"]["public_certificate"])
 
-        var func = "get_service";
-        var args = {"service_uid": "a0-a0"};
+            let func = "get_service";
+            let args = {"service_uid": "a0-a0"};
 
-        var response_key = get_private_key("function");
-        var response = await call_function({service_url: registry_url,
-                                            func:func, args:args,
-                                            args_key:registry_pubkey,
-                                            public_cert:registry_pubcert,
-                                            response_key:response_key});
+            let response_key = Acquire.get_private_key("function");
+            let response = await Acquire.call_function(
+                                            {service_url: registry_url,
+                                                func:func, args:args,
+                                                args_key:registry_pubkey,
+                                                public_cert:registry_pubcert,
+                                                response_key:response_key});
 
-        var registry = await Service.from_data(response["service_info"]);
-        await this._save_service(registry);
-        return registry;
+            let registry = await Acquire.Service.from_data(
+                                                response["service_info"]);
+            await this._save_service(registry);
+            return registry;
+        }
+        catch(err)
+        {
+            throw new Acquire.ServiceError(
+                "Failed to connect to the trusted registry service a0-a0",
+                err);
+        }
     }
 
     async get_service({service_uid=undefined, service_url=undefined,
                        service_type=undefined, autofetch=true})
     {
-        var service = undefined;
+        let service = undefined;
 
-        if (service_url == undefined)
+        if (!service_url)
         {
-            if (service_uid == undefined)
+            if (!service_uid)
             {
-                throw new PermissionError(
+                throw new Acquire.PermissionError(
                     "You need to specify one of service_url or service_uid");
             }
 
             //look up from storage if we have seen this service before
-            var data = _readData(`wallet/service_uid/${service_uid}`);
+            let data = Acquire.Private._readWalletData(
+                                    `service_uid/${service_uid}`);
 
-            if (data != undefined)
+            if (data)
             {
-                data = JSON.parse(data);
-                service = await Service.from_data(data);
-            }
-        }
-        else if (service_url != undefined)
-        {
-            var url = string_to_safestring(service_url);
-            var suid = _readData(`wallet/service_url/${url}`);
-
-            if (suid != undefined)
-            {
-                var data = _readData(`wallet/service_uid/${suid}`);
-                if (data != undefined)
+                try
                 {
                     data = JSON.parse(data);
-                    service = await Service.from_data(data);
+                    service = await Acquire.Service.from_data(data);
+                }
+                catch(_err)
+                {
+                    //possible corruption of local store
+                    console.log("LOCAL STORAGE CORRUPTION?");
+                    console.log(_err);
+                    service = undefined;
+                }
+            }
+        }
+        else if (service_url)
+        {
+            let url = Acquire.string_to_safestring(service_url);
+            let suid = Acquire.Private._readWalletData(
+                                            `service_url/${url}`);
+
+            if (suid)
+            {
+                let data = Acquire.Private._readWalletData(
+                                            `service_uid/${suid}`);
+                if (data)
+                {
+                    try
+                    {
+                        data = JSON.parse(data);
+                        service = await Acquire.Service.from_data(data);
+                    }
+                    catch(_err)
+                    {
+                        //possible corruption of local store
+                        console.log("LOCAL STORAGE CORRUPTION?");
+                        console.log(_err);
+                        service = undefined;
+                    }
                 }
             }
         }
 
-        var must_write = false;
+        let must_write = false;
 
-        if (service == undefined)
+        if (!service)
         {
             if (!autofetch)
             {
-                throw new ServiceError(
+                throw new Acquire.ServiceError(
                     `No service at ${service_url} : ${service_uid}`);
             }
 
             // we now need to connect to a trusted registry
+            let registry = undefined;
+
             try
             {
-                var registry = await this._get_trusted_registry_service(
+                registry = await this._get_trusted_registry_service(
                                               {service_uid:service_uid,
                                                service_url:service_url});
             }
             catch(err)
             {
-                throw new ServiceError(
+                throw new Acquire.ServiceError(
                     `Cannot get service ${service_uid} : ${service_url} ` +
-                    `because we can't load the registry! ${err}`);
+                    `because we can't load the registry!`, err);
             }
 
             try
@@ -170,12 +221,23 @@ class Wallet
             }
             catch(err)
             {
-                throw new ServiceError(
+                throw new Acquire.ServiceError(
                     `Cannot get service ${service_uid} : ${service_url} ` +
-                    `because of error ${err}`);
+                    `because of error`, err);
             }
 
             must_write = true;
+        }
+
+        if (service_type)
+        {
+            if (service.service_type() != service_type)
+            {
+                throw new Acquire.ServiceError(
+                    `Disagreement of service type for ${service}. ` +
+                    `Expected ${service_type} but got ` +
+                    `${service.service_type()}`);
+            }
         }
 
         if (service.should_refresh_keys())
@@ -274,52 +336,57 @@ class Wallet
         // the login URL is http[s]://something.com?id=XXXX/YY.YY.YY.YY
         // where XXXX is the service_uid of the service we should
         // connect with, and YY.YY.YY.YY is the short_uid of the login
+        let idcode = undefined;
+
         try
         {
-            var idcode = _getParameterByName('id', url);
+            idcode = Acquire.Private._getParameterByName('id', url);
         }
         catch(err)
         {
-            throw new LoginError(
+            throw new Acquire.LoginError(
                 `Cannot identify the session of service information ` +
                 `from the login URL ${url}. This should have ` +
                 `id=XX-XX/YY.YY.YY.YY as a query parameter.`, err);
         }
 
+        let service_uid, short_uid = undefined;
+
         try
         {
-            var result = idcode.split("/");
-            var service_uid = result[0];
-            var short_uid = result[1];
+            let result = idcode.split("/");
+            service_uid = result[0];
+            short_uid = result[1];
         }
         catch(err)
         {
-            throw new LoginError(
+            throw new Acquire.LoginError(
                 `Cannot identify the session of service information ` +
                 `from the login URL ${url}. This should have ` +
                 `id=XX-XX/YY.YY.YY.YY as a query parameter.`, err);
         }
 
         // now get the service
+        let service = undefined;
         try
         {
-            var service = await this.get_service({service_uid:service_uid});
+            service = await this.get_service({service_uid:service_uid});
         }
         catch(err)
         {
-            throw new LoginError(
+            throw new Acquire.LoginError(
                 `Cannot find the service with UID ${service_uid}`, err);
         }
 
         if (!service.can_identify_users())
         {
-            throw new LoginError(
+            throw new Acquire.LoginError(
                 `Service ${service} is unable to identify users! ` +
                 `You cannot log into something that is not a valid ` +
                 `identity service!`);
         }
 
-        var userinfo = await this._find_userinfo({username:username,
+        let userinfo = await this._find_userinfo({username:username,
                                                   password:password});
 
         if (!username)
@@ -330,23 +397,23 @@ class Wallet
             }
             catch(_err)
             {
-                throw new LoginError("You must supply the username!");
+                throw new Acquire.LoginError("You must supply the username!");
             }
 
             if (!username)
             {
-                throw new LoginError("You must supply the username!");
+                throw new Acquire.LoginError("You must supply the username!");
             }
         }
 
-        var user_uid = undefined;
+        let user_uid = undefined;
 
         if ("user_uid" in userinfo)
         {
             user_uid = userinfo["user_uid"];
         }
 
-        var device_uid = undefined;
+        let device_uid = undefined;
 
         if ("device_uid" in userinfo)
         {
@@ -381,25 +448,28 @@ class Wallet
             return;
         }
 
+        let response = undefined;
+
         try
         {
-            var creds = new Credentials({username:username, password:password,
+            let creds = new Acquire.Credentials(
+                                        {username:username, password:password,
                                          otpcode:otpcode, short_uid:short_uid,
                                          device_uid:device_uid});
 
-            var cred_data = await creds.to_data({identity_uid:service.uid()});
+            let cred_data = await creds.to_data({identity_uid:service.uid()});
 
-            var args = {"credentials": cred_data,
+            let args = {"credentials": cred_data,
                         "user_uid": user_uid,
                         "remember_device": remember_device,
                         "short_uid": short_uid}
 
-            var response = await service.call_function({func:"login",
-                                                        args:args});
+            response = await service.call_function({func:"login",
+                                                    args:args});
         }
         catch(err)
         {
-            throw new LoginError("Failed to log in", err);
+            throw new Acquire.LoginError("Failed to log in", err);
         }
 
         if (!remember_device)
@@ -409,7 +479,7 @@ class Wallet
 
         try
         {
-            var returned_user_uid = response["user_uid"];
+            let returned_user_uid = response["user_uid"];
 
             if (returned_user_uid != user_uid)
             {
