@@ -43,31 +43,32 @@ Acquire.test_acquire = async function()
 {
     try
     {
-        /*var wallet = new Wallet();
+        let wallet = new Acquire.Wallet();
 
-        //wallet.clear();
+        wallet.clear();
 
-        var service = await wallet.get_service({service_uid:"a0-a0"});
-
-        console.log(service);
-
-        service = await wallet.get_service({service_url:service.canonical_url()});
+        let service = await wallet.get_service({service_uid:"a0-a0"});
 
         console.log(service);
 
-        id_service = await wallet.get_service({service_uid:"a0-a1"});
+        service = await wallet.get_service(
+                                {service_url:service.canonical_url()});
 
-        console.log(id_service);*/
+        console.log(service);
 
-        /*user = new User({username:"chryswoods"});
+        let id_service = await wallet.get_service({service_uid:"a0-a1"});
+
+        console.log(id_service);
+
+        let user = new Acquire.User({username:"chryswoods"});
 
         console.log(user);
 
-        result = await user.request_login();
+        let result = await user.request_login();
 
         console.log(user);
 
-        console.log(result);*/
+        console.log(result);
     }
     catch(err)
     {

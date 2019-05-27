@@ -1,15 +1,14 @@
 
-Acquire.Private._get_identity_url = function()
-{
-    return "fn.acquire-aaai.com";
-}
-
 Acquire.Private._get_identity_service = async function(
-                                            {identity_url=undefined})
+                                            {identity_url=undefined,
+                                             identity_uid=undefined})
 {
-    if (identity_url == undefined)
+    if (!identity_url)
     {
-        identity_url = Acquire.Private._get_identity_url();
+        if (!identity_uid)
+        {
+            identity_uid = "a0-a1";
+        }
     }
 
     let wallet = new Acquire.Wallet();
@@ -17,7 +16,8 @@ Acquire.Private._get_identity_service = async function(
 
     try
     {
-        service = await wallet.get_service({service_url:identity_url});
+        service = await wallet.get_service({service_url:identity_url,
+                                            service_uid:identity_uid});
     }
     catch(err)
     {
@@ -50,12 +50,16 @@ Acquire.User = class
         this._scope = scope;
         this._permissions = permissions;
 
-        if (identity_url != undefined)
+        if (identity_url)
         {
             this._identity_url = identity_url;
         }
+        else
+        {
+            this._identity_url = undefined;
+        }
 
-        if (identity_uid != undefined)
+        if (identity_uid)
         {
             this._identity_uid = identity_uid;
         }
@@ -143,14 +147,16 @@ Acquire.User = class
     {
         if (this._status == "ERROR")
         {
-            throw new Acquire.LoginError(this._error_string);
+            throw new Acquire.LoginError(this._error_string,
+                                         this._error_exception);
         }
     }
 
-    _set_error_state(message)
+    _set_error_state(message, error=undefined)
     {
         this._status = "ERROR";
         this._error_string = message;
+        this._error_exception = error;
     }
 
     session_key()
@@ -193,7 +199,8 @@ Acquire.User = class
         try
         {
             identity_service = await Acquire.Private._get_identity_service(
-                                {identity_url:this.identity_service_url()});
+                                {identity_url:this._identity_url,
+                                 identity_uid:this._identity_uid});
         }
         catch(err)
         {
@@ -247,7 +254,7 @@ Acquire.User = class
         }
         catch(_err)
         {
-            return _get_identity_url();
+            return undefined;
         }
     }
 
@@ -487,8 +494,8 @@ Acquire.User = class
         }
         catch(err)
         {
-            error = "Could not complete login!";
-            this._set_error_state(error);
+            let error = "Could not complete login!";
+            this._set_error_state(error, err);
             throw new Acquire.LoginError(error, err);
         }
     }
