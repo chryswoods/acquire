@@ -115,6 +115,5 @@ venv.bak/
 source/base_image/Acquire/*
 user/notebooks/.ipynb_checkpoints/
 *secret_key*
-javascript/acquire.js
 
 .DS_Store
