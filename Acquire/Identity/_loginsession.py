@@ -520,8 +520,6 @@ class LoginSession:
 
         prefix = "%s/%s/%s/" % (_sessions_key, status, short_uid)
 
-        print(prefix)
-
         try:
             keys = _ObjectStore.get_all_objects_from_json(bucket=bucket,
                                                           prefix=prefix)

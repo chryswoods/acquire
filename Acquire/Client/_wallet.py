@@ -326,6 +326,7 @@ class Wallet:
            identity_url
         """
         if "password" in userinfo:
+            print(userinfo["password"])
             return userinfo["password"]
         else:
             import getpass as _getpass

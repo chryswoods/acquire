@@ -249,12 +249,15 @@ function perform_login_submit(){
 
         var key_pair = null;
 
-        try{
+        try
+        {
             key_pair = await generateKeypair();
             let key_data = await exportPublicKeyToAcquire(key_pair.publicKey);
             args_json["encryption_public_key"] = key_data;
             args_json = JSON.stringify(args_json);
-        } catch(err) {
+        }
+        catch(err)
+        {
             console.log(err);
             login_failure("Cannot generate encryption keys. This may be because " +
                           "your browser does not support cryptography or you are " +

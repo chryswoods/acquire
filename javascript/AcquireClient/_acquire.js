@@ -1,3 +1,11 @@
+'use strict'
+
+/** Holder for the Acquire "namespace" */
+let Acquire = {};
+
+/** "namespace" for all of the private Acquire classes/functions */
+Acquire.Private = {};
+
 /**
  * Acquire Javascript Library. This provides some native JS classes
  * that match the API of the Acquire.Client Python library. This
@@ -5,21 +13,68 @@
  * for (some) of the classes available in Acquire.Client
  */
 
-async function test_acquire()
+Acquire.login = async function ()
 {
-    var wallet = new Wallet();
+    try
+    {
+        let username = document.getElementById("username").value;
+        let password = document.getElementById("password").value;
+        let otpcode = document.getElementById("otpcode").value;
+        let remember_device = document.getElementById("remember_device").value;
+        let url = document.getElementById("url").value;
 
-    wallet.clear();
+        let wallet = new Acquire.Wallet();
+        await wallet.send_password({url:url, username:username,
+                                    password:password, otpcode:otpcode,
+                                    remember_device: remember_device});
 
-    var service = await wallet.get_service({service_uid:"a0-a0"});
+        console.log("LOGIN SUCCESS!");
+    }
+    catch(err)
+    {
+        console.log(`LOGIN FAILED: ${err}`);
+        console.log(err);
+        let obj = JSON.parse(JSON.stringify(err));
+        console.log(obj);
+    }
+}
 
-    console.log(service);
+Acquire.test_acquire = async function()
+{
+    try
+    {
+        let wallet = new Acquire.Wallet();
 
-    service = await wallet.get_service({service_url:service.canonical_url()});
+        wallet.clear();
 
-    console.log(service);
+        let service = await wallet.get_service({service_uid:"a0-a0"});
 
-    id_service = await wallet.get_service({service_uid:"a0-a1"});
+        console.log(service);
 
-    console.log(id_service);
+        service = await wallet.get_service(
+                                {service_url:service.canonical_url()});
+
+        console.log(service);
+
+        let id_service = await wallet.get_service({service_uid:"a0-a1"});
+
+        console.log(id_service);
+
+        let user = new Acquire.User({username:"chryswoods"});
+
+        console.log(user);
+
+        let result = await user.request_login();
+
+        console.log(user);
+
+        console.log(result);
+    }
+    catch(err)
+    {
+        console.log(`UNCAUGHT EXCEPTION`);
+        console.log(err);
+        let obj = JSON.parse(JSON.stringify(err));
+        console.log(obj);
+    }
 }
