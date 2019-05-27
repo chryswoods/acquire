@@ -207,6 +207,7 @@ Acquire.call_function = async function(
                         {method: 'post',
                          headers: {
                             'Accept': 'application/json, test/plain, */*',
+                            'Access-Control-Allow-Origin': '*',
                             'Content-Type': 'application/json'
                          },
                          body: args_json});
