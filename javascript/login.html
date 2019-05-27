@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+<head>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bring in the google fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Lato:300|Open+Sans"
+        rel="stylesheet">
+
+  <!-- Bring in the Acquire CSS to style the login boxes etc. -->
+  <link rel="stylesheet" href="acquire.css">
+
+  <script>window.console = window.console || function(t) {};</script>
+
+  <script>
+    if (document.location.search.match(/type=embed/gi)) {
+      window.parent.postMessage("resize", "*");
+    }
+  </script>
+
+  <!-- Javascript files needed to use Acquire -->
+  <script src="fernetBrowser.js"></script>
+  <script src="md5.js"></script>
+  <script src="sha.js"></script>
+  <script src="base64js.js"></script>
+  <script src="acquire.js"></script>
+  <!-- You can find them at github.com/chryswoods/acquire
+       in the javascript directory -->
+</head>
+
+<body translate="no">
+  <section class="content">
+    <div id="acquire.intro.panel">
+      <p>Intro panel</p>
+    </div>
+
+    <div id="acquire.userpassword.panel">
+      <p>Username and password</p>
+    </div>
+
+    <div id="acquire.otpcode.panel">
+      <p>OTPCode panel</p>
+    </div>
+
+    <div id="acquire.result.panel">
+      <p>Result of login</p>
+    </div>
+
+    <div id="acquire.progress.panel">
+      <label id="acquire.progress.text"></label>
+    </div>
+  </section>
+</body>
+
+</html>
