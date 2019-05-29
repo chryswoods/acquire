@@ -45,9 +45,9 @@ Acquire.TOTP = function() {
             let offset = hex2dec(hmac.substring(hmac.length - 1));
             let otp = (hex2dec(hmac.substr(offset * 2, 8)) & hex2dec("7fffffff")) + "";
             otp = (otp).substr(otp.length - 6, 6);
+            return otp;
         } catch (error) {
             throw error;
         }
-        return otp;
     };
 }
