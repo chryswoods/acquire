@@ -165,13 +165,6 @@ Acquire.Login.complete_login = async function(wallet, otpcode=undefined,
     let username = Acquire.Login._username;
     let password = Acquire.Login._password;
 
-    console.log(service);
-    console.log(short_uid);
-    console.log(username);
-    console.log(password);
-    console.log(otpcode);
-    console.log(remember_device);
-
     try
     {
         await wallet.send_password({service:service,
