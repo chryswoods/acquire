@@ -94,7 +94,6 @@ Acquire.Wallet = class
 
         try
         {
-            console.log("BOOTSTRAPPING REGISTRY");
             //we need to bootstrap to get the registry
             let registry_url = Acquire.root_server["a0-a0"]["service_url"];
             let registry_pubkey = await Acquire.PublicKey.from_data(
@@ -255,79 +254,74 @@ Acquire.Wallet = class
         return service;
     }
 
-    async _find_userinfo({username=undefined, password=undefined})
+    async _find_userinfo({username, password, service_uid})
     {
-        /*userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
+        // for security, the key for the userinfo is a hash
+        // of the username + password + service_uid
+        let key = Acquire.multi_md5(service_uid, username+":"+password);
 
-        userinfos = []
+        key = `Acquire/wallet/userinfo/${key}`;
 
-        for userfile in userfiles:
-            try:
-                userinfo = _read_json(userfile)
-                if _could_match(userinfo, username, password):
-                    userinfos.append((userinfo["username"], userinfo))
-            except:
-                pass
+        let userinfo = localStorage.getItem(key);
 
-        userinfos.sort(key=lambda x: x[0])
+        if (!userinfo)
+        {
+            return {};
+        }
 
-        if len(userinfos) == 1:
-            return self._unlock_userinfo(userinfos[0][1])
+        userinfo = Acquire.string_to_bytes(userinfo);
 
-        if len(userinfos) == 0:
-            if username is None:
-                username = _input("Please type your username: ")
+        // the data in this userinfo is encrypted using a SymmetricKey
+        // whose password is the MD5 combination of the service_uid
+        // and the user password
+        let passkey = Acquire.multi_md5(service_uid, password);
+        let symkey = new Acquire.SymmetricKey({symmetric_key:passkey});
 
-            userinfo = {"username": username}
-
-            if password is not None:
-                userinfo["password"] = password
-
-            return userinfo
-
-        _output("Please choose the account by typing in its number, "
-                "or type a new username if you want a different account.")
-
-        for (i, (username, userinfo)) in enumerate(userinfos):
-            _output("[%d] %s {%s}" % (i+1, username, userinfo["user_uid"]))
-
-        max_tries = 5
-
-        for i in range(0, max_tries):
-            reply = _input(
-                    "\nMake your selection (1 to %d) " %
-                    (len(userinfos))
-                )
-
-            try:
-                idx = int(reply) - 1
-            except:
-                idx = None
-
-            if idx is None:
-                # interpret this as a username
-                return self._find_userinfo(username=reply, password=password)
-            elif idx < 0 or idx >= len(userinfos):
-                _output("Invalid account.")
-            else:
-                return self._unlock_userinfo(userinfos[idx][1])
-
-            if i < max_tries-1:
-                _output("Try again...")
-
-        userinfo = {}
-
-        if username is not None:
-            userinfo["username"] = username
-
-        return userinfo*/
-
-        return {};
+        try
+        {
+            userinfo = await symkey.decrypt(userinfo);
+            return JSON.parse(userinfo);
+        }
+        catch(err)
+        {
+            console.log("Could not decrypt the userinfo!");
+            console.log(err);
+            let obj = JSON.parse(JSON.stringify(err));
+            console.log(obj);
+            return {};
+        }
     }
 
-    _set_userinfo({userinfo=undefined, user_uid=undefined,
-                   identity_uid=undefined})
-    {}
+    async _set_userinfo({userinfo, username, password, service_uid})
+    {
+        try
+        {
+            userinfo = JSON.stringify(userinfo);
+
+            // the data in this userinfo is encrypted using a SymmetricKey
+            // whose password is the MD5 combination of the service_uid
+            // and the user password
+            let passkey = Acquire.multi_md5(service_uid, password);
+            let symkey = new Acquire.SymmetricKey({symmetric_key:passkey});
+
+            userinfo = await symkey.encrypt(userinfo);
+            userinfo = Acquire.bytes_to_string(userinfo);
+
+            // for security, the key for the userinfo is a hash
+            // of the username + password + service_uid
+            let key = Acquire.multi_md5(service_uid, username+":"+password);
+            key = `Acquire/wallet/userinfo/${key}`;
+
+            localStorage.setItem(key, userinfo);
+        }
+        catch(err)
+        {
+            console.log("Could not remember the device info");
+            console.log(err);
+            let obj = JSON.parse(JSON.stringify(err));
+            console.log(obj);
+        }
+    }
 
     static get_login_details_from_url(url)
     {
@@ -373,11 +367,20 @@ Acquire.Wallet = class
                     "You must supply a username and password!");
     }
 
-    async _get_otpcode({userinfo=undefined, username=undefined,
-                        password=undefined, service=undefined})
+    async _get_otpcode({userinfo=undefined})
     {
-        throw new Acquire.LoginError(
+        let otpsecret = userinfo["otpsecret"];
+
+        if (!otpsecret)
+        {
+            throw new Acquire.LoginError(
                     "You must supply an OTPCode");
+        }
+
+        let otp = new Acquire.TOTP();
+        let otpcode = otp.getOTP(otpsecret);
+        console.log(`SUBMITTING CODE ${otpcode}`);
+        return otpcode;
     }
 
     async send_password({url=undefined, username=undefined,
@@ -418,7 +421,8 @@ Acquire.Wallet = class
         }
 
         let userinfo = await this._find_userinfo({username:username,
-                                                  password:password});
+                                                  password:password,
+                                                  service_uid:service.uid()});
 
         if (!username)
         {
@@ -458,16 +462,15 @@ Acquire.Wallet = class
 
         if (otpcode == undefined)
         {
-            otpcode = await this._get_otpcode({userinfo:userinfo,
-                                               username:username,
-                                               password:password,
-                                               service:service});
+            otpcode = await this._get_otpcode({userinfo:userinfo});
         }
         else
         {
             // user if providing the primary OTP, so this is not a device
             device_uid = undefined;
         }
+
+        console.log(`device_uid = ${device_uid}`);
 
         console.log(`Logging in to ${service.canonical_url()}, ` +
                     `session ${short_uid} with username ${username}...`);
@@ -521,18 +524,13 @@ Acquire.Wallet = class
                 userinfo = {};
                 user_uid = returned_user_uid;
             }
+            else
+            {
+                userinfo["user_uid"] = user_uid;
+            }
         }
         catch(_err)
-        {
-            //no user_uid so nothing to save
-            return;
-        }
-
-        if (!user_uid)
-        {
-            // can't save anything
-            return;
-        }
+        {}
 
         userinfo["username"] = username;
 
@@ -550,8 +548,9 @@ Acquire.Wallet = class
         catch(_err)
         {}
 
-        this._set_userinfo({userinfo:userinfo,
-                            user_uid:user_uid,
-                            identity_uid:service.uid()});
+        await this._set_userinfo({userinfo:userinfo,
+                                  username:username,
+                                  password:password,
+                                  service_uid:service.uid()});
     }
 }

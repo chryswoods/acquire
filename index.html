@@ -804,7 +804,6 @@ Acquire.call_function = async function(
                         {method: 'post',
                          headers: {
                             'Accept': 'application/json, test/plain, */*',
-                            'Access-Control-Allow-Origin': '*',
                             'Content-Type': 'application/json'
                          },
                          body: args_json});
@@ -1759,13 +1758,6 @@ Acquire.Login.complete_login = async function(wallet, otpcode=undefined,
     let username = Acquire.Login._username;
     let password = Acquire.Login._password;
 
-    console.log(service);
-    console.log(short_uid);
-    console.log(username);
-    console.log(password);
-    console.log(otpcode);
-    console.log(remember_device);
-
     try
     {
         await wallet.send_password({service:service,
@@ -2141,10 +2133,10 @@ Acquire.TOTP = function() {
             let offset = hex2dec(hmac.substring(hmac.length - 1));
             let otp = (hex2dec(hmac.substr(offset * 2, 8)) & hex2dec("7fffffff")) + "";
             otp = (otp).substr(otp.length - 6, 6);
+            return otp;
         } catch (error) {
             throw error;
         }
-        return otp;
     };
 }
 
@@ -3100,7 +3092,6 @@ Acquire.Wallet = class
 
         try
         {
-            console.log("BOOTSTRAPPING REGISTRY");
             //we need to bootstrap to get the registry
             let registry_url = Acquire.root_server["a0-a0"]["service_url"];
             let registry_pubkey = await Acquire.PublicKey.from_data(
@@ -3261,79 +3252,74 @@ Acquire.Wallet = class
         return service;
     }
 
-    async _find_userinfo({username=undefined, password=undefined})
+    async _find_userinfo({username, password, service_uid})
     {
-        /*userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
+        // for security, the key for the userinfo is a hash
+        // of the username + password + service_uid
+        let key = Acquire.multi_md5(service_uid, username+":"+password);
 
-        userinfos = []
+        key = `Acquire/wallet/userinfo/${key}`;
 
-        for userfile in userfiles:
-            try:
-                userinfo = _read_json(userfile)
-                if _could_match(userinfo, username, password):
-                    userinfos.append((userinfo["username"], userinfo))
-            except:
-                pass
+        let userinfo = localStorage.getItem(key);
 
-        userinfos.sort(key=lambda x: x[0])
+        if (!userinfo)
+        {
+            return {};
+        }
 
-        if len(userinfos) == 1:
-            return self._unlock_userinfo(userinfos[0][1])
+        userinfo = Acquire.string_to_bytes(userinfo);
 
-        if len(userinfos) == 0:
-            if username is None:
-                username = _input("Please type your username: ")
+        // the data in this userinfo is encrypted using a SymmetricKey
+        // whose password is the MD5 combination of the service_uid
+        // and the user password
+        let passkey = Acquire.multi_md5(service_uid, password);
+        let symkey = new Acquire.SymmetricKey({symmetric_key:passkey});
 
-            userinfo = {"username": username}
-
-            if password is not None:
-                userinfo["password"] = password
-
-            return userinfo
-
-        _output("Please choose the account by typing in its number, "
-                "or type a new username if you want a different account.")
-
-        for (i, (username, userinfo)) in enumerate(userinfos):
-            _output("[%d] %s {%s}" % (i+1, username, userinfo["user_uid"]))
-
-        max_tries = 5
-
-        for i in range(0, max_tries):
-            reply = _input(
-                    "\nMake your selection (1 to %d) " %
-                    (len(userinfos))
-                )
-
-            try:
-                idx = int(reply) - 1
-            except:
-                idx = None
-
-            if idx is None:
-                # interpret this as a username
-                return self._find_userinfo(username=reply, password=password)
-            elif idx < 0 or idx >= len(userinfos):
-                _output("Invalid account.")
-            else:
-                return self._unlock_userinfo(userinfos[idx][1])
-
-            if i < max_tries-1:
-                _output("Try again...")
-
-        userinfo = {}
-
-        if username is not None:
-            userinfo["username"] = username
-
-        return userinfo*/
-
-        return {};
+        try
+        {
+            userinfo = await symkey.decrypt(userinfo);
+            return JSON.parse(userinfo);
+        }
+        catch(err)
+        {
+            console.log("Could not decrypt the userinfo!");
+            console.log(err);
+            let obj = JSON.parse(JSON.stringify(err));
+            console.log(obj);
+            return {};
+        }
     }
 
-    _set_userinfo({userinfo=undefined, user_uid=undefined,
-                   identity_uid=undefined})
-    {}
+    async _set_userinfo({userinfo, username, password, service_uid})
+    {
+        try
+        {
+            userinfo = JSON.stringify(userinfo);
+
+            // the data in this userinfo is encrypted using a SymmetricKey
+            // whose password is the MD5 combination of the service_uid
+            // and the user password
+            let passkey = Acquire.multi_md5(service_uid, password);
+            let symkey = new Acquire.SymmetricKey({symmetric_key:passkey});
+
+            userinfo = await symkey.encrypt(userinfo);
+            userinfo = Acquire.bytes_to_string(userinfo);
+
+            // for security, the key for the userinfo is a hash
+            // of the username + password + service_uid
+            let key = Acquire.multi_md5(service_uid, username+":"+password);
+            key = `Acquire/wallet/userinfo/${key}`;
+
+            localStorage.setItem(key, userinfo);
+        }
+        catch(err)
+        {
+            console.log("Could not remember the device info");
+            console.log(err);
+            let obj = JSON.parse(JSON.stringify(err));
+            console.log(obj);
+        }
+    }
 
     static get_login_details_from_url(url)
     {
@@ -3379,11 +3365,20 @@ Acquire.Wallet = class
                     "You must supply a username and password!");
     }
 
-    async _get_otpcode({userinfo=undefined, username=undefined,
-                        password=undefined, service=undefined})
+    async _get_otpcode({userinfo=undefined})
     {
-        throw new Acquire.LoginError(
+        let otpsecret = userinfo["otpsecret"];
+
+        if (!otpsecret)
+        {
+            throw new Acquire.LoginError(
                     "You must supply an OTPCode");
+        }
+
+        let otp = new Acquire.TOTP();
+        let otpcode = otp.getOTP(otpsecret);
+        console.log(`SUBMITTING CODE ${otpcode}`);
+        return otpcode;
     }
 
     async send_password({url=undefined, username=undefined,
@@ -3424,7 +3419,8 @@ Acquire.Wallet = class
         }
 
         let userinfo = await this._find_userinfo({username:username,
-                                                  password:password});
+                                                  password:password,
+                                                  service_uid:service.uid()});
 
         if (!username)
         {
@@ -3464,16 +3460,15 @@ Acquire.Wallet = class
 
         if (otpcode == undefined)
         {
-            otpcode = await this._get_otpcode({userinfo:userinfo,
-                                               username:username,
-                                               password:password,
-                                               service:service});
+            otpcode = await this._get_otpcode({userinfo:userinfo});
         }
         else
         {
             // user if providing the primary OTP, so this is not a device
             device_uid = undefined;
         }
+
+        console.log(`device_uid = ${device_uid}`);
 
         console.log(`Logging in to ${service.canonical_url()}, ` +
                     `session ${short_uid} with username ${username}...`);
@@ -3527,18 +3522,13 @@ Acquire.Wallet = class
                 userinfo = {};
                 user_uid = returned_user_uid;
             }
+            else
+            {
+                userinfo["user_uid"] = user_uid;
+            }
         }
         catch(_err)
-        {
-            //no user_uid so nothing to save
-            return;
-        }
-
-        if (!user_uid)
-        {
-            // can't save anything
-            return;
-        }
+        {}
 
         userinfo["username"] = username;
 
@@ -3556,8 +3546,9 @@ Acquire.Wallet = class
         catch(_err)
         {}
 
-        this._set_userinfo({userinfo:userinfo,
-                            user_uid:user_uid,
-                            identity_uid:service.uid()});
+        await this._set_userinfo({userinfo:userinfo,
+                                  username:username,
+                                  password:password,
+                                  service_uid:service.uid()});
     }
-}</script> </head> <body translate="no"> <section class="content"> <div id="acquire.url.panel"> <form class="content__form contact-form" id="acquire.url.form"> <div class="contact-form__input-group"> <label class="contact-form__label" id="acquire.url.label" for="acquire.url.input"> login url <span class="contact-form__remind-input" id="acquire.url.reminder"> (*) you must supply a valid login url </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.url.input" name="url" type="text" autofill="url" autocomplete="acquire.url.current"> </div> <button class="contact-form__button" id="acquire.url.submit" type="submit">Login</button> </form> </div> <div id="acquire.userpassword.panel"> <h1 class="content__heading" id="acquire.userpassword.header"> Header </h1> <p class="content__lede" id="acquire.userpassword.message"> Login Message </p> <form class="content__form contact-form" id="acquire.userpassword.form"> <div class="contact-form__input-group"> <label class="contact-form__label" id="acquire.username.label" for="acquire.username.input"> username <span class="contact-form__remind-input" id="acquire.username.reminder"> (*) you must supply a username </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.username.input" name="username" type="text" autofill="username" autocomplete="acquire.username.current"> </div> <div class="contact-form__input-group"> <label class="contact-form__label" id="acquire.password.label" for="acquire.password.input"> password <span class="contact-form__remind-input" id="acquire.password.reminder"> (*) you must supply a password </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.password.input" name="password" type="password" autofill="password" autocomplete="acquire.password.current"> </div> <button class="contact-form__button" id="acquire.userpassword.submit" type="submit">Login</button> </form> </div> <div id="acquire.otpcode.panel"> <form class="content__form contact-form" id="acquire.otpcode.form"> <div class="contact-form__input-group"> <label class="contact-form__label" id="acquire.otpcode.label" for="acquire.otpcode.input"> Two-step Verification - Get a verification code from your Authenticator app <span class="contact-form__remind-input" id="acquire.otpcode.reminder"> (*) you must supply a 2-step verification code </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.otpcode.input" name="otpcode" type="text"> </div> <div class="contact-form__input-group"> <p class="contact-form__label--checkbox-group">Remember device</p> <input class="contact-form__input contact-form__input--checkbox" id="acquire.otpcode.remember_device" type="checkbox" value="true"> </div> <button class="contact-form__button" id="acquire.otpcode.submit" type="submit">Login</button> </form> </div> <div id="acquire.success.panel"> <h1 class="content__heading" id="acquire.success.header"> Success </h1> <p class="content__lede" id="acquire.success.message"> Success Message </p> <form class="content__form contact-form" id="acquire.success.form"> <label id="acquire.success.label"></label> <button class="contact-form__button" id="acquire.success.submit" type="submit">Login Again</button> <button id="acquire.progress.close" ,="" class="contact-form__button" \="" type="input" onclick="window.close()">Close page</button> </form> </div> <div id="acquire.fail.panel"> <h1 class="content__heading" id="acquire.fail.header"> Failed </h1> <p class="content__lede" id="acquire.fail.message"> Failure Message </p> <form class="content__form contact-form" id="acquire.fail.form"> <label id="acquire.fail.label"></label> <button class="contact-form__button" id="acquire.fail.submit" type="submit">Try Again</button> <button id="acquire.progress.close" ,="" class="contact-form__button" \="" type="input" onclick="window.close()">Close page</button> </form> </div> <div id="acquire.progress.panel"> <form class="content__form contact-form" id="acquire.progress.form"> <label class="contact-form__label" id="acquire.progress.label"> Progress... </label> <div id="acquire.progress.progress" class="login-progress"> <div id="acquire.progress.bar" class="login-bar"></div> </div> <button class="contact-form__button" id="acquire.progress.submit" type="submit">Cancel</button> <button id="acquire.progress.close" ,="" class="contact-form__button" \="" type="input" onclick="window.close()">Close page</button> </form> </div> </section> <script>Acquire.Login.initialise();</script> </body> </html> 
+}</script> </head> <body translate="no"> <section class="content"> <div id="acquire.url.panel"> <form class="content__form contact-form" id="acquire.url.form"> <div class="contact-form__input-group"> <label class="contact-form__label" id="acquire.url.label" for="acquire.url.input"> login url <span class="contact-form__remind-input" id="acquire.url.reminder"> (*) you must supply a valid login url </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.url.input" name="url" type="text" autofill="url" autocomplete="acquire.url.current"> </div> <button class="contact-form__button" id="acquire.url.submit" type="submit">Login</button> </form> </div> <div id="acquire.userpassword.panel"> <h1 class="content__heading" id="acquire.userpassword.header"> Header </h1> <p class="content__lede" id="acquire.userpassword.message"> Login Message </p> <form class="content__form contact-form" id="acquire.userpassword.form"> <div class="contact-form__input-group"> <label class="contact-form__label" id="acquire.username.label" for="acquire.username.input"> username <span class="contact-form__remind-input" id="acquire.username.reminder"> (*) you must supply a username </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.username.input" name="username" type="text" autofill="username" autocomplete="acquire.username.current"> </div> <div class="contact-form__input-group"> <label class="contact-form__label" id="acquire.password.label" for="acquire.password.input"> password <span class="contact-form__remind-input" id="acquire.password.reminder"> (*) you must supply a password </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.password.input" name="password" type="password" autofill="password" autocomplete="acquire.password.current"> </div> <button class="contact-form__button" id="acquire.userpassword.submit" type="submit">Login</button> </form> </div> <div id="acquire.otpcode.panel"> <form class="content__form contact-form" id="acquire.otpcode.form"> <div class="contact-form__input-group"> <label class="contact-form__label" id="acquire.otpcode.label" for="acquire.otpcode.input"> Two-step Verification - Get a verification code from your Authenticator app <span class="contact-form__remind-input" id="acquire.otpcode.reminder"> (*) you must supply a 2-step verification code </span> </label> <input class="contact-form__input contact-form__input--text" id="acquire.otpcode.input" name="otpcode" type="text"> </div> <div class="contact-form__input-group"> <p class="contact-form__label--checkbox-group">Remember device</p> <input class="contact-form__input contact-form__input--checkbox" id="acquire.otpcode.remember_device" name="remember_device" type="checkbox" value="true"> </div> <button class="contact-form__button" id="acquire.otpcode.submit" type="submit">Login</button> </form> </div> <div id="acquire.success.panel"> <h1 class="content__heading" id="acquire.success.header"> Success </h1> <p class="content__lede" id="acquire.success.message"> Success Message </p> <form class="content__form contact-form" id="acquire.success.form"> <label id="acquire.success.label"></label> <button class="contact-form__button" id="acquire.success.submit" type="submit">Login Again</button> <button id="acquire.progress.close" ,="" class="contact-form__button" \="" type="input" onclick="window.close()">Close page</button> </form> </div> <div id="acquire.fail.panel"> <h1 class="content__heading" id="acquire.fail.header"> Failed </h1> <p class="content__lede" id="acquire.fail.message"> Failure Message </p> <form class="content__form contact-form" id="acquire.fail.form"> <label id="acquire.fail.label"></label> <button class="contact-form__button" id="acquire.fail.submit" type="submit">Try Again</button> <button id="acquire.progress.close" ,="" class="contact-form__button" \="" type="input" onclick="window.close()">Close page</button> </form> </div> <div id="acquire.progress.panel"> <form class="content__form contact-form" id="acquire.progress.form"> <label class="contact-form__label" id="acquire.progress.label"> Progress... </label> <div id="acquire.progress.progress" class="login-progress"> <div id="acquire.progress.bar" class="login-bar"></div> </div> <button class="contact-form__button" id="acquire.progress.submit" type="submit">Cancel</button> <button id="acquire.progress.close" ,="" class="contact-form__button" \="" type="input" onclick="window.close()">Close page</button> </form> </div> </section> <script>Acquire.Login.initialise();</script> </body> </html> 
