@@ -261,7 +261,8 @@ Acquire.Login.submit_url = async function(wallet, service_uid, short_uid)
     try
     {
         Acquire.Login.set_progress("Getting session info...", 75);
-        let args = {"short_uid":short_uid};
+        let args = {"short_uid":short_uid,
+                    "status":"pending"};
         let result = await service.call_function({func:"get_session_info",
                                                   args:args});
         message = result["login_message"];

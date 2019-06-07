@@ -37,7 +37,15 @@ def run(args):
                 "You must specify either the session_uid or the short_uid "
                 "of the login session")
 
-        login_session = LoginSession.load(short_uid=short_uid, scope=scope,
+        try:
+            status = args["status"]
+        except:
+            raise PermissionError(
+                "You must specify the status of the short_uid session you "
+                "wish to query...")
+
+        login_session = LoginSession.load(short_uid=short_uid, status=status,
+                                          scope=scope,
                                           permissions=permissions)
 
     return_value = {}
