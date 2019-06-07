@@ -23,6 +23,9 @@ class LoginSession:
                 raise TypeError("The public certificate must be of "
                                 "type PublicKey")
 
+            if username is None or len(username) == 0:
+                raise PermissionError("You must supply a valid username!")
+
             self._username = username
             self._pubkey = public_key
             self._pubcert = public_cert

@@ -412,6 +412,9 @@ class User:
                              "User object. Create another object if you want "
                              "to try to log in again.")
 
+        if self._username is None or len(self._username) == 0:
+            raise LoginError("Please supply a valid username!")
+
         # first, create a private key that will be used
         # to sign all requests and identify this login
         from Acquire.Client import PrivateKey as _PrivateKey
