@@ -9,12 +9,6 @@ def run(args):
 
        Args:
             args (dict): contains authorisaton details for key dump
-
-        Returns:
-            dict: contains status and status message regarding success
-            of key dump operation
-
-
     """
     try:
         authorisation = Authorisation.from_data(args["authorisation"])

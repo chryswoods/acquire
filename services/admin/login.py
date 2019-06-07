@@ -13,7 +13,6 @@ def run(args):
        Args:
         args (dict): contains identifying information about the user,
                      short_UID, username, password and OTP code
-    
         Returns:
             dict: contains a URI and a UID for this login
     """

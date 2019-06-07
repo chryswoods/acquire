@@ -8,7 +8,15 @@ def run(args):
     """This function will allow anyone to obtain the public
        keys for the passed login session
     """
-    session_uid = args["session_uid"]
+    try:
+        session_uid = args["session_uid"]
+    except:
+        session_uid = None
+
+    try:
+        short_uid = args["short_uid"]
+    except:
+        short_uid = None
 
     try:
         scope = args["scope"]
@@ -20,8 +28,25 @@ def run(args):
     except:
         permissions = None
 
-    login_session = LoginSession.load(uid=session_uid, scope=scope,
-                                      permissions=permissions)
+    if session_uid:
+        login_session = LoginSession.load(uid=session_uid, scope=scope,
+                                          permissions=permissions)
+    else:
+        if short_uid is None:
+            raise PermissionError(
+                "You must specify either the session_uid or the short_uid "
+                "of the login session")
+
+        try:
+            status = args["status"]
+        except:
+            raise PermissionError(
+                "You must specify the status of the short_uid session you "
+                "wish to query...")
+
+        login_session = LoginSession.load(short_uid=short_uid, status=status,
+                                          scope=scope,
+                                          permissions=permissions)
 
     return_value = {}
 
@@ -45,5 +70,6 @@ def run(args):
         return_value["user_uid"] = login_session.user_uid()
 
     return_value["session_status"] = login_session.status()
+    return_value["login_message"] = login_session.login_message()
 
     return return_value
