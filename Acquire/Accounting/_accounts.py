@@ -31,7 +31,11 @@ class Accounts:
         return "Accounts(group=%s)" % self.group()
 
     def _root(self):
-        """Return the root key for this group in the object store"""
+        """Return the root key for this group in the object store
+
+            Returns:
+                string: Root key for group
+        """
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
         return "accounting/account_groups/%s" % \
@@ -88,7 +92,14 @@ class Accounts:
         return self._aclrules
 
     def _account_key(self, name):
-        """Return the key for the account called 'name' in this group"""
+        """Return the key for the account called 'name' in this group
+
+            Args:
+                name (str): Name of the account
+
+            Returns:
+                str: Key for the account 'name'
+        """
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
         return "%s/%s" % (self._root(),
@@ -102,7 +113,11 @@ class Accounts:
             _string_to_encoded(self._group)
 
     def group(self):
-        """Return the name of the group that this set of accounts refers to"""
+        """Return the name of the group that this set of accounts refers to
+
+            Returns:
+                string: Name of the group
+        """
         return self._group
 
     def name(self):
@@ -130,7 +145,15 @@ class Accounts:
                 "in this group")
 
     def list_accounts(self, bucket=None):
-        """Return the names of all of the accounts in this group"""
+        """Return the names of all of the accounts in this group
+
+            Args:
+                bucket (dict, default=None): Bucket from which to load data
+
+            Returns:
+                :obj:`list`: List of names of the accounts in this group
+
+        """
         self._assert_is_readable()
 
         if bucket is None:
@@ -164,7 +187,15 @@ class Accounts:
         return accounts
 
     def get_account(self, name, bucket=None):
-        """Return the account called 'name' from this group"""
+        """Return the account called 'name' from this group
+
+            Args:
+                name (:obj:`str`): Name of account to retrieve
+                bucket (:obj:`dict`): Bucket to load data from
+
+            Returns:
+                :obj:`Account`: Account object
+        """
         self._assert_is_readable()
 
         if bucket is None:
@@ -193,7 +224,14 @@ class Accounts:
         return _Account(uid=account_uid, bucket=bucket)
 
     def contains(self, account, bucket=None):
-        """Return whether or not this group contains the passed account"""
+        """Return whether or not this group contains the passed account
+
+            Args:
+                account (:obj:`Account`): Account to check against group
+                bucket (dict, default=None): Bucket to load data from
+            Returns:
+                bool : True if account in group, else False
+        """
         self._assert_is_readable()
 
         from Acquire.Accounting import Account as _Account
@@ -221,6 +259,15 @@ class Accounts:
                        authorisation=None):
         """Create a new account called 'name' in this group. This will
            return the existing account if it already exists
+
+           Args:
+                name (str): Name of account to create
+                description (default=None): Description of account
+                overdraft_limit (int, default=None): Limit of overdraft
+                bucket (dict, default=None): Bucket to load data from
+
+            Returns:
+                Account: New Account object
         """
         if name is None:
             raise ValueError("You must pass a name of the new account")

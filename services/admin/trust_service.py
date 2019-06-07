@@ -5,7 +5,16 @@ from Acquire.Identity import Authorisation
 
 
 def run(args):
-    """This function return the status and service info"""
+    """This function return the status and service info
+
+       Args:
+            args (dict): containing data on the service we want
+            to trust
+
+       Returns:
+            dict: containing status, status message and passed in args  
+    
+    """
     try:
         service_url = args["service_url"]
     except:

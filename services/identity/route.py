@@ -2,7 +2,17 @@
 
 def identity_functions(function, args):
     """This function routes calls to sub-functions, thereby allowing
-       a single identity function to stay hot for longer"""
+       a single identity function to stay hot for longer
+
+       Args:
+            function (str): for selection of function to call
+            args: arguments to be passed to the selected function
+
+       Returns:
+            function: If valid function selected, function with args passed
+            else None
+    
+       """
     if function == "get_session_info":
         from admin.get_session_info import run as _get_session_info
         return _get_session_info(args)

@@ -11,6 +11,12 @@ __all__ = ["FileWriteRequest"]
 def _get_key(root_key, filename):
     """Return the object store key for 'filename', using 'root_key' as
        the root
+
+        Args:
+            root_key (str): root_key for accessing object store
+            filename (str): filename to access in object store
+        Returns:
+            str: Location to access the file
     """
     basename = _os.path.basename(filename)
 
@@ -21,7 +27,15 @@ def _get_key(root_key, filename):
 
 
 def _clean_key(root_key, filekey):
-    """Return the cleaned key 'filekey', using 'root_key' as the root"""
+    """Return the cleaned key 'filekey', using 'root_key' as the root
+
+      Args:
+            root_key (str): root_key for accessing object store
+            filekey (str): filename to access in object store
+        Returns:
+            str: Location to access the file
+
+    """
     if root_key:
         return "%s/%s" % (str(root_key), str(filekey))
     else:
@@ -29,8 +43,13 @@ def _clean_key(root_key, filekey):
 
 
 def _get_filesize_and_checksum(filename):
-    """Return a tuple of the size in bytes of the passed file and the
-       file's md5 checksum
+    """Calculates the size in bytes of the file and
+        the MD5 hash
+
+       Args:
+            filename (str): name of file to calculate hash for
+        Returns:
+            tuple (int, str): size of file in bytes, md5 hash of file
     """
     from hashlib import md5 as _md5
     md5 = _md5()
@@ -45,10 +64,19 @@ def _get_filesize_and_checksum(filename):
 
 
 def _list_all_files(directory, ignore_hidden=True):
-    """Return a list of the path relative to 'directory' of
-       all files contained in 'directory'. If is_hidden is True, then include
-       all hidden files - otherwise these are ignored
+    """Create a list of the path relative to 'directory' of
+       all files contained in 'directory'.
+
+       Args:
+            directory (str): path of directory to traverse
+            ignore_hidden (bool): Default=True, if True then include all
+            hidden files, else ignore hidden files
+
+        Returns:
+            list: a list of all files in the directory
+
     """
+
     if not _os.path.isdir(directory):
         return []
 
@@ -68,10 +96,17 @@ def _list_all_files(directory, ignore_hidden=True):
 
 
 def _clean_path(path):
-    """This function cleans the passed path so that doesn't contain
+    """This function cleans the passed path so that it doesn't contain
        redundant slashes or '..' etc., so that all backslashes are forwards
        slashes, and that the trailing slash is removed
+
+       Args:
+            path (str): the path string to clean
+        Returns:
+            str: the path string cleaned of extra characters
+
     """
+
     if path is None:
         return ""
 
@@ -94,7 +129,20 @@ def _expand_source_destination(source, destination=None,
     """This function expands the 'source' and 'destination' into a pair
        of lists - the source files and the destination keys in the
        object store.
+
+       Args:
+            source (str): source directory to traverse
+            destination (str, optional): destination directory
+            root (str): root key to use in object store
+            ignore_hidden (bool): If True ignore hidden files in folders, else
+            include hidden files
+
+        Returns:
+            tuple (list, list): lists of files in the source and destination
+            directories
+
     """
+
     if source is None:
         return ([], [])
 
@@ -166,6 +214,18 @@ class FileWriteRequest(_Request):
 
            You must pass the 'account' from which payment will be taken to
            write files to the object store.
+
+            Args:
+                source (str): source directory to traverse
+                destination (str, optional): destination directory
+                root (str): root key to use in object store
+                ignore_hidden (bool): If True ignore hidden files in folders,
+                else include hidden files
+                account (Account): instance of Account class
+                testing_key (str): passed to enable testing of class
+            Returns:
+                None
+
         """
         super().__init__()
 
@@ -226,7 +286,11 @@ class FileWriteRequest(_Request):
                                     user=account.owner())
 
     def is_null(self):
-        """Return whether or not this is a null request"""
+        """Return whether or not this is a null request
+
+            Returns:
+                bool: True if UID set, else False
+        """
         return self._uid is None
 
     def __str__(self):
@@ -247,6 +311,11 @@ class FileWriteRequest(_Request):
     def resource_key(self):
         """Function to return a string that can be used as a
            summary key for this resource request
+
+
+            Returns:
+                None or str : None if instance is null, else string containing
+                uid and checksum
         """
         if self.is_null():
             return None
@@ -254,11 +323,20 @@ class FileWriteRequest(_Request):
             return "%s %s" % (self._uid, ":".join(self._checksums))
 
     def uid(self):
-        """Return the UID of this request"""
+        """Get the UID of this request
+
+        Returns:
+            str: UID of this request
+
+        """
         return self._uid
 
     def authorisation(self):
-        """Return the authorisation behind this request"""
+        """Return the authorisation behind this request
+
+            Returns:
+                Authorisation: the authorisation behind this request
+        """
         return self._authorisation
 
     def source_filenames(self):
@@ -267,27 +345,48 @@ class FileWriteRequest(_Request):
            created the request - it is not saved when this object is
            serialised to json as we don't want to leak potentially
            sensitive data to the object store
+
+           Returns:
+                list: list of files to be copied
         """
         return self._source_filenames
 
     def destination_keys(self):
         """Return the object store keys to which the files will be
            written
+
+           Returns:
+                list: object store keys to which the files will be written
+
         """
         return _copy.copy(self._destination_keys)
 
     def filesizes(self):
-        """Return the sizes of the files that are requested to be written"""
+        """Return the sizes of the files that are requested to be written
+
+            Returns:
+                list: size of the files to be written
+
+        """
         return _copy.copy(self._file_sizes)
 
     def checksums(self):
         """Return the checksums of the files that are requested
-           to be written"""
+           to be written
+
+           Returns:
+                list: checksums of the files to be written
+
+           """
         return _copy.copy(self._checksums)
 
     def account_uid(self):
         """Return the UID of the account from which payment should be
            taken for the file storage
+
+           Returns:
+                str or None: returns the UID of the account if valid
+                else None
         """
         try:
             return self._account_uid
@@ -303,19 +402,36 @@ class FileWriteRequest(_Request):
            store. This returns a pair of lists - the lists match the
            absolute path of the local file to the desired full key
            of the file in the object store
+
+           Args:
+                source (list): list of source objects
+                destination (list): list of destinations for objects
+                root (str, optional, default=None): root key for objects
+                ignore_hidden (bool, optional, default=True): ignore
+                hidden files
         """
         return _expand_source_destination(source, destination, root,
                                           ignore_hidden)
 
     def accounting_service_url(self):
-        """Return the canonical URL of the service holding the account"""
+        """Return the canonical URL of the service holding the account
+
+            Returns:
+                str or None: If _accounting_service_url valid return
+                return it else return None
+        """
         try:
             return self._accounting_service_url
         except:
             return None
 
     def to_data(self):
-        """Return this request as a json-serialisable dictionary"""
+        """Return this request as a json-serialisable dictionary
+
+            Returns:
+                dict: a JSON-serialisable dictionary of this request
+
+        """
         if self.is_null():
             return {}
 
@@ -336,6 +452,15 @@ class FileWriteRequest(_Request):
 
     @staticmethod
     def from_data(data):
+        """ Create a request from a JSON object
+
+            Args:
+                data (str) : an object serialised as a JSON object
+            Returns:
+                FileWriteRequest: a FileWriteRequest object created from
+                the JSON data
+
+        """
         if (data and len(data) > 0):
             from Acquire.Identity import Authorisation as _Authorisation
             f = FileWriteRequest()

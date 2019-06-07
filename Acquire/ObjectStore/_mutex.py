@@ -62,7 +62,11 @@ class Mutex:
         return not self.__eq__(other)
 
     def is_locked(self):
-        """Return whether or not this mutex is locked"""
+        """Return whether or not this mutex is locked
+
+           Returns:
+                bool: True if mutex locked, else False
+        """
         return self._is_locked > 0 and not self.expired()
 
     def seconds_remaining_on_lease(self):
@@ -70,6 +74,9 @@ class Mutex:
            unlock the mutex before the lease expires, or else an exception
            will be raised when you unlock, and you will likely have
            a race condition
+
+           Returns:
+                datetime: Time remaining on lease
         """
         if self.is_locked():
             from Acquire.ObjectStore import get_datetime_now \
@@ -84,7 +91,11 @@ class Mutex:
             return 0
 
     def expired(self):
-        """Return whether or not this lock has expired"""
+        """Return whether or not this lock has expired
+
+           Returns:
+                bool: True if lock has expired, else False
+        """
         if self._is_locked > 0:
             from Acquire.ObjectStore import get_datetime_now as \
                 _get_datetime_now
@@ -102,6 +113,9 @@ class Mutex:
     def fully_unlock(self):
         """This fully unlocks the mutex, removing all levels
            of recursion
+
+           Returns:
+                None
         """
         if self._is_locked == 0:
             return
@@ -135,6 +149,9 @@ class Mutex:
            expired then this will raise a MutexTimeoutError. You should
            check for this when you unlock to make sure that you
            have not risked a race condition.
+
+           Returns:
+                None
         """
         if self._is_locked == 0:
             return
@@ -148,6 +165,12 @@ class Mutex:
         """Lock the mutex, blocking until the mutex is held, or until
            'timeout' seconds have passed. If we time out, then an exception is
            raised. The lock is held for a maximum of 'lease_time' seconds.
+
+           Args:
+                timeout (int): Number of seconds to block
+                lease_time (int): Number of seconds to hold the lock
+           Returns:
+                None
         """
         # if the user does not provide a timeout, then we will set a timeout
         # to 10 seconds

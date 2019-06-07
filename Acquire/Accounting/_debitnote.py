@@ -64,12 +64,19 @@ class DebitNote:
         return not self.__eq__(other)
 
     def is_null(self):
-        """Return whether or not this is a null note"""
+        """Return whether or not this is a null note
+
+            Returns:
+                bool: True if note not null, else False
+        """
         return self._transaction is None
 
     def uid(self):
         """Return the UID for this note. This has the format
            dd:mm:yyyy/unique_string
+
+           Returns:
+                str: UID for this note
         """
         if self.is_null():
             return None
@@ -77,28 +84,45 @@ class DebitNote:
             return self._uid
 
     def datetime(self):
-        """Return the datetime for when value was debited from the account"""
+        """Return the datetime for when value was debited from the account
+
+            Returns:
+                datetime: When value was debited from account
+        """
         if self.is_null():
             return None
         else:
             return self._datetime
 
     def account_uid(self):
-        """Return the UID of the account that was debited"""
+        """Return the UID of the account that was debited
+
+            Returns:
+                str: UID of account that was debited
+        """
         if self.is_null():
             return None
         else:
             return self._account_uid
 
     def transaction(self):
-        """Return the transaction related to this debit note"""
+        """Return the transaction related to this debit note
+
+            Returns:
+                Transaction: Transaction related to this credit note
+        """
         if self.is_null():
             return None
         else:
             return self._transaction
 
     def value(self):
-        """Return the value of this note"""
+        """Return the value of this note
+
+            Returns:
+                Decimal: Value of this note
+
+        """
         if self.is_null():
             return 0
         else:
@@ -107,6 +131,10 @@ class DebitNote:
     def authorisation(self):
         """Return the authorisation that was used successfully to withdraw
            value from the debited account
+
+           Returns:
+                Authorisation: Authorisation used to withdraw value from
+                account
         """
         if self.is_null():
             return None
@@ -116,6 +144,9 @@ class DebitNote:
     def is_provisional(self):
         """Return whether or not the debit was provisional. Provisional debits
            are listed as liabilities
+
+           Returns:
+                bool: True if debit was provisional, else False
         """
         if self.is_null():
             return False
@@ -126,7 +157,9 @@ class DebitNote:
         """Return whether or not this DebitNote transaction needs
            receipting - if it does, then it must be receipted
            by the CreditNote before DebitNote.receipt_by().
-           If this does
+
+           Returns:
+                bool: True if note needs receipting, else False
         """
         return self.is_provisional()
 
@@ -136,6 +169,9 @@ class DebitNote:
            will be automatically refunded. This will return
            'None' if the transaction has already been receipted
            or it wasn't provisional
+
+           Returns:
+                datetime: Date by which a receipt must be created
         """
         if self.is_provisional():
             return self._receipt_by
@@ -152,6 +188,10 @@ class DebitNote:
            actually take value out of the passed account, with that
            value residing in this debit note until it is credited to
            another account
+
+           Args:
+                refund (Refund): Refund to create debit note from
+                account (Account):
         """
         from Acquire.Accounting import Refund as _Refund
 
@@ -219,6 +259,11 @@ class DebitNote:
            actually take value out of the passed account, with that
            value residing in this debit note until it is credited to
            another account
+
+           Args:
+                receipt (Receipt): Receipt to create DebitNote from
+                account (Account): Account to take value from
+                bucket (dict): Bucket to read data from
         """
         from Acquire.Accounting import Receipt as _Receipt
 
@@ -285,6 +330,17 @@ class DebitNote:
            actually take value out of the passed account, with that
            value residing in this debit note until it is credited
            to another account
+
+           Args:
+                transaction (Transaction): Transaction that holds the value
+                to be used
+                account (Account): Account to take value from
+                authorisation (Authorisation): Authorises the removal
+                of value from account
+                is_provisional (bool): Whether the debit is provisional or not
+                receipt_by (datetime): Datetime by which debit must be
+                receipted
+                bucket (dict): Bucket to read data from
         """
         from Acquire.Accounting import Transaction as _Transaction
         from Acquire.Accounting import Account as _Account
@@ -327,7 +383,12 @@ class DebitNote:
             assert(receipt_by is None)
 
     def to_data(self):
-        """Return this DebitNote as a dictionary that can be encoded as json"""
+        """Return this DebitNote as a dictionary that can be encoded as json
+
+               Returns:
+                    dict: Dictionary to be converted to JSON
+
+        """
         data = {}
 
         if not self.is_null():
@@ -349,6 +410,11 @@ class DebitNote:
     def from_data(data):
         """Return a DebitNote that has been extracted from the passed
            json-decoded dictionary
+
+           Args:
+                data (dict): Dictionary from which to create object
+           Returns:
+                DebitNote: Created from dictionary
         """
         d = DebitNote()
 

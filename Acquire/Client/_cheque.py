@@ -17,6 +17,7 @@ class Cheque:
        upon which a CreditNote will be returned. Once receipted,
        payment will be complete.
     """
+
     def __init__(self):
         self._cheque = None
         self._accounting_service_url = None
@@ -26,9 +27,9 @@ class Cheque:
               recipient_url=None, max_spend=None,
               expiry_date=None):
         """Create and return a cheque that can be used at any point
-           in the future to authorise a transaction. If 'canonical_url'
-           is supplied, then only the service with matching canonical
-           url can 'cash' the cheque (it will need to sign the cheque
+           in the future to authorise a transaction. If 'recipient_url'
+           is supplied, then only the service with the matching
+           URL can 'cash' the cheque (it will need to sign the cheque
            before sending it to the accounting service). If 'max_spend'
            is specified, then the cheque is only valid up to that
            maximum spend. Otherwise, it is valid up to the maximum
@@ -43,7 +44,16 @@ class Cheque:
            not affect the account. If there are insufficient funds
            when the cheque is cashed (or it breaks spending limits)
            then the cheque will bounce.
+
+           Args:
+                account (Account, default=None): Account to use to write
+                cheque
+                resource (str, default=None): Define the resource to pay for
+                recipient_url (str, default=None): URL of service to use
+                max_spend (Decimal, default=None): Limit of cheque
+                expiry_date (datetime, default=None): Cheque's expiry date
         """
+
         from Acquire.Client import Account as _Account
 
         if not isinstance(account, _Account):
@@ -113,7 +123,17 @@ class Cheque:
            a string representing the resource this cheque will
            be used to pay for, and the time by which you promise to receipt
            the cheque after cashing
+
+           Args:
+                spend (Decimal): Amount authorised by cheque
+                resource (str): Resource to pay for
+                receipt_by (datetime): Time cheque must be receipted
+                by
+           Returns:
+                dict: Dictionary described above
+
         """
+
         if self._cheque is None:
             raise PaymentError("You cannot read a null cheque")
 
@@ -238,7 +258,6 @@ class Cheque:
 
         info["receipt_by"] = receipt_by
 
-        # everything now checks out - return the read cheque
         return info
 
     def cash(self, spend, resource, receipt_within=3600):
@@ -256,13 +275,22 @@ class Cheque:
            be automatically cancelled if they are not
            receipted within 'receipt_within' seconds
 
-           It is your resposibility to receipt the note for
+           It is your responsibility to receipt the note for
            the actual valid incurred once the service has been
            delivered, thereby actually transferring the cheque
            funds into your account (on that accounting service)
 
            This returns a list of the CreditNote(s) that were
            cashed from the cheque
+
+           Args:
+                spend (Decimal): Value to withdraw
+                resource (str): Resource to spend value on
+                receipt_within (datetime, default=3600): Time to receipt
+                the cashing of this cheque by
+           Returns:
+                list: List of CreditNotes
+
         """
         if self._cheque is None:
             raise PaymentError("You cannot cash a null cheque!")
@@ -332,6 +360,9 @@ class Cheque:
     def accounting_service_url(self):
         """Return the URL of the accounting service that will honour
            this cheque
+
+           Returns:
+                str: URL of accounting service
         """
         return self._accounting_service_url
 
@@ -339,6 +370,10 @@ class Cheque:
         """Return the accounting service that will honour this cheque.
            Note that this will only return the service if it is trusted
            by the service on which this function is called
+
+           Returns:
+                Service: Trusted accounting service
+
         """
         from Acquire.Service import get_this_service as _get_this_service
         service = _get_this_service()
@@ -355,7 +390,11 @@ class Cheque:
         return accounting_service
 
     def to_data(self):
-        """Return a json-serialisable dictionary for this object"""
+        """Return a JSON-serialisable dictionary of this object
+
+           Returns:
+                dict: JSON serialisable dictionary of this object
+        """
         data = {}
 
         if self._cheque is not None:
@@ -366,8 +405,15 @@ class Cheque:
 
     @staticmethod
     def from_data(data):
-        """Return a cheque constructed from the passed (json-deserialised
-           dictionary)"""
+        """Return a cheque constructed from the passed (JSON-deserialised
+           dictionary)
+
+           Args:
+                data (dict): Dictionary from which to create object
+           Returns:
+                Cheque: Cheque object created from JSON data
+
+        """
         cheque = Cheque()
 
         if (data and len(data) > 0):

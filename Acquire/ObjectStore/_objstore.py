@@ -38,6 +38,15 @@ class ObjectStore:
            'bucket_name', optionally placing it into the compartment
            identified by 'compartment'. This will raise an
            ObjectStoreError if this bucket already exists
+
+           Args:
+                bucket (dict): Bucket to store data in
+                bucket_name (str): Name for bucket
+                compartment (str, default=None): Compartment to store
+                the bucket
+
+           Returns:
+                dict: New bucket
         """
         return _objstore_backend.create_bucket(bucket, bucket_name,
                                                compartment)
@@ -50,6 +59,18 @@ class ObjectStore:
            identified by 'compartment'. If 'create_if_needed' is True
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
+
+           Args:
+                bucket (dict): Bucket to store data in
+                bucket_name (str): Name for bucket
+                compartment (str, default=None): Compartment to store
+                the bucket
+                create_if_needed (bool, default=True): Create new bucket if
+                true, don't if False
+
+            Returns:
+                dict: Requested bucket
+
         """
         return _objstore_backend.get_bucket(bucket, bucket_name,
                                             compartment, create_if_needed)

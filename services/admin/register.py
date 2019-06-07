@@ -4,8 +4,16 @@ from Acquire.Identity import UserAccount
 
 
 def run(args):
-    """This function will allow a user to register an account with a
-       username and password"""
+    """This function allows a user to register an account with a
+       username and password
+       
+       Args:
+        args (dict): containing the requested username and password
+    
+        Returns:
+            dict: containing the provisioning URI
+       
+       """
 
     username = args["username"]
     password = args["password"]

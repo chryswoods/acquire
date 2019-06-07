@@ -213,6 +213,10 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
        is returned. The 'function' on 'service'
        that was called (or to be called) can also be passed. These
        are used to help provide more context for error messages.
+
+
+       Args:
+        args (str) : should be a JSON encoded UTF-8
     """
     if not (args and len(args) > 0):
         if is_return_value:
@@ -318,6 +322,7 @@ def unpack_arguments(args, key=None, public_cert=None, is_return_value=False,
                                 function=function, service=service)
 
     if payload is None:
+        from Acquire.Service import UnpackingError
         raise UnpackingError(
             "We should have been able to extract the payload from "
             "%s" % data)

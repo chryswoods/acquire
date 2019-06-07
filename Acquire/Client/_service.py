@@ -22,6 +22,10 @@ class Service:
 
             service = Acquire.Client.Service("https://identity_service_url")
             service.__class__ == Acquire.Identity.IdentityService
+
+            Args:
+                service_url (str): URL of service
+                service_uid (str): UID of service
         """
         try:
             from Acquire.Client import Wallet as _Wallet

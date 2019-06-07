@@ -10,6 +10,7 @@ class OCIAccount:
        is a low-level account that allows us to connect to the object
        store at a low-level and to call OCI functions
     """
+
     @staticmethod
     def _assert_valid_login_dict(login):
         """This function validates that the passed login dictionary
@@ -88,6 +89,7 @@ class OCIAccount:
            created bucket. If the bucket already exists this will return
            a handle to the existing bucket
         """
+
         try:
             from oci.object_storage import ObjectStorageClient as \
                 _ObjectStorageClient
@@ -149,6 +151,7 @@ class OCIAccount:
            using the passed 'login_details', returning a handle to the
            bucket associated with 'bucket
         '"""
+
         try:
             from oci.object_storage import ObjectStorageClient as \
                 _ObjectStorageClient

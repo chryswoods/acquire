@@ -6,6 +6,9 @@ from Acquire.Identity import Authorisation
 def run(args):
     """Call this function to force the service to save its keys
        to the object store
+
+       Args:
+            args (dict): contains authorisaton details for key dump
     """
     try:
         authorisation = Authorisation.from_data(args["authorisation"])

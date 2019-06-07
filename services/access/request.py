@@ -16,7 +16,16 @@ class RequestError(Exception):
 
 
 def run(args):
-    """This function is used to handle requests to access resources"""
+    """This function is used to handle requests to access resources
+
+        Args:
+            args (dict): contains data for authorisation service
+
+        Returns:
+            dict: a dictionary containing the status of the authorisation
+                    and a status message
+
+    """
 
     status = 0
     message = None

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+<head>
+  <meta charset="UTF-8">
+  <title>Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <script src="fernetBrowser.js"></script>
+  <script src="md5.min.js"></script>
+  <script src="sha.js"></script>
+  <script src="base64js.min.js"></script>
+  <script src="acquire.js"></script>
+</head>
+
+<body translate="no">
+  <section class="content">
+    <div id="test-page">
+      <form>
+        <label for="url">Login URL</label> : <input type="text" id="url" /><br/>
+        <label for="username">Username</label> : <input type="text" id="username" /><br/>
+        <label for="password">Password</label> : <input type="password" id="password" /><br/>
+        <label for="otpcode">OTPCode</label> : <input type="password" id="otpcode" /><br/>
+        <label for="remember_device">remember device?</label> : <input type="checkbox" id="remember_device" value="true" /><br/>
+        <input type="button" onclick="Acquire.login()" value="Submit">
+      </form>
+      <script>Acquire.test_acquire()</script>
+    </div>
+  </section>
+</body>
+
+</html>

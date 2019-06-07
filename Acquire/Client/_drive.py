@@ -8,7 +8,13 @@ def _get_storage_url():
 
 
 def _get_storage_service(storage_url=None):
-    """Function to return the storage service for the system"""
+    """Function to return the storage service for the system
+
+       Args:
+            storage_url (str, default=None): Storage URL to use
+       Returns:
+            Service: Service object
+    """
     if storage_url is None:
         storage_url = _get_storage_url()
 
@@ -26,7 +32,17 @@ def _get_storage_service(storage_url=None):
 
 
 def _create_drive(user, name, drivemeta, storage_service):
-    """Internal function used to create a Drive"""
+    """Internal function used to create a Drive
+
+       Args:
+            user (User): User for drive
+            name (str): Name for drive
+            drivemeta (DriveMeta): Object containing
+            metadata for drive
+            storage_service (Service): Service for drive
+       Returns:
+            Drive: Drive object
+    """
     drive = Drive()
     drive._name = drivemeta.name()
     drive._drive_uid = drivemeta.uid()
@@ -45,6 +61,17 @@ def _get_drive(user, name=None, storage_service=None, storage_url=None,
        will default to 'main' if it is not set, and the drive will
        be created automatically is 'autocreate' is True and the
        drive does not exist
+
+       Args:
+            user (User): User to use drive
+            name (str, default=None): Name for drive
+            storage_service (Service, default=None): Service object to use
+            storage_url (str, default=None): URL for storage
+            autocreate (bool): If True create drive automatically,
+            if False do not
+       Returns:
+            Drive: Drive object
+
     """
     if storage_service is None:
         storage_service = _get_storage_service(storage_url)
@@ -83,6 +110,7 @@ class Drive:
        a single storage service and can be shared amongst several
        users. Each drive has a unique UID, with users assiging
        their own shorthand names.
+
     """
     def __init__(self, user=None, name=None, storage_service=None,
                  storage_url=None, autocreate=True):
@@ -110,12 +138,20 @@ class Drive:
                     (self._user.username(), self.name())
 
     def is_null(self):
-        """Return whether or not this drive is null"""
+        """Return whether or not this drive is null
+
+           Returns:
+                bool: True if null, else False
+        """
         return self._drive_uid is None
 
     def acl(self):
         """Return the access control list for the user on this drive.
            If the ACL is not known, then None is returned
+
+           Returns:
+                str: Access Control List for the user
+
         """
         try:
             return self._acl
@@ -126,6 +162,9 @@ class Drive:
         """Return the ACL rules used to grant access to this drive. This
            is only visible to owners of this drive. If it is not visible,
            then None is returned
+
+           Returns:
+                str: ACL rules for the drive
         """
         try:
             return self._aclrules
@@ -133,16 +172,29 @@ class Drive:
             return None
 
     def name(self):
-        """Return the name given to this drive by the user"""
+        """Return the name given to this drive by the user
+
+           Returns:
+                str: Name of drive
+        """
         return self._name
 
     def uid(self):
-        """Return the UID of this drive"""
+        """Return the UID of this drive
+
+           Returns:
+                str: UID of drive
+
+        """
         return self._drive_uid
 
     def guid(self):
         """Return the global UID of this drive (combination of the
            UID of the storage service and UID of the drive)
+
+           Returns:
+                str: Global UID for drive
+
         """
         if self.is_null():
             return None
@@ -150,7 +202,13 @@ class Drive:
             return "%s@%s" % (self.storage_service().uid(), self.uid())
 
     def storage_service(self):
-        """Return the storage service for this drive"""
+        """Return the storage service for this drive
+
+        Returns:
+            Service: Storage service for drive
+
+
+        """
         if self.is_null():
             return None
         else:
@@ -169,6 +227,12 @@ class Drive:
             are correctly copied. The filenames as they are written
             to the PAR will be used, creating new files (and subdrives)
             as needed
+
+            Args:
+                max_size (int, default=None): Max size for upload
+                aclrules (str, default=None): ACL rules for upload
+            Returns:
+                str: Name of drive
         """
         if self.is_null():
             raise PermissionError(
@@ -219,6 +283,16 @@ class Drive:
            ACL rules used to grant access to this file via 'aclrule'.
            If this is not set, then the rules will be derived from either
            the last version of the file, or inherited from the drive.
+
+           Args:
+                filename (str): Name of file to upload
+                uploaded_name (str, default=None): Name of file once uploaded
+                aclrules (str, default=None): ACL rules for file
+                force_par (bool, default=False): If True force a
+                pre-authenticated
+                request be created for the upload
+            Returns:
+                FileMeta: Object containing metadata on the uploaded file
         """
         if self.is_null():
             raise PermissionError("Cannot upload a file to a null drive!")
@@ -294,6 +368,19 @@ class Drive:
 
            If 'version' is specified then download a specific version
            of the file. Otherwise download the latest version
+
+           Args:
+                filename (str): Name of file to download
+                downloaded_name (str, default=None): Name of file once
+                downloaded
+                version (datetime, default=None): Datetime denoting version
+                of file to use
+                dir (str, default=None): Directory for file
+                force_par (bool, default=False): If True force a
+                pre-authenticated request be created for the download
+           Returns:
+                FileMeta: Object containing metadata on the uploaded file
+
         """
         if self.is_null():
             raise PermissionError("Cannot download from a null drive!")
@@ -384,6 +471,15 @@ class Drive:
         """Return a list of all of the DriveMetas of the drives accessible
            at the top-level by the passed user on the passed storage
            service
+
+           Args:
+                user (User): Name of file to download
+                drive_uid (str, default=None): UID of drive
+                storage_service (Service): Service for drives
+                storage_url (str): URL for storage service
+           Returns:
+                list: List of DriveMetas for the drives
+
         """
         if storage_service is None:
             storage_service = _get_storage_service(storage_url)
@@ -413,6 +509,14 @@ class Drive:
         """Return a list of all of the DriveMetas of the drives accessible
            at the top-level by the passed user on the passed storage
            service
+
+           Args:
+                user (User): User for drives
+                storage_service (Service, default=None): Storage service to
+                query
+                storage_url (str): URL for storage service
+           Returns:
+                list: List of DriveMetas for the drives
         """
         return Drive._list_drives(user=user,
                                   storage_service=storage_service,
@@ -421,6 +525,9 @@ class Drive:
     def list_drives(self):
         """Return a list of the DriveMetas of all of the drives contained
            in this drive that are accessible to the user
+
+           Returns:
+                list: List of DriveMetas for the drives
         """
         if self.is_null():
             return []
@@ -432,6 +539,12 @@ class Drive:
     def list_files(self, include_metadata=False):
         """Return a list of the FileMetas of all of the files contained
            in this drive
+
+           Args:
+                include_metadata (bool, default=False): If True include
+                metadata for the returned files
+           Returns:
+                list: List of FileMetas for files in drive
         """
         if self.is_null():
             return []
@@ -466,6 +579,13 @@ class Drive:
         """Return a list of all of the versions of the specified file.
            This returns an empty list if there are no versions of this
            file
+
+           Args:
+                filename (str): Filename for listing of versions
+                include_metadata (bool, default=False): If True include
+                metadata for the returned files
+           Returns:
+                list: List of FileMetas for versions of file
         """
         if self.is_null():
             return []

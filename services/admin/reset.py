@@ -12,8 +12,15 @@ def run(args):
        Obviously you should be really sure you want to do this!
     """
 
-    status = 0
-    message = "Resetting service..."
+    try:
+        authorisation = Authorisation.from_data(args["authorisation"])
+    except:
+        raise PermissionError(
+            "Only an authorised admin can reset the service")
+
+    service = get_this_service(need_private_access=True)
+    service.assert_admin_authorised(
+            authorisation, "reset %s" % service.uid())
 
     bucket = get_service_account_bucket()
 

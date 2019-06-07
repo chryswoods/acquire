@@ -57,7 +57,11 @@ class CreditNote:
         return not self.__eq__(other)
 
     def is_null(self):
-        """Return whether or not this note is null"""
+        """Return whether or not this note is null
+
+            Returns:
+                bool: True if note is null, else False
+        """
         return self._uid is None
 
     def needs_receipting(self):
@@ -65,6 +69,10 @@ class CreditNote:
            If so, then the funds are only held provisionally, and must
            be receipted by CreditNote.receipt_by() else they will
            be returned to the DebitNote account
+
+           Returns:
+                bool: True if CreditNote needs receipting, else False
+
         """
         return self.is_provisional()
 
@@ -72,6 +80,9 @@ class CreditNote:
         """Return the datetime by which this credit note must be
            receipted, or else the funds will be returned. This will
            return None if the CreditNote does not need receipting
+
+           Returns:
+                datetime: Date by which the credit note must be receipted
         """
         if self.is_provisional():
             return self._receipt_by
@@ -79,31 +90,50 @@ class CreditNote:
             return None
 
     def account_uid(self):
-        """Return the UID of the account to which the value was credited"""
+        """Return the UID of the account to which the value was credited
+
+            Returns:
+                str: Account UID
+        """
         if self.is_null():
             return None
         else:
             return self._account_uid
 
     def credit_account_uid(self):
-        """Synonym for self.account_uid()"""
+        """Synonym for self.account_uid()
+
+            Returns:
+                str: Account UID
+        """
         return self.account_uid()
 
     def debit_account_uid(self):
-        """Return the UID of the account from which the value was debited"""
+        """Return the UID of the account from which the value was debited
+
+            Returns:
+                str: UID of account from which value was debited
+        """
         if self.is_null():
             return None
         else:
             return self._debit_account_uid
 
     def datetime(self):
-        """Return the datetime for this credit note"""
+        """Return the datetime for this credit note
+
+            Returns:
+                datetime: Datetime for this credit note
+        """
         return self._datetime
 
     def uid(self):
         """Return the UID of this credit note. This will not match the debit
            note UID - you need to use debit_note_uid() to get the UID of
            the debit note that matches this credit note
+
+           Returns:
+                str: UID of credit note
         """
         return self._uid
 
@@ -112,6 +142,10 @@ class CreditNote:
            While at the moment only a single credit note matches a debit note,
            it may be in the future that we divide a credit over several
            accounts (and thus several credit notes)
+
+           Returns:
+                str: UID of the debit note to match this credit note
+
         """
         return self._debit_note_uid
 
@@ -119,6 +153,9 @@ class CreditNote:
         """Return the value of this note. This may be less than the
            corresponding debit note if only part of the value of the
            debit note is transferred into the account
+
+           Returns:
+                Decimal: Value of this note
         """
         return self._value
 
@@ -132,6 +169,9 @@ class CreditNote:
            of work and provision of a receipt. Note that the value
            will only be transferred if this CreditNote is receipted
            before CreditNote.receipt_by())
+
+           Returns:
+                bool: True if note is provisional, else False
         """
         if self.is_null():
             return False
@@ -143,6 +183,15 @@ class CreditNote:
            the passed refund. This will actually transfer value from the
            debit note to the credited account (which was the original
            debited account)
+
+           debit_note (DebitNote): DebitNote to use
+           refund (Refund): Refund from which to take value to create
+           CreditNote
+           account (Account): Account to credit refund to
+           bucket (Bucket): Bucket to load data from
+
+           Returns:
+                None
         """
         from Acquire.Accounting import DebitNote as _DebitNote
         from Acquire.Accounting import Refund as _Refund
@@ -198,6 +247,15 @@ class CreditNote:
         """Internal function used to create the credit note from
            the passed receipt. This will actually transfer value from the
            debit note to the credited account
+
+           debit_note (DebitNote): DebitNote from which to take value
+           receipt (Receipt): Receipt to create CreditNote from
+           account (Account): Account to credit
+           bucket (Bucket): Bucket to load data from
+
+           Returns:
+                None
+
         """
         from Acquire.Accounting import DebitNote as _DebitNote
         from Acquire.Accounting import Refund as _Refund
@@ -254,6 +312,13 @@ class CreditNote:
         """Internal function used to create the credit note that matches
            the passed debit note. This will actually transfer value from
            the debit note to the passed account
+
+           debit_note (DebitNote): DebitNote to take value from
+           account (Account): Account to credit
+           bucket (Bucket): Bucket to load data from
+
+           Returns:
+                None
         """
         from Acquire.Accounting import DebitNote as _DebitNote
         from Acquire.Accounting import Account as _Account
@@ -283,6 +348,11 @@ class CreditNote:
     def from_data(data):
         """Construct and return a new CreditNote from the passed json-decoded
             dictionary
+
+            Args:
+                data (dict): JSON serialised dictionary of object
+            Returns:
+                CreditNote: CreditNote created from JSON data
         """
         note = CreditNote()
 
@@ -306,7 +376,10 @@ class CreditNote:
 
     def to_data(self):
         """Return this credit note as a dictionary that can be
-           encoded to json
+           encoded to JSON
+
+           Returns:
+                dict: Dictionary of object to be encoded to JSON
         """
         data = {}
 

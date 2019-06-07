@@ -13,6 +13,18 @@ def _get_abspath_size_md5(basedir, key, filename, max_size=None):
        'size' bytes, is 'max_size' has been specified. This returns the
        absolute filename path for the file, the size of the file in bytes
        and the md5 checksum of the file, as a tuple
+
+       Args:
+            basedir (str): directory in which to find file
+            key (str): key for file
+            filename (str): filename
+            max_size (int, optional, default=None): maximum size
+            of file to process
+
+        Returns:
+            tuple (str, int, str): filename, filesize in bytes, MD5
+            checksum of file
+
     """
 
     if _os.path.isabs(filename):
@@ -70,7 +82,12 @@ class RunRequest(_Request):
             self._set_runfile(runfile)
 
     def is_null(self):
-        """Return whether or not this is a null request"""
+        """Return whether or not this is a null request
+
+        Returns:
+            bool: True if UID is set, else False
+
+        """
         return self._uid is None
 
     def __str__(self):
@@ -95,6 +112,11 @@ class RunRequest(_Request):
     def fingerprint(self):
         """Return a unique fingerprint for this request that can be
            used for signing and verifying authorisations
+
+            Returns:
+                None or str: If null returns None, else returns a string
+                combining the UID, size of tarfile and tarfile MD5 checksum
+                as a fingerprint
         """
         if self.is_null():
             return None
@@ -105,16 +127,28 @@ class RunRequest(_Request):
     def tarfile(self):
         """Return the name of the tarfile containing all of the
            input files
+
+            Returns:
+                str: Name of tarfile
         """
         return self._tarfilename
 
     def tarfile_size(self):
-        """Return the size of the tarfile in bytes"""
+        """Return the size of the tarfile in bytes
+
+            Returns:
+                int: Size of tarfile in bytes
+        """
         return self._tarsize
 
     def tarfile_md5sum(self):
         """Return the MD5 checksum of the tarfile containing
-           the input files"""
+           the input files
+
+            Returns:
+                str: MD5 checksum of tarfile
+
+        """
         return self._tarmd5
 
     def runinfo(self):
@@ -122,6 +156,11 @@ class RunRequest(_Request):
            calculation to be run. This includes information about all
            of the input files, such as their names, filesizes and
            MD5 checksums
+
+            Returns:
+                dict: Dictionary containing information about
+                input files, names, filesizes, MD5 checksums
+
         """
         import copy as _copy
         return _copy.deepcopy(self._runinfo)
@@ -131,6 +170,10 @@ class RunRequest(_Request):
            input files for the calculation. This is a dictionary mapping
            the key for each file to the filename in the tarfile, the
            size of the file in the tarfile and the md5 sum of the file
+
+            Returns:
+                dict or None: Dictionary of input file information if
+                available, else None
         """
         if self._runinfo is None:
             return None
@@ -147,6 +190,16 @@ class RunRequest(_Request):
            relative to 'basedir'. These MUST be declared in the 'input'
            section of the dictionary. This returns an updated 'runinfo'
            which has all relative paths converted to absolute file paths
+
+            Args:
+                basedir (str): directory from which to load data
+                runinfo (dict): information regarding files to be
+                used
+
+            Returns:
+                dict: Dictionary of validated file information
+                including their sizes and MD5 checksums
+
         """
         if "input" not in runinfo:
             return runinfo
@@ -180,8 +233,13 @@ class RunRequest(_Request):
         return runinfo
 
     def _create_tarfile(self):
-        """This function creates the new tarfile and updates the
-           runinfo with the paths for the input files in the zipfile
+        """This function creates the new tarfile, records its
+            size and MD5 checksum and updates the runinfo with
+            the paths for the input files in the zipfile
+
+            Returns:
+                None
+
         """
         if self._tarfile is not None:
             from Acquire.Access import RunRequestError
@@ -195,7 +253,7 @@ class RunRequest(_Request):
         import tarfile as _tarfile
         import tempfile as _tempfile
 
-        # loop through each file - add it to tarbz2. The files are added
+        # Loop through each file - add it to tar.bz2. The files are added
         # flat into the tar.bz2, i.e. with no subdirectory. This is to
         # prevent strange complications or clashes with other files that
         # the user may create during output (on the server the files will
@@ -242,6 +300,12 @@ class RunRequest(_Request):
            be in yaml or json format). This gives the type of simulation, the
            location of the input files and how the output should be
            named
+
+           Args:
+                runfile (str): YAML or JSON format file to be used
+                to run simulation
+            Returns:
+                None
         """
         if self._runinfo:
             from Acquire.Access import RunRequestError
@@ -300,7 +364,12 @@ class RunRequest(_Request):
         self._uid = str(_uuid.uuid4())
 
     def to_data(self):
-        """Return this request as a json-serialisable dictionary"""
+        """Return this request as a json-serialisable dictionary
+
+            Returns:
+                dict: JSON serialisable dictionary created from object
+
+        """
         if self.is_null():
             return {}
 
@@ -314,6 +383,16 @@ class RunRequest(_Request):
 
     @staticmethod
     def from_data(data):
+        """
+            Creates a RunRequest object from the JSON data in data
+
+            Args:
+                data (str): JSON deserialisable string used to create object
+            Returns:
+                RunRequest or None: If data contains JSON data create
+                RunRequest object, else return None
+
+        """
         if (data and len(data) > 0):
             r = RunRequest()
 

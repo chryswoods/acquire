@@ -9,12 +9,26 @@ def run(args):
        that will be validated by the passed public key and public
        signing certificate. This will return a URL that the user
        must connect to to then log in and validate that request.
+
+        Args:
+            args (dict): containing login data such as username, password etc
+
+        Returns:
+            dict: containing status of login attempt
     """
     username = args["username"]
     public_key = PublicKey.from_data(args["public_key"])
     public_cert = PublicKey.from_data(args["public_certificate"])
-    scope = args["scope"]
-    permissions = args["permissions"]
+
+    try:
+        scope = args["scope"]
+    except:
+        scope = None
+
+    try:
+        permissions = args["permissions"]
+    except:
+        permissions = None
 
     try:
         hostname = args["hostname"]

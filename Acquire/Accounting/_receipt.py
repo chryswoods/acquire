@@ -71,11 +71,21 @@ class Receipt:
         return not self.__eq__(other)
 
     def is_null(self):
-        """Return whether or not this Receipt is null"""
+        """Return whether or not this Receipt is null
+
+           Returns:
+                bool: True if reecipt null, else False
+
+        """
         return self._credit_note is None
 
     def credit_note(self):
-        """Return the credit note that this is a receipt for"""
+        """Return the credit note that this is a receipt for
+
+           Returns:
+                CreditNote: credit note related to this receipt
+
+        """
         if self.is_null():
             from Acquire.Accounting import CreditNote as _CreditNote
             return _CreditNote()
@@ -86,11 +96,19 @@ class Receipt:
         """Return the UID of the provisional transaction for which this
            is the receipt. The transaction UID is the same as the UID
            for the original debit note
+
+           Returns:
+                str: UID of transaction
+
         """
         return self.debit_note_uid()
 
     def debit_note_uid(self):
-        """Return the UID of the debit note that this is a receipt for"""
+        """Return the UID of the debit note that this is a receipt for
+
+           Returns:
+                str: Debit note UID
+        """
         if self.is_null():
             return None
         else:
@@ -99,6 +117,9 @@ class Receipt:
     def debit_account_uid(self):
         """Return the UID of the account from which this receipt
            will debit value
+
+           Returns:
+                str: UID of account to debit
         """
         if self.is_null():
             return None
@@ -108,6 +129,9 @@ class Receipt:
     def credit_account_uid(self):
         """Return the UID of the account to which this receipt will
            credit value
+
+           Returns:
+                str: UID of account to credit
         """
         if self.is_null():
             return None
@@ -118,6 +142,9 @@ class Receipt:
         """Return a transaction that corresponds to the real transfer
            of value between the debit and credit accounts. The value
            of the transaction is the actual receipted value
+
+           Returns:
+                Transaction: Transaction corresponding to this receipt
         """
         from Acquire.Accounting import Transaction as _Transaction
         if self.is_null():
@@ -128,7 +155,11 @@ class Receipt:
                                 % self.transaction_uid())
 
     def value(self):
-        """Return the original (provisional) value of the transaction"""
+        """Return the original (provisional) value of the transaction
+
+           Returns:
+                Decimal: Value of this receipt
+        """
         if self.is_null():
             from Acquire.Accounting import create_decimal as _create_decimal
             return _create_decimal(0)
@@ -136,12 +167,20 @@ class Receipt:
             return self._credit_note.value()
 
     def provisional_value(self):
-        """Return the original (provisional) value of the transaction"""
+        """Return the original (provisional) value of the transaction
+
+           Returns:
+                Decimal: Value of this receipt
+
+        """
         return self.value()
 
     def receipted_value(self):
         """Return the receipted value. This is guaranteed to be less than
            or equal to the provisional value in the attached CreditNote
+
+           Returns:
+                Decimal: Receipted value
         """
         if self.is_null():
             from Acquire.Accounting import create_decimal as _create_decimal
@@ -150,12 +189,19 @@ class Receipt:
             return self._receipted_value
 
     def authorisation(self):
-        """Return the authorisation for the receipt"""
+        """Return the authorisation for the receipt
+
+           Returns:
+                Authorisation: Authorisation for the receipt
+        """
         return self._authorisation
 
     def to_data(self):
         """Return the data for this object as a dictionary that can be
-           serialised to json
+           serialised to JSON
+
+           Returns:
+                dict: Dictionary created from this object
         """
         data = {}
 
@@ -168,7 +214,14 @@ class Receipt:
 
     @staticmethod
     def from_data(data):
-        """Return a Receipt from the passed json-decoded dictionary"""
+        """Return a Receipt from the passed JSON-decoded dictionary
+
+           Args:
+                data (dict): JSON dictionary to create object
+           Returns:
+                Receipt: Receipt created from JSON
+
+        """
         r = Receipt()
 
         if (data and len(data) > 0):
@@ -190,6 +243,16 @@ class Receipt:
            greater than the sum of the passed credit notes. If it
            is less then the value, then the difference is subtracted
            from the first receipts returned
+
+           Args:
+             credit_notes (list): List of credit notes to receipt
+             autorisation (Authorisation): Authorisation for credit notes
+             receipted_value (Decimal, default=None): Total value to receipt
+
+            Returns:
+                Receipt or list[Receipt]: If <= 1 credit note Receipt, else
+                list of Receipts
+
         """
         try:
             credit_note = credit_notes[0]
