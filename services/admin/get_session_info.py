@@ -45,5 +45,6 @@ def run(args):
         return_value["user_uid"] = login_session.user_uid()
 
     return_value["session_status"] = login_session.status()
+    return_value["login_message"] = login_session.login_message()
 
     return return_value
