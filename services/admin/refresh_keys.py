@@ -24,3 +24,5 @@ def run(args):
 
     return_value = {}
     return_value["service_info"] = service.to_data()
+
+    return return_value
