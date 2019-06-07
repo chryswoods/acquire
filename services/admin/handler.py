@@ -68,6 +68,9 @@ def _route_function(function, args, additional_functions=None):
     elif function == "admin/logout":
         from admin.logout import run as _logout
         return _logout(args)
+    elif function == "admin/refresh_keys":
+        from admin.refresh_keys import run as _refresh_keys
+        return _refresh_keys(args)
     elif function == "admin/request_login":
         from admin.request_login import run as _request_login
         return _request_login(args)
@@ -114,11 +117,8 @@ def _handle(function=None, additional_functions=None, args={}):
        Args:
         additional_functions (function, optional): function to route
         args (dict): arguments to be routed with function\
-
         Returns:
             function: the routed function
-
-
        """
 
     from Acquire.Service import start_profile, end_profile

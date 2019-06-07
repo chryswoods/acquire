@@ -494,6 +494,10 @@ class LoginSession:
                     "of a specific login session")
 
             status = LoginSession.get_status(uid=uid)
+        else:
+            if status not in ["approved", "pending", "denied",
+                              "suspicious", "logged_out"]:
+                raise ValueError("Cannot set an invalid status '%s'" % status)
 
         bucket = _get_service_account_bucket()
 

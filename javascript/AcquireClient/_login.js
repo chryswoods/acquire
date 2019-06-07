@@ -212,10 +212,21 @@ Acquire.Login.submit_userpassword = async function(wallet, username, password)
     {
         //try to complete the login - this will use a saved device
         //otpcode if possible
-        await Acquire.Login.complete_login(wallet);
+        let short_uid = Acquire.Login._short_uid;
+
+        await wallet.send_password({service:service,
+                                    short_uid:short_uid,
+                                    username:username,
+                                    password:password,
+                                    otpcode:undefined,
+                                    remember_device:false});
+
+        Acquire.Login.show_success("Login successful!");
+        return;
     }
     catch(_err)
     {
+        console.log("Failed login with wallet-based otpcode...");
         console.log(_err);
     }
 
@@ -261,7 +272,11 @@ Acquire.Login.submit_url = async function(wallet, service_uid, short_uid)
     try
     {
         Acquire.Login.set_progress("Getting session info...", 75);
-        message = "Will need to get this message!";
+        let args = {"short_uid":short_uid,
+                    "status":"pending"};
+        let result = await service.call_function({func:"get_session_info",
+                                                  args:args});
+        message = result["login_message"];
     }
     catch(err)
     {

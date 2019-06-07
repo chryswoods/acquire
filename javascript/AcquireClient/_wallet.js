@@ -379,7 +379,6 @@ Acquire.Wallet = class
 
         let otp = new Acquire.TOTP();
         let otpcode = otp.getOTP(otpsecret);
-        console.log(`SUBMITTING CODE ${otpcode}`);
         return otpcode;
     }
 
@@ -470,14 +469,13 @@ Acquire.Wallet = class
             device_uid = undefined;
         }
 
-        console.log(`device_uid = ${device_uid}`);
-
         console.log(`Logging in to ${service.canonical_url()}, ` +
-                    `session ${short_uid} with username ${username}...`);
+                    `session ${short_uid} with username ${username} and ` +
+                    `device_uid ${device_uid}`);
 
         if (dryrun)
         {
-            console.log(`Calling ${service.canonical_url} with username=` +
+            console.log(`Calling ${service.canonical_url()} with username=` +
                         `${username}, password=${password}, otpcode=` +
                         `${otpcode}, remember_device=${remember_device}, ` +
                         `device_uid=${device_uid}, short_uid=${short_uid}, ` +
