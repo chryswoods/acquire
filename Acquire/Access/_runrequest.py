@@ -65,8 +65,12 @@ class RunRequest(_Request):
        from which the output can be read. The calculation will
        start once the input has been signalled as loaded.
     """
-    def __init__(self, runfile=None):
-        """Construct the request
+    def __init__(self, runfile=None, tar_files=True):
+        """Construct the request. If tar_files is True then this
+           will tar up all of the input files before transmitting
+           them to the storage service. Otherwise this will
+           try to upload the files as individual (compressed)
+           input files
         """
         super().__init__()
 
@@ -361,7 +365,8 @@ class RunRequest(_Request):
         self._create_tarfile()
 
         # everything is ok - set the UID of this request
-        self._uid = str(_uuid.uuid4())
+        from Acquire.ObjectStore import create_uid as _create_uid
+        self._uid = _create_uid()
 
     def to_data(self):
         """Return this request as a json-serialisable dictionary

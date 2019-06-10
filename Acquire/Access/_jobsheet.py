@@ -160,11 +160,36 @@ class JobSheet:
                 tuple (PAR, PAR, datetime) : file upload PAR, bucket write PAR
                 and a datetime object set to 1 hour in the future
         """
+        from Acquire.Accounting import Cheque as _Cheque
+
         # make the requests, make the payments
         storage_service = self.storage_service()
         compute_service = self.compute_service()
 
+        # create cheques for payment of the storage and compute
+        # from the principal service user of the access service to
+        # the principal service users of the compute and storage
+        # services
+        storage_cheque = _Cheque()
+        compute_cheque = _Cheque()
 
+        result = storage_service.call_function(
+                                    function="stage_job_data",
+                                    args={"cheque": storage_cheque.to_data(),
+                                          "job": self.job().to_data()})
+
+        input_par = result["input_par"]
+        output_read_par = result["output_read_par"]
+        output_write_par = result["output_write_par"]
+
+        result = compute_service.call_function(
+                            function="stage_job_compute",
+                            args={"cheque": compute_cheque.to_data(),
+                                    "job": self.job().to_data(),
+                                    "input_par": input_par.to_data(),
+                                    "output_par": output_write_par.to_data()})
+
+        compute_par = result["compute_par"]
 
         # save so we don't lose the debit notes or any value
         self.save()
@@ -173,7 +198,7 @@ class JobSheet:
         from Acquire.ObjectStore import get_datetime_future \
             as _get_datetime_future
 
-        return (_PAR(), _PAR(), _get_datetime_future(hours=1))
+        return (compute_par, output_read_par, _get_datetime_future(hours=1))
 
     def save(self):
         """Save this JobSheet to the object store
