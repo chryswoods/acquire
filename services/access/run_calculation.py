@@ -21,18 +21,12 @@ class RequestError(Exception):
 
 def run(args):
     """This function is used to handle requests to access resources
-    
         Args:
             args (dict): dictionary containing data to check if a calculation
                          can be run
-            
         Returns:
             dict: dictionary containing the PARs describing the job to be run
-    
     """
-
-    status = 0
-    message = None
 
     request = None
     authorisation = None
@@ -78,6 +72,7 @@ def run(args):
     # return to the user the PAR used to upload the input data and
     # the PAR on the compute service to call to trigger
     # the start of the calculation
-    return {"upload_par" : upload_par.to_data(),
+    return {"upload_par": upload_par.to_data(),
             "simulation_par": run_par.to_data(),
-            "expiry_date" : datetime_to_string(expires)}
+            "expiry_date": datetime_to_string(expires),
+            "jobsheet_uid": job_sheet.uid()}
