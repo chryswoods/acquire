@@ -13,6 +13,7 @@ from ._storage_service import *
 from ._errors import *
 from ._buckethandle import *
 from ._userdrives import *
+from ._filehandle import *
 from ._fileinfo import *
 from ._driveinfo import *
 from ._filemeta import *

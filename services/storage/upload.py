@@ -1,9 +1,9 @@
 
 from Acquire.Identity import Authorisation
 
-from Acquire.Storage import DriveInfo
+from Acquire.Storage import FileHandle, DriveInfo
 
-from Acquire.Client import FileHandle, FileMeta, PAR
+from Acquire.Client import FileMeta, PAR
 
 from Acquire.Crypto import PublicKey
 

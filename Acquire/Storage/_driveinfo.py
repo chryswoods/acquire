@@ -304,7 +304,7 @@ class DriveInfo:
            file has been uploaded, so that it can be validated
            as correct
         """
-        from Acquire.Client import FileHandle as _FileHandle
+        from Acquire.Storage import FileHandle as _FileHandle
         from Acquire.Storage import FileInfo as _FileInfo
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
@@ -399,7 +399,7 @@ class DriveInfo:
            Remember to close the PAR once you have finished
            downloading the file...
         """
-        from Acquire.Client import FileHandle as _FileHandle
+        from Acquire.Storage import FileHandle as _FileHandle
         from Acquire.Storage import FileInfo as _FileInfo
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import ObjectStore as _ObjectStore

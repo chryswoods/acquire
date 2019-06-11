@@ -3,7 +3,7 @@ from Acquire.Identity import Authorisation
 
 from Acquire.Storage import DriveInfo
 
-from Acquire.Client import FileHandle, PAR
+from Acquire.Client import PAR
 
 from Acquire.Crypto import PublicKey
 

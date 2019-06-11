@@ -200,10 +200,15 @@ class FileInfo:
        been uploaded to the storage service. This includes all
        versions of the file, the ACLs for different users etc.
 
-       Just as Acquire.Client.Drive provides the client-side view
-       of Acquire.Storage.DriveInfo, so to does
-       Acquire.Client.FileHandle provide the client-side view
-       of Acquire.Storage.FileInfo
+       While Acquire.Client.Drive provides a client-side view of
+       Acquire.Storage.DriveInfo, there is no equivalent client-side
+       view of Acquire.Storage.FileInfo. This is because we operate
+       of files via their drives.
+
+       The metadata of a FileInfo is presented to the user via
+       the Acquire.Client.FileMeta class (same way that DriveInfo
+       metadata is presented to the user via the Acquire.Client.DriveMeta
+       class)
     """
     def __init__(self, drive_uid=None, filehandle=None,
                  identifiers=None, upstream=None):
@@ -213,7 +218,7 @@ class FileInfo:
         self._filename = None
 
         if filehandle is not None:
-            from Acquire.Client import FileHandle as _FileHandle
+            from Acquire.Storage import FileHandle as _FileHandle
 
             if not isinstance(filehandle, _FileHandle):
                 raise TypeError(

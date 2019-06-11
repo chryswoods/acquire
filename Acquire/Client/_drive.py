@@ -199,15 +199,12 @@ class Drive:
         if self.is_null():
             return None
         else:
-            return "%s@%s" % (self.storage_service().uid(), self.uid())
+            return "%s@%s" % (self.uid(), self.storage_service().uid())
 
     def storage_service(self):
         """Return the storage service for this drive
-
         Returns:
             Service: Storage service for drive
-
-
         """
         if self.is_null():
             return None
@@ -260,7 +257,6 @@ class Drive:
             args["max_size"] = max_size
 
         # will eventually need to authorise payment...
-
         response = self.storage_service().call_function(
                                 function="bulk_upload", args=args)
 
@@ -301,9 +297,9 @@ class Drive:
             uploaded_name = filename
 
         from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.Client import FileHandle as _FileHandle
         from Acquire.Client import PAR as _PAR
         from Acquire.Client import FileMeta as _FileMeta
+        from Acquire.Storage import FileHandle as _FileHandle
 
         local_cutoff = None
 
