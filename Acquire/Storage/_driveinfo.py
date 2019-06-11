@@ -69,7 +69,9 @@ def _validate_bulk_upload(par, bucket_uid, identifiers,
                                 create_if_needed=False)
 
     try:
-        total_size = drive.copy_from(bucket=tmpbucket, aclrules=aclrules)
+        total_size = drive.commit_bulk_upload(bucket=tmpbucket,
+                                              identifiers=identifiers,
+                                              aclrules=aclrules)
     except Exception as e:
         # delete the bucket and force the user to upload again...
         _ObjectStore.delete_bucket(bucket=tmpbucket, force=True)
@@ -224,6 +226,11 @@ class DriveInfo:
            If the ACLs are not set, then they will inherit
            from the Drive (or from previous versions of the
            file if they exist)
+
+            You need to upload files to this bucket using
+            the key format 'file/{encoded_filename}' for single
+            files, or 'chunk/{encoded_filename}/{chunk_id}' if
+            you want to multi-part upload files.
         """
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
@@ -263,14 +270,14 @@ class DriveInfo:
                 "You do not have permission to write to this drive. "
                 "Your permissions are %s" % str(drive_acl))
 
-        from Acquire.ObjectStore import create_uuid as _create_uuid
+        from Acquire.ObjectStore import create_uid as _create_uid
         from Acquire.ObjectStore import Function as _Function
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
         from Acquire.Service import get_this_service as _get_this_service
 
         # construct a bucket for this bulk upload, given a unique name
-        bucket_uid = _create_uuid()
+        bucket_uid = _create_uid()
 
         func = _Function(function=_validate_bulk_upload,
                          bucket_uid=bucket_uid,
@@ -299,6 +306,16 @@ class DriveInfo:
             raise
 
         return par
+
+    def commit_bulk_upload(self, bucket, identifiers, aclrules):
+        """Commit the bulk upload by copying all of the objects
+           from the bulk-upload bucket 'bucket' as files into this
+           drive, using the aclrules as specified for each of the
+           new files. The keys for all objects in the bucket
+           must be of the format 'file/{encoded_filename}' or
+           you can have multipart uploads via
+           'chunk/{encoded_filename}/{chunk_id}'
+        """
 
     def upload(self, filehandle, authorisation, encrypt_key=None):
         """Upload the file associated with the passed filehandle.

@@ -391,6 +391,9 @@ class PAR:
            Returns:
                 datetime: Seconds remaining on PAR validity
         """
+        if self.is_null():
+            return 0
+
         from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
 
         buffer = float(buffer)

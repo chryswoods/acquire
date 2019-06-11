@@ -203,7 +203,7 @@ class FileInfo:
        While Acquire.Client.Drive provides a client-side view of
        Acquire.Storage.DriveInfo, there is no equivalent client-side
        view of Acquire.Storage.FileInfo. This is because we operate
-       of files via their drives.
+       on files via their drives.
 
        The metadata of a FileInfo is presented to the user via
        the Acquire.Client.FileMeta class (same way that DriveInfo
