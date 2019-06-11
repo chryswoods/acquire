@@ -80,6 +80,23 @@ class FileMeta:
 
         self._drive = drive
 
+    def identifier(self):
+        """Return a global identifier for this file. This is unique
+           for this version of this file and can be used to identify
+           this file from any other service.
+        """
+        if self.is_null():
+            return None
+        elif self._drive is None:
+            raise PermissionError(
+                "Cannot generate the identifier as we don't know "
+                "which drive this file has come from!")
+
+        from Acquire.Client import Identifier as _Identifier
+        return _Identifier(drive_guid=self._drive.guid(),
+                           filename=self.filename(),
+                           version=self.version())
+
     def filename(self):
         """Return the name of the file"""
         return self._filename
@@ -140,6 +157,17 @@ class FileMeta:
             return None
         else:
             return self._datetime
+
+    def version(self):
+        """Return the unique string that describes the particular
+           version of this file
+        """
+        if self._uid is None:
+            return None
+        else:
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+            return "%s/%s" % (_datetime_to_string(self._datetime), self._uid)
 
     def aclrules(self):
         """If known, return the ACL rules that were used to generate the ACL

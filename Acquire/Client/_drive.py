@@ -235,6 +235,20 @@ class Drive:
             raise PermissionError(
                 "Cannot perform a bulk upload of files to a null drive")
 
+        if max_size is None:
+            max_size = 100*1024*1024  # default 100 MB
+
+        try:
+            max_size = int(max_size)
+        except:
+            raise TypeError("The maximum size must be an integer")
+
+        if max_size < 0:
+            raise TypeError("max_size must be a positive integer!")
+        elif max_size > 2**50:
+            raise PermissionError(
+                "You cannot bulk upload more than 1 PB of data at once!")
+
         from Acquire.Client import Authorisation as _Authorisation
         from Acquire.Client import PAR as _PAR
         from Acquire.Crypto import PrivateKey as _PrivateKey

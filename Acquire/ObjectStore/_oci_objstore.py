@@ -278,7 +278,11 @@ class OCI_ObjectStore:
         objects = bucket["client"].list_objects(bucket["namespace"],
                                                 bucket["bucket_name"],
                                                 limit=1).data
-        return len(objects) == 0
+
+        for obj in objects.objects:
+            return False
+
+        return True
 
     @staticmethod
     def delete_bucket(bucket, force=False):

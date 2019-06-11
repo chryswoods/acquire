@@ -246,7 +246,13 @@ class DriveInfo:
         try:
             max_size = int(max_size)
         except:
-            raise TypeError("max_size must be an interger!")
+            raise TypeError("max_size must be an integer!")
+
+        if max_size < 0:
+            raise TypeError("max_size must be a positive integer!")
+        elif max_size > 2**50:
+            raise PermissionError(
+                "You cannot bulk upload more than 1 PB of data at once!")
 
         (drive_acl, identifiers) = self._resolve_acl(
                         authorisation=authorisation,

@@ -81,8 +81,8 @@ class PAR:
 
             url = encrypt_key.encrypt(url)
 
-            from Acquire.ObjectStore import create_uuid as _create_uuid
-            self._uid = _create_uuid()
+            from Acquire.ObjectStore import create_uid as _create_uid
+            self._uid = _create_uid()
 
             try:
                 from Acquire.Service import get_this_service \
@@ -300,8 +300,6 @@ class PAR:
     def fingerprint(self):
         """Return a fingerprint for this PAR that can be used
            in authorisations
-
-           TODO - Should this be a more detailed fingerprint?
 
            Returns:
                 str: UID for this PAR

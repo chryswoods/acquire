@@ -20,7 +20,7 @@ class VersionInfo:
            state
         """
         if filesize is not None:
-            from Acquire.ObjectStore import create_uuid as _create_uuid
+            from Acquire.ObjectStore import create_uid as _create_uid
             from Acquire.ObjectStore import get_datetime_now \
                 as _get_datetime_now
             from Acquire.ObjectStore import datetime_to_string \
@@ -46,7 +46,7 @@ class VersionInfo:
 
             self._filesize = filesize
             self._checksum = checksum
-            self._file_uid = _create_uuid()
+            self._file_uid = _create_uid(short_uid=True)
             self._user_guid = str(user_guid)
             self._compression = compression
             self._aclrules = aclrules
@@ -256,7 +256,7 @@ class FileInfo:
         return self._filename
 
     @staticmethod
-    def _get_filemeta(filename, version, identifiers, upstream):
+    def _get_filemeta(filename, version, drive_uid, identifiers, upstream):
         """Internal function used to create a FileMeta from the passed
            filename and VersionInfo object
         """
@@ -268,7 +268,8 @@ class FileInfo:
                              uploaded_by=version.uploaded_by(),
                              uploaded_when=version.datetime(),
                              compression=version.compression_type(),
-                             aclrules=version.aclrules())
+                             aclrules=version.aclrules(),
+                             drive_uid=drive_uid)
 
         filemeta.resolve_acl(identifiers=identifiers,
                              upstream=upstream,
@@ -279,8 +280,7 @@ class FileInfo:
 
     def get_filemeta(self, version=None):
         """Return the metadata about the latest (or specified) version
-           of this file. If 'resolved_acl' is specified, then
-           return the
+           of this file.
         """
         from Acquire.Client import FileMeta as _FileMeta
 
@@ -289,6 +289,7 @@ class FileInfo:
 
         return FileInfo._get_filemeta(filename=self._filename,
                                       version=self._version_info(version),
+                                      drive_uid=self._drive_uid,
                                       identifiers=self._identifiers,
                                       upstream=self._upstream)
 
@@ -441,6 +442,7 @@ class FileInfo:
                 version = VersionInfo.from_data(data)
                 filemeta = FileInfo._get_filemeta(filename=filename,
                                                   version=version,
+                                                  drive_uid=drive.uid(),
                                                   identifiers=identifiers,
                                                   upstream=upstream)
 
