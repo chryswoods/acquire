@@ -279,7 +279,7 @@ class OCI_ObjectStore:
                                                 bucket["bucket_name"],
                                                 limit=1).data
 
-        for obj in objects.objects:
+        for _obj in objects.objects:
             return False
 
         return True

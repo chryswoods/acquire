@@ -256,7 +256,7 @@ class FileInfo:
         return self._filename
 
     @staticmethod
-    def _get_filemeta(filename, version, drive_uid, identifiers, upstream):
+    def _get_filemeta(filename, version, identifiers, upstream):
         """Internal function used to create a FileMeta from the passed
            filename and VersionInfo object
         """
@@ -268,8 +268,7 @@ class FileInfo:
                              uploaded_by=version.uploaded_by(),
                              uploaded_when=version.datetime(),
                              compression=version.compression_type(),
-                             aclrules=version.aclrules(),
-                             drive_uid=drive_uid)
+                             aclrules=version.aclrules())
 
         filemeta.resolve_acl(identifiers=identifiers,
                              upstream=upstream,
@@ -289,7 +288,6 @@ class FileInfo:
 
         return FileInfo._get_filemeta(filename=self._filename,
                                       version=self._version_info(version),
-                                      drive_uid=self._drive_uid,
                                       identifiers=self._identifiers,
                                       upstream=self._upstream)
 
@@ -442,7 +440,6 @@ class FileInfo:
                 version = VersionInfo.from_data(data)
                 filemeta = FileInfo._get_filemeta(filename=filename,
                                                   version=version,
-                                                  drive_uid=drive.uid(),
                                                   identifiers=identifiers,
                                                   upstream=upstream)
 
