@@ -3,8 +3,6 @@ from Acquire.Identity import Authorisation
 
 from Acquire.Storage import DriveInfo
 
-from Acquire.Client import PAR
-
 from Acquire.Crypto import PublicKey
 
 
@@ -13,12 +11,12 @@ def run(args):
 
        Step 1: download - tells the service to download the file. If the
                file is small then the file will be in the response.
-               Otherwise a PAR will be returned that will let you
+               Otherwise a OSPar will be returned that will let you
                download the file. If this is the case, then you must
                call step 2...
 
-       Step 2: downloaded - after you have downloaded the file from the PAR
-               call PAR.close() so that the service knows that the PAR
+       Step 2: downloaded - after you have downloaded the file from the OSPar
+               call OSPar.close() so that the service knows that the OSPar
                is no longer needed and can be deleted
     """
 

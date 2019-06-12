@@ -211,75 +211,6 @@ class Drive:
         else:
             return self._storage_service
 
-    def bulk_upload(self, max_size=None, aclrules=None):
-        """Start the bulk upload of a large number of files to this
-           drive, assuming we have write access to this drive. This
-           will return a bulk upload PAR that can be used to write to a bucket.
-           All of the files written to this bucket will be copied into
-           this drive using the (optionally) supplied aclrules
-           to control access (or "inherit" if no rules are supplied).
-
-            Once you have finished uploading, you must call the
-            "close" function on the BulkUploadPAR so that the files
-            are correctly copied. The filenames as they are written
-            to the PAR will be used, creating new files (and subdrives)
-            as needed
-
-            Args:
-                max_size (int, default=None): Max size for upload
-                aclrules (str, default=None): ACL rules for upload
-            Returns:
-                str: Name of drive
-        """
-        if self.is_null():
-            raise PermissionError(
-                "Cannot perform a bulk upload of files to a null drive")
-
-        if max_size is None:
-            max_size = 100*1024*1024  # default 100 MB
-
-        try:
-            max_size = int(max_size)
-        except:
-            raise TypeError("The maximum size must be an integer")
-
-        if max_size < 0:
-            raise TypeError("max_size must be a positive integer!")
-        elif max_size > 2**50:
-            raise PermissionError(
-                "You cannot bulk upload more than 1 PB of data at once!")
-
-        from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.Client import PAR as _PAR
-        from Acquire.Crypto import PrivateKey as _PrivateKey
-
-        authorisation = _Authorisation(
-                            resource="bulk_upload %s %s" %
-                            (self._drive_uid, max_size), user=self._user)
-
-        # we need a new private key to secure access to this PAR
-        privkey = _PrivateKey()
-
-        args = {"drive_uid": self._drive_uid,
-                "authorisation": authorisation.to_data(),
-                "encrypt_key": privkey.public_key().to_data()}
-
-        if aclrules is not None:
-            args["aclrules"] = aclrules.to_data()
-
-        if max_size is not None:
-            args["max_size"] = max_size
-
-        # will eventually need to authorise payment...
-        response = self.storage_service().call_function(
-                                function="bulk_upload", args=args)
-
-        par = _PAR.from_data(response["bulk_upload_par"])
-
-        par._set_private_key(privkey)
-
-        return par
-
     def upload(self, filename, uploaded_name=None, aclrules=None,
                force_par=False):
         """Upload the file at 'filename' to this drive, assuming we have
@@ -311,14 +242,14 @@ class Drive:
             uploaded_name = filename
 
         from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import OSPar as _OSPar
         from Acquire.Client import FileMeta as _FileMeta
         from Acquire.Storage import FileHandle as _FileHandle
 
         local_cutoff = None
 
         if force_par:
-            # only upload using a PAR
+            # only upload using a OSPar
             local_cutoff = 0
 
         filehandle = _FileHandle(filename=filename,
@@ -336,8 +267,8 @@ class Drive:
                     "authorisation": authorisation.to_data()}
 
             if not filehandle.is_localdata():
-                # we will need to upload against a PAR, so need to tell
-                # the service how to encrypt the PAR...
+                # we will need to upload against a OSPar, so need to tell
+                # the service how to encrypt the OSPar...
                 privkey = self._user.session_key()
                 args["encryption_key"] = privkey.public_key().to_data()
 
@@ -348,10 +279,10 @@ class Drive:
 
             filemeta = _FileMeta.from_data(response["filemeta"])
 
-            # if this was a large file, then we will receive a PAR back
+            # if this was a large file, then we will receive a OSPar back
             # which must be used to upload the file
             if not filehandle.is_localdata():
-                par = _PAR.from_data(response["upload_par"])
+                par = _OSPar.from_data(response["upload_par"])
                 par.write(privkey).set_object_from_file(
                                         filehandle.local_filename())
                 par.close(privkey)
@@ -456,8 +387,8 @@ class Drive:
                 FILE.write(filedata)
                 FILE.flush()
         else:
-            from Acquire.Client import PAR as _PAR
-            par = _PAR.from_data(response["download_par"])
+            from Acquire.ObjectStore import OSPar as _OSPar
+            par = _OSPar.from_data(response["download_par"])
             par.read(privkey).get_object_as_file(downloaded_name)
             par.close(privkey)
 

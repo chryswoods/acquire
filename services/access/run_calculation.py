@@ -69,10 +69,12 @@ def run(args):
     # date on which they will expire
     (upload_par, run_par, expires) = job_sheet.request_services()
 
+    return {}
+
     # return to the user the PAR used to upload the input data and
     # the PAR on the compute service to call to trigger
     # the start of the calculation
-    return {"upload_par": upload_par.to_data(),
-            "simulation_par": run_par.to_data(),
-            "expiry_date": datetime_to_string(expires),
-            "jobsheet_uid": job_sheet.uid()}
+    #return {"upload_par": upload_par.to_data(),
+    #        "simulation_par": run_par.to_data(),
+    #        "expiry_date": datetime_to_string(expires),
+    #        "jobsheet_uid": job_sheet.uid()}

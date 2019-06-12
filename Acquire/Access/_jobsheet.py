@@ -143,10 +143,10 @@ class JobSheet:
 
            The storage service will provide (1) a file upload pre-authenticated
            request (PAR) to enable the user to upload the input,
-           and (2) a bucket write PAR to enable the compute service
+           and (2) a drive write PAR to enable the compute service
            to write the output
 
-           The compute service will be supplied with the bucket write PAR
+           The compute service will be supplied with the drive write PAR
            from the storage service and will supply a run calculation PAR
            to enable the user to trigger the start of the job
 
@@ -194,11 +194,10 @@ class JobSheet:
         # save so we don't lose the debit notes or any value
         self.save()
 
-        from Acquire.Client import PAR as _PAR
         from Acquire.ObjectStore import get_datetime_future \
             as _get_datetime_future
 
-        return (_PAR(), _PAR(), _get_datetime_future(hours=1))
+        return (None, None, _get_datetime_future(hours=1))
 
     def save(self):
         """Save this JobSheet to the object store

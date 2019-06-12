@@ -1,12 +1,12 @@
 
-__all__ = ["PARRegistry"]
+__all__ = ["OSParRegistry"]
 
 _registry_key = "registry/pars"
 
 
-class PARRegistry:
-    """This is a PAR registry that is used
-       to maintain a registry of PARs that have been created
+class OSParRegistry:
+    """This is a OSPar registry that is used
+       to maintain a registry of OSPars that have been created
        on an ObjectStore.
     """
     @staticmethod
@@ -29,7 +29,7 @@ class PARRegistry:
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
 
-        from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import OSPar as _OSPar
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.ObjectStore import Function as _Function
@@ -39,7 +39,7 @@ class PARRegistry:
         if par is None:
             return
 
-        if not isinstance(par, _PAR):
+        if not isinstance(par, _OSPar):
             raise TypeError("You can only register pars of type PAR")
 
         if par.is_null():
@@ -94,7 +94,7 @@ class PARRegistry:
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
 
-        from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import OSPar as _OSPar
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.ObjectStore import string_to_datetime \
@@ -123,7 +123,7 @@ class PARRegistry:
             raise ObjectStoreError(
                 "There is matching PAR available to close...")
 
-        par = _PAR.from_data(data["par"])
+        par = _OSPar.from_data(data["par"])
 
         if "driver_details" in data:
             if details_function is not None:
@@ -148,7 +148,7 @@ class PARRegistry:
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
 
-        from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import OSPar as _OSPar
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.ObjectStore import datetime_to_string \
@@ -158,8 +158,8 @@ class PARRegistry:
         if par is None:
             return
 
-        if not isinstance(par, _PAR):
-            raise TypeError("You can only close PAR objects!")
+        if not isinstance(par, _OSPar):
+            raise TypeError("You can only close OSPar objects!")
 
         if par.is_null():
             return
