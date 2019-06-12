@@ -17,6 +17,9 @@ class Identifier:
            identifies the latest version of the file
         """
         self._drive_guid = drive_guid
+        self._encoded_filename = None
+        self._filename = None
+        self._version = None
 
         if self._drive_guid is not None:
             self._filename = filename
@@ -38,12 +41,12 @@ class Identifier:
         elif self.is_drive():
             return "acquire_drive://%s" % self._drive_guid
         elif self.specifies_version():
-            return "acquire_file://%s/%s" % (self._drive_guid,
-                                             self._encoded_filename)
-        else:
             return "acquire_file://%s/%s/%s" % (self._drive_guid,
                                                 self._encoded_filename,
                                                 self._version)
+        else:
+            return "acquire_file://%s/%s" % (self._drive_guid,
+                                             self._encoded_filename)
 
     def fingerprint(self):
         """Return a fingerprint that can be used to show that the
@@ -70,9 +73,9 @@ class Identifier:
                 filename = _encoded_to_string(parts[-1])
                 version = None
             except:
-                drive_guid = parts[-3]
-                filename = _encoded_to_string(parts[-2])
-                version = parts[-1]
+                drive_guid = parts[-4]
+                filename = _encoded_to_string(parts[-3])
+                version = "/".join([parts[-2], parts[-1]])
 
             return Identifier(drive_guid=drive_guid, filename=filename,
                               version=version)
@@ -129,7 +132,7 @@ class Identifier:
         if self.is_null():
             return None
 
-        return self._drive_guid.split("/")[0]
+        return self._drive_guid.split("@")[-1]
 
     def service(self):
         """Return the service that holds the File/Drive behind this
