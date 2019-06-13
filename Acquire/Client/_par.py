@@ -1,26 +1,26 @@
 
 
-class FilePAR:
-    """This class holds a pre-authenticated request to upload
-       or download a file. Anyone who holds a copy of this
-       object can perform operations authorised on this
-       file
+class PAR:
+    """This class holds a pre-authenticated request to access
+       a file, set of files or a drive. Anyone who holds a copy of this
+       PAR can resolve it to recover a valid File or Drive object
+       that will support access via the permissions of the PAR
     """
     def __init__(self, identifier=None, user=None, aclrule=None,
-                 encrypt_key=None, expires_datetime=None):
-        """Construct a FilePAR for the specified identifier,
+                 expires_datetime=None):
+        """Construct a PAR for the specified identifier,
            authorised by the passed user, giving permissions
            according to the passed 'aclrule' (default is
            ACLRule.reader()).
 
-           If 'encrypt_key' is passed, then the FilePAR will
-           be encrypted using the passed key.
-
            The passed 'expires_datetime' is the time at which
-           this FilePAR will expire (by default within 24 hours)
+           this PAR will expire (by default within 24 hours)
         """
+        self._identifier = None
+        self._uid = None
+        self._expires_datetime = None
+
         if identifier is None:
-            self._identifier = None
             return
 
         from Acquire.Client import Identifier as _Identifier
@@ -28,7 +28,6 @@ class FilePAR:
             raise TypeError("The identifier must be type Identifier")
 
         if identifier.is_null():
-            self._identifier = None
             return
 
         from Acquire.Client import User as _User
@@ -54,39 +53,35 @@ class FilePAR:
                 as _datetime_to_datetime
             expires_datetime = _datetime_to_datetime(expires_datetime)
 
-        from Acquire.Client import PublicKey as _PublicKey
-        from Acquire.Client import PrivateKey as _PrivateKey
-        self._privkey = None
-
-        if encrypt_key is None:
-            self._privkey = _PrivateKey()
-            encrypt_key = self._privkey.public_key()
-        elif isinstance(encrypt_key, _PrivateKey):
-            self._privkey = encrypt_key
-            encrypt_key = encrypt_key.public_key()
-        elif not isinstance(encrypt_key, _PublicKey):
-            raise TypeError("The passed encryption key must be type PublicKey")
-
+        self._identifier = identifier
         self._expires_datetime = expires_datetime
         self._aclrule = aclrule
-        self._uid = None
 
         from Acquire.Client import Authorisation as _Authorisation
         auth = _Authorisation(user=user,
                               resource="create_par %s" % self.fingerprint())
 
         args = {"authorisation": auth.to_data(),
-                "par": self.to_data(),
-                "encrypt_key": encrypt_key.to_data()}
+                "par": self.to_data()}
 
-        service = identifier.storage_service()
+        service = identifier.service()
 
-        result = service.call_function(function="create_filepar",
+        result = service.call_function(function="create_par",
                                        args=args)
 
-        # this UID should have the form {type}://{storage_uid}/{par_uid}
-        # (although it may be encrypted)
-        self._uid = result["par_uid"]
+        self._set_uid(result["par_uid"])
+
+    def __str__(self):
+        if self.is_null():
+            return "PAR::null"
+        elif not self.is_authorised():
+            return "PAR::unauthorised"
+        else:
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+            return "PAR( %s, %s, expires %s )" % (
+                    self._identifier.to_string(),
+                    self._aclrule, _datetime_to_string(self._expires_datetime))
 
     def is_null(self):
         """Return whether or not this is null"""
@@ -95,6 +90,20 @@ class FilePAR:
     def is_authorised(self):
         """Return whether or not this has been authorised"""
         return self._uid is not None
+
+    def _set_uid(self, uid):
+        """Internal function to set the UID of this PAR"""
+        if self._uid is not None:
+            raise PermissionError("You cannot set the UID twice!")
+
+        self._uid = uid
+
+    def uid(self):
+        """Return the UID for this PAR"""
+        if self.is_authorised():
+            return self._uid
+        else:
+            return None
 
     def fingerprint(self):
         """Return a fingerprint that can be used to show that
@@ -147,6 +156,10 @@ class FilePAR:
         else:
             return self._expires_datetime
 
+    def expired(self, buffer=30):
+        """Return whether or not this PAR has expired"""
+        return self.seconds_remaining(buffer=buffer) <= 0
+
     def seconds_remaining(self, buffer=30):
         """Return the number of seconds remaining before this PAR expires.
            This will return 0 if the PAR has already expired. To be safe,
@@ -180,7 +193,7 @@ class FilePAR:
             return delta
 
     def to_data(self):
-        """Return a json-serialisable dictionary of this FilePAR"""
+        """Return a json-serialisable dictionary of this PAR"""
         if self.is_null():
             return None
 
@@ -198,13 +211,13 @@ class FilePAR:
 
     @staticmethod
     def from_data(data):
-        """Return a FilePAR constructed from the json-deserialised passed
+        """Return a PAR constructed from the json-deserialised passed
            dictionary
         """
         if data is None or len(data) == 0:
-            return FilePAR()
+            return PAR()
 
-        f = FilePAR()
+        f = PAR()
 
         from Acquire.Client import Identifier as _Identifier
         from Acquire.Client import ACLRule as _ACLRule

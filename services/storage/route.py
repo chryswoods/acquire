@@ -4,7 +4,10 @@ def storage_functions(function, args):
     """This function routes calls to all of the storage service's
        extra functions
     """
-    if function == "close_ospar":
+    if function == "create_par":
+        from storage.create_par import run as _create_par
+        return _create_par(args)
+    elif function == "close_ospar":
         from storage.close_ospar import run as _close_ospar
         return _close_ospar(args)
     elif function == "download":

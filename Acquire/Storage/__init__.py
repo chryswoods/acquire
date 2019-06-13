@@ -16,6 +16,7 @@ from ._filehandle import *
 from ._fileinfo import *
 from ._driveinfo import *
 from ._filemeta import *
+from ._parregistry import *
 from ._drivemeta import *
 
 try:
