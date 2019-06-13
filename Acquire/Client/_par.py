@@ -61,8 +61,12 @@ class PAR:
         auth = _Authorisation(user=user,
                               resource="create_par %s" % self.fingerprint())
 
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        self._secret = _PrivateKey.random_passphrase()
+
         args = {"authorisation": auth.to_data(),
-                "par": self.to_data()}
+                "par": self.to_data(),
+                "secret": self._secret}
 
         service = identifier.service()
 
@@ -105,6 +109,23 @@ class PAR:
         else:
             return None
 
+    def aclrule(self):
+        """Return the ACL rule associated with this PAR"""
+        if self.is_authorised():
+            return self._aclrule
+        else:
+            from Acquire.Client import ACLRule as _ACLRule
+            return _ACLRule.denied()
+
+    def identifier(self):
+        """Return the identifier for the Drive/File that is resolvable
+           from this PAR
+        """
+        if self.is_authorised():
+            return self._identifier
+        else:
+            return None
+
     def fingerprint(self):
         """Return a fingerprint that can be used to show that
            the user authorised the request to create this PAR
@@ -139,13 +160,36 @@ class PAR:
         else:
             return self._identifier.service_uid()
 
-    def resolve(self, key=None):
+    def resolve(self, secret=None):
         """Resolve this PAR into the authorised Drive or File object, ready
            for download, upload etc.
 
-           If this is an encrypted PAR, then you will need to pass
-           in the valid decryption key to gain access
+           If 'secret' is supplied, then this will use the supplied
+           secret to unlock the PAR (sometimes they may be locked
+           by a simple secret)
         """
+        if not self.is_authorised():
+            raise PermissionError(
+                "You cannot resolve a PAR that has not been authorised!")
+
+        service = self.service()
+
+        if secret is None:
+            try:
+                secret = self._secret
+            except:
+                pass
+
+        if secret is not None and len(secret) > 0:
+            from Acquire.Crypto import Hash
+            secret = Hash.multi_md5(self._uid, secret)
+        else:
+            secret = None
+
+        result = service.call_function(function="resolve_par",
+                                       args={"par_uid": self.uid(),
+                                             "secret": secret})
+
         from Acquire.Client import Drive as _Drive
         return _Drive()
 

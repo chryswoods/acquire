@@ -109,7 +109,17 @@ class Identifier:
 
     def drive_guid(self):
         """Return the GUID of the drive"""
-        return self._drive_guid
+        if self.is_null():
+            return None
+        else:
+            return self._drive_guid
+
+    def drive_uid(self):
+        """Return the UID of the drive"""
+        if self.is_null():
+            return None
+        else:
+            return self._drive_guid.split("@")[0]
 
     def filename(self):
         """Return the name of the file (if this is a file)"""

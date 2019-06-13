@@ -25,6 +25,9 @@ def storage_functions(function, args):
     elif function == "open_drive":
         from storage.open_drive import run as _open_drive
         return _open_drive(args)
+    elif function == "resolve_par":
+        from storage.resolve_par import run as _resolve_par
+        return _resolve_par(args)
     elif function == "upload":
         from storage.upload import run as _upload
         return _upload(args)

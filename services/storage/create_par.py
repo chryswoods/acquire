@@ -15,9 +15,11 @@ def run(args):
 
     auth = Authorisation.from_data(args["authorisation"])
     par = PAR.from_data(args["par"])
+    secret = args["secret"]
 
     registry = PARRegistry()
-    par_uid = registry.register(par=par, authorisation=auth)
+    par_uid = registry.register(par=par, authorisation=auth,
+                                secret=secret)
 
     result = {"par_uid": par_uid}
 

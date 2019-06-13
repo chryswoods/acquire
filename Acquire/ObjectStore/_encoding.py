@@ -40,7 +40,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "get_datetime_now_to_string",
            "date_and_time_to_datetime",
            "date_and_hour_to_datetime",
-           "create_uuid", "create_uid"]
+           "create_uuid", "create_uid", "validate_is_uid"]
 
 
 def create_uuid(short_uid=False, include_date=None):
@@ -68,6 +68,53 @@ def create_uuid(short_uid=False, include_date=None):
 def create_uid(short_uid=False, include_date=None):
     """Synonym for create_uuid"""
     return create_uuid(short_uid=short_uid, include_date=include_date)
+
+
+def validate_is_uid(uid):
+    """Validate that the passed 'uid' is actually a UID. This checks
+       that the string is not something weird that is trying to
+       break the system
+    """
+    if uid is None:
+        raise TypeError("'None' is not a valid UID!")
+
+    uid = str(uid)
+
+    len_uid = len(uid)
+
+    import re as _re
+    from Acquire.ObjectStore import string_to_datetime \
+        as _string_to_datetime
+
+    if len_uid == 8:
+        # this is a short UID
+        if _re.match(r'[a-f0-9]{8}', uid):
+            return
+    elif len_uid == 35:
+        # this is a short UID with a datetime
+        parts = uid.split("/")
+        try:
+            dt = _string_to_datetime(parts[0])
+            if _re.match(r'[a-f0-9]{8}', parts[1]):
+                return
+        except Exception as e:
+            print(e)
+            pass
+    elif len_uid == 36:
+        # this is a long UID
+        if _re.match(r'[a-f0-9]{8}\-[a-f0-9]{4}\-[a-f0-9]{4}\-[a-f0-9]{4}\-[a-f0-9]{12}', uid):
+            return
+    elif len_uid == 63:
+        # this is a long UID with a datetime
+        parts = uid.split("/")
+        try:
+            dt = _string_to_datetime(parts[0])
+            if _re.match(r'[a-f0-9]{8}\-[a-f0-9]{4}\-[a-f0-9]{4}\-[a-f0-9]{4}\-[a-f0-9]{12}', parts[1]):
+                return
+        except:
+            pass
+
+    raise TypeError("'%s' is not a valid UID!" % uid)
 
 
 def string_to_encoded(s):

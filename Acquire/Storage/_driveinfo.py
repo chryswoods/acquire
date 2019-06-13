@@ -93,7 +93,8 @@ class DriveInfo:
        about a particular cloud drive
     """
     def __init__(self, drive_uid=None, identifiers=None,
-                 is_authorised=False, parent_drive_uid=None):
+                 is_authorised=False, parent_drive_uid=None,
+                 open_aclrule=None):
         """Construct a DriveInfo for the drive with UID 'drive_uid',
            and optionally the GUID of the user making the request
            (and whether this was authorised). If this drive
@@ -104,6 +105,7 @@ class DriveInfo:
         self._parent_drive_uid = parent_drive_uid
         self._identifiers = identifiers
         self._is_authorised = is_authorised
+        self._open_aclrule = open_aclrule
 
         if self._drive_uid is not None:
             self.load()
@@ -209,113 +211,6 @@ class DriveInfo:
                                             unresolved=False)
 
         return (drive_acl, identifiers)
-
-    def bulk_upload(self, authorisation, encrypt_key, max_size=None,
-                    aclrules=None):
-        """Start the process of a bulk upload of a set of files
-           to this Drive. This will return a Bucket-Write PAR to
-           a temporary bucket to which the files can be uploaded.
-           Once the PAR is closed the files will be copied to the
-           Drive and the temporary bucket deleted.
-
-           You need to provide authorisation for this action,
-           a public key to encrypt the PAR, and optionally
-           specify the maximum size of the data to be uploaded
-           and the ACLs. If the maximum size is not set then
-           you will be limited to a maximum of 100MB upload.
-           If the ACLs are not set, then they will inherit
-           from the Drive (or from previous versions of the
-           file if they exist)
-
-            You need to upload files to this bucket using
-            the key format 'file/{encoded_filename}' for single
-            files, or 'chunk/{encoded_filename}/{chunk_id}' if
-            you want to multi-part upload files.
-        """
-        from Acquire.Crypto import PublicKey as _PublicKey
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.ObjectStore import string_to_encoded \
-            as _string_to_encoded
-        from Acquire.Storage import ACLRules as _ACLRules
-
-        if not isinstance(encrypt_key, _PublicKey):
-            raise TypeError("The encryption key must be of type PublicKey")
-
-        if aclrules is not None:
-            if not isinstance(aclrules, _ACLRules):
-                raise TypeError("The ACLRules must be of type ACLRules")
-        else:
-            aclrules = _ACLRules.inherit()
-
-        if max_size is None:
-            max_size = 100*1024*1024  # default 100 MB
-
-        try:
-            max_size = int(max_size)
-        except:
-            raise TypeError("max_size must be an integer!")
-
-        if max_size < 0:
-            raise TypeError("max_size must be a positive integer!")
-        elif max_size > 2**50:
-            raise PermissionError(
-                "You cannot bulk upload more than 1 PB of data at once!")
-
-        (drive_acl, identifiers) = self._resolve_acl(
-                        authorisation=authorisation,
-                        resource="bulk_upload %s %s" % (self.uid(), max_size))
-
-        if not drive_acl.is_writeable():
-            raise PermissionError(
-                "You do not have permission to write to this drive. "
-                "Your permissions are %s" % str(drive_acl))
-
-        from Acquire.ObjectStore import create_uid as _create_uid
-        from Acquire.ObjectStore import Function as _Function
-        from Acquire.Service import get_service_account_bucket \
-            as _get_service_account_bucket
-        from Acquire.Service import get_this_service as _get_this_service
-
-        # construct a bucket for this bulk upload, given a unique name
-        bucket_uid = _create_uid()
-
-        func = _Function(function=_validate_bulk_upload,
-                         bucket_uid=bucket_uid,
-                         identifiers=identifiers,
-                         drive_uid=self.uid(),
-                         aclrules=aclrules.to_data(),
-                         max_size=max_size)
-
-        service = _get_this_service()
-        bucket = _get_service_account_bucket()
-
-        tmpbucket = _ObjectStore.create_bucket(
-                                    bucket=bucket,
-                                    bucket_name=bucket_uid,
-                                    compartment=service.storage_compartment())
-
-        try:
-            par = _ObjectStore.create_par(bucket=tmpbucket,
-                                          encrypt_key=encrypt_key,
-                                          key=None,
-                                          readable=False,
-                                          writeable=True,
-                                          cleanup_function=func)
-        except:
-            _ObjectStore.delete_bucket(bucket=tmpbucket, force=True)
-            raise
-
-        return par
-
-    def commit_bulk_upload(self, bucket, identifiers, aclrules):
-        """Commit the bulk upload by copying all of the objects
-           from the bulk-upload bucket 'bucket' as files into this
-           drive, using the aclrules as specified for each of the
-           new files. The keys for all objects in the bucket
-           must be of the format 'file/{encoded_filename}' or
-           you can have multipart uploads via
-           'chunk/{encoded_filename}/{chunk_id}'
-        """
 
     def upload(self, filehandle, authorisation, encrypt_key=None):
         """Upload the file associated with the passed filehandle.

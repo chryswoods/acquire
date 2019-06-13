@@ -21,3 +21,5 @@ def test_drive_par(authenticated_user, tempdir):
 
     par = PAR(identifier=iden, user=authenticated_user,
               aclrule=ACLRule.reader())
+
+    drive = par.resolve()
