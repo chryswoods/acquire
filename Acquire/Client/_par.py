@@ -95,6 +95,22 @@ class PAR:
         """Return whether or not this has been authorised"""
         return self._uid is not None
 
+    def assert_valid(self):
+        """Assert that this is a valid and authorised PAR that
+           has not yet expired
+        """
+        is_valid = True
+
+        if self.is_null():
+            is_valid = False
+        elif not self.is_authorised():
+            is_valid = False
+        elif self.expired():
+            is_valid = False
+
+        if not is_valid:
+            raise PermissionError("The PAR is not valid")
+
     def _set_uid(self, uid):
         """Internal function to set the UID of this PAR"""
         if self._uid is not None:

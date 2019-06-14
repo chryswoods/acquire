@@ -165,6 +165,11 @@ class DriveInfo:
                 raise PermissionError(
                     "The identifiers for the user who created the PAR "
                     "must be passed!")
+
+            if par.location().drive_uid() != self._drive_uid:
+                raise PermissionError(
+                    "Cannot access the drive as the PAR is not "
+                    "validated for this drive!")
         else:
             try:
                 identifiers = self._identifiers
@@ -275,8 +280,6 @@ class DriveInfo:
         # now save the fileinfo to the object store
         fileinfo.save()
         filemeta = fileinfo.get_filemeta()
-
-        assert(filemeta.acl().is_owner())
 
         # return the PAR if we need to have a second-stage of upload
         return (filemeta, ospar)

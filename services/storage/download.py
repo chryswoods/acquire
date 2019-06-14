@@ -1,7 +1,7 @@
 
 from Acquire.Identity import Authorisation
 
-from Acquire.Storage import DriveInfo
+from Acquire.Storage import DriveInfo, PARRegistry
 
 from Acquire.Crypto import PublicKey
 
@@ -22,7 +22,22 @@ def run(args):
 
     drive_uid = args["drive_uid"]
     filename = args["filename"]
-    authorisation = Authorisation.from_data(args["authorisation"])
+
+    try:
+        authorisation = Authorisation.from_data(args["authorisation"])
+    except:
+        authorisation = None
+
+    try:
+        par_uid = args["par_uid"]
+    except:
+        par_uid = None
+
+    try:
+        secret = args["secret"]
+    except:
+        secret = None
+
     public_key = PublicKey.from_data(args["encryption_key"])
 
     if "version" in args:
@@ -40,6 +55,13 @@ def run(args):
     if force_par:
         force_par = True
 
+    if par_uid is not None:
+        registry = PARRegistry()
+        (par, identifiers) = registry.load(par_uid=par_uid, secret=secret)
+    else:
+        par = None
+        identifiers = None
+
     drive = DriveInfo(drive_uid=drive_uid)
 
     return_value = {}
@@ -48,7 +70,9 @@ def run(args):
                                                version=version,
                                                authorisation=authorisation,
                                                encrypt_key=public_key,
-                                               force_par=force_par)
+                                               force_par=force_par,
+                                               par=par,
+                                               identifiers=identifiers)
 
     if filemeta is not None:
         return_value["filemeta"] = filemeta.to_data()

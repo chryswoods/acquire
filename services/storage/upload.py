@@ -1,7 +1,7 @@
 
 from Acquire.Identity import Authorisation
 
-from Acquire.Storage import FileHandle, DriveInfo
+from Acquire.Storage import FileHandle, DriveInfo, PARRegistry
 
 from Acquire.Client import FileMeta
 
@@ -27,12 +27,33 @@ def run(args):
     """
 
     filehandle = FileHandle.from_data(args["filehandle"])
-    authorisation = Authorisation.from_data(args["authorisation"])
+
+    try:
+        authorisation = Authorisation.from_data(args["authorisation"])
+    except:
+        authorisation = None
+
+    try:
+        par_uid = args["par_uid"]
+    except:
+        par_uid = None
+
+    try:
+        secret = args["secret"]
+    except:
+        secret = None
 
     try:
         public_key = PublicKey.from_data(args["encryption_key"])
     except:
         public_key = None
+
+    if par_uid is not None:
+        registry = PARRegistry()
+        (par, identifiers) = registry.load(par_uid=par_uid, secret=secret)
+    else:
+        par = None
+        identifiers = None
 
     drive_uid = filehandle.drive_uid()
 
@@ -42,7 +63,8 @@ def run(args):
 
     (filemeta, par) = drive.upload(filehandle=filehandle,
                                    authorisation=authorisation,
-                                   encrypt_key=public_key)
+                                   encrypt_key=public_key,
+                                   par=par, identifiers=identifiers)
 
     if filemeta is not None:
         return_value["filemeta"] = filemeta.to_data()

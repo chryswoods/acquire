@@ -52,10 +52,7 @@ def _create_drive(user, drivemeta, storage_service,
     drive._user = user
     drive._storage_service = storage_service
     drive._par = par
-
-    if secret is not None:
-        from Acquire.Crypto import Hash
-        drive._hashed_secret = Hash.multi_md5(par.uid(), secret)
+    drive._secret = secret
 
     return drive
 
@@ -307,7 +304,7 @@ class Drive:
             elif self._par is not None:
                 self._par.assert_valid()
                 args["par_uid"] = self._par.uid()
-                args["secret"] = self._hashed_secret
+                args["secret"] = self._secret
 
             else:
                 raise PermissionError(
@@ -398,7 +395,7 @@ class Drive:
         elif self._par is not None:
             self._par.assert_valid()
             args["par_uid"] = self._par.uid()
-            args["secret"] = self._hashed_secret
+            args["secret"] = self._secret
 
         if force_par:
             args["force_par"] = True
@@ -558,8 +555,9 @@ class Drive:
                                            user=self._user)
             args["authorisation"] = authorisation.to_data()
         elif self._par is not None:
+            self._par.assert_valid()
             args["par_uid"] = self._par.uid()
-            args["secret"] = self._hashed_secret
+            args["secret"] = self._secret
 
         response = self.storage_service().call_function(function="list_files",
                                                         args=args)
@@ -602,8 +600,9 @@ class Drive:
                                     user=self._user)
             args["authorisation"] = authorisation.to_data()
         elif self._par is not None:
+            self._par.assert_valid()
             args["par_uid"] = self._par.uid()
-            args["secret"] = self._hashed_secret
+            args["secret"] = self._secret
 
         response = self.storage_service().call_function(
                                                 function="list_versions",

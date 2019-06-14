@@ -41,6 +41,9 @@ def run(args):
     if par_uid is not None:
         registry = PARRegistry()
         (par, identifiers) = registry.load(par_uid=par_uid, secret=secret)
+    else:
+        par = None
+        identifiers = None
 
     drive = DriveInfo(drive_uid=drive_uid)
 
