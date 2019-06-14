@@ -555,6 +555,10 @@ def string_to_filepath(path):
     if path is None:
         return ""
 
+    # change any windows path separators into unix path separators
+    path = path.replace("\\", "/")
+
+    # now normalise the path to remove messiness
     path = _os.path.normpath(path)
 
     # remove all ".." and "." from this path

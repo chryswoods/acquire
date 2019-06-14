@@ -15,6 +15,9 @@ def tempdir(tmpdir_factory):
 
 def test_drives(authenticated_user, tempdir):
 
+    nstart = len(Drive.list_toplevel_drives(user=authenticated_user,
+                                            storage_url="storage"))
+
     drive_name = "test å∫ç∂ something"
     drive = Drive(user=authenticated_user, name=drive_name,
                   storage_url="storage")
@@ -30,7 +33,7 @@ def test_drives(authenticated_user, tempdir):
     drives = Drive.list_toplevel_drives(user=authenticated_user,
                                         storage_url="storage")
 
-    assert(len(drives) == 2)
+    assert(len(drives) == nstart + 2)
 
     drives = drive2.list_drives()
 
@@ -163,3 +166,9 @@ def test_drives(authenticated_user, tempdir):
     os.unlink(filename)
 
     assert(data1 == data2)
+
+    # try to upload a file with path to the drive
+    filemeta = drive.upload(filename=__file__,
+                            uploaded_name="/test/one/../two/test.py")
+
+    assert(filemeta.filename() == "test/two/test.py")

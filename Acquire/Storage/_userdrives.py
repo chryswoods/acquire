@@ -137,7 +137,8 @@ class UserDrives:
                 from Acquire.Storage import DriveInfo as _DriveInfo
                 drive = _DriveInfo(drive_uid=drive_uid,
                                    identifiers=self._identifiers,
-                                   is_authorised=self._is_authorised)
+                                   is_authorised=self._is_authorised,
+                                   autocreate=True)
 
         return drive
 

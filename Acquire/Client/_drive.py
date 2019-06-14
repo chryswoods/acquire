@@ -272,7 +272,8 @@ class Drive:
             raise PermissionError("Cannot upload a file to a null drive!")
 
         if uploaded_name is None:
-            uploaded_name = filename
+            import os as _os
+            uploaded_name = _os.path.split(filename)[1]
 
         from Acquire.Client import Authorisation as _Authorisation
         from Acquire.ObjectStore import OSPar as _OSPar

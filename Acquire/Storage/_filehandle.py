@@ -146,7 +146,9 @@ class FileHandle:
             if remote_filename is None:
                 self._filename = _os.path.split(filename)[1]
             else:
-                self._filename = _os.path.split(remote_filename)[1]
+                from Acquire.ObjectStore import string_to_filepath \
+                    as _string_to_filepath
+                self._filename = _string_to_filepath(remote_filename)
         else:
             self._filename = None
 

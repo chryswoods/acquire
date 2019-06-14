@@ -234,8 +234,18 @@ class FileInfo:
             from Acquire.ObjectStore import string_to_filepath \
                 as _string_to_filepath
 
-            self._filename = _string_to_filepath(filehandle.filename())
-            self._encoded_filename = _string_to_encoded(self._filename)
+            filename = _string_to_filepath(filehandle.filename())
+
+            # remove any leading slashes
+            while filename.startswith("/"):
+                filename = filename[1:]
+
+            # remove any trailing slashes
+            while filename.endswith("/"):
+                filename = filename[0:-1]
+
+            self._filename = filename
+            self._encoded_filename = _string_to_encoded(filename)
 
             version = VersionInfo(filesize=filehandle.filesize(),
                                   checksum=filehandle.checksum(),

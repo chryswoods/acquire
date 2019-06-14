@@ -86,15 +86,10 @@ class DriveMeta:
                 "You do not have permission to resolve the ACLs for "
                 "this drive")
 
-        print("aclrules = %s" % self._aclrules)
-        print("open_acl = %s" % open_aclrule)
-
         self._acl = self._aclrules.resolve(identifiers=identifiers,
                                            upstream=upstream,
                                            must_resolve=must_resolve,
                                            unresolved=unresolved)
-
-        print("resolved = %s" % self._acl)
 
         if open_aclrule is not None:
             from Acquire.Client import ACLRule as _ACLRule
@@ -103,8 +98,6 @@ class DriveMeta:
 
             open_aclrule = open_aclrule.resolve(must_resolve=True)
             self._acl = self._acl * open_aclrule
-
-        print("resolved2 = %s" % self._acl)
 
         if not self._acl.is_owner():
             # only owners can see the ACLs

@@ -18,7 +18,7 @@ def _same_file(file1, file2):
 
 
 def test_drive_par(authenticated_user, tempdir):
-    drive_name = "test å∫ç∂ something"
+    drive_name = "test å∫ç∂ pars"
     drive = Drive(user=authenticated_user, name=drive_name,
                   storage_url="storage")
 
