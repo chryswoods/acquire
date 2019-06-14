@@ -313,7 +313,13 @@ class Drive:
             if not filehandle.is_localdata():
                 # we will need to upload against a OSPar, so need to tell
                 # the service how to encrypt the OSPar...
-                privkey = self._user.session_key()
+                if self._user is not None:
+                    privkey = self._user.session_key()
+                else:
+                    from Acquire.Crypto import get_private_key \
+                        as _get_private_key
+                    privkey = _get_private_key("parkey")
+
                 args["encryption_key"] = privkey.public_key().to_data()
 
             # will eventually need to authorise payment...
@@ -337,8 +343,8 @@ class Drive:
             filehandle.__del__()
             raise
 
-    def download(self, filename, downloaded_name=None, version=None,
-                 dir=None, force_par=False):
+    def download(self, filename, downloaded_name=None,
+                 version=None, dir=None, force_par=False):
         """Download the file called 'filename' from this drive into
            the local directory, or 'dir' if specified,
            ideally called 'filename'
@@ -379,7 +385,11 @@ class Drive:
         downloaded_name = _create_new_file(filename=downloaded_name,
                                            dir=dir)
 
-        privkey = self._user.session_key()
+        if self._user is not None:
+            privkey = self._user.session_key()
+        else:
+            from Acquire.Crypto import get_private_key as _get_private_key
+            privkey = _get_private_key("parkey")
 
         args = {"drive_uid": self.uid(),
                 "filename": filename,
