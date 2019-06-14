@@ -1,20 +1,20 @@
 
 
-class Identifier:
-    """This class holds a globally-resolvable identifier for a
+class Location:
+    """This class holds a globally-resolvable location for a
        file or Drive.
     """
     def __init__(self, drive_guid=None, filename=None, version=None):
-        """Construct an Identifier. This uses the GUID of the
+        """Construct an Location. This uses the GUID of the
            drive to identify the drive, and then (optionally) the
            name of the file in the drive, and then the specific
            version.
 
            The drive GUID has the format {service_uid}/{drive_uid}
 
-           If the filename is not supplied, then this identifies
+           If the filename is not supplied, then this locates
            the drive itself. If a version is not supplied, then this
-           identifies the latest version of the file
+           locates the latest version of the file
         """
         self._drive_guid = drive_guid
         self._encoded_filename = None
@@ -37,7 +37,7 @@ class Identifier:
 
     def __str__(self):
         if self.is_null():
-            return "Identifier::null"
+            return "Location::null"
         elif self.is_drive():
             return "acquire_drive://%s" % self._drive_guid
         elif self.specifies_version():
@@ -50,19 +50,19 @@ class Identifier:
 
     def fingerprint(self):
         """Return a fingerprint that can be used to show that the
-           user has authorised something to do with this identifier
+           user has authorised something to do with this location
         """
         return str(self)
 
     def to_string(self):
         """Return a safe string that completely describes this
-           identifier
+           location
         """
         return str(self)
 
     @staticmethod
     def from_string(s):
-        """Return an Identifier constructed from the passed string"""
+        """Return an Location constructed from the passed string"""
         if s.startswith("acquire_file://"):
             parts = s.split("/")
             from Acquire.ObjectStore import encoded_to_string \
@@ -77,24 +77,24 @@ class Identifier:
                 filename = _encoded_to_string(parts[-3])
                 version = "/".join([parts[-2], parts[-1]])
 
-            return Identifier(drive_guid=drive_guid, filename=filename,
-                              version=version)
+            return Location(drive_guid=drive_guid, filename=filename,
+                            version=version)
 
         elif s.startswith("acquire_drive://"):
             parts = s.split("/")
-            return Identifier(drive_guid=parts[-1])
+            return Location(drive_guid=parts[-1])
         else:
-            return Identifier()
+            return Location()
 
     def is_file(self):
-        """Return whether or not this is an identifier for a file"""
+        """Return whether or not this is a location for a file"""
         if self.is_null():
             return False
         else:
             return self._encoded_filename is not None
 
     def is_drive(self):
-        """Return whether or not this is an identifier for a drive"""
+        """Return whether or not this is a location for a drive"""
         if self.is_null():
             return False
         else:
@@ -137,7 +137,7 @@ class Identifier:
 
     def service_uid(self):
         """Return the UID of the service that holds the File/Drive
-           behind this identifier
+           behind this location
         """
         if self.is_null():
             return None
@@ -146,7 +146,7 @@ class Identifier:
 
     def service(self):
         """Return the service that holds the File/Drive behind this
-           identifier
+           location
         """
         if self.is_null():
             return None
@@ -158,7 +158,7 @@ class Identifier:
 
     def service_url(self):
         """Return the URL of the service that holds the File/Drive
-           behind this identifier
+           behind this location
         """
         if self.is_null():
             return None
@@ -167,13 +167,13 @@ class Identifier:
 
     @staticmethod
     def from_data(data):
-        """Return an Identifier constructed from the json-deserialised
+        """Return an Location constructed from the json-deserialised
            dictionary
         """
         if data is None or len(data) == 0:
-            return Identifier()
+            return Location()
 
-        iden = Identifier()
+        iden = Location()
         iden._drive_guid = data["drive_guid"]
 
         try:

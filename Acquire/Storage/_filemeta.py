@@ -80,22 +80,22 @@ class FileMeta:
 
         self._drive = drive
 
-    def identifier(self):
-        """Return a global identifier for this file. This is unique
-           for this version of this file and can be used to identify
+    def location(self):
+        """Return a global location for this file. This is unique
+           for this version of this file and can be used to locate
            this file from any other service.
         """
         if self.is_null():
             return None
         elif self._drive is None:
             raise PermissionError(
-                "Cannot generate the identifier as we don't know "
+                "Cannot generate the location as we don't know "
                 "which drive this file has come from!")
 
-        from Acquire.Client import Identifier as _Identifier
-        return _Identifier(drive_guid=self._drive.guid(),
-                           filename=self.filename(),
-                           version=self.version())
+        from Acquire.Client import Location as _Location
+        return _Location(drive_guid=self._drive.guid(),
+                         filename=self.filename(),
+                         version=self.version())
 
     def filename(self):
         """Return the name of the file"""

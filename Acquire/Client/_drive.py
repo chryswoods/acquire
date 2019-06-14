@@ -31,12 +31,12 @@ def _get_storage_service(storage_url=None):
     return service
 
 
-def _create_drive(user, name, drivemeta, storage_service):
+def _create_drive(user, drivemeta, storage_service,
+                  par=None, secret=None):
     """Internal function used to create a Drive
 
        Args:
             user (User): User for drive
-            name (str): Name for drive
             drivemeta (DriveMeta): Object containing
             metadata for drive
             storage_service (Service): Service for drive
@@ -51,6 +51,12 @@ def _create_drive(user, name, drivemeta, storage_service):
     drive._aclrules = drivemeta.aclrules()
     drive._user = user
     drive._storage_service = storage_service
+    drive._par = par
+
+    if secret is not None:
+        from Acquire.Crypto import Hash
+        drive._hashed_secret = Hash.multi_md5(par.uid(), secret)
+
     return drive
 
 
@@ -100,7 +106,7 @@ def _get_drive(user, name=None, storage_service=None, storage_url=None,
 
     from Acquire.Client import DriveMeta as _DriveMeta
 
-    return _create_drive(user=user, name=name, storage_service=storage_service,
+    return _create_drive(user=user, storage_service=storage_service,
                          drivemeta=_DriveMeta.from_data(response["drive"]))
 
 
@@ -130,12 +136,42 @@ class Drive:
         else:
             self._drive_uid = None
 
+    @staticmethod
+    def open(drivemeta, user=None, storage_service=None,
+             par=None, secret=None):
+        """Open and return the drive from the passed DriveMeta. The
+           drive either needs to be opened via the User with
+           storage service, or by passing in a valid PAR and secret
+        """
+        from Acquire.Client import DriveMeta as _DriveMeta
+
+        if not isinstance(drivemeta, _DriveMeta):
+            raise TypeError("The drivemeta must be type DriveMeta")
+
+        if par is not None:
+            from Acquire.Client import PAR as _PAR
+            if not isinstance(par, _PAR):
+                raise TypeError("The par must be type PAR")
+
+            if par.expired():
+                raise PermissionError("The PAR has expired!")
+
+            storage_service = par.service()
+
+        return _create_drive(user=user, storage_service=storage_service,
+                             drivemeta=drivemeta, par=par, secret=secret)
+
     def __str__(self):
         if self.is_null():
             return "Drive::null"
-        else:
+        elif self._user is not None:
             return "Drive(user='%s', name='%s')" % \
                     (self._user.username(), self.name())
+        elif self._par is not None:
+            return "Drive(par='%s', name='%s')" % \
+                    (self._par.uid(), self.name())
+        else:
+            return "Drive(name='%s')" % self.name()
 
     def is_null(self):
         """Return whether or not this drive is null
@@ -259,12 +295,23 @@ class Drive:
                                  local_cutoff=local_cutoff)
 
         try:
-            authorisation = _Authorisation(
+            args = {"filehandle": filehandle.to_data()}
+
+            if self._user is not None:
+                authorisation = _Authorisation(
                             resource="upload %s" % filehandle.fingerprint(),
                             user=self._user)
 
-            args = {"filehandle": filehandle.to_data(),
-                    "authorisation": authorisation.to_data()}
+                args["authorisation"] = authorisation.to_data()
+
+            elif self._par is not None:
+                self._par.assert_valid()
+                args["par_uid"] = self._par.uid()
+                args["secret"] = self._hashed_secret
+
+            else:
+                raise PermissionError(
+                    "Either a logged-in user or valid PAR must be provided!")
 
             if not filehandle.is_localdata():
                 # we will need to upload against a OSPar, so need to tell
@@ -335,20 +382,23 @@ class Drive:
         downloaded_name = _create_new_file(filename=downloaded_name,
                                            dir=dir)
 
-        from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.Client import FileMeta as _FileMeta
-
-        authorisation = _Authorisation(
-                            resource="download %s %s" % (self.uid(),
-                                                         filename),
-                            user=self._user)
-
         privkey = self._user.session_key()
 
         args = {"drive_uid": self.uid(),
                 "filename": filename,
-                "authorisation": authorisation.to_data(),
                 "encryption_key": privkey.public_key().to_data()}
+
+        if self._user is not None:
+            from Acquire.Client import Authorisation as _Authorisation
+            authorisation = _Authorisation(
+                                resource="download %s %s" % (self.uid(),
+                                                             filename),
+                                user=self._user)
+            args["authorisation"] = authorisation.to_data()
+        elif self._par is not None:
+            self._par.assert_valid()
+            args["par_uid"] = self._par.uid()
+            args["secret"] = self._hashed_secret
 
         if force_par:
             args["force_par"] = True
@@ -361,6 +411,7 @@ class Drive:
         response = self.storage_service().call_function(
                                 function="download", args=args)
 
+        from Acquire.Client import FileMeta as _FileMeta
         filemeta = _FileMeta.from_data(response["filemeta"])
 
         if "filedata" in response:
@@ -490,7 +541,6 @@ class Drive:
         if self.is_null():
             return []
 
-        from Acquire.Client import Authorisation as _Authorisation
         from Acquire.ObjectStore import string_to_list as _string_to_list
         from Acquire.Storage import FileMeta as _FileMeta
 
@@ -499,12 +549,17 @@ class Drive:
         else:
             include_metadata = False
 
-        authorisation = _Authorisation(resource="list_files",
-                                       user=self._user)
-
-        args = {"authorisation": authorisation.to_data(),
-                "drive_uid": self._drive_uid,
+        args = {"drive_uid": self._drive_uid,
                 "include_metadata": include_metadata}
+
+        if self._user is not None:
+            from Acquire.Client import Authorisation as _Authorisation
+            authorisation = _Authorisation(resource="list_files",
+                                           user=self._user)
+            args["authorisation"] = authorisation.to_data()
+        elif self._par is not None:
+            args["par_uid"] = self._par.uid()
+            args["secret"] = self._hashed_secret
 
         response = self.storage_service().call_function(function="list_files",
                                                         args=args)
@@ -536,15 +591,19 @@ class Drive:
         else:
             include_metadata = False
 
-        from Acquire.Client import Authorisation as _Authorisation
-
-        authorisation = _Authorisation(resource="list_versions %s" % filename,
-                                       user=self._user)
-
-        args = {"authorisation": authorisation.to_data(),
-                "drive_uid": self._drive_uid,
+        args = {"drive_uid": self._drive_uid,
                 "include_metadata": include_metadata,
                 "filename": filename}
+
+        if self._user is not None:
+            from Acquire.Client import Authorisation as _Authorisation
+            authorisation = _Authorisation(
+                                    resource="list_versions %s" % filename,
+                                    user=self._user)
+            args["authorisation"] = authorisation.to_data()
+        elif self._par is not None:
+            args["par_uid"] = self._par.uid()
+            args["secret"] = self._hashed_secret
 
         response = self.storage_service().call_function(
                                                 function="list_versions",

@@ -1,5 +1,5 @@
 
-from Acquire.Storage import DriveInfo, UserDrives
+from Acquire.Storage import DriveInfo, UserDrives, PARRegistry
 
 from Acquire.Client import Authorisation
 
@@ -12,7 +12,21 @@ def run(args):
     """
 
     drive_uid = str(args["drive_uid"])
-    authorisation = Authorisation.from_data(args["authorisation"])
+
+    try:
+        authorisation = Authorisation.from_data(args["authorisation"])
+    except:
+        authorisation = None
+
+    try:
+        par_uid = args["par_uid"]
+    except:
+        par_uid = None
+
+    try:
+        secret = args["secret"]
+    except:
+        secret = None
 
     try:
         include_metadata = args["include_metadata"]
@@ -24,10 +38,15 @@ def run(args):
     else:
         include_metadata = False
 
+    if par_uid is not None:
+        registry = PARRegistry()
+        (par, identifiers) = registry.load(par_uid=par_uid, secret=secret)
+
     drive = DriveInfo(drive_uid=drive_uid)
 
     files = drive.list_files(authorisation=authorisation,
-                             include_metadata=include_metadata)
+                             include_metadata=include_metadata,
+                             par=par, identifiers=identifiers)
 
     return_value = {}
 

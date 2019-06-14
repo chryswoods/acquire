@@ -6,9 +6,9 @@ class PAR:
        PAR can resolve it to recover a valid File or Drive object
        that will support access via the permissions of the PAR
     """
-    def __init__(self, identifier=None, user=None, aclrule=None,
+    def __init__(self, location=None, user=None, aclrule=None,
                  expires_datetime=None):
-        """Construct a PAR for the specified identifier,
+        """Construct a PAR for the specified location,
            authorised by the passed user, giving permissions
            according to the passed 'aclrule' (default is
            ACLRule.reader()).
@@ -16,18 +16,18 @@ class PAR:
            The passed 'expires_datetime' is the time at which
            this PAR will expire (by default within 24 hours)
         """
-        self._identifier = None
+        self._location = None
         self._uid = None
         self._expires_datetime = None
 
-        if identifier is None:
+        if location is None:
             return
 
-        from Acquire.Client import Identifier as _Identifier
-        if not isinstance(identifier, _Identifier):
-            raise TypeError("The identifier must be type Identifier")
+        from Acquire.Client import Location as _Location
+        if not isinstance(location, _Location):
+            raise TypeError("The location must be type Location")
 
-        if identifier.is_null():
+        if location.is_null():
             return
 
         from Acquire.Client import User as _User
@@ -53,7 +53,7 @@ class PAR:
                 as _datetime_to_datetime
             expires_datetime = _datetime_to_datetime(expires_datetime)
 
-        self._identifier = identifier
+        self._location = location
         self._expires_datetime = expires_datetime
         self._aclrule = aclrule
 
@@ -68,7 +68,7 @@ class PAR:
                 "par": self.to_data(),
                 "secret": self._secret}
 
-        service = identifier.service()
+        service = location.service()
 
         result = service.call_function(function="create_par",
                                        args=args)
@@ -84,12 +84,12 @@ class PAR:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
             return "PAR( %s, %s, expires %s )" % (
-                    self._identifier.to_string(),
+                    self._location.to_string(),
                     self._aclrule, _datetime_to_string(self._expires_datetime))
 
     def is_null(self):
         """Return whether or not this is null"""
-        return self._identifier is None
+        return self._location is None
 
     def is_authorised(self):
         """Return whether or not this has been authorised"""
@@ -117,12 +117,12 @@ class PAR:
             from Acquire.Client import ACLRule as _ACLRule
             return _ACLRule.denied()
 
-    def identifier(self):
-        """Return the identifier for the Drive/File that is resolvable
+    def location(self):
+        """Return the location for the Drive/File that is resolvable
            from this PAR
         """
         if self.is_authorised():
-            return self._identifier
+            return self._location
         else:
             return None
 
@@ -135,7 +135,7 @@ class PAR:
         else:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
-            return "%s:%s:%s" % (self._identifier.fingerprint(),
+            return "%s:%s:%s" % (self._location.fingerprint(),
                                  self._aclrule.fingerprint(),
                                  _datetime_to_string(self._expires_datetime))
 
@@ -144,21 +144,21 @@ class PAR:
         if self.is_null():
             return None
         else:
-            return self._identifier.service()
+            return self._location.service()
 
     def service_url(self):
         """Return the URL of the service that authorised this PAR"""
         if self.is_null():
             return None
         else:
-            return self._identifier.service_url()
+            return self._location.service_url()
 
     def service_uid(self):
         """Return the UID of the service that authorised this PAR"""
         if self.is_null():
             return None
         else:
-            return self._identifier.service_uid()
+            return self._location.service_uid()
 
     def resolve(self, secret=None):
         """Resolve this PAR into the authorised Drive or File object, ready
@@ -190,8 +190,30 @@ class PAR:
                                        args={"par_uid": self.uid(),
                                              "secret": secret})
 
-        from Acquire.Client import Drive as _Drive
-        return _Drive()
+        if result["type"] == "DriveMeta":
+            from Acquire.Client import DriveMeta as _DriveMeta
+            from Acquire.Client import Drive as _Drive
+            return _Drive.open(_DriveMeta.from_data(result["data"]),
+                               par=self, secret=secret)
+        elif result["type"] == "FileMeta":
+            from Acquire.Client import FileMeta as _FileMeta
+            from Acquire.Client import File as _File
+            return _File.open(_FileMeta.from_data(result["data"]),
+                              par=self, secret=secret)
+        elif result["type"] == "FileMetas":
+            from Acquire.Client import FileMeta as _FileMeta
+            from Acquire.Client import File as _File
+            from Acquire.ObjectStore import string_to_list \
+                as _string_to_list
+            filemetas = _string_to_list(result["data"], _FileMeta)
+
+            files = []
+            for filemeta in filemetas:
+                files.append(_File.open(filemeta, par=self, secret=secret))
+
+            return files
+        else:
+            raise PermissionError("Returned wrong type? %s" % result["type"])
 
     def expires_when(self):
         """Return when this PAR expires (or expired)"""
@@ -246,7 +268,7 @@ class PAR:
 
         data = {}
 
-        data["identifier"] = self._identifier.to_data()
+        data["location"] = self._location.to_data()
         data["aclrule"] = self._aclrule.to_data()
         data["expires_datetime"] = _datetime_to_string(self._expires_datetime)
         data["uid"] = self._uid
@@ -263,12 +285,12 @@ class PAR:
 
         f = PAR()
 
-        from Acquire.Client import Identifier as _Identifier
+        from Acquire.Client import Location as _Location
         from Acquire.Client import ACLRule as _ACLRule
         from Acquire.ObjectStore import string_to_datetime \
             as _string_to_datetime
 
-        f._identifier = _Identifier.from_data(data["identifier"])
+        f._location = _Location.from_data(data["location"])
         f._aclrule = _ACLRule.from_data(data["aclrule"])
         f._expires_datetime = _string_to_datetime(data["expires_datetime"])
         f._uid = data["uid"]

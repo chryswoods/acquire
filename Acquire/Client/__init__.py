@@ -11,7 +11,7 @@ from ._account import *
 from ._drive import *
 from ._fileops import *
 from ._par import *
-from ._identifier import *
+from ._location import *
 from ._wallet import *
 from ._errors import *
 from ._cheque import *

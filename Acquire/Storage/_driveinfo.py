@@ -42,73 +42,30 @@ def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
     # SHOULD HERE RECEIPT THE STORAGE TRANSACTION
 
 
-def _validate_bulk_upload(par, bucket_uid, identifiers,
-                          drive_uid, aclrules, max_size):
-    """Call this internal function to signify that the bulk upload
-       is complete. The files have been uploaded to the bucket with
-       name 'bucket_uid', and were uploaded by the user with passed
-       user_guid. The files should be placed into the drive with
-       specified drive_uid, using the passed ACLRules, and they
-       should not have a total size greater than 'max_size'
-    """
-    from Acquire.ObjectStore import ObjectStore as _ObjectStore
-    from Acquire.Service import get_service_account_bucket \
-        as _get_service_account_bucket
-    from Acquire.Service import get_this_service as _get_this_service
-    from Acquire.Storage import DriveInfo as _DriveInfo
-
-    service = _get_this_service()
-    bucket = _get_service_account_bucket()
-
-    drive = _DriveInfo(drive_uid=drive_uid)
-
-    tmpbucket = _ObjectStore.get_bucket(
-                                bucket=bucket,
-                                bucket_name=bucket_uid,
-                                compartment=service.storage_compartment(),
-                                create_if_needed=False)
-
-    try:
-        total_size = drive.commit_bulk_upload(bucket=tmpbucket,
-                                              identifiers=identifiers,
-                                              aclrules=aclrules)
-    except Exception as e:
-        # delete the bucket and force the user to upload again...
-        _ObjectStore.delete_bucket(bucket=tmpbucket, force=True)
-        raise e
-
-    if total_size > max_size:
-        # should be cross with the user - give them time to make up
-        # the difference in cost, or else we will delete this data
-        pass
-
-    # SHOULD NOW RECEIPT THE STORAGE TRANSACTION
-
-    # the tmpbucket should now be empty, and all files transferred
-    _ObjectStore.delete_bucket(bucket=tmpbucket, force=True)
-
-
 class DriveInfo:
     """This class provides a service-side handle to the information
        about a particular cloud drive
     """
     def __init__(self, drive_uid=None, identifiers=None,
                  is_authorised=False, parent_drive_uid=None,
-                 open_aclrule=None):
+                 autocreate=False):
         """Construct a DriveInfo for the drive with UID 'drive_uid',
            and optionally the GUID of the user making the request
            (and whether this was authorised). If this drive
            has a parent then it is a sub-drive and not recorded
            in the list of top-level drives
+
+           If 'aclrule' is passed, then this drive can only be
+           opened with a maximum of the permissions in the passed
+           aclrule
         """
         self._drive_uid = drive_uid
         self._parent_drive_uid = parent_drive_uid
         self._identifiers = identifiers
         self._is_authorised = is_authorised
-        self._open_aclrule = open_aclrule
 
         if self._drive_uid is not None:
-            self.load()
+            self.load(autocreate=autocreate)
 
     def __str__(self):
         if self.is_null():
@@ -180,7 +137,8 @@ class DriveInfo:
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
 
     def _resolve_acl(self, authorisation=None, resource=None,
-                     accept_partial_match=False):
+                     accept_partial_match=False, par=None,
+                     identifiers=None):
         """Internal function used to authorise access to this drive,
            returning the ACLRule of the access
         """
@@ -194,6 +152,19 @@ class DriveInfo:
                             resource=resource,
                             accept_partial_match=accept_partial_match,
                             return_identifiers=True)
+        elif par is not None:
+            from Acquire.Client import PAR as _PAR
+            if not isinstance(par, _PAR):
+                raise TypeError("The par must be type PAR")
+
+            if par.expired():
+                raise PermissionError(
+                    "Cannot access the drive at the PAR has expired!")
+
+            if identifiers is None:
+                raise PermissionError(
+                    "The identifiers for the user who created the PAR "
+                    "must be passed!")
         else:
             try:
                 identifiers = self._identifiers
@@ -210,9 +181,13 @@ class DriveInfo:
                                             must_resolve=True,
                                             unresolved=False)
 
+        if par is not None:
+            drive_acl = drive_acl * par.aclrule()
+
         return (drive_acl, identifiers)
 
-    def upload(self, filehandle, authorisation, encrypt_key=None):
+    def upload(self, filehandle, authorisation=None, encrypt_key=None,
+               par=None, identifiers=None):
         """Upload the file associated with the passed filehandle.
            If the filehandle has the data embedded, then this uploads
            the file data directly and returns a FileMeta for the
@@ -238,7 +213,8 @@ class DriveInfo:
 
         (drive_acl, identifiers) = self._resolve_acl(
                         authorisation=authorisation,
-                        resource="upload %s" % filehandle.fingerprint())
+                        resource="upload %s" % filehandle.fingerprint(),
+                        par=par, identifiers=identifiers)
 
         if not drive_acl.is_writeable():
             raise PermissionError(
@@ -278,7 +254,7 @@ class DriveInfo:
 
         if filedata is None:
             # the file is too large to include in the filehandle so
-            # we need to use a PAR to upload
+            # we need to use a OSPar to upload
             from Acquire.ObjectStore import Function as _Function
 
             f = _Function(function=_validate_file_upload,
@@ -287,14 +263,14 @@ class DriveInfo:
                           objsize=fileinfo.filesize(),
                           checksum=fileinfo.checksum())
 
-            par = _ObjectStore.create_par(bucket=file_bucket,
-                                          encrypt_key=encrypt_key,
-                                          key=file_key,
-                                          readable=False,
-                                          writeable=True,
-                                          cleanup_function=f)
+            ospar = _ObjectStore.create_par(bucket=file_bucket,
+                                            encrypt_key=encrypt_key,
+                                            key=file_key,
+                                            readable=False,
+                                            writeable=True,
+                                            cleanup_function=f)
         else:
-            par = None
+            ospar = None
 
         # now save the fileinfo to the object store
         fileinfo.save()
@@ -303,11 +279,11 @@ class DriveInfo:
         assert(filemeta.acl().is_owner())
 
         # return the PAR if we need to have a second-stage of upload
-        return (filemeta, par)
+        return (filemeta, ospar)
 
     def download(self, filename, authorisation,
                  version=None, encrypt_key=None,
-                 force_par=False):
+                 force_par=False, par=None, identifiers=None):
         """Download the file called filename. This will return a
            FileHandle that describes the file. If the file is
            sufficiently small, then the filedata will be embedded
@@ -329,7 +305,8 @@ class DriveInfo:
 
         (drive_acl, identifiers) = self._resolve_acl(
                     authorisation=authorisation,
-                    resource="download %s %s" % (self._drive_uid, filename))
+                    resource="download %s %s" % (self._drive_uid, filename),
+                    par=par, identifiers=identifiers)
 
         # even if the drive_acl is not readable by this user, they
         # may have read permission for the file...
@@ -354,22 +331,22 @@ class DriveInfo:
 
         file_key = fileinfo.latest_version()._file_key()
         filedata = None
-        par = None
+        ospar = None
 
         if force_par or fileinfo.filesize() > 1048576:
             # the file is too large to include in the download so
-            # we need to use a PAR to download
-            par = _ObjectStore.create_par(bucket=file_bucket,
-                                          encrypt_key=encrypt_key,
-                                          key=file_key,
-                                          readable=True,
-                                          writeable=False)
+            # we need to use a OSPar to download
+            ospar = _ObjectStore.create_par(bucket=file_bucket,
+                                            encrypt_key=encrypt_key,
+                                            key=file_key,
+                                            readable=True,
+                                            writeable=False)
         else:
             # one-trip download of files that are less than 1 MB
             filedata = _ObjectStore.get_object(file_bucket, file_key)
 
         # return the filemeta, and either the filedata or par
-        return (filemeta, filedata, par)
+        return (filemeta, filedata, ospar)
 
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised
@@ -388,8 +365,10 @@ class DriveInfo:
         except:
             upstream = None
 
-        return self.aclrules().resolve(identifiers=identifiers,
-                                       upstream=upstream).is_owner()
+        drive_acl = self.aclrules().resolve(identifiers=identifiers,
+                                            upstream=upstream)
+
+        return drive_acl.is_owner()
 
     def aclrules(self):
         """Return the acl rules for this drive"""
@@ -413,7 +392,7 @@ class DriveInfo:
         aclrules = _ACLRules.create(user_guid=user_guid, rule=aclrule)
 
         # make sure we have the latest version
-        self.load()
+        self.load(autocreate=False)
 
         if not self.is_opened_by_owner():
             raise PermissionError(
@@ -426,16 +405,23 @@ class DriveInfo:
         self._aclrules.append(aclrules, ensure_owner=True)
 
         self.save()
-        self.load()
+        self.load(autocreate=False)
 
-    def list_files(self, authorisation=None, include_metadata=False):
+    def list_files(self, authorisation=None, par=None,
+                   identifiers=None, include_metadata=False):
         """Return the list of FileMeta data for the files contained
            in this Drive. The passed authorisation is needed in case
            the list contents of this drive is not public
         """
         (drive_acl, identifiers) = self._resolve_acl(
                                         authorisation=authorisation,
-                                        resource="list_files")
+                                        resource="list_files",
+                                        par=par, identifiers=identifiers)
+
+        if par is not None:
+            if not par.location().is_drive():
+                raise PermissionError(
+                    "You do not have permission to read this Drive")
 
         if not drive_acl.is_readable():
             raise PermissionError(
@@ -477,7 +463,8 @@ class DriveInfo:
         return files
 
     def list_versions(self, filename, authorisation=None,
-                      include_metadata=False):
+                      include_metadata=False, par=None,
+                      identifiers=None):
         """Return the list of versions of the file with specified
            filename. If 'include_metadata' is true then this will
            load full metadata for each version. This will return
@@ -486,7 +473,13 @@ class DriveInfo:
         """
         (drive_acl, identifiers) = self._resolve_acl(
                                     authorisation=authorisation,
-                                    resource="list_versions %s" % filename)
+                                    resource="list_versions %s" % filename,
+                                    par=par, identifiers=identifiers)
+
+        if par is not None:
+            if not par.location().is_drive():
+                raise PermissionError(
+                    "You do not have permission to read this Drive")
 
         if not drive_acl.is_readable():
             raise PermissionError(
@@ -519,7 +512,7 @@ class DriveInfo:
 
         return result
 
-    def load(self):
+    def load(self, autocreate=False):
         """Load the metadata about this drive from the object store"""
         if self.is_null():
             return
@@ -538,6 +531,11 @@ class DriveInfo:
             data = None
 
         if data is None:
+            if not autocreate:
+                raise PermissionError(
+                    "There is no drive available with UID '%s'"
+                    % self._drive_uid)
+
             # by default this user is the drive's owner
             try:
                 user_guid = self._identifiers["user_guid"]

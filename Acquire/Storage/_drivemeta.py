@@ -75,7 +75,8 @@ class DriveMeta:
         self._acl = _ACLRule.denied()
 
     def resolve_acl(self, identifiers=None, upstream=None,
-                    must_resolve=None, unresolved=False):
+                    must_resolve=None, unresolved=False,
+                    open_aclrule=None):
         """Resolve the ACL for this file based on the passed arguments
            (same as for ACLRules.resolve()). This returns the resolved
            ACL, which is set as self.acl()
@@ -89,6 +90,14 @@ class DriveMeta:
                                            upstream=upstream,
                                            must_resolve=must_resolve,
                                            unresolved=unresolved)
+
+        if open_aclrule is not None:
+            from Acquire.Client import ACLRule as _ACLRule
+            if not isinstance(open_aclrule, _ACLRule):
+                raise TypeError("The open_aclrule must be type ACLRule")
+
+            open_aclrule = open_aclrule.resolve(must_resolve=True)
+            self._acl = self._acl * open_aclrule
 
         if not self._acl.is_owner():
             # only owners can see the ACLs

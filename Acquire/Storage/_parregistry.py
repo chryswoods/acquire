@@ -57,9 +57,9 @@ class PARRegistry:
 
         return uid
 
-    def resolve(self, par_uid, secret=None):
-        """Resolve the passed PAR and return the corresponding
-           DriveMeta or FileMeta with requisite permissions
+    def load(self, par_uid, secret=None):
+        """Load and return the PAR and identifiers associated with
+           the passed UID, locked with the passed secret
         """
         # validate that the UID actually looks like a UID. This
         # should prevent attacks that try weird UIDs
@@ -87,32 +87,43 @@ class PARRegistry:
             raise PermissionError(
                 "There is no valid PAR at ID '%s'" % par_uid)
 
-        print(par)
-        print(identifiers)
-
         if par.expired():
             raise PermissionError(
                 "There is no valid PAR at ID '%s' as it has expired" % par_uid)
 
+        return (par, identifiers)
+
+    def resolve(self, par_uid, secret=None):
+        """Resolve the passed PAR and return the corresponding
+           DriveMeta or FileMeta with requisite permissions
+        """
+        (par, identifiers) = self.load(par_uid, secret)
+
         from Acquire.Storage import DriveInfo as _DriveInfo
         from Acquire.Storage import DriveMeta as _DriveMeta
-        drive = _DriveInfo(drive_uid=par.identifier().drive_uid(),
-                           identifiers=identifiers,
-                           aclrule=par.aclrule(),
-                           is_authorised=True)
 
-        drivemeta = _DriveMeta(uid=drive.uid(),
+        # Load up the drive with specified drive_uid so that we
+        # can inspect the aclrules that control access
+        drive = _DriveInfo(drive_uid=par.location().drive_uid())
+
+        drivemeta = _DriveMeta(name="par:%s" % par.uid(),
+                               uid=drive.uid(),
                                aclrules=drive.aclrules())
 
-        drive_acl = drivemeta.resolve_acl()
+        # now resolve the aclrule for the user who created the
+        # PAR, and that no more permissions are granted than those
+        # specified in the PAR
+        drive_acl = drivemeta.resolve_acl(identifiers=identifiers,
+                                          open_aclrule=par.aclrule())
 
-        if drive_acl.denied():
+        if drive_acl.denied_all():
             raise PermissionError(
                 "The PAR does not have permission to access the drive")
 
-        if par.identifier().is_drive():
+        if par.location().is_drive():
             return drivemeta
 
-        filemetas = drive.list_files(par.identifier())
+        filemetas = drive.list_files(par=par, identifiers=identifiers,
+                                     include_metadata=True)
 
         return filemetas

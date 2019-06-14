@@ -1,7 +1,7 @@
 
 import pytest
 
-from Acquire.Client import PAR, Identifier, ACLRule, Drive
+from Acquire.Client import PAR, Location, ACLRule, Drive
 
 
 @pytest.fixture(scope="session")
@@ -15,11 +15,23 @@ def test_drive_par(authenticated_user, tempdir):
     drive = Drive(user=authenticated_user, name=drive_name,
                   storage_url="storage")
 
+    drive.upload(filename=__file__, uploaded_name="tmp_test.py")
+
     drive_guid = drive.guid()
 
-    iden = Identifier(drive_guid=drive_guid)
+    location = Location(drive_guid=drive_guid)
 
-    par = PAR(identifier=iden, user=authenticated_user,
+    par = PAR(location=location, user=authenticated_user,
               aclrule=ACLRule.reader())
 
-    drive = par.resolve()
+    par_drive = par.resolve()
+
+    print(par_drive)
+
+    files = par_drive.list_files()
+    print(files)
+
+    assert(par_drive.acl() == ACLRule.reader())
+    assert(par_drive.uid() == drive.uid())
+
+    assert(False)
