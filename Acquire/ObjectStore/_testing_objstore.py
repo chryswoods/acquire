@@ -166,7 +166,7 @@ class Testing_ObjectStore:
             can cause a LOSS OF DATA!
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 force (bool, default=False): If True delete all objects/PARs
                 from bucket before deleting bucket
             Returns:
@@ -200,7 +200,7 @@ class Testing_ObjectStore:
             the URL
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 encrypt_key (PublicKey): Key for encrypting PAR
                 key (str): Key for PAR
                 readable (bool): If True bucket is readable
@@ -310,7 +310,7 @@ class Testing_ObjectStore:
             passed bucket
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 bytes: Binary data at key
@@ -330,7 +330,7 @@ class Testing_ObjectStore:
                     the object
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 bytes: Binary data at key
@@ -352,7 +352,7 @@ class Testing_ObjectStore:
             will be returned.
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str): Prefix for object keys
             Returns:
                 list: List of objects in bucket
@@ -398,7 +398,7 @@ class Testing_ObjectStore:
         """ Set the value of 'key' in 'bucket' to binary 'data'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 None
@@ -425,7 +425,7 @@ class Testing_ObjectStore:
         """ Deletes all objects in bucket
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str, default=None): Prefix for keys
             Returns:
                 None
@@ -440,7 +440,7 @@ class Testing_ObjectStore:
         """ Removes the object at 'key'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for object
             Returns:
                 None
@@ -456,7 +456,7 @@ class Testing_ObjectStore:
             object in the passed bucket at the specified key
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for object
             Returns:
                 tuple (int, str): Size and MD5 checksum of object

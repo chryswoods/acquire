@@ -89,7 +89,7 @@ class ObjectStore:
         """ Return the name of the passed bucket
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
             Returns:
                 str: Name of bucket
         """
@@ -100,7 +100,7 @@ class ObjectStore:
         """ Return whether or not the passed bucket is empty
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
             Returns:
                 bool: True if bucket empty
         """
@@ -115,7 +115,7 @@ class ObjectStore:
             can cause a LOSS OF DATA!
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 force (bool, default=True): If True remove all objects
                 and PARs first
             Returns:
@@ -138,7 +138,7 @@ class ObjectStore:
             the URL
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 encrypt_key (PublicKey): Key for encrypting PAR
                 key (str): Key for PAR
                 readable (bool): If True bucket is readable
@@ -186,7 +186,7 @@ class ObjectStore:
             passed bucket
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 bytes: Binary data at key
@@ -199,7 +199,7 @@ class ObjectStore:
             and writing this to the file called 'filename'
            
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
                 filename (str): Filename to write data to
             Returns:
@@ -215,7 +215,7 @@ class ObjectStore:
         """ Return the string in 'bucket' associated with 'key'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 str: String object at key
@@ -230,7 +230,7 @@ class ObjectStore:
             at this key
             
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 str: String object at key
@@ -244,7 +244,7 @@ class ObjectStore:
             the object
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 bytes: Binary data at key
@@ -257,7 +257,7 @@ class ObjectStore:
             the object
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 str: String object at key
@@ -272,7 +272,7 @@ class ObjectStore:
            and writing this to the file called 'filename'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
                 filename (str): Filename to write data to
             Returns:
@@ -289,7 +289,7 @@ class ObjectStore:
            the json-deserialised object
 
            Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 Object: Python object
@@ -304,7 +304,7 @@ class ObjectStore:
             will be returned.
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str): Prefix for object keys
             Returns:
                 list: List of objects in bucket
@@ -318,7 +318,7 @@ class ObjectStore:
             that prefix will be returned.
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str): Prefix for object keys
             Returns:
                 list: List of objects
@@ -338,7 +338,7 @@ class ObjectStore:
             objects with keys starting with that prefix will be returned.
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str): Prefix for object keys
             Returns:
                 dict: Dictionary of objects
@@ -363,7 +363,7 @@ class ObjectStore:
             that prefix will be returned.
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str): Prefix for object keys
             Returns:
                 dict: Dictionary of strings
@@ -386,7 +386,7 @@ class ObjectStore:
         """ Set the value of 'key' in 'bucket' to binary 'data'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
             Returns:
                 None
@@ -399,7 +399,7 @@ class ObjectStore:
             of the file located by 'filename'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
                 filename (str): Filename to read data from
             Returns:
@@ -418,7 +418,7 @@ class ObjectStore:
             set
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
                 data (str): Data to store
             Returns:
@@ -453,7 +453,7 @@ class ObjectStore:
            that was previously set)
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
                 string_data (str): Data to store
             Returns:
@@ -484,7 +484,7 @@ class ObjectStore:
         """ Set the value of 'key' in 'bucket' to the string 'string_data'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
                 string_data (str): Data to store
             Returns:
@@ -499,7 +499,7 @@ class ObjectStore:
             of 'data', which has been encoded to json
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
                 data (str): Data to store
             Returns:
@@ -512,7 +512,7 @@ class ObjectStore:
         """ Deletes all objects in bucket
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str, default=None): Prefix for keys
             Returns:
                 None
@@ -524,7 +524,7 @@ class ObjectStore:
         """ Removes the object at 'key'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for object
             Returns:
                 None
@@ -537,7 +537,7 @@ class ObjectStore:
             whose keys are or start with any key in 'keys'
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for object
             Returns:
                 None
@@ -561,7 +561,7 @@ class ObjectStore:
             object in the passed bucket at the specified key
 
             Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for object
             Returns:
                 tuple (int, str): Size and MD5 checksum of object

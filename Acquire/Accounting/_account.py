@@ -7,8 +7,13 @@ def _account_root():
 
 
 def _get_last_day(datetime):
-    """Return the start of the day before 'datetime', e.g.
-       _get_last_day(April 1st) will return March 31st
+    """ Return the start of the day before 'datetime', e.g.
+        _get_last_day(April 1st) will return March 31st
+
+        Args:
+            datetime (datetime): Datetime to process
+        Returns:
+            datetime: Datetime for day before passed datetime
     """
     import datetime as _datetime
     datetime = datetime - _datetime.timedelta(days=1)
@@ -17,8 +22,13 @@ def _get_last_day(datetime):
 
 
 def _get_last_month(datetime):
-    """Return the date at the start of the month before 'datetime', e.g.
-       _get_last_month(March 21st) will return February 1st
+    """ Return the date at the start of the month before 'datetime', e.g.
+        _get_last_month(March 21st) will return February 1st
+
+        Args:
+            datetime (datetime): Datetime to process
+        Returns:
+            datetime: Datetime for month before passed datetime
     """
     import datetime as _datetime
     datetime = datetime.replace(day=1) - _datetime.timedelta(days=1)
@@ -27,8 +37,13 @@ def _get_last_month(datetime):
 
 
 def _get_hourly_datetime(datetime):
-    """Return the datetime for the top of the hour of 'datetime',
-       e.g. 5.42pm would return 5.00pm
+    """ Return the datetime for the top of the hour of 'datetime',
+        e.g. 5.42pm would return 5.00pm
+
+        Args:
+            datetime (datetime): Datetime to process
+        Returns:
+            datetime: Datetime at start of hour of passed datetime
     """
     from Acquire.ObjectStore import datetime_to_datetime \
         as _datetime_to_datetime
@@ -42,8 +57,14 @@ def _get_hourly_datetime(datetime):
 
 
 def _get_key_from_hour(start, datetime):
-    """Return a key encoding the passed date, starting the key with 'start',
-       but only up unto the specified hour
+    """ Return a key encoding the passed date, starting the key with 'start',
+        but only up unto the specified hour
+
+        Args:
+            start (str): Prefix for key
+            datetime (datetime): Datetime for key
+        Returns:
+            str: Key including datetime and prefix
     """
     from Acquire.ObjectStore import datetime_to_datetime \
         as _datetime_to_datetime
@@ -52,8 +73,14 @@ def _get_key_from_hour(start, datetime):
 
 
 def _get_key_from_day(start, datetime):
-    """Return a key encoding the passed date, starting the key with 'start',
-       but only up until the specified day
+    """ Return a key encoding the passed date, starting the key with 'start',
+        but only up until the specified day
+
+        Args:
+            start (str): Prefix for key
+            datetime (datetime): Datetime for key
+        Returns:
+            str: Key including datetime and prefix
     """
     from Acquire.ObjectStore import datetime_to_datetime \
         as _datetime_to_datetime
@@ -63,8 +90,14 @@ def _get_key_from_day(start, datetime):
 
 
 def _get_key_from_month(start, datetime):
-    """Return a key encoding the passed date, starting the key with 'start',
-       but only up to the specified month
+    """ Return a key encoding the passed date, starting the key with 'start',
+        but only up to the specified month
+
+        Args:
+            start (str): Prefix for key
+            datetime (datetime): Datetime for key
+        Returns:
+            str: Key including datetime and prefix
     """
     from Acquire.ObjectStore import datetime_to_datetime \
         as _datetime_to_datetime
@@ -73,7 +106,13 @@ def _get_key_from_month(start, datetime):
 
 
 def _get_hour_from_key(key):
-    """Return the date that is encoded in the passed key"""
+    """ Return the date that is encoded in the passed key
+
+        Args:
+            key (str): Key to read
+        Returns:
+            datetime: Datetime created from key
+    """
     import re as _re
     m = _re.search(r"(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d)", key)
 
@@ -96,7 +135,7 @@ def _get_datetime_from_key(key):
     """Return the datetime that is encoded in the passed key
 
        Args:
-            key(st: obj: `str`): Key to search for datetime
+            key (str): Key to search for datetime
        Returns:
             datetime: detailed datetime object read from key
     """
@@ -128,11 +167,9 @@ def _sum_transactions(transactions):
     (balance, liability, receivable, spent)
 
         Args:
-            keys (:obj:`list`): List of keys to parse
+            keys (list): List of keys to parse
         Returns:
-            tuple (:obj:`Decimal`, Decimal, Decimal, Decimal): balance,
-            liability, receivable, spent_today
-
+            Balance: Balance object
     """
     from Acquire.Accounting import Balance as _Balance
     from Acquire.Accounting import TransactionInfo as _TransactionInfo
@@ -164,23 +201,19 @@ class Account:
     """
     def __init__(self, name=None, description=None, uid=None,
                  aclrules=None, group_name=None, bucket=None):
-        """Construct the account. If 'uid' is specified, then load the account
-           from the object store (so 'name' and 'description' should be "None")
-           You can also supply the ACLRules that will be used to control
-           access to this account. If these are not specified then
-           ACLRules.inherit() will be used, with rules inherited from the
-           Accounts group that contains this Account
+        """ Construct the account. If 'uid' is specified, then load the account
+            from the object store (so 'name' and 'description' should be "None")
+            You can also supply the ACLRules that will be used to control
+            access to this account. If these are not specified then
+            ACLRules.inherit() will be used, with rules inherited from the
+            Accounts group that contains this Account
 
             Args:
-                name (:obj:`str`, default=None): Name on the account
-                description (:obj:`str`, default=None): Description of account
+                name (str, default=None): Name on the account
+                description (str, default=None): Description of account
                 uid (UID): Unique ID for account, if used do not pass name or
                 description
                 bucket (dict): contains data for bucket
-
-            Returns:
-                None
-
         """
         self._name = None
         self._description = None
@@ -214,11 +247,21 @@ class Account:
                                  bucket=bucket)
 
     def is_null(self):
-        """Return whether or not this is a null account"""
+        """ Return whether or not this is a null account
+
+            Returns:
+                bool: True if null account
+        """
         return self._uid is None
 
     def _get_now(self, now=None):
-        """Return the time of 'now' (or actual now if not passed)"""
+        """ Return the time of 'now' (or actual now if not passed)
+
+            Args:
+                now (str): Time to convert to datetime
+            Returns:
+                datetime: Datetime of now (or passed 'now')
+        """
         if now is None:
             from Acquire.ObjectStore import get_datetime_now \
                 as _get_datetime_now
@@ -229,8 +272,13 @@ class Account:
             return _datetime_to_datetime(now)
 
     def _get_account_bucket(self, bucket=None):
-        """Return the bucket into which to write this account,
-           or 'bucket' if it is not None
+        """ Return the bucket into which to write this account,
+            or 'bucket' if it is not None
+
+            Args:
+                bucket (dict): Bucket for data storage
+            Returns:
+                dict: Bucket for data
         """
         if bucket is None:
             from Acquire.Service import get_service_account_bucket \
@@ -257,7 +305,17 @@ class Account:
 
     def _create_account(self, name, description, group_name, aclrules,
                         bucket=None):
-        """Create the account from scratch"""
+        """ Create the account from scratch
+
+            Args:
+                name (str): Name for account
+                description (str): Description of account
+                group_name (str): Name of group account will belong to
+                aclrules (ACLRules): ACL Rules for account
+                bucket (dict, default=None): Bucket for data storage
+            Returns:
+                None
+        """
         if name is None or description is None:
             from Acquire.Accounting import AccountError
             raise AccountError(
@@ -296,10 +354,17 @@ class Account:
 
     def _get_transactions_between(self, start_datetime, end_datetime,
                                   bucket=None):
-        """Return all of the object store keys for transactions in this
-           account beteen 'start_datetime' and 'end_datetime' (inclusive, e.g.
-           start_datetime < transaction <= end_datetime). This will return an
-           empty list if there were no transactions in this time
+        """ Return all of the object store keys for transactions in this
+            account beteen 'start_datetime' and 'end_datetime' (inclusive, e.g.
+            start_datetime < transaction <= end_datetime). This will return an
+            empty list if there were no transactions in this time
+
+            Args:
+                start_datetime (datetime): Start datetime for search
+                end_datetime (datetime): End datetime for search
+                bucket (dict): Bucket for data storage
+            Returns:
+                list: List of transactions between given dates
         """
         # convert both times to UTC
         from Acquire.ObjectStore import datetime_to_datetime \
@@ -378,10 +443,15 @@ class Account:
             return transactions
 
     def _get_balance_key(self, now=None):
-        """Return the balance key for the passed time. This is the key
-           into the object store of the object that holds the starting
-           balance for the account on the hour of the passed datetime.
-           If 'now' is None, then the key for actual now is returned
+        """ Return the balance key for the passed time. This is the key
+            into the object store of the object that holds the starting
+            balance for the account on the hour of the passed datetime.
+            If 'now' is None, then the key for actual now is returned
+
+            Args:
+                now (str, default=None): Time to use as 'now'
+            Returns:
+                str: Balance key
         """
 
         if self.is_null():
@@ -391,8 +461,14 @@ class Account:
                                       datetime=self._get_now(now))
 
     def _find_last_balance_key(self, now=None, bucket=None):
-        """Return the key containing the last hourly balance update before
-           'now' (defaults to actual now if not set)
+        """ Return the key containing the last hourly balance update before
+            'now' (defaults to actual now if not set)
+
+            Args:
+                now (str, default=None): Time to use as 'now'
+                bucket (dict, default=None): Bucket for data storage
+            Returns:
+                str: Key of last balance
         """
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         now = self._get_now(now)
@@ -484,8 +560,15 @@ class Account:
         return hourly_key
 
     def _get_hourly_balance(self, now=None, bucket=None):
-        """Calculate and return the balance at the top of the hour
-           for 'now' (defaults to actually now if not specified)
+        """ Calculate and return the balance at the top of the hour
+            for 'now' (defaults to actually now if not specified)
+
+            Args:
+                now (str, default=None): Time to use as 'now'
+                bucket (dict, default=None): Bucket for data storage
+            Returns:
+                Balance: Balance at the beginning the hour given by 'now', 
+                or now if not given
         """
         now = self._get_now(now)
         hourly_key = self._get_balance_key(now)
@@ -543,24 +626,23 @@ class Account:
         return hourly_balance
 
     def balance(self, now=None, bucket=None):
-        """Get the balance of the account at 'now' (defaults to actually now).
-           This returns a Balance object for the balance, that includes
-           (1) the current real balance of the account,
-           neglecting any outstanding liabilities or accounts receivable,
-           (2) the current total liabilities,
-           and (3) the current total accounts receivable
+        """ Get the balance of the account at 'now' (defaults to actually now).
+            This returns a Balance object for the balance, that includes
+            (1) the current real balance of the account,
+            neglecting any outstanding liabilities or accounts receivable,
+            (2) the current total liabilities,
+            and (3) the current total accounts receivable
 
-           where 'liability' is the current total liabilities,
-           where 'receivable' is the current total accounts receivable, and
-           where 'spent_today' is how much has been spent today (from midnight
-           until now)
+            where 'liability' is the current total liabilities,
+            where 'receivable' is the current total accounts receivable, and
+            where 'spent_today' is how much has been spent today (from midnight
+            until now)
 
-           Args:
+            Args:
+                now (str, default=None): Time to use as 'now'
                 bucket (dict, default=None): Bucket to use for calculations
-
             Returns:
-                tuple (Decimal, Decimal, Decimal, Decimal): balance, liability,
-                receivable, spent_today
+                Balance: Balance object
         """
         now = self._get_now(now)
         bucket = self._get_account_bucket(bucket)
@@ -607,12 +689,10 @@ class Account:
         return total
 
     def name(self):
-        """Return the name of this account
+        """ Return the name of this account
 
             Returns:
-                str or None: Name of account if account not null, else None
-
-
+                str: Name of account
         """
         if self.is_null():
             return None
@@ -620,9 +700,12 @@ class Account:
         return self._name
 
     def group_name(self):
-        """Return the name of the Accounts group in which this
-           account belongs. An Account can only exist in a single
-           Accounts Group at a time
+        """ Return the name of the Accounts group in which this
+            account belongs. An Account can only exist in a single
+            Accounts Group at a time
+
+            Returns:
+                str: Name of group
         """
         if self.is_null():
             return None
@@ -630,11 +713,10 @@ class Account:
         return self._group_name
 
     def description(self):
-        """Return the description of this account
+        """ Return the description of this account
 
             Returns:
-                str or None: Description of account if account not null,
-                else None
+                str: Description of account
         """
         if self.is_null():
             return None
@@ -642,23 +724,24 @@ class Account:
         return self._description
 
     def uid(self):
-        """Return the UID for this account.
+        """ Return the UID for this account.
 
             Returns:
                 str: UID
-
         """
         return self._uid
 
     def assert_valid_authorisation(self, authorisation, resource=None,
                                    accept_partial_match=False):
-        """Assert that the passed authorisation is valid for this
-           account
+        """ Assert that the passed authorisation is valid for this
+            account
 
             Args:
                 authorisation (Authorisation): authorisation
                 object to be used for account
-
+                resource (callable, default=None): Resource to authorise
+                accept_partial_match (bool, default=False): Accept partial match
+                for authorisation
             Returns:
                 None
         """
@@ -699,9 +782,12 @@ class Account:
                 "this account!")
 
     def _get_safe_now(self):
-        """This function returns the current time. It avoids dangerous
-           times (when the system may be updating) by sleeping through
-           those times (i.e. it will sleep from HH:59:58 until HH+1:00:01)
+        """ This function returns the current time. It avoids dangerous
+            times (when the system may be updating) by sleeping through
+            those times (i.e. it will sleep from HH:59:58 until HH+1:00:01)
+
+            Returns:
+                datetime: Datetime at now
         """
         now = self._get_now()
 
@@ -734,11 +820,9 @@ class Account:
            original debitted value is returned to the account.
 
             Args:
-                debit_note (DebitNote): Note to be used for
-                refund
+                debit_note (DebitNote): Note to be used for refund
                 refund (Refund): Refund holding value to be refunded
-                bucket (dict, default=None): Bucket to load data from
-
+                bucket (dict, default=None): Bucket for data storage
             Returns:
                 tuple (str, datetime): Return the UID and current time
         """
@@ -799,8 +883,7 @@ class Account:
 
             Args:
                 refund (Refund): Refund note to be processed
-                bucket (dict, default=None): Bucket to load data from
-
+                bucket (dict, default=None): Bucket for data storage
             Returns:
                 tuple (str, datetime): UID and current time
         """
@@ -860,9 +943,7 @@ class Account:
                 to be applied to the account, value must match that of receipt
                 receipt (Receipt): Receipt holding the value of the credit
                 that is to be applied to account
-                TODO - improve bucket docs
-                bucket (dict, default=None): Bucket to load data from
-
+                bucket (dict, default=None): Bucket for data storage
             Returns:
                 tuple (str, datetime): UID and current time
         """
@@ -923,16 +1004,14 @@ class Account:
         return (uid, now)
 
     def _debit_receipt(self, receipt, bucket=None):
-        """Debit the value of the passed 'receipt' from this account. The
-           receipt must be for a previous provisional debit, hence
-           the money should be available.
+        """ Debit the value of the passed 'receipt' from this account. The
+            receipt must be for a previous provisional debit, hence
+            the money should be available.
 
             Args:
                 receipt (Receipt): holds the value
                 to be debited from the account
-                TODO - improve bucket docs
-                bucket (dict, default=None): Bucket to load data from
-
+                bucket (dict, default=None): Bucket for data storage
             Returns:
                 tuple (str, datetime): UID and current time
         """
@@ -993,9 +1072,7 @@ class Account:
             Args:
                 debit_note (DebitNote): Holds the value to be credited
                 to this account
-                TODO - improve bucket docs
-                bucket (dict, default=None): Bucket to load data from
-
+                bucket (dict, default=None): Bucket for data storage
             Returns:
                 tuple (str, datetime): UID and current time
         """
@@ -1087,11 +1164,9 @@ class Account:
                 recorded as a liability
                 receipt_by (datetime): Datetime by which the transaction
                 should be receipted
-                TODO - improve bucket docs
-                bucket (dict, default=None): Bucket to load data from
-
+                bucket (dict, default=None): Bucket for data storage
             Returns:
-                tuple (str, datetime, datetime): uid, now, receipt_by
+                tuple (str, datetime, datetime): UID, now, receipt_by
 
         """
 
@@ -1235,7 +1310,13 @@ class Account:
         return self._overdraft_limit
 
     def set_group(self, group, bucket=None):
-        """Set the Accounts group to which this account belongs"""
+        """ Set the Accounts group to which this account belongs
+
+            Args:
+                group: Accounts object for setting of ownership
+            Returns:
+                None
+        """
         if self.is_null():
             return
 
@@ -1248,16 +1329,13 @@ class Account:
             self._save_account(bucket=bucket)
 
     def set_overdraft_limit(self, limit, bucket=None):
-        """Set the overdraft limit of this account to 'limit'
+        """ Set the overdraft limit of this account to 'limit'
 
             Args:
                 limit (int): Limit to set overdraft to
-                TODO
-                bucket (dict, default=None):
-
+                bucket (dict, default=None): Bucket for data storage
             Returns:
                 None
-
         """
         if self.is_null():
             return
@@ -1285,28 +1363,34 @@ class Account:
                 self._save_account(bucket)
 
     def is_beyond_overdraft_limit(self, bucket=None):
-        """Return whether or not the current balance is beyond
-           the overdraft limit
+        """ Return whether or not the current balance is beyond
+            the overdraft limit
 
             Args:
-                TODO
-                bucket (dict, default=None):
+                bucket (dict, default=None): Bucket for data storage
             Returns:
-                bool: True if over overdraft limit, else False
+                bool: True if over overdraft limit
         """
         available = self.balance(bucket=bucket).available()
         return available < -(self.get_overdraft_limit())
 
     def _key(self):
-        """Return the key for this account in the object store"""
+        """ Return the key for this account in the object store
+
+            Returns:
+                str: Key for this account
+        """
         if self.is_null():
             return None
         else:
             return "%s/%s" % (_account_root(), self.uid())
 
     def _transactions_key(self):
-        """Return the root key for the transactions for this account
-           in the object store
+        """ Return the root key for the transactions for this account
+            in the object store
+
+            Returns:
+                str: Root key for transactions
         """
         if self.is_null():
             return None
@@ -1314,8 +1398,11 @@ class Account:
             return "%s/txns" % self._key()
 
     def _balance_key(self):
-        """Return the root key for the balances for this account
-           in this object store
+        """ Return the root key for the balances for this account
+            in this object store
+
+            Returns:
+                str: Root key for balances
         """
         if self.is_null():
             return None
@@ -1323,7 +1410,13 @@ class Account:
             return "%s/balance" % self._key()
 
     def _load_account(self, bucket=None):
-        """Load the current state of the account from the object store"""
+        """ Load the current state of the account from the object store
+            
+            Args:
+                bucket (dict): Bucket for data storage
+            Returns:
+                None
+        """
         if self.is_null():
             return
 
@@ -1346,7 +1439,13 @@ class Account:
         self.__dict__ = _copy.copy(Account.from_data(data).__dict__)
 
     def _save_account(self, bucket=None):
-        """Save this account back to the object store"""
+        """ Save this account back to the object store
+
+            Args:
+                bucket (dict): Bucket for data storage
+            Returns:
+                None
+        """
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
         bucket = self._get_account_bucket()
@@ -1358,7 +1457,11 @@ class Account:
         self._load_account(bucket=bucket)
 
     def to_data(self):
-        """Return a dictionary that can be encoded to json from this object"""
+        """ Return a dictionary that can be encoded to json from this object
+
+            Returns:
+                dict: JSON serialisable dictionary of object
+        """
         data = {}
 
         if not self.is_null():
@@ -1373,8 +1476,13 @@ class Account:
 
     @staticmethod
     def from_data(data):
-        """Construct and return an Account from the passed dictionary that has
-           been decoded from json
+        """ Construct and return an Account from the passed dictionary that has
+            been decoded from JSON
+
+            Args:
+                data (dict): JSON data from which to create object
+            Returns:
+                Account: Account object created from JSON
         """
         account = Account()
 

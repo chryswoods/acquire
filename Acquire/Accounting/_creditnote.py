@@ -145,7 +145,6 @@ class CreditNote:
 
            Returns:
                 str: UID of the debit note to match this credit note
-
         """
         return self._debit_note_uid
 
@@ -188,7 +187,7 @@ class CreditNote:
            refund (Refund): Refund from which to take value to create
            CreditNote
            account (Account): Account to credit refund to
-           bucket (Bucket): Bucket to load data from
+           bucket (Bucket): Bucket for data storage
 
            Returns:
                 None
@@ -251,11 +250,10 @@ class CreditNote:
            debit_note (DebitNote): DebitNote from which to take value
            receipt (Receipt): Receipt to create CreditNote from
            account (Account): Account to credit
-           bucket (Bucket): Bucket to load data from
+           bucket (Bucket): Bucket for data storage
 
            Returns:
                 None
-
         """
         from Acquire.Accounting import DebitNote as _DebitNote
         from Acquire.Accounting import Refund as _Refund
@@ -315,7 +313,7 @@ class CreditNote:
 
            debit_note (DebitNote): DebitNote to take value from
            account (Account): Account to credit
-           bucket (Bucket): Bucket to load data from
+           bucket (Bucket): Bucket for data storage
 
            Returns:
                 None

@@ -28,7 +28,7 @@ class Ledger:
 
            Args:
                 uid (str): UID of transaction to load
-                bucket (dict, default=None): Bucket to load data from
+                bucket (dict, default=None): Bucket for data storage
            Returns:
                 TransactionRecord: Transaction with that UID
 
@@ -184,7 +184,7 @@ class Ledger:
 
            Args:
                 receipt (Receipt): Receipt to use for transaction
-                bucket (default=None): Bucket to load data from
+                bucket (default=None): Bucket for data storage
 
            Returns:
                 list: List of TransactionRecords
@@ -304,7 +304,7 @@ class Ledger:
                 are provisional
                 receipt_by (datetime, default=None): Date by which transactions
                 must be receipted
-                bucket (dict): Bucket to load data from
+                bucket (dict): Bucket for data storage
 
             Returns:
                 list: List of TransactionRecords
@@ -475,7 +475,6 @@ class Ledger:
                 receipt (Receipt, default=None): Receipt to use
                 refund (Refund): Refund to use
                 bucket (dict): Bucket to read data from
-
            Returns:
                 TransactionRecord: Holds record of transactions
 

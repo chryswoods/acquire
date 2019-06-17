@@ -249,21 +249,23 @@ class DebitNote:
             raise
 
     def _create_from_receipt(self, receipt, account, bucket):
-        """Function used to construct a debit note by extracting
-           the value specified in the passed receipt from the specified
-           account. This is authorised using the authorisation held in
-           the receipt, based on the original authorisation given in the
-           provisional transaction. Note that the receipt must match
-           up with a prior existing provisional transaction, and this
-           must not have already been receipted or refunded. This will
-           actually take value out of the passed account, with that
-           value residing in this debit note until it is credited to
-           another account
+        """ Function used to construct a debit note by extracting
+            the value specified in the passed receipt from the specified
+            account. This is authorised using the authorisation held in
+            the receipt, based on the original authorisation given in the
+            provisional transaction. Note that the receipt must match
+            up with a prior existing provisional transaction, and this
+            must not have already been receipted or refunded. This will
+            actually take value out of the passed account, with that
+            value residing in this debit note until it is credited to
+            another account
 
-           Args:
+            Args:
                 receipt (Receipt): Receipt to create DebitNote from
                 account (Account): Account to take value from
-                bucket (dict): Bucket to read data from
+                bucket (dict): Bucket to read data fro
+            Returns:
+                None
         """
         from Acquire.Accounting import Receipt as _Receipt
 

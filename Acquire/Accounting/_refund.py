@@ -158,7 +158,6 @@ class Refund:
 
            Returns:
                 dict: Dictionary to serialise to JSON
-
         """
         data = {}
 
@@ -176,8 +175,6 @@ class Refund:
                 dict: JSON-decoded dictionary
            Returns:
                 Refund: Refund object created from JSON
-
-
         """
         r = Refund()
 

@@ -191,7 +191,7 @@ class Accounts:
 
             Args:
                 name (:obj:`str`): Name of account to retrieve
-                bucket (:obj:`dict`): Bucket to load data from
+                bucket (:obj:`dict`): Bucket for data storage
 
             Returns:
                 :obj:`Account`: Account object
@@ -228,7 +228,7 @@ class Accounts:
 
             Args:
                 account (:obj:`Account`): Account to check against group
-                bucket (dict, default=None): Bucket to load data from
+                bucket (dict, default=None): Bucket for data storage
             Returns:
                 bool : True if account in group, else False
         """
@@ -264,7 +264,7 @@ class Accounts:
                 name (str): Name of account to create
                 description (default=None): Description of account
                 overdraft_limit (int, default=None): Limit of overdraft
-                bucket (dict, default=None): Bucket to load data from
+                bucket (dict, default=None): Bucket for data storage
 
             Returns:
                 Account: New Account object

@@ -40,7 +40,7 @@ class TransactionRecord:
 
            Args:
                 uid (str, default=None): UID for transaction record
-                bucket (dict, default=None): Bucket to load data from
+                bucket (dict, default=None): Bucket for data storage
         """
         if uid:
             self._load_transaction(uid, bucket)
@@ -369,7 +369,7 @@ class TransactionRecord:
 
            Args:
                 uid (str): UID of transaction to load
-                bucket (dict): Bucket to load data from
+                bucket (dict): Bucket for data storage
            Returns:
                 None
         """
@@ -381,7 +381,7 @@ class TransactionRecord:
         """Save this transaction to the object store
 
            Args:
-                bucket (dict): Bucket to load data from
+                bucket (dict): Bucket for data storage
            Returns:
                 None
         """
@@ -400,7 +400,7 @@ class TransactionRecord:
            Args:
                 expected_state (TransactionState): State of transaction
                 new_state (TransactionState): State to update transaction to
-                bucket (dict): Bucket to load data from
+                bucket (dict): Bucket for data storage
 
            Returns:
                 Transaction: Updated transaction

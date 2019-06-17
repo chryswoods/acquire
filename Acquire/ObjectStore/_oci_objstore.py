@@ -538,7 +538,7 @@ class OCI_ObjectStore:
            passed bucket
 
            Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data in bucket
            Returns:
                 bytes: Binary data
@@ -607,7 +607,7 @@ class OCI_ObjectStore:
            the object
 
            Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
            Returns:
                 bytes: Binary data
@@ -627,7 +627,7 @@ class OCI_ObjectStore:
         """Returns the names of all objects in the passed bucket
 
            Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str, default=None): Prefix for data
            Returns:
                 list: List of all objects in bucket
@@ -665,7 +665,7 @@ class OCI_ObjectStore:
         """Set the value of 'key' in 'bucket' to binary 'data'
 
            Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data in bucket
                 data (bytes): Binary data to store in bucket
            Returns:
@@ -686,7 +686,7 @@ class OCI_ObjectStore:
         """Deletes all objects...
 
            Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 prefix (str, default=None): Prefix for data,
                 currently unused
             Returns:
@@ -703,7 +703,7 @@ class OCI_ObjectStore:
         """Removes the object at 'key'
 
            Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for data
            Returns:
                 None
@@ -722,11 +722,10 @@ class OCI_ObjectStore:
            object in the passed bucket at the specified key
 
            Args:
-                bucket (dict): Bucket containing data
+                bucket (dict): Bucket for data storage
                 key (str): Key for object
            Returns:
                 tuple (int, str): Size and MD5 checksum of object
-
         """
         key = _clean_key(key)
 

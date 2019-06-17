@@ -74,7 +74,7 @@ class Receipt:
         """Return whether or not this Receipt is null
 
            Returns:
-                bool: True if reecipt null, else False
+                bool: True if receipt null, else False
 
         """
         return self._credit_note is None
