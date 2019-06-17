@@ -426,6 +426,11 @@ class Authorisation:
         public_cert = self._get_user_public_cert(scope=scope,
                                                  permissions=permissions)
 
+        if public_cert is None:
+            raise PermissionError(
+                "There is no public certificate for this user in "
+                "scope '%s' with permissions '%s'" % (scope, permissions))
+
         try:
             public_cert.verify(self._siguid, self._uid)
         except Exception as e:

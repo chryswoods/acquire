@@ -4,24 +4,24 @@
  *
  * Adapted to use webcrypto hmac function
  */
-TOTP = function() {
+Acquire.TOTP = function() {
 
-    var dec2hex = function(s) {
+    let dec2hex = function(s) {
         return (s < 15.5 ? "0" : "") + Math.round(s).toString(16);
     };
 
-    var hex2dec = function(s) {
+    let hex2dec = function(s) {
         return parseInt(s, 16);
     };
 
-    var leftpad = function(s, l, p) {
+    let leftpad = function(s, l, p) {
         if(l + 1 >= s.length) {
             s = Array(l + 1 - s.length).join(p) + s;
         }
         return s;
     };
 
-    var base32tohex = function(base32) {
+    let base32tohex = function(base32) {
         var base32chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
         var bits = "";
         var hex = "";
@@ -38,17 +38,16 @@ TOTP = function() {
 
     this.getOTP = function(secret) {
         try {
-            var epoch = Math.round(new Date().getTime() / 1000.0);
-            var time = leftpad(dec2hex(Math.floor(epoch / 30)), 16, "0");
-            var hmacObj = new jsSHA(time, "HEX");
-            var hmac = hmacObj.getHMAC(base32tohex(secret), "HEX", "SHA-1", "HEX");
-            var offset = hex2dec(hmac.substring(hmac.length - 1));
-            var otp = (hex2dec(hmac.substr(offset * 2, 8)) & hex2dec("7fffffff")) + "";
+            let epoch = Math.round(new Date().getTime() / 1000.0);
+            let time = leftpad(dec2hex(Math.floor(epoch / 30)), 16, "0");
+            let hmacObj = new jsSHA(time, "HEX");
+            let hmac = hmacObj.getHMAC(base32tohex(secret), "HEX", "SHA-1", "HEX");
+            let offset = hex2dec(hmac.substring(hmac.length - 1));
+            let otp = (hex2dec(hmac.substr(offset * 2, 8)) & hex2dec("7fffffff")) + "";
             otp = (otp).substr(otp.length - 6, 6);
+            return otp;
         } catch (error) {
             throw error;
         }
-        return otp;
     };
-
 }

@@ -1,23 +1,23 @@
 
 /** Return the current datetime (UTC) */
-function get_datetime_now()
+Acquire.get_datetime_now = function()
 {
-    return datetime_to_datetime(new Date());
+    return Acquire.datetime_to_datetime(new Date());
 }
 
 /** Return the current datetime (UTC) as a iso-formatted string
  *  that is suitable for Acquire
  */
-function get_datetime_now_to_string()
+Acquire.get_datetime_now_to_string = function()
 {
-    return datetime_to_string(new Date());
+    return Acquire.datetime_to_string(new Date());
 }
 
 /** Standardise the passed datetime into UTC */
-function datetime_to_datetime(d)
+Acquire.datetime_to_datetime = function(d)
 {
-    var date = new Date(d);
-    var now_utc =  Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
+    let date = new Date(d);
+    let now_utc =  Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
                             date.getUTCDate(), date.getUTCHours(),
                             date.getUTCMinutes(), date.getUTCSeconds());
 
@@ -25,9 +25,9 @@ function datetime_to_datetime(d)
 }
 
 /** Convert the passed datetime into a standard formatted string */
-function datetime_to_string(d)
+Acquire.datetime_to_string = function(d)
 {
-    d = datetime_to_datetime(d);
+    d = Acquire.datetime_to_datetime(d);
     d = d.toISOString();
 
     if (d.endsWith("Z"))
@@ -39,43 +39,72 @@ function datetime_to_string(d)
 }
 
 /** Convert the passed string back into a datetime */
-function string_to_datetime(s)
+Acquire.string_to_datetime = function(s)
 {
-    return datetime_to_datetime(Date.parse(s));
+    return Acquire.datetime_to_datetime(Date.parse(s));
 }
 
 /** Function to convert from a string back to binary */
-function string_to_bytes(s)
+Acquire.string_to_bytes = function(s)
 {
     return base64js.toByteArray(s);
 }
 
 /** Function to convert binary data to a string */
-function bytes_to_string(b)
+Acquire.bytes_to_string = function(b)
 {
     return base64js.fromByteArray(b);
 }
 
 /** Convert the passed string to a utf-8 array of bytes */
-function string_to_utf8_bytes(s)
+Acquire.string_to_utf8_bytes = function(s)
 {
     return new TextEncoder("utf-8").encode(s);
 }
 
 /** Convert the passed array of utf-8 encoded bytes into a string  */
-function utf8_bytes_to_string(b)
+Acquire.utf8_bytes_to_string = function(b)
 {
     return new TextDecoder("utf-8").decode(b);
 }
 
 /** Function to create url-safe strings */
-function string_to_safestring(s)
+Acquire.string_to_safestring = function(s)
 {
-    return bytes_to_string(string_to_utf8_bytes(s));
+    return Acquire.bytes_to_string(Acquire.string_to_utf8_bytes(s));
 }
 
 /** Function to return the original encoded string */
-function safestring_to_string(s)
+Acquire.safestring_to_string = function(s)
 {
-    return utf8_bytes_to_string(string_to_bytes(s));
+    return Acquire.utf8_bytes_to_string(Acquire.string_to_bytes(s));
+}
+
+/** Return the passed unicode string encoded to a safely
+ *  encoded base64 utf-8 string
+*/
+Acquire.string_to_encoded = function(s)
+{
+    return Acquire.bytes_to_string(Acquire.string_to_utf8_bytes(s));
+}
+
+/** Return the passed encoded base64 utf-8 string converted
+ *  back into a unicode string
+ */
+Acquire.encoded_to_string = function(b)
+{
+    return Acquire.utf8_bytes_to_string(Acquire.string_to_bytes(b));
+}
+
+/** Mirror of create_uuid
+ *  Copied from
+ *  https://stackoverflow.com/questions/105034/
+ *                          create-guid-uuid-in-javascript
+*/
+Acquire.create_uuid = function()
+{
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4)
+                                                                .toString(16)
+    )
 }

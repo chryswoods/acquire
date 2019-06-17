@@ -20,4 +20,4 @@ def run(args):
     service = registry.get_service(service_uid=service_uid,
                                    service_url=service_url)
 
-    return {"service_data": service.to_data()}
+    return {"service_info": service.to_data()}

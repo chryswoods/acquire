@@ -12,11 +12,19 @@ class JobSheet:
             if not isinstance(authorisation, _Authorisation):
                 raise TypeError("You can only authorise a request with "
                                 "a valid Authorisation object")
+
+            from Acquire.Access import RunRequest as _RunRequest
+            if not isinstance(job, _RunRequest):
+                raise TypeError(
+                    "You must pass in a valid RunRequest to request a "
+                    "calculation is run. The passed request is the wrong "
+                    "type: %s" % str(job))
+
             authorisation.verify(job.fingerprint())
-            from Acquire.ObjectStore import create_uuid as _create_uuid
+            from Acquire.ObjectStore import create_uid as _create_uid
             self._job = job
             self._authorisation = authorisation
-            self._uid = _create_uuid()
+            self._uid = _create_uid()
         else:
             self._uid = None
 
@@ -37,6 +45,18 @@ class JobSheet:
 
         """
         return self._uid
+
+    def storage_service(self):
+        """Return the storage service that will be used to store
+           the data associated with this job
+        """
+        return None
+
+    def compute_service(self):
+        """Return the compute service that will be used to actually
+           perform the calculation associated with the job
+        """
+        return None
 
     def total_cost(self):
         """Return the total maximum quoted cost for this job. The
@@ -83,7 +103,7 @@ class JobSheet:
 
            Args:
                 cheque (Cheque): transfer method for paying for service
-            Returns:
+           Returns:
                 None
 
         """
@@ -141,8 +161,12 @@ class JobSheet:
                 and a datetime object set to 1 hour in the future
         """
         # make the requests, make the payments
+        storage_service = self.storage_service()
+        compute_service = self.compute_service()
 
-        # save so we don't lost the debit notes or any value
+
+
+        # save so we don't lose the debit notes or any value
         self.save()
 
         from Acquire.Client import PAR as _PAR
@@ -153,10 +177,8 @@ class JobSheet:
 
     def save(self):
         """Save this JobSheet to the object store
-
             Returns:
                 None
-
         """
         from Acquire.Service import assert_running_service \
             as _assert_running_service

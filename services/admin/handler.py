@@ -25,7 +25,7 @@ def _one_hot_spare():
             None
         Returns:
             None
-       
+
        """
     devnull = open(os.devnull, "w")
     subprocess.Popen(["nohup", sys.executable, "one_hot_spare.py"],
@@ -68,6 +68,9 @@ def _route_function(function, args, additional_functions=None):
     elif function == "admin/logout":
         from admin.logout import run as _logout
         return _logout(args)
+    elif function == "admin/refresh_keys":
+        from admin.refresh_keys import run as _refresh_keys
+        return _refresh_keys(args)
     elif function == "admin/request_login":
         from admin.request_login import run as _request_login
         return _request_login(args)
@@ -114,11 +117,8 @@ def _handle(function=None, additional_functions=None, args={}):
        Args:
         additional_functions (function, optional): function to route
         args (dict): arguments to be routed with function\
-
         Returns:
             function: the routed function
-
-       
        """
 
     from Acquire.Service import start_profile, end_profile
@@ -135,15 +135,14 @@ def _handle(function=None, additional_functions=None, args={}):
     return result
 
 
-def _base_handler(additional_functions=None, ctx=None, data=None, loop=None,
-                  function=None, args=None):
+def _base_handler(additional_functions=None, ctx=None, data=None, loop=None):
     """This function routes calls to sub-functions, thereby allowing
        a single function to stay hot for longer. If you want
        to add additional functions then add them via the
        'additional_functions' argument. This should accept 'function'
        and 'args', returning some output if the function is found,
        or 'None' if the function is not available
-       
+
        Args:
         additional_functions (function): function to be routed
         ctx: currently unused
@@ -167,15 +166,13 @@ def _base_handler(additional_functions=None, ctx=None, data=None, loop=None,
 
     result = None
 
-    if function is None:
-        try:
-            (function, args, keys) = unpack_arguments(data,
-                                                      get_service_private_key)
-        except Exception as e:
-            args = None
-            result = e
-            keys = None
-    else:
+    try:
+        (function, args, keys) = unpack_arguments(data,
+                                                  get_service_private_key)
+    except Exception as e:
+        function = None
+        args = None
+        result = e
         keys = None
 
     if result is None:
@@ -217,7 +214,7 @@ def create_async_handler(additional_functions=None):
 
 
 def create_handler(additional_functions=None):
-    def handler(ctx=None, data=None, loop=None, function=None, args=None):
+    def handler(ctx=None, data=None, loop=None):
         """Function that creates the handler functions for all standard functions,
        plus the passed additional_functions
 
@@ -229,7 +226,6 @@ def create_handler(additional_functions=None):
             function: A handler function
         """
         return _base_handler(additional_functions=additional_functions,
-                             ctx=ctx, data=data, loop=loop,
-                             function=function, args=args)
+                             ctx=ctx, data=data, loop=loop)
 
     return handler
