@@ -2,109 +2,62 @@
 __all__ = ["Drive"]
 
 
-def _get_storage_url():
-    """Function to discover and return the default storage url"""
-    return "http://fn.acquire-aaai.com:8080/t/storage"
-
-
-def _get_storage_service(storage_url=None):
-    """Function to return the storage service for the system
-
-       Args:
-            storage_url (str, default=None): Storage URL to use
-       Returns:
-            Service: Service object
-    """
-    if storage_url is None:
-        storage_url = _get_storage_url()
-
-    from Acquire.Client import Service as _Service
-    service = _Service(storage_url, service_type="storage")
-
-    if not service.is_storage_service():
-        from Acquire.Client import LoginError
-        raise LoginError(
-            "You can only use a valid storage service to get CloudDrive info! "
-            "The service at '%s' is a '%s'" %
-            (storage_url, service.service_type()))
-
-    return service
-
-
-def _create_drive(user, drivemeta, storage_service,
-                  par=None, secret=None):
-    """Internal function used to create a Drive
-
-       Args:
-            user (User): User for drive
-            drivemeta (DriveMeta): Object containing
-            metadata for drive
-            storage_service (Service): Service for drive
-       Returns:
-            Drive: Drive object
-    """
+def _create_drive(metadata, creds):
+    """Internal function used to create a Drive"""
     drive = Drive()
-    drive._name = drivemeta.name()
-    drive._drive_uid = drivemeta.uid()
-    drive._container = drivemeta.container_uids()
-    drive._acl = drivemeta.acl()
-    drive._aclrules = drivemeta.aclrules()
-    drive._user = user
-    drive._storage_service = storage_service
-    drive._par = par
-    drive._secret = secret
+    drive._creds = creds
+
+    from copy import copy as _copy
+    metadata = _copy(metadata)
+    metadata._set_credentials(creds)
+    drive._metadata = metadata
 
     return drive
 
 
-def _get_drive(user, name=None, storage_service=None, storage_url=None,
-               autocreate=True):
-    """Return the drive called 'name' of the passed user. Note that the
-       user must be authenticated to call this function. The name
+def _get_drive(creds, name=None, drive_uid=None, autocreate=True):
+    """Return the drive called 'name' using the passed credentials. The name
        will default to 'main' if it is not set, and the drive will
        be created automatically is 'autocreate' is True and the
        drive does not exist
-
-       Args:
-            user (User): User to use drive
-            name (str, default=None): Name for drive
-            storage_service (Service, default=None): Service object to use
-            storage_url (str, default=None): URL for storage
-            autocreate (bool): If True create drive automatically,
-            if False do not
-       Returns:
-            Drive: Drive object
-
     """
-    if storage_service is None:
-        storage_service = _get_storage_service(storage_url)
-    else:
-        if not storage_service.is_storage_service():
-            raise TypeError("You can only query drives using "
-                            "a valid storage service")
+    storage_service = creds.storage_service()
 
-    if name is None:
-        name = "main"
-    else:
-        name = str(name)
+    if drive_uid is None:
+        if name is None:
+            name = "main"
+        else:
+            name = str(name)
 
-    if autocreate:
-        autocreate = True
+        if autocreate:
+            autocreate = True
+        else:
+            autocreate = False
     else:
+        name = None
         autocreate = False
+        drive_uid = str(drive_uid)
 
-    from Acquire.Client import Authorisation as _Authorisation
-    authorisation = _Authorisation(resource="UserDrives", user=user)
+    args = {"name": name, "autocreate": autocreate,
+            "drive_uid": drive_uid}
 
-    args = {"authorisation": authorisation.to_data(),
-            "name": name, "autocreate": autocreate}
+    if creds.is_user():
+        from Acquire.Client import Authorisation as _Authorisation
+        authorisation = _Authorisation(resource="UserDrives",
+                                       user=creds.user())
+        args["authorisation"] = authorisation.to_data()
+    elif creds.is_par():
+        par = creds.par()
+        par.assert_valid()
+        args["par_uid"] = par.uid()
+        args["secret"] = creds.secret()
 
     response = storage_service.call_function(function="open_drive", args=args)
 
     from Acquire.Client import DriveMeta as _DriveMeta
 
-    return _create_drive(user=user, storage_service=storage_service,
-                         drivemeta=_DriveMeta.from_data(response["drive"]))
+    return _create_drive(creds=creds,
+                         metadata=_DriveMeta.from_data(response["drive"]))
 
 
 class Drive:
@@ -115,60 +68,55 @@ class Drive:
        their own shorthand names.
 
     """
-    def __init__(self, user=None, name=None, storage_service=None,
-                 storage_url=None, autocreate=True):
+    def __init__(self, name=None, drive_uid=None, creds=None, autocreate=True):
         """Construct a handle to the drive that the passed user
            calls 'name' on the passed storage service. If
            'autocreate' is True and the user is logged in then
            this will automatically create the drive if
            it doesn't exist already
         """
-        if user is not None:
-            drive = _get_drive(user=user, name=name,
-                               storage_service=storage_service,
-                               storage_url=storage_url, autocreate=autocreate)
+        self._metadata = None
+        self._creds = None
+
+        if creds is not None:
+            from Acquire.Client import StorageCreds as _StorageCreds
+            if not isinstance(creds, _StorageCreds):
+                raise TypeError("creds must be type StorageCreds")
+
+            drive = _get_drive(creds=creds, name=name, drive_uid=drive_uid,
+                               autocreate=autocreate)
 
             from copy import copy as _copy
             self.__dict__ = _copy(drive.__dict__)
-        else:
-            self._drive_uid = None
 
     @staticmethod
-    def open(drivemeta, user=None, storage_service=None,
-             par=None, secret=None):
+    def open(metadata=None, drive_uid=None, creds=None):
         """Open and return the drive from the passed DriveMeta. The
            drive either needs to be opened via the User with
            storage service, or by passing in a valid PAR and secret
         """
         from Acquire.Client import DriveMeta as _DriveMeta
+        from Acquire.Client import StorageCreds as _StorageCreds
 
-        if not isinstance(drivemeta, _DriveMeta):
-            raise TypeError("The drivemeta must be type DriveMeta")
+        if not isinstance(metadata, _DriveMeta):
+            raise TypeError("The metadata must be type DriveMeta")
 
-        if par is not None:
-            from Acquire.Client import PAR as _PAR
-            if not isinstance(par, _PAR):
-                raise TypeError("The par must be type PAR")
+        if metadata is None:
+            return Drive(drive_uid=drive_uid, creds=creds)
 
-            if par.expired():
-                raise PermissionError("The PAR has expired!")
+        if creds is None:
+            creds = metadata.credentials()
 
-            storage_service = par.service()
+        if not isinstance(creds, _StorageCreds):
+            raise TypeError("The creds must be type StorageCreds")
 
-        return _create_drive(user=user, storage_service=storage_service,
-                             drivemeta=drivemeta, par=par, secret=secret)
+        return _create_drive(creds=creds, metadata=metadata)
 
     def __str__(self):
         if self.is_null():
             return "Drive::null"
-        elif self._user is not None:
-            return "Drive(user='%s', name='%s')" % \
-                    (self._user.username(), self.name())
-        elif self._par is not None:
-            return "Drive(par='%s', name='%s')" % \
-                    (self._par.uid(), self.name())
         else:
-            return "Drive(name='%s')" % self.name()
+            return "Drive(name='%s')" % self._metadata.name()
 
     def is_null(self):
         """Return whether or not this drive is null
@@ -176,63 +124,22 @@ class Drive:
            Returns:
                 bool: True if null, else False
         """
-        return self._drive_uid is None
+        return self._metadata is None
 
-    def acl(self):
-        """Return the access control list for the user on this drive.
-           If the ACL is not known, then None is returned
-
-           Returns:
-                str: Access Control List for the user
-
-        """
-        try:
-            return self._acl
-        except:
-            return None
-
-    def aclrules(self):
-        """Return the ACL rules used to grant access to this drive. This
-           is only visible to owners of this drive. If it is not visible,
-           then None is returned
-
-           Returns:
-                str: ACL rules for the drive
-        """
-        try:
-            return self._aclrules
-        except:
-            return None
-
-    def name(self):
-        """Return the name given to this drive by the user
-
-           Returns:
-                str: Name of drive
-        """
-        return self._name
-
-    def uid(self):
-        """Return the UID of this drive
-
-           Returns:
-                str: UID of drive
-
-        """
-        return self._drive_uid
-
-    def guid(self):
-        """Return the global UID of this drive (combination of the
-           UID of the storage service and UID of the drive)
-
-           Returns:
-                str: Global UID for drive
-
-        """
+    def metadata(self):
+        """Return the metadata about this drive"""
         if self.is_null():
             return None
         else:
-            return "%s@%s" % (self.uid(), self.storage_service().uid())
+            from copy import copy as _copy
+            return _copy(self._metadata)
+
+    def credentials(self):
+        """Return the credentials used to open this drive"""
+        if self.is_null():
+            return None
+        else:
+            return self._creds
 
     def storage_service(self):
         """Return the storage service for this drive
@@ -242,31 +149,23 @@ class Drive:
         if self.is_null():
             return None
         else:
-            return self._storage_service
+            return self._creds.storage_service()
 
-    def upload(self, filename, uploaded_name=None, aclrules=None,
+    def upload(self, filename, dir=None, uploaded_name=None, aclrules=None,
                force_par=False):
         """Upload the file at 'filename' to this drive, assuming we have
            write access to this drive. The local file 'filename' will be
            uploaded to the drive as the file called 'filename' (just the
-           filename - not the full path). If you want to specify the
-           uploaded name then set this as "uploaded_name" (which again will
-           just be a filename - no paths). If a file with this name exists,
+           filename - not the full path - if you want to specify a certain
+           directory in the Drive then specify that in 'dir').
+           If you want to specify the uploaded name then set this as
+           "uploaded_name". The file will be uploaded to the Drive at
+           'dir/uploaded_name'. If a file with this name exists,
            then this will upload a new version (assuming you have permission).
            Otherwise this will create a new file. You can set the
            ACL rules used to grant access to this file via 'aclrule'.
            If this is not set, then the rules will be derived from either
            the last version of the file, or inherited from the drive.
-
-           Args:
-                filename (str): Name of file to upload
-                uploaded_name (str, default=None): Name of file once uploaded
-                aclrules (str, default=None): ACL rules for file
-                force_par (bool, default=False): If True force a
-                pre-authenticated
-                request be created for the upload
-            Returns:
-                FileMeta: Object containing metadata on the uploaded file
         """
         if self.is_null():
             raise PermissionError("Cannot upload a file to a null drive!")
@@ -274,6 +173,9 @@ class Drive:
         if uploaded_name is None:
             import os as _os
             uploaded_name = _os.path.split(filename)[1]
+
+        if dir is not None:
+            uploaded_name = "%s/%s" % (dir, uploaded_name)
 
         from Acquire.Client import Authorisation as _Authorisation
         from Acquire.ObjectStore import OSPar as _OSPar
@@ -288,25 +190,24 @@ class Drive:
 
         filehandle = _FileHandle(filename=filename,
                                  remote_filename=uploaded_name,
-                                 drive_uid=self.uid(),
+                                 drive_uid=self._metadata.uid(),
                                  aclrules=aclrules,
                                  local_cutoff=local_cutoff)
 
         try:
             args = {"filehandle": filehandle.to_data()}
 
-            if self._user is not None:
+            if self._creds.is_user():
                 authorisation = _Authorisation(
                             resource="upload %s" % filehandle.fingerprint(),
-                            user=self._user)
+                            user=self._creds.user())
 
                 args["authorisation"] = authorisation.to_data()
-
-            elif self._par is not None:
-                self._par.assert_valid()
-                args["par_uid"] = self._par.uid()
-                args["secret"] = self._secret
-
+            elif self._creds.is_par():
+                par = self._creds.par()
+                par.assert_valid()
+                args["par_uid"] = par.uid()
+                args["secret"] = self._creds.secret()
             else:
                 raise PermissionError(
                     "Either a logged-in user or valid PAR must be provided!")
@@ -314,8 +215,8 @@ class Drive:
             if not filehandle.is_localdata():
                 # we will need to upload against a OSPar, so need to tell
                 # the service how to encrypt the OSPar...
-                if self._user is not None:
-                    privkey = self._user.session_key()
+                if self._creds.is_user():
+                    privkey = self._creds.user().session_key()
                 else:
                     from Acquire.Crypto import get_private_key \
                         as _get_private_key
@@ -324,8 +225,9 @@ class Drive:
                 args["encryption_key"] = privkey.public_key().to_data()
 
             # will eventually need to authorise payment...
+            storage_service = self._creds.storage_service()
 
-            response = self.storage_service().call_function(
+            response = storage_service.call_function(
                                     function="upload", args=args)
 
             filemeta = _FileMeta.from_data(response["filemeta"])
@@ -338,163 +240,45 @@ class Drive:
                                         filehandle.local_filename())
                 par.close(privkey)
 
+            filemeta._set_drive_metadata(self._metadata, self._creds)
+
             return filemeta
         except:
             # ensure that any temporary files are removed
             filehandle.__del__()
             raise
 
-    def download(self, filename, downloaded_name=None,
-                 version=None, dir=None, force_par=False):
-        """Download the file called 'filename' from this drive into
-           the local directory, or 'dir' if specified,
-           ideally called 'filename'
-           (or 'downloaded_name' if that is specified). If a local
-           file exists with this name, then a new, unique filename
-           will be used. This returns a dictionary mapping the
-           downloaded filename to the FileMeta of the file
-
-           Note that this only downloads files for which you
-           have read-access. If the file is not readable then
-           an exception is raised and nothing is returned
-
-           If 'version' is specified then download a specific version
-           of the file. Otherwise download the latest version
-
-           Args:
-                filename (str): Name of file to download
-                downloaded_name (str, default=None): Name of file once
-                downloaded
-                version (datetime, default=None): Datetime denoting version
-                of file to use
-                dir (str, default=None): Directory for file
-                force_par (bool, default=False): If True force a
-                pre-authenticated request be created for the download
-           Returns:
-                FileMeta: Object containing metadata on the uploaded file
-
-        """
-        if self.is_null():
-            raise PermissionError("Cannot download from a null drive!")
-
-        if downloaded_name is None:
-            downloaded_name = filename
-
-        from Acquire.Client import create_new_file as \
-            _create_new_file
-
-        downloaded_name = _create_new_file(filename=downloaded_name,
-                                           dir=dir)
-
-        if self._user is not None:
-            privkey = self._user.session_key()
-        else:
-            from Acquire.Crypto import get_private_key as _get_private_key
-            privkey = _get_private_key("parkey")
-
-        args = {"drive_uid": self.uid(),
-                "filename": filename,
-                "encryption_key": privkey.public_key().to_data()}
-
-        if self._user is not None:
-            from Acquire.Client import Authorisation as _Authorisation
-            authorisation = _Authorisation(
-                                resource="download %s %s" % (self.uid(),
-                                                             filename),
-                                user=self._user)
-            args["authorisation"] = authorisation.to_data()
-        elif self._par is not None:
-            self._par.assert_valid()
-            args["par_uid"] = self._par.uid()
-            args["secret"] = self._secret
-
-        if force_par:
-            args["force_par"] = True
-
-        if version is not None:
-            from Acquire.ObjectStore import datetime_to_string \
-                as _datetime_to_string
-            args["version"] = _datetime_to_string(version)
-
-        response = self.storage_service().call_function(
-                                function="download", args=args)
-
-        from Acquire.Client import FileMeta as _FileMeta
-        filemeta = _FileMeta.from_data(response["filemeta"])
-
-        if "filedata" in response:
-            # we have already downloaded the file to 'filedata'
-            filedata = response["filedata"]
-
-            from Acquire.ObjectStore import string_to_bytes \
-                as _string_to_bytes
-            filedata = _string_to_bytes(response["filedata"])
-            del response["filedata"]
-
-            # validate that the size and checksum are correct
-            filemeta.assert_correct_data(filedata)
-
-            if filemeta.is_compressed():
-                # uncompress the data
-                from Acquire.Client import uncompress as _uncompress
-                filedata = _uncompress(
-                                inputdata=filedata,
-                                compression_type=filemeta.compression_type())
-
-            # write the data to the specified local file...
-            with open(downloaded_name, "wb") as FILE:
-                FILE.write(filedata)
-                FILE.flush()
-        else:
-            from Acquire.ObjectStore import OSPar as _OSPar
-            par = _OSPar.from_data(response["download_par"])
-            par.read(privkey).get_object_as_file(downloaded_name)
-            par.close(privkey)
-
-            # validate that the size and checksum are correct
-            filemeta.assert_correct_data(filename=downloaded_name)
-
-            # uncompress the file if desired
-            if filemeta.is_compressed():
-                from Acquire.Client import uncompress as _uncompress
-                _uncompress(inputfile=downloaded_name,
-                            outputfile=downloaded_name,
-                            compression_type=filemeta.compression_type())
-
-        filemeta._set_drive(self)
-
-        return (downloaded_name, filemeta)
-
     @staticmethod
-    def _list_drives(user, drive_uid=None,
-                     storage_service=None, storage_url=None):
+    def _list_drives(creds, drive_uid=None):
         """Return a list of all of the DriveMetas of the drives accessible
-           at the top-level by the passed user on the passed storage
-           service
-
-           Args:
-                user (User): Name of file to download
-                drive_uid (str, default=None): UID of drive
-                storage_service (Service): Service for drives
-                storage_url (str): URL for storage service
-           Returns:
-                list: List of DriveMetas for the drives
-
+           at the top-level using the passed credentials, or that are
+           sub-drives of the drive with UID 'drive_uid'
         """
-        if storage_service is None:
-            storage_service = _get_storage_service(storage_url)
-        else:
-            if not storage_service.is_storage_service():
-                raise TypeError("You can only query drives using "
-                                "a valid storage service")
+        from Acquire.Client import StorageCreds as _StorageCreds
+        if not isinstance(creds, _StorageCreds):
+            raise TypeError("The passed creds must be type StorageCreds")
 
-        from Acquire.Client import Authorisation as _Authorisation
-        authorisation = _Authorisation(resource="UserDrives", user=user)
+        args = {}
 
-        args = {"authorisation": authorisation.to_data()}
+        if creds.is_user():
+            if drive_uid is not None:
+                drive_uid = str(drive_uid)
+
+            from Acquire.Client import Authorisation as _Authorisation
+            authorisation = _Authorisation(resource="UserDrives",
+                                           user=creds.user())
+
+            args = {"authorisation": authorisation.to_data()}
+        elif creds.is_par():
+            par = creds.par()
+            par.assert_valid()
+            args["par"] = par.to_data()
+            args["secret"] = creds.secret()
 
         if drive_uid is not None:
             args["drive_uid"] = str(drive_uid)
+
+        storage_service = creds.storage_service()
 
         response = storage_service.call_function(
                                     function="list_drives", args=args)
@@ -502,25 +286,19 @@ class Drive:
         from Acquire.ObjectStore import string_to_list as _string_to_list
         from Acquire.Client import DriveMeta as _DriveMeta
 
-        return _string_to_list(response["drives"], _DriveMeta)
+        drives = _string_to_list(response["drives"], _DriveMeta)
+
+        for drive in drives:
+            drive._creds = creds
+
+        return drives
 
     @staticmethod
-    def list_toplevel_drives(user, storage_service=None, storage_url=None):
+    def list_toplevel_drives(creds):
         """Return a list of all of the DriveMetas of the drives accessible
-           at the top-level by the passed user on the passed storage
-           service
-
-           Args:
-                user (User): User for drives
-                storage_service (Service, default=None): Storage service to
-                query
-                storage_url (str): URL for storage service
-           Returns:
-                list: List of DriveMetas for the drives
+           at the top-level using the passed credentils
         """
-        return Drive._list_drives(user=user,
-                                  storage_service=storage_service,
-                                  storage_url=storage_url)
+        return Drive._list_drives(creds=creds)
 
     def list_drives(self):
         """Return a list of the DriveMetas of all of the drives contained
@@ -532,19 +310,13 @@ class Drive:
         if self.is_null():
             return []
         else:
-            return Drive._list_drives(user=self._user,
-                                      drive_uid=self._drive_uid,
-                                      storage_service=self._storage_service)
+            return Drive._list_drives(drive_uid=self._metadata.uid(),
+                                      creds=self._creds)
 
-    def list_files(self, include_metadata=False):
+    def list_files(self, dir=None, include_metadata=False):
         """Return a list of the FileMetas of all of the files contained
-           in this drive
-
-           Args:
-                include_metadata (bool, default=False): If True include
-                metadata for the returned files
-           Returns:
-                list: List of FileMetas for files in drive
+           in this drive. If 'dir' is specified then list only the
+           files that are contained in 'dir'
         """
         if self.is_null():
             return []
@@ -557,18 +329,22 @@ class Drive:
         else:
             include_metadata = False
 
-        args = {"drive_uid": self._drive_uid,
+        args = {"drive_uid": self._metadata.uid(),
                 "include_metadata": include_metadata}
 
-        if self._user is not None:
+        if dir is not None:
+            args["dir"] = str(dir)
+
+        if self._creds.is_user():
             from Acquire.Client import Authorisation as _Authorisation
             authorisation = _Authorisation(resource="list_files",
-                                           user=self._user)
+                                           user=self._creds.user())
             args["authorisation"] = authorisation.to_data()
-        elif self._par is not None:
-            self._par.assert_valid()
-            args["par_uid"] = self._par.uid()
-            args["secret"] = self._secret
+        elif self._creds.is_par():
+            par = self._creds.par()
+            par.assert_valid()
+            args["par_uid"] = par.uid()
+            args["secret"] = self._creds.secret()
 
         response = self.storage_service().call_function(function="list_files",
                                                         args=args)
@@ -576,55 +352,6 @@ class Drive:
         files = _string_to_list(response["files"], _FileMeta)
 
         for f in files:
-            f._set_drive(self)
+            f._set_drive_metadata(self._metadata, self._creds)
 
         return files
-
-    def list_versions(self, filename, include_metadata=False):
-        """Return a list of all of the versions of the specified file.
-           This returns an empty list if there are no versions of this
-           file
-
-           Args:
-                filename (str): Filename for listing of versions
-                include_metadata (bool, default=False): If True include
-                metadata for the returned files
-           Returns:
-                list: List of FileMetas for versions of file
-        """
-        if self.is_null():
-            return []
-
-        if include_metadata:
-            include_metadata = True
-        else:
-            include_metadata = False
-
-        args = {"drive_uid": self._drive_uid,
-                "include_metadata": include_metadata,
-                "filename": filename}
-
-        if self._user is not None:
-            from Acquire.Client import Authorisation as _Authorisation
-            authorisation = _Authorisation(
-                                    resource="list_versions %s" % filename,
-                                    user=self._user)
-            args["authorisation"] = authorisation.to_data()
-        elif self._par is not None:
-            self._par.assert_valid()
-            args["par_uid"] = self._par.uid()
-            args["secret"] = self._secret
-
-        response = self.storage_service().call_function(
-                                                function="list_versions",
-                                                args=args)
-
-        from Acquire.ObjectStore import string_to_list \
-            as _string_to_list
-        from Acquire.Storage import FileMeta as _FileMeta
-
-        versions = _string_to_list(response["versions"], _FileMeta)
-        for version in versions:
-            version._set_drive(self)
-
-        return versions

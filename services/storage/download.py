@@ -41,9 +41,7 @@ def run(args):
     public_key = PublicKey.from_data(args["encryption_key"])
 
     if "version" in args:
-        from Acquire.ObjectStore import string_to_datetime \
-            as _string_to_datetime
-        version = _string_to_datetime(args["version"])
+        version = str(args["version"])
     else:
         version = None
 

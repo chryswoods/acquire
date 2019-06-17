@@ -3,7 +3,7 @@
 import pytest
 import os
 
-from Acquire.Client import Drive
+from Acquire.Client import Drive, StorageCreds
 from Acquire.ObjectStore import OSPar
 
 
@@ -15,23 +15,21 @@ def tempdir(tmpdir_factory):
 
 def test_drives(authenticated_user, tempdir):
 
-    nstart = len(Drive.list_toplevel_drives(user=authenticated_user,
-                                            storage_url="storage"))
+    creds = StorageCreds(user=authenticated_user, service_url="storage")
+
+    nstart = len(Drive.list_toplevel_drives(creds=creds))
 
     drive_name = "test å∫ç∂ something"
-    drive = Drive(user=authenticated_user, name=drive_name,
-                  storage_url="storage")
+    drive = Drive(name=drive_name, creds=creds, autocreate=True)
 
-    assert(drive.name() == drive_name)
-    assert(drive.acl().is_owner())
+    assert(drive.metadata().name() == drive_name)
+    assert(drive.metadata().acl().is_owner())
 
     drive2_name = "test/this/is/a/../../dir"
 
-    drive2 = Drive(user=authenticated_user, name=drive2_name,
-                   storage_url="storage")
+    drive2 = Drive(name=drive2_name, creds=creds)
 
-    drives = Drive.list_toplevel_drives(user=authenticated_user,
-                                        storage_url="storage")
+    drives = Drive.list_toplevel_drives(creds=creds)
 
     assert(len(drives) == nstart + 2)
 
@@ -50,7 +48,7 @@ def test_drives(authenticated_user, tempdir):
 
     filemeta = drive.upload(filename=filename)
 
-    assert(filemeta.has_metadata())
+    assert(filemeta.is_complete())
     assert(filemeta.acl().is_owner())
     assert(filemeta.acl().is_readable())
     assert(filemeta.acl().is_writeable())
@@ -68,14 +66,14 @@ def test_drives(authenticated_user, tempdir):
     assert(len(files) == 1)
 
     assert(files[0].filename() == filemeta.filename())
-    assert(not files[0].has_metadata())
+    assert(not files[0].is_complete())
 
     files = drive.list_files(include_metadata=True)
 
     assert(len(files) == 1)
 
     assert(files[0].filename() == filemeta.filename())
-    assert(files[0].has_metadata())
+    assert(files[0].is_complete())
 
     assert(files[0].uid() == filemeta.uid())
     assert(files[0].filesize() == filemeta.filesize())
@@ -87,7 +85,8 @@ def test_drives(authenticated_user, tempdir):
     assert(files[0].uploaded_by() == authenticated_user.guid())
     assert(files[0].uploaded_when() == upload_datetime)
 
-    (filename, filemeta) = drive.download(files[0].filename(), dir=tempdir)
+    f = files[0].open()
+    filename = f.download(dir=tempdir)
 
     # make sure that the two files are identical
     with open(filename, "rb") as FILE:
@@ -111,33 +110,19 @@ def test_drives(authenticated_user, tempdir):
     assert(files[0].uploaded_by() == authenticated_user.guid())
     assert(files[0].uploaded_when() == upload_datetime)
 
-    versions = drive.list_versions(filename=filemeta.filename())
+    versions = f.list_versions()
 
     assert(len(versions) == 1)
     assert(versions[0].filename() == filemeta.filename())
     assert(versions[0].uploaded_when() == filemeta.uploaded_when())
-
-    versions = drive.list_versions(filename=filemeta.filename(),
-                                   include_metadata=True)
-
-    assert(len(versions) == 1)
-    assert(versions[0].filename() == filemeta.filename())
-    assert(versions[0].uploaded_when() == filemeta.uploaded_when())
-
-    assert(versions[0] == filemeta)
 
     new_filemeta = drive.upload(filename=__file__, force_par=True)
 
-    versions = drive.list_versions(filename=filemeta.filename())
+    versions = f.list_versions()
 
     assert(len(versions) == 2)
 
-    versions = drive.list_versions(filename=filemeta.filename(),
-                                   include_metadata=True)
-
-    assert(len(versions) == 2)
-
-    (filename, new_filemeta) = drive.download(filemeta.filename(), dir=tempdir)
+    filename = new_filemeta.open().download(dir=tempdir)
 
     # make sure that the two files are identical
     with open(filename, "rb") as FILE:
@@ -152,11 +137,10 @@ def test_drives(authenticated_user, tempdir):
     assert(data1 == data2)
 
     # should be in upload order
-    assert(versions[0] == filemeta)
-    assert(versions[1] == new_filemeta)
+    assert(versions[0].uid() == filemeta.uid())
+    assert(versions[1].uid() == new_filemeta.uid())
 
-    (filename, new_filemeta) = drive.download(filemeta.filename(),
-                                              dir=tempdir, force_par=True)
+    filename = new_filemeta.open().download(dir=tempdir, force_par=True)
 
     # make sure that the two files are identical
     with open(filename, "rb") as FILE:

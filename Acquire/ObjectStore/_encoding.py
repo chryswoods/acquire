@@ -101,7 +101,7 @@ def validate_is_uid(uid):
             print(e)
             pass
     elif len_uid == 36:
-        # this is a long UID
+        # this is a long UID
         if _re.match(r'[a-f0-9]{8}\-[a-f0-9]{4}\-[a-f0-9]{4}\-[a-f0-9]{4}\-[a-f0-9]{12}', uid):
             return
     elif len_uid == 63:
@@ -558,7 +558,7 @@ def string_to_filepath(path):
     # change any windows path separators into unix path separators
     path = path.replace("\\", "/")
 
-    # now normalise the path to remove messiness
+    # now normalise the path to remove messiness
     path = _os.path.normpath(path)
 
     # remove all ".." and "." from this path

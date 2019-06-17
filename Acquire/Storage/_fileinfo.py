@@ -46,11 +46,12 @@ class VersionInfo:
 
             self._filesize = filesize
             self._checksum = checksum
-            self._file_uid = _create_uid(short_uid=True)
+            self._datetime = _get_datetime_now()
+            self._file_uid = "%s/%s" % (_datetime_to_string(self._datetime),
+                                        _create_uid(short_uid=True))
             self._user_guid = str(user_guid)
             self._compression = compression
             self._aclrules = aclrules
-            self._datetime = _get_datetime_now()
 
         else:
             self._filesize = None
@@ -126,12 +127,7 @@ class VersionInfo:
         if self.is_null():
             return None
         else:
-            from Acquire.ObjectStore import datetime_to_string \
-                as _datetime_to_string
-
-            return "%s/%s/%s" % (_file_root,
-                                 _datetime_to_string(self._datetime),
-                                 self._file_uid)
+            return "%s/%s" % (_file_root, self._file_uid)
 
     def _key(self, drive_uid, encoded_filename):
         """Return the key for this version in the object store"""
@@ -140,9 +136,8 @@ class VersionInfo:
         else:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
-            return "%s/%s/%s/%s/%s" % (
-                _version_root, drive_uid, encoded_filename,
-                _datetime_to_string(self._datetime), self._file_uid)
+            return "%s/%s/%s/%s" % (
+                _version_root, drive_uid, encoded_filename, self._file_uid)
 
     def to_data(self):
         """Return a json-serialisable dictionary for this object"""
@@ -156,7 +151,6 @@ class VersionInfo:
             data["filesize"] = self._filesize
             data["checksum"] = self._checksum
             data["file_uid"] = self._file_uid
-            data["datetime"] = _datetime_to_string(self._datetime)
             data["user_guid"] = self._user_guid
 
             if self._aclrules is not None:
@@ -181,7 +175,12 @@ class VersionInfo:
             v._checksum = data["checksum"]
             v._file_uid = data["file_uid"]
             v._user_guid = data["user_guid"]
-            v._datetime = _string_to_datetime(data["datetime"])
+
+            try:
+                v._datetime = _string_to_datetime(data["datetime"])
+                v._file_uid = "%s/%s" % (data["datetime"], v._file_uid)
+            except:
+                v._datetime = _string_to_datetime(v._file_uid.split("/")[0])
 
             if "aclrules" in data:
                 from Acquire.Storage import ACLRules as _ACLRules
@@ -307,14 +306,16 @@ class FileInfo:
         """
         if self.is_null():
             return VersionInfo()
-        else:
-            if version is None:
-                return self._latest_version
+        elif version is None:
+            return self._latest_version
+        elif self._latest_version.uid() == version:
+            return self._latest_version
 
-            from Acquire.Storage import MissingVersionError
-            raise MissingVersionError(
-                "Cannot find the version '%s' for file '%s'" %
-                (version, self.filename()))
+        # lookup this version in the object store
+        from Acquire.Storage import MissingVersionError
+        raise MissingVersionError(
+            "Cannot find the version '%s' for file '%s'" %
+            (version, self.filename()))
 
     def filesize(self, version=None):
         """Return the size (in bytes) of the latest (or specified)
@@ -464,8 +465,8 @@ class FileInfo:
 
             for key in keys:
                 parts = key.split("/")
-                uid = parts[-1]
                 uploaded_when = _string_to_datetime(parts[-2])
+                uid = "%s/%s" % (parts[-2], parts[-1])
                 filemeta = _FileMeta(filename=filename,
                                      uploaded_when=uploaded_when,
                                      uid=uid)
