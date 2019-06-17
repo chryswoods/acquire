@@ -28,7 +28,6 @@ class AccountingService(_Service):
            Args:
                 function (function): Function to route
                 args: Arguments to pass to routed function
-
             Returns:
                 function: A handler function
         """

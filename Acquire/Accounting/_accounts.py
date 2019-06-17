@@ -31,10 +31,10 @@ class Accounts:
         return "Accounts(group=%s)" % self.group()
 
     def _root(self):
-        """Return the root key for this group in the object store
+        """ Return the root key for this group in the object store
 
             Returns:
-                string: Root key for group
+                str: Root key for group
         """
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
@@ -42,9 +42,16 @@ class Accounts:
             _string_to_encoded(self._group)
 
     def _get_aclrules(self, user_guid, aclrules, bucket=None):
-        """Load up the ACLRules for this group. If none are set, then
-           either the passed ACLRules will be used, or the specified
-           user will be set as the owner
+        """ Load up the ACLRules for this group. If none are set, then
+            either the passed ACLRules will be used, or the specified
+            user will be set as the owner
+
+            Args:
+                user_guid (str): GUID of user
+                aclrules (ACLRules): ACL Rules for accounts
+                bucket (dict, default=None): Bucket for data storage
+            Returns:
+                None
         """
         from Acquire.Identity import ACLRules as _ACLRules
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
@@ -82,13 +89,20 @@ class Accounts:
         self._aclrules = aclrules
 
     def identifiers(self):
-        """Return the set of validated identifiers that are known to
-           be attached to this group of accounts
+        """ Return the set of validated identifiers that are known to
+            be attached to this group of accounts
+
+            Returns:
+                dict: Dictionary containing user GUID
         """
         return {"user_guid": self._user_guid}
 
     def aclrules(self):
-        """Return the ACL rules for this group of accounts"""
+        """ Return the ACL rules for this group of accounts
+
+            Returns:
+                ACLRules: ACL rules for object
+        """
         return self._aclrules
 
     def _account_key(self, name):
@@ -96,7 +110,6 @@ class Accounts:
 
             Args:
                 name (str): Name of the account
-
             Returns:
                 str: Key for the account 'name'
         """
@@ -106,7 +119,11 @@ class Accounts:
                           _string_to_encoded(str(name)))
 
     def _acls_key(self):
-        """Return the key for the ACLs for this accounts group"""
+        """ Return the key for the ACLs for this accounts group
+
+            Returns:
+                str: Key for ACLs for accounts group
+        """
         from Acquire.ObjectStore import string_to_encoded \
             as _string_to_encoded
         return "accounting/account_group_acls/%s" % \
@@ -121,11 +138,19 @@ class Accounts:
         return self._group
 
     def name(self):
-        """Return the name of the group that this set of accounts refers to"""
+        """ Return the name of the group that this set of accounts refers to
+
+            Returns:
+                str: Name of group
+        """
         return self._group
 
     def _assert_is_readable(self):
-        """Assert that we have permission to read these accounts"""
+        """ Assert that we have permission to read these accounts
+
+            Returns:
+                None
+        """
         aclrule = self._aclrules.resolve(must_resolve=True,
                                          identifiers=self.identifiers())
 
@@ -135,7 +160,11 @@ class Accounts:
                 "in this group")
 
     def _assert_is_writeable(self):
-        """Assert that we have permission to write these accounts"""
+        """ Assert that we have permission to write these accounts
+
+            Returns:
+                None
+        """
         aclrule = self._aclrules.resolve(must_resolve=True,
                                          identifiers=self.identifiers())
 
@@ -148,11 +177,9 @@ class Accounts:
         """Return the names of all of the accounts in this group
 
             Args:
-                bucket (dict, default=None): Bucket from which to load data
-
+                bucket (dict, default=None): Bucket for data storage
             Returns:
-                :obj:`list`: List of names of the accounts in this group
-
+                list: List of names of the accounts in this group
         """
         self._assert_is_readable()
 
@@ -190,11 +217,10 @@ class Accounts:
         """Return the account called 'name' from this group
 
             Args:
-                name (:obj:`str`): Name of account to retrieve
-                bucket (:obj:`dict`): Bucket for data storage
-
+                name (str): Name of account to retrieve
+                bucket (dict): Bucket for data storage
             Returns:
-                :obj:`Account`: Account object
+                Account: Account object
         """
         self._assert_is_readable()
 
@@ -224,13 +250,13 @@ class Accounts:
         return _Account(uid=account_uid, bucket=bucket)
 
     def contains(self, account, bucket=None):
-        """Return whether or not this group contains the passed account
+        """ Return whether or not this group contains the passed account
 
             Args:
-                account (:obj:`Account`): Account to check against group
+                account (Account): Account to check against group
                 bucket (dict, default=None): Bucket for data storage
             Returns:
-                bool : True if account in group, else False
+                bool: True if account in group
         """
         self._assert_is_readable()
 
@@ -265,7 +291,7 @@ class Accounts:
                 description (default=None): Description of account
                 overdraft_limit (int, default=None): Limit of overdraft
                 bucket (dict, default=None): Bucket for data storage
-
+                authorisation (Authorisation): Authorisation for account creation
             Returns:
                 Account: New Account object
         """

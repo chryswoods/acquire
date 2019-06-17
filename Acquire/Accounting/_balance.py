@@ -25,19 +25,35 @@ class Balance:
             self._receivable = _string_to_decimal(receivable, default=0)
 
     def balance(self):
-        """Return the balance"""
+        """ Return the balance
+
+            Returns:
+                Decimal: Balance of account
+        """
         return self._balance
 
     def liability(self):
-        """Return the liability"""
+        """ Return the liability
+            
+            Returns:
+                Decimal: Liability of account
+        """
         return self._liability
 
     def receivable(self):
-        """Return the receivable"""
+        """ Return the receivable
+
+            Returns:
+                Decimal: Receivable value of account
+        """
         return self._receivable
 
     def available(self, overdraft_limit=None):
-        """Return the available balance (balance - liability)"""
+        """ Return the available balance (balance - liability)
+
+            Returns:
+                Decimal: Available balance of account
+        """ 
         if overdraft_limit is None:
             return self.balance() - self.liability()
         else:
@@ -46,7 +62,11 @@ class Balance:
             return self.balance() - self.liability() + overdraft_limit
 
     def is_overdrawn(self, overdraft_limit=None):
-        """Return whether or not this balance is overdrawn"""
+        """ Return whether or not this balance is overdrawn
+
+            Returns:
+                bool: True if overdrawn
+        """
         return self.available(overdraft_limit=overdraft_limit) < 0
 
     def __str__(self):
@@ -139,7 +159,13 @@ class Balance:
 
     @staticmethod
     def total(balances):
-        """Return the sum of the passed balances"""
+        """ Return the sum of the passed balances
+            
+            Args:
+                balances (list): List of balances
+            Returns:
+                Balance: Sum of passed balances
+        """
         from Acquire.Accounting import create_decimal as _create_decimal
         balance = _create_decimal(0)
         liability = _create_decimal(0)
@@ -157,7 +183,11 @@ class Balance:
                        receivable=receivable, _is_safe=True)
 
     def to_data(self):
-        """Return this balance as a JSON-serialisable object"""
+        """ Return this balance as a JSON-serialisable object
+            
+            Returns:
+                dict: JSON serialisable dictionary of object
+        """
         data = {}
 
         from Acquire.ObjectStore import decimal_to_string \
@@ -170,7 +200,13 @@ class Balance:
 
     @staticmethod
     def from_data(data):
-        """Construct a balance from the passed json-deserialised object"""
+        """ Construct a balance from the passed json-deserialised object
+
+            Args:
+                data (dict): Dictionary from which to create object
+            Returns:
+                Balance: Balance object created from data
+        """
         if data is None or len(data) == 0:
             return Balance()
 
