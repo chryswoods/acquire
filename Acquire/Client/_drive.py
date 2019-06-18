@@ -313,10 +313,11 @@ class Drive:
             return Drive._list_drives(drive_uid=self._metadata.uid(),
                                       creds=self._creds)
 
-    def list_files(self, dir=None, include_metadata=False):
+    def list_files(self, dir=None, filename=None, include_metadata=False):
         """Return a list of the FileMetas of all of the files contained
            in this drive. If 'dir' is specified then list only the
-           files that are contained in 'dir'
+           files that are contained in 'dir'. If 'filename' is specified
+           then return only the files that match the passed filename
         """
         if self.is_null():
             return []
@@ -334,6 +335,9 @@ class Drive:
 
         if dir is not None:
             args["dir"] = str(dir)
+
+        if filename is not None:
+            args["filename"] = str(filename)
 
         if self._creds.is_user():
             from Acquire.Client import Authorisation as _Authorisation

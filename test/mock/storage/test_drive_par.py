@@ -1,7 +1,7 @@
 
 import pytest
 
-from Acquire.Client import PAR, Location, ACLRule, Drive
+from Acquire.Client import PAR, Location, ACLRule, Drive, StorageCreds
 
 
 @pytest.fixture(scope="session")
@@ -19,12 +19,13 @@ def _same_file(file1, file2):
 
 def test_drive_par(authenticated_user, tempdir):
     drive_name = "test å∫ç∂ pars"
-    drive = Drive(user=authenticated_user, name=drive_name,
-                  storage_url="storage")
+    creds = StorageCreds(user=authenticated_user, service_url="storage")
+
+    drive = Drive(name=drive_name, creds=creds)
 
     drive.upload(filename=__file__, uploaded_name="tmp_test.py")
 
-    drive_guid = drive.guid()
+    drive_guid = drive.metadata().guid()
 
     location = Location(drive_guid=drive_guid)
 
@@ -32,18 +33,16 @@ def test_drive_par(authenticated_user, tempdir):
               aclrule=ACLRule.reader())
 
     par_drive = par.resolve()
-    assert(par_drive.acl() == ACLRule.reader())
-    assert(par_drive.uid() == drive.uid())
+    assert(par_drive.metadata().acl() == ACLRule.reader())
+    assert(par_drive.metadata().uid() == drive.metadata().uid())
 
     files = par_drive.list_files()
     assert(len(files) == 1)
     assert(files[0].filename() == "tmp_test.py")
 
-    (downloaded_name, filemeta) = par_drive.download("tmp_test.py",
-                                                     dir=tempdir,
-                                                     force_par=True)
+    downloaded_name = files[0].open().download(dir=tempdir,
+                                               force_par=True)
 
-    assert(filemeta.filename() == "tmp_test.py")
     assert(_same_file(__file__, downloaded_name))
 
     par2 = PAR(location=location, user=authenticated_user,
@@ -51,8 +50,8 @@ def test_drive_par(authenticated_user, tempdir):
 
     par_drive = par2.resolve()
 
-    assert(par_drive.acl() == ACLRule.writer())
-    assert(par_drive.uid() == drive.uid())
+    assert(par_drive.metadata().acl() == ACLRule.writer())
+    assert(par_drive.metadata().uid() == drive.metadata().uid())
 
     files = par_drive.list_files()
     assert(len(files) == 1)
@@ -65,9 +64,6 @@ def test_drive_par(authenticated_user, tempdir):
     assert(files[0].filename() == "tmp_test.py")
     assert(files[1].filename() == "tmp_test2.py")
 
-    (downloaded_name, filemeta) = par_drive.download("tmp_test2.py",
-                                                     dir=tempdir,
-                                                     force_par=True)
+    downloaded_name = files[1].open().download(dir=tempdir)
 
-    assert(filemeta.filename() == "tmp_test2.py")
     assert(_same_file(__file__, downloaded_name))

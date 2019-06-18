@@ -29,6 +29,16 @@ def run(args):
         secret = None
 
     try:
+        directory = str(args["dir"])
+    except:
+        directory = None
+
+    try:
+        filename = str(args["filename"])
+    except:
+        filename = None
+
+    try:
         include_metadata = args["include_metadata"]
     except:
         include_metadata = False
@@ -49,7 +59,8 @@ def run(args):
 
     files = drive.list_files(authorisation=authorisation,
                              include_metadata=include_metadata,
-                             par=par, identifiers=identifiers)
+                             par=par, identifiers=identifiers,
+                             dir=directory, filename=filename)
 
     return_value = {}
 

@@ -411,10 +411,15 @@ class DriveInfo:
         self.load(autocreate=False)
 
     def list_files(self, authorisation=None, par=None,
-                   identifiers=None, include_metadata=False):
+                   identifiers=None, include_metadata=False,
+                   dir=None, filename=None):
         """Return the list of FileMeta data for the files contained
            in this Drive. The passed authorisation is needed in case
-           the list contents of this drive is not public
+           the list contents of this drive is not public.
+
+           If 'dir' is specified, then only search for files in 'dir'.
+           If 'filename' is specified, then only search for the
+           file called 'filename'
         """
         (drive_acl, identifiers) = self._resolve_acl(
                                         authorisation=authorisation,
@@ -432,13 +437,23 @@ class DriveInfo:
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.ObjectStore import encoded_to_string as _encoded_to_string
+        from Acquire.ObjectStore import string_to_encoded as _string_to_encoded
         from Acquire.Storage import FileMeta as _FileMeta
 
         metadata_bucket = self._get_metadata_bucket()
 
-        names = _ObjectStore.get_all_object_names(
-                    metadata_bucket, "%s/%s" % (_fileinfo_root,
-                                                self._drive_uid))
+        if filename is not None:
+            key = "%s/%s/%s" % (_fileinfo_root, self._drive_uid,
+                                _string_to_encoded(filename))
+
+            names = [key]
+        else:
+            key = "%s/%s" % (_fileinfo_root, self._drive_uid)
+
+            if dir is not None:
+                key = "%s/%s" % (key, _string_to_encoded(dir))
+
+            names = _ObjectStore.get_all_object_names(metadata_bucket, key)
 
         files = []
 
@@ -448,16 +463,19 @@ class DriveInfo:
             from Acquire.Storage import FileInfo as _FileInfo
 
             for name in names:
-                data = _ObjectStore.get_object_from_json(metadata_bucket,
-                                                         name)
-                fileinfo = _FileInfo.from_data(data,
-                                               identifiers=identifiers,
-                                               upstream=drive_acl)
-                filemeta = fileinfo.get_filemeta()
-                file_acl = filemeta.acl()
+                try:
+                    data = _ObjectStore.get_object_from_json(metadata_bucket,
+                                                             name)
+                    fileinfo = _FileInfo.from_data(data,
+                                                   identifiers=identifiers,
+                                                   upstream=drive_acl)
+                    filemeta = fileinfo.get_filemeta()
+                    file_acl = filemeta.acl()
 
-                if file_acl.is_readable() or file_acl.is_writeable():
-                    files.append(filemeta)
+                    if file_acl.is_readable() or file_acl.is_writeable():
+                        files.append(filemeta)
+                except:
+                    pass
         else:
             for name in names:
                 filename = _encoded_to_string(name.split("/")[-1])

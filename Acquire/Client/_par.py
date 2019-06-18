@@ -206,16 +206,19 @@ class PAR:
                                        args={"par_uid": self.uid(),
                                              "secret": secret})
 
+        from Acquire.Client import StorageCreds as _StorageCreds
+        creds = _StorageCreds(par=self, secret=secret)
+
         if result["type"] == "DriveMeta":
             from Acquire.Client import DriveMeta as _DriveMeta
             from Acquire.Client import Drive as _Drive
             return _Drive.open(_DriveMeta.from_data(result["data"]),
-                               par=self, secret=secret)
+                               creds=creds)
         elif result["type"] == "FileMeta":
             from Acquire.Client import FileMeta as _FileMeta
             from Acquire.Client import File as _File
             return _File.open(_FileMeta.from_data(result["data"]),
-                              par=self, secret=secret)
+                              creds=creds)
         elif result["type"] == "FileMetas":
             from Acquire.Client import FileMeta as _FileMeta
             from Acquire.Client import File as _File
@@ -225,7 +228,7 @@ class PAR:
 
             files = []
             for filemeta in filemetas:
-                files.append(_File.open(filemeta, par=self, secret=secret))
+                files.append(_File.open(filemeta, creds=creds))
 
             return files
         else:

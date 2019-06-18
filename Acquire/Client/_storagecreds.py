@@ -76,8 +76,8 @@ class StorageCreds:
 
             self._par = par
             self._secret = secret
-            self._storage_service = par.storage_service()
-            assert(storage_service is not None)
+            self._storage_service = par.service()
+            assert(self._storage_service is not None)
 
         if self._storage_service is not None:
             from Acquire.Storage import StorageService as _StorageService

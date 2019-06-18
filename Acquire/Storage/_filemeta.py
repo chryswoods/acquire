@@ -74,13 +74,31 @@ class FileMeta:
         return self._filename is None
 
     def make_complete(self, creds=None):
-        """Connect to the storage service and get all of
-           the metadata for this file
+        """Connect to the storage service and get all of the
+            metadata for this file, returning the complete
+            file data
         """
         if self.is_null() or self.is_complete():
-            return
+            return self
 
-        raise PermissionError("NEED TO IMPLEMENT")
+        if creds is None:
+            creds = self._creds
+
+        drive = self.drive().open(creds=creds)
+
+        filemetas = drive.list_files(filename=self.filename(),
+                                     include_metadata=True)
+
+        if len(filemetas) != 1:
+            raise PermissionError(
+                "Cannot make the filemeta complete! Incorrect filemetas "
+                "have been returned: %s" % str(filemetas))
+
+        filemeta = filemetas[0]
+
+        assert(filemeta.is_complete())
+        assert(filemeta.filename() == self.filename())
+        return filemeta
 
     def is_complete(self):
         """Return whether or not this file includes all of the
