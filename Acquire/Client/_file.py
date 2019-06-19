@@ -34,14 +34,20 @@ class File:
         from copy import copy as _copy
         metadata = _copy(metadata)
 
-        if not metadata.is_complete():
-            # we need to fetch the metadata from the storage_service
-            metadata = metadata.make_complete(creds=creds)
-
         if creds is None:
             creds = metadata._creds
         else:
             metadata._creds = creds
+
+        if creds.is_par():
+            par = creds.par()
+            loc = par.location()
+            if not loc.is_drive():
+                # we need to create a dummy Drive metadata for this file
+                from Acquire.Client import DriveMeta as _DriveMeta
+                d = _DriveMeta(name="par:%s" % par.uid(),
+                               uid=loc.drive_uid())
+                metadata._set_drive_metadata(d, creds)
 
         f = File()
         f._metadata = metadata
@@ -70,6 +76,89 @@ class File:
         else:
             return "File(name='%s')" % self._metadata.name()
 
+    def upload(self, filename, force_par=False, aclrules=None):
+        """Upload 'filename' as the new version of this file"""
+        if self.is_null():
+            raise PermissionError("Cannot download a null File!")
+
+        if self._creds is None:
+            raise PermissionError("We have not properly opened the file!")
+
+        from Acquire.Client import Authorisation as _Authorisation
+        from Acquire.ObjectStore import OSPar as _OSPar
+        from Acquire.Client import FileMeta as _FileMeta
+        from Acquire.Storage import FileHandle as _FileHandle
+
+        local_cutoff = None
+
+        if force_par:
+            # only upload using a OSPar
+            local_cutoff = 0
+
+        uploaded_name = self._metadata.filename()
+        drive_uid = self._metadata.drive().uid()
+
+        filehandle = _FileHandle(filename=filename,
+                                 remote_filename=uploaded_name,
+                                 drive_uid=drive_uid,
+                                 aclrules=aclrules,
+                                 local_cutoff=local_cutoff)
+
+        try:
+            args = {"filehandle": filehandle.to_data()}
+
+            if self._creds.is_user():
+                authorisation = _Authorisation(
+                            resource="upload %s" % filehandle.fingerprint(),
+                            user=self._creds.user())
+
+                args["authorisation"] = authorisation.to_data()
+            elif self._creds.is_par():
+                par = self._creds.par()
+                par.assert_valid()
+                args["par_uid"] = par.uid()
+                args["secret"] = self._creds.secret()
+            else:
+                raise PermissionError(
+                    "Either a logged-in user or valid PAR must be provided!")
+
+            if not filehandle.is_localdata():
+                # we will need to upload against a OSPar, so need to tell
+                # the service how to encrypt the OSPar...
+                if self._creds.is_user():
+                    privkey = self._creds.user().session_key()
+                else:
+                    from Acquire.Crypto import get_private_key \
+                        as _get_private_key
+                    privkey = _get_private_key("parkey")
+
+                args["encryption_key"] = privkey.public_key().to_data()
+
+            # will eventually need to authorise payment...
+            storage_service = self._creds.storage_service()
+
+            response = storage_service.call_function(
+                                    function="upload", args=args)
+
+            filemeta = _FileMeta.from_data(response["filemeta"])
+
+            # if this was a large file, then we will receive a OSPar back
+            # which must be used to upload the file
+            if not filehandle.is_localdata():
+                par = _OSPar.from_data(response["upload_par"])
+                par.write(privkey).set_object_from_file(
+                                        filehandle.local_filename())
+                par.close(privkey)
+
+            filemeta._set_drive_metadata(self._metadata._drive_metadata,
+                                         self._creds)
+
+            return filemeta
+        except:
+            # ensure that any temporary files are removed
+            filehandle.__del__()
+            raise
+
     def download(self, filename=None, version=None,
                  dir=None, force_par=False):
         """Download this file into the local directory
@@ -96,11 +185,6 @@ class File:
 
         if filename is None:
             filename = self._metadata.name()
-
-        if self._creds is None:
-            raise PermissionError(
-                "Cannot download this file as it has not "
-                "been properly opened")
 
         drive_uid = self._metadata.drive().uid()
 
@@ -139,7 +223,7 @@ class File:
             from Acquire.ObjectStore import datetime_to_string \
                 as _datetime_to_string
             args["version"] = _datetime_to_string(version)
-        else:
+        elif self._metadata.version() is not None:
             args["version"] = self._metadata.version()
 
         storage_service = self._creds.storage_service()

@@ -177,76 +177,30 @@ class Drive:
         if dir is not None:
             uploaded_name = "%s/%s" % (dir, uploaded_name)
 
-        from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.ObjectStore import OSPar as _OSPar
         from Acquire.Client import FileMeta as _FileMeta
-        from Acquire.Storage import FileHandle as _FileHandle
+        filemeta = _FileMeta(filename=uploaded_name)
+        filemeta._set_drive_metadata(self._metadata, self._creds)
 
-        local_cutoff = None
+        return filemeta.open().upload(filename=filename, force_par=force_par,
+                                      aclrules=aclrules)
 
-        if force_par:
-            # only upload using a OSPar
-            local_cutoff = 0
+    def download(self, filename, dir=None, download_name=None,
+                 version=None, force_par=False):
+        """Download the file 'filename' from the Drive to directory 'dir' on
+           this computer (or current directory if not specified), calling
+           the downloaded file 'download_filename' (or 'filename' if not
+           specified). Force transfer using an OSPar is force_par is True
+        """
+        if self.is_null():
+            raise PermissionError("Cannot upload a file to a null drive!")
 
-        filehandle = _FileHandle(filename=filename,
-                                 remote_filename=uploaded_name,
-                                 drive_uid=self._metadata.uid(),
-                                 aclrules=aclrules,
-                                 local_cutoff=local_cutoff)
+        from Acquire.Client import FileMeta as _FileMeta
+        filemeta = _FileMeta(filename=filename)
+        filemeta._set_drive_metadata(self._metadata, self._creds)
 
-        try:
-            args = {"filehandle": filehandle.to_data()}
-
-            if self._creds.is_user():
-                authorisation = _Authorisation(
-                            resource="upload %s" % filehandle.fingerprint(),
-                            user=self._creds.user())
-
-                args["authorisation"] = authorisation.to_data()
-            elif self._creds.is_par():
-                par = self._creds.par()
-                par.assert_valid()
-                args["par_uid"] = par.uid()
-                args["secret"] = self._creds.secret()
-            else:
-                raise PermissionError(
-                    "Either a logged-in user or valid PAR must be provided!")
-
-            if not filehandle.is_localdata():
-                # we will need to upload against a OSPar, so need to tell
-                # the service how to encrypt the OSPar...
-                if self._creds.is_user():
-                    privkey = self._creds.user().session_key()
-                else:
-                    from Acquire.Crypto import get_private_key \
-                        as _get_private_key
-                    privkey = _get_private_key("parkey")
-
-                args["encryption_key"] = privkey.public_key().to_data()
-
-            # will eventually need to authorise payment...
-            storage_service = self._creds.storage_service()
-
-            response = storage_service.call_function(
-                                    function="upload", args=args)
-
-            filemeta = _FileMeta.from_data(response["filemeta"])
-
-            # if this was a large file, then we will receive a OSPar back
-            # which must be used to upload the file
-            if not filehandle.is_localdata():
-                par = _OSPar.from_data(response["upload_par"])
-                par.write(privkey).set_object_from_file(
-                                        filehandle.local_filename())
-                par.close(privkey)
-
-            filemeta._set_drive_metadata(self._metadata, self._creds)
-
-            return filemeta
-        except:
-            # ensure that any temporary files are removed
-            filehandle.__del__()
-            raise
+        return filemeta.open().download(filename=download_name,
+                                        version=version, dir=dir,
+                                        force_par=force_par)
 
     @staticmethod
     def _list_drives(creds, drive_uid=None):

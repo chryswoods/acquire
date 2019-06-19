@@ -25,6 +25,10 @@ def test_drive_par(authenticated_user, tempdir):
 
     drive.upload(filename=__file__, uploaded_name="tmp_test.py")
 
+    downloaded_name = drive.download(filename="tmp_test.py", dir=tempdir)
+
+    assert(_same_file(__file__, downloaded_name))
+
     drive_guid = drive.metadata().guid()
 
     location = Location(drive_guid=drive_guid)
@@ -67,3 +71,26 @@ def test_drive_par(authenticated_user, tempdir):
     downloaded_name = files[1].open().download(dir=tempdir)
 
     assert(_same_file(__file__, downloaded_name))
+
+    par = PAR(location=files[0].location(), user=authenticated_user,
+              aclrule=ACLRule.reader())
+
+    par_file = par.resolve()
+
+    assert(par_file.metadata().acl() == ACLRule.reader())
+
+    downloaded_name = par_file.download(dir=tempdir)
+
+    assert(_same_file(__file__, downloaded_name))
+
+    with pytest.raises(PermissionError):
+        par_file.upload(__file__)
+
+    par = PAR(location=files[0].location(), user=authenticated_user,
+              aclrule=ACLRule.writer())
+
+    par_file = par.resolve()
+
+    assert(par_file.metadata().acl() == ACLRule.writer())
+
+    par_file.upload(__file__)

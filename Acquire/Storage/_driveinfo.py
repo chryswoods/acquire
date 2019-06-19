@@ -427,9 +427,12 @@ class DriveInfo:
                                         par=par, identifiers=identifiers)
 
         if par is not None:
-            if not par.location().is_drive():
+            if par.location().is_file():
+                dir = None
+                filename = par.location().filename()
+            elif not par.location().is_drive():
                 raise PermissionError(
-                    "You do not have permission to read this Drive")
+                    "You do not have permission to read the Drive")
 
         if not drive_acl.is_readable():
             raise PermissionError(
@@ -496,11 +499,6 @@ class DriveInfo:
                                     authorisation=authorisation,
                                     resource="list_versions %s" % filename,
                                     par=par, identifiers=identifiers)
-
-        if par is not None:
-            if not par.location().is_drive():
-                raise PermissionError(
-                    "You do not have permission to read this Drive")
 
         if not drive_acl.is_readable():
             raise PermissionError(

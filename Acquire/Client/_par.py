@@ -230,7 +230,10 @@ class PAR:
             for filemeta in filemetas:
                 files.append(_File.open(filemeta, creds=creds))
 
-            return files
+            if len(files) == 1:
+                return files[0]
+            else:
+                return files
         else:
             raise PermissionError("Returned wrong type? %s" % result["type"])
 
