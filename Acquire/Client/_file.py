@@ -76,6 +76,72 @@ class File:
         else:
             return "File(name='%s')" % self._metadata.name()
 
+    def chunk_upload(self, aclrules=None):
+        """Start a chunk-upload of a new version of this file. This
+           will return a chunk-uploader that can be used to upload
+           a file chunk-by-chunk
+        """
+        if self.is_null():
+            raise PermissionError("Cannot download a null File!")
+
+        if self._creds is None:
+            raise PermissionError("We have not properly opened the file!")
+
+        from Acquire.Client import Authorisation as _Authorisation
+        from Acquire.ObjectStore import OSPar as _OSPar
+        from Acquire.Client import FileMeta as _FileMeta
+
+        uploaded_name = self._metadata.filename()
+        drive_uid = self._metadata.drive().uid()
+
+        args = {"filename": uploaded_name,
+                "drive_uid": drive_uid}
+
+        if aclrules is not None:
+            args["aclrules"] = aclrules.to_data()
+
+        if self._creds.is_user():
+            authorisation = _Authorisation(
+                        resource="chunk_upload %s" % uploaded_name,
+                        user=self._creds.user())
+
+            args["authorisation"] = authorisation.to_data()
+        elif self._creds.is_par():
+            par = self._creds.par()
+            par.assert_valid()
+            args["par_uid"] = par.uid()
+            args["secret"] = self._creds.secret()
+        else:
+            raise PermissionError(
+                "Either a logged-in user or valid PAR must be provided!")
+
+        if self._creds.is_user():
+            privkey = self._creds.user().session_key()
+        else:
+            from Acquire.Crypto import get_private_key \
+                as _get_private_key
+            privkey = _get_private_key("parkey")
+
+        args["encryption_key"] = privkey.public_key().to_data()
+
+        # will eventually need to authorise payment...
+        storage_service = self._creds.storage_service()
+
+        response = storage_service.call_function(
+                                function="open_uploader", args=args)
+
+        filemeta = _FileMeta.from_data(response["filemeta"])
+
+        filemeta._set_drive_metadata(self._metadata._drive_metadata,
+                                     self._creds)
+
+        self._metadata = filemeta
+
+        from Acquire.Client import ChunkUploader as _ChunkUploader
+        return _ChunkUploader.from_data(response["uploader"],
+                                        privkey=privkey,
+                                        service=storage_service)
+
     def upload(self, filename, force_par=False, aclrules=None):
         """Upload 'filename' as the new version of this file"""
         if self.is_null():

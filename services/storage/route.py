@@ -10,6 +10,9 @@ def storage_functions(function, args):
     elif function == "close_ospar":
         from storage.close_ospar import run as _close_ospar
         return _close_ospar(args)
+    elif function == "close_uploader":
+        from storage.close_uploader import run as _close_uploader
+        return _close_uploader(args)
     elif function == "download":
         from storage.download import run as _download
         return _download(args)
@@ -25,12 +28,18 @@ def storage_functions(function, args):
     elif function == "open_drive":
         from storage.open_drive import run as _open_drive
         return _open_drive(args)
+    elif function == "open_uploader":
+        from storage.open_uploader import run as _open_uploader
+        return _open_uploader(args)
     elif function == "resolve_par":
         from storage.resolve_par import run as _resolve_par
         return _resolve_par(args)
     elif function == "upload":
         from storage.upload import run as _upload
         return _upload(args)
+    elif function == "upload_chunk":
+        from storage.upload_chunk import run as _upload_chunk
+        return _upload_chunk(args)
     else:
         from admin.handler import MissingFunctionError
         raise MissingFunctionError()
