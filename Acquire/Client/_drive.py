@@ -151,6 +151,33 @@ class Drive:
         else:
             return self._creds.storage_service()
 
+    def chunk_upload(self, filename, dir=None, aclrules=None):
+        """Start a chunked upload of a file called 'filename' (just the
+           filename - not the full path - if you want to specify a certain
+           directory in the Drive then specify that in 'dir').
+           The file will be uploaded to the Drive at
+           'dir/filename'. If a file with this name exists,
+           then this will upload a new version (assuming you have permission).
+           Otherwise this will create a new file. You can set the
+           ACL rules used to grant access to this file via 'aclrules'.
+           If this is not set, then the rules will be derived from either
+           the last version of the file, or inherited from the drive.
+
+           This will return a ChunkUploader which can be used to actually
+           upload the file
+        """
+        if self.is_null():
+            raise PermissionError("Cannot upload a file to a null drive!")
+
+        if dir is not None:
+            filename = "%s/%s" % (dir, filename)
+
+        from Acquire.Client import FileMeta as _FileMeta
+        filemeta = _FileMeta(filename=filename)
+        filemeta._set_drive_metadata(self._metadata, self._creds)
+
+        return filemeta.open().chunk_upload(aclrules=aclrules)
+
     def upload(self, filename, dir=None, uploaded_name=None, aclrules=None,
                force_par=False):
         """Upload the file at 'filename' to this drive, assuming we have
@@ -163,7 +190,7 @@ class Drive:
            'dir/uploaded_name'. If a file with this name exists,
            then this will upload a new version (assuming you have permission).
            Otherwise this will create a new file. You can set the
-           ACL rules used to grant access to this file via 'aclrule'.
+           ACL rules used to grant access to this file via 'aclrules'.
            If this is not set, then the rules will be derived from either
            the last version of the file, or inherited from the drive.
         """
