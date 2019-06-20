@@ -10,12 +10,18 @@ def storage_functions(function, args):
     elif function == "close_ospar":
         from storage.close_ospar import run as _close_ospar
         return _close_ospar(args)
+    elif function == "close_downloader":
+        from storage.close_downloader import run as _close_downloader
+        return _close_downloader(args)
     elif function == "close_uploader":
         from storage.close_uploader import run as _close_uploader
         return _close_uploader(args)
     elif function == "download":
         from storage.download import run as _download
         return _download(args)
+    elif function == "download_chunk":
+        from storage.download_chunk import run as _download_chunk
+        return _download_chunk(args)
     elif function == "list_files":
         from storage.list_files import run as _list_files
         return _list_files(args)

@@ -44,9 +44,10 @@ class VersionInfo:
                 if not isinstance(aclrules, _ACLRules):
                     raise TypeError("The aclrules must be type ACLRules")
 
-            self._filesize = []
-            self._checksum = []
-            self._compression = []
+            self._filesize = 0
+            self._nchunks = 0
+            self._checksum = None
+            self._compression = None
             self._datetime = _get_datetime_now()
             self._file_uid = "%s/%s" % (_datetime_to_string(self._datetime),
                                         _create_uid(short_uid=True))
@@ -86,9 +87,11 @@ class VersionInfo:
             self._user_guid = str(user_guid)
             self._compression = compression
             self._aclrules = aclrules
+            self._nchunks = None
 
         else:
             self._filesize = None
+            self._nchunks = None
 
     def is_null(self):
         """Return whether or not this is null"""
@@ -113,17 +116,69 @@ class VersionInfo:
         if self.is_null():
             return False
         else:
-            return isinstance(self._filesize, list)
+            return self._nchunks is not None
+
+    def is_uploading(self):
+        """Return whether we are still in the process of
+           uploading the chunked file
+        """
+        if self.is_chunked():
+            return self._checksum is None
+        else:
+            return False
+
+    def close_uploader(self, file_bucket):
+        """Close the uploader. This will count the number of chunks,
+           and will also create a checksum of all of the chunk's
+           checksums
+        """
+        if not self.is_uploading():
+            return
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        meta_root = "%s/meta/" % self._file_key()
+
+        keys = _ObjectStore.get_all_object_names(bucket=file_bucket,
+                                                 prefix=meta_root)
+
+        print(keys)
+
+        meta_keys = {}
+        for key in keys:
+            idx = int(key.split("/")[-1])
+            meta_keys[idx] = key
+
+        nchunks = len(keys)
+        size = 0
+        from Acquire.Crypto import Hash as _Hash
+        from hashlib import md5 as _md5
+        md5 = _md5()
+
+        for i in range(0, nchunks):
+            key = meta_keys[i]
+            meta = _ObjectStore.get_object_from_json(
+                            bucket=file_bucket, key="%s/%d" % (meta_root, i))
+
+            size += meta["filesize"]
+            md5.update(meta["checksum"].encode("utf-8"))
+            print(i, size)
+
+        self._filesize = size
+        self._checksum = md5.hexdigest()
+        self._nchunks = nchunks
+
+        print(self.__dict__)
 
     def num_chunks(self):
         """Return the number of chunks used for this file. This is
            equal to 1 for unchunked files, or for files that
-           have only uploaded one chunk
+           have only uploaded one chunk. This is zero for files
+           that are still in the process of being uploaded
         """
         if self.is_null():
             return 0
-        elif isinstance(self._filesize, list):
-            return len(self._filesize)
+        elif self.is_chunked():
+            return self._nchunks
         else:
             return 1
 
@@ -209,6 +264,9 @@ class VersionInfo:
             data["file_uid"] = self._file_uid
             data["user_guid"] = self._user_guid
 
+            if self._nchunks is not None:
+                data["nchunks"] = int(self._nchunks)
+
             if self._aclrules is not None:
                 data["aclrules"] = self._aclrules.to_data()
 
@@ -246,6 +304,11 @@ class VersionInfo:
                 v._compression = data["compression"]
             else:
                 v._compression = None
+
+            if "nchunks" in data:
+                v._nchunks = int(data["nchunks"])
+            else:
+                v._nchunks = None
 
         return v
 
@@ -456,9 +519,14 @@ class FileInfo:
         """
         return self._version_info(version=version).aclrules()
 
-    def version(self, version):
-        """Return the version at the specified datetime"""
-        return self._version_info(version=version)
+    def version(self, version=None):
+        """Return the version at the specified datetime. If nothing is
+           specified, then return the version as loaded
+        """
+        if version is None:
+            return self._latest_version
+        else:
+            return self._version_info(version=version)
 
     def latest_version(self):
         """Return the latest version of this file on the storage service. This
@@ -478,6 +546,21 @@ class FileInfo:
             return []
         else:
             return {self._latest_version.datetime(), self._latest_version}
+
+    def close_uploader(self, file_bucket):
+        """Close the uploader"""
+        if self.is_null():
+            return
+        elif not self._latest_version.is_uploading():
+            return
+
+        self._latest_version.close_uploader(file_bucket)
+
+    def is_uploading(self):
+        """Return whether this version is still in the process of
+           being uploaded
+        """
+        return self._latest_version.is_uploading()
 
     def _fileinfo_key(self):
         """Return the key for this fileinfo in the object store"""
@@ -628,7 +711,10 @@ class FileInfo:
         f = FileInfo()
 
         if data is not None and len(data) > 0:
+            from Acquire.ObjectStore import string_to_encoded \
+                as _string_to_encoded
             f._filename = data["filename"]
+            f._encoded_filename = _string_to_encoded(f._filename)
             f._latest_version = VersionInfo.from_data(data["latest_version"])
             f._drive_uid = None
             f._identifiers = identifiers

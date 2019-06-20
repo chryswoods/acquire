@@ -64,7 +64,8 @@ def run(args):
 
     return_value = {}
 
-    (filemeta, filedata, par) = drive.download(filename=filename,
+    (filemeta, filedata, par, downloader) = drive.download(
+                                               filename=filename,
                                                version=version,
                                                authorisation=authorisation,
                                                encrypt_key=public_key,
@@ -81,5 +82,8 @@ def run(args):
 
     if par is not None:
         return_value["download_par"] = par.to_data()
+
+    if downloader is not None:
+        return_value["downloader"] = downloader.to_data(pubkey=public_key)
 
     return return_value

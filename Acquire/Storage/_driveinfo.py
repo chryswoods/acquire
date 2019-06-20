@@ -6,6 +6,7 @@ _drive_root = "storage/drive"
 _fileinfo_root = "storage/file"
 
 _uploader_root = "storage/uploader"
+_downloader_root = "storage/downloader"
 
 
 def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
@@ -247,12 +248,99 @@ class DriveInfo:
         bucket = _get_service_account_bucket()
         key = "%s/%s/%s" % (_uploader_root, self._drive_uid, filemeta.uid())
 
-        data = {"filekey": fileinfo.latest_version()._file_key(),
+        data = {"filename": filename,
+                "version": filemeta.uid(),
+                "filekey": fileinfo.latest_version()._file_key(),
                 "secret": uploader.secret()}
 
         _ObjectStore.set_object_from_json(bucket, key, data)
 
         return (filemeta, uploader)
+
+    def close_uploader(self, file_uid, secret):
+        """Close the uploader associated with the passed file_uid,
+           authenticated using the passed secret
+        """
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+        key = "%s/%s/%s" % (_uploader_root, self._drive_uid, file_uid)
+
+        try:
+            data = _ObjectStore.get_object_from_json(bucket, key)
+        except:
+            data = None
+
+        if data is None:
+            # the uploader has already been closed
+            return
+
+        shared_secret = data["secret"]
+
+        if secret != shared_secret:
+            raise PermissionError(
+                "Invalid request - you do not have permission to "
+                "close this uploader")
+
+        try:
+            data2 = _ObjectStore.take_object_from_json(bucket, key)
+        except:
+            data2 = None
+
+        if data2 is None:
+            # someone else is already in the process of closing
+            # this uploader - let them do it!
+            return
+
+        filename = data["filename"]
+        version = data["version"]
+
+        # now get the FileInfo for this file
+        from Acquire.Storage import FileInfo as _FileInfo
+        fileinfo = _FileInfo.load(drive=self,
+                                  filename=filename,
+                                  version=version)
+
+        file_key = data["filekey"]
+        file_bucket = self._get_file_bucket(file_key)
+        fileinfo.close_uploader(file_bucket=file_bucket)
+        fileinfo.save()
+
+    def close_downloader(self, downloader_uid, file_uid, secret):
+        """Close the downloader associated with the passed
+           downloader_uid and file_uid,
+           authenticated using the passed secret
+        """
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+        key = "%s/%s/%s/%s" % (_downloader_root, self._drive_uid,
+                               file_uid, downloader_uid)
+
+        try:
+            data = _ObjectStore.get_object_from_json(bucket, key)
+        except:
+            data = None
+
+        if data is None:
+            # the downloader has already been closed
+            return
+
+        shared_secret = data["secret"]
+
+        if secret != shared_secret:
+            raise PermissionError(
+                "Invalid request - you do not have permission to "
+                "close this downloader")
+
+        try:
+            _ObjectStore.take_object_from_json(bucket, key)
+        except:
+            pass
 
     def upload_chunk(self, file_uid, chunk_index, secret, chunk, checksum):
         """Upload a chunk of the file with UID 'file_uid'. This is the
@@ -305,6 +393,91 @@ class DriveInfo:
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         _ObjectStore.set_object_from_json(file_bucket, meta_key, meta)
         _ObjectStore.set_object(file_bucket, data_key, chunk)
+
+    def download_chunk(self, file_uid, downloader_uid, chunk_index, secret):
+        """Download a chunk of the file with UID 'file_uid' at chunk
+           index 'chunk_index'. This request is authenticated with
+           the passed secret. The secret should be the
+           multi_md5 has of the shared secret with the concatenated
+           drive_uid, file_uid and chunk_index
+        """
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+        key = "%s/%s/%s/%s" % (_downloader_root, self._drive_uid,
+                               file_uid, downloader_uid)
+
+        try:
+            data = _ObjectStore.get_object_from_json(bucket, key)
+        except:
+            data = None
+
+        if data is None:
+            raise PermissionError(
+                "There is no downloader available to let you download "
+                "this chunked file!")
+
+        shared_secret = data["secret"]
+
+        from Acquire.Crypto import Hash as _Hash
+        shared_secret = _Hash.multi_md5(shared_secret,
+                                        "%s%s%d" % (self._drive_uid,
+                                                    file_uid,
+                                                    chunk_index))
+
+        if secret != shared_secret:
+            raise PermissionError(
+                "Invalid chunked upload secret. You do not have permission "
+                "to upload chunks to this file!")
+
+        file_key = data["filekey"]
+        chunk_index = int(chunk_index)
+
+        file_bucket = self._get_file_bucket(file_key)
+        data_key = "%s/data/%d" % (file_key, chunk_index)
+        meta_key = "%s/meta/%d" % (file_key, chunk_index)
+
+        num_chunks = None
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+
+        try:
+            meta = _ObjectStore.get_object_from_json(file_bucket, meta_key)
+        except:
+            meta = None
+
+        if meta is None:
+            # invalid read - see if the file has been closed?
+            filename = data["filename"]
+            version = data["version"]
+
+            from Acquire.Storage import FileInfo as _FileInfo
+            fileinfo = _FileInfo.load(drive=self,
+                                      filename=filename,
+                                      version=version)
+
+            if fileinfo.version().is_uploading():
+                raise IndexError("Invalid chunk index")
+
+            num_chunks = fileinfo.version().num_chunks()
+
+            if chunk_index < 0:
+                chunk_index = num_chunks + chunk_index
+
+            if chunk_index < 0 or chunk_index > num_chunks:
+                raise IndexError("Invalid chunk index")
+            elif chunk_index == num_chunks:
+                # signal we've reached the end of the file
+                return (None, None, num_chunks)
+
+            # we should be able to read this metadata...
+            meta = _ObjectStore.get_object_from_json(file_bucket, meta_key)
+
+        chunk = _ObjectStore.get_object(file_bucket, data_key)
+
+        return (chunk, meta, num_chunks)
 
     def upload(self, filehandle, authorisation=None, encrypt_key=None,
                par=None, identifiers=None):
@@ -446,11 +619,34 @@ class DriveInfo:
 
         file_bucket = self._get_file_bucket()
 
-        file_key = fileinfo.latest_version()._file_key()
+        file_key = fileinfo.version()._file_key()
         filedata = None
+        downloader = None
         ospar = None
 
-        if force_par or fileinfo.filesize() > 1048576:
+        if fileinfo.version().is_chunked():
+            # this is a chunked file. We need to return a
+            # ChunkDownloader to download the file
+            from Acquire.Client import ChunkDownloader as _ChunkDownloader
+            downloader = _ChunkDownloader(drive_uid=self._drive_uid,
+                                          file_uid=fileinfo.version().uid())
+
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+
+            bucket = _get_service_account_bucket()
+            key = "%s/%s/%s/%s" % (_downloader_root, self._drive_uid,
+                                   filemeta.uid(), downloader.uid())
+
+            data = {"filename": filename,
+                    "version": filemeta.uid(),
+                    "filekey": fileinfo.version()._file_key(),
+                    "secret": downloader.secret()}
+
+            _ObjectStore.set_object_from_json(bucket, key, data)
+
+        elif force_par or fileinfo.filesize() > 1048576:
             # the file is too large to include in the download so
             # we need to use a OSPar to download
             ospar = _ObjectStore.create_par(bucket=file_bucket,
@@ -462,8 +658,8 @@ class DriveInfo:
             # one-trip download of files that are less than 1 MB
             filedata = _ObjectStore.get_object(file_bucket, file_key)
 
-        # return the filemeta, and either the filedata or par
-        return (filemeta, filedata, ospar)
+        # return the filemeta, and either the filedata, ospar or downloader
+        return (filemeta, filedata, ospar, downloader)
 
     def is_opened_by_owner(self):
         """Return whether or not this drive was opened and authorised

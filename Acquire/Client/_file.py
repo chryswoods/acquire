@@ -257,8 +257,6 @@ class File:
         from Acquire.Client import create_new_file as \
             _create_new_file
 
-        filename = _create_new_file(filename=filename, dir=dir)
-
         if self._creds.is_user():
             privkey = self._creds.user().session_key()
         else:
@@ -320,11 +318,13 @@ class File:
                                 compression_type=filemeta.compression_type())
 
             # write the data to the specified local file...
+            filename = _create_new_file(filename=filename, dir=dir)
             with open(filename, "wb") as FILE:
                 FILE.write(filedata)
                 FILE.flush()
-        else:
+        elif "download_par" in response:
             from Acquire.ObjectStore import OSPar as _OSPar
+            filename = _create_new_file(filename=filename, dir=dir)
             par = _OSPar.from_data(response["download_par"])
             par.read(privkey).get_object_as_file(filename)
             par.close(privkey)
@@ -338,6 +338,14 @@ class File:
                 _uncompress(inputfile=filename,
                             outputfile=filename,
                             compression_type=filemeta.compression_type())
+
+        elif "downloader" in response:
+            from Acquire.Client import ChunkDownloader as _ChunkDownloader
+            downloader = _ChunkDownloader.from_data(response["downloader"],
+                                                    privkey=privkey,
+                                                    service=storage_service)
+
+            filename = downloader.download(filename=filename, dir=dir)
 
         filemeta._copy_credentials(self._metadata)
         self._metadata = filemeta
