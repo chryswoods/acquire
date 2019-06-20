@@ -50,6 +50,14 @@ def run(args):
     else:
         force_par = None
 
+    if "must_chunk" in args:
+        must_chunk = args["must_chunk"]
+    else:
+        must_chunk = False
+
+    if must_chunk:
+        must_chunk = True
+
     if force_par:
         force_par = True
 
@@ -70,6 +78,7 @@ def run(args):
                                                authorisation=authorisation,
                                                encrypt_key=public_key,
                                                force_par=force_par,
+                                               must_chunk=must_chunk,
                                                par=par,
                                                identifiers=identifiers)
 

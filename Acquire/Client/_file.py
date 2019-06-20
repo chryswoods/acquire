@@ -225,6 +225,60 @@ class File:
             filehandle.__del__()
             raise
 
+    def chunk_download(self, filename=None, version=None,
+                       dir=None):
+        """Return a ChunkDownloader to download this file
+           chunk-by-chunk
+        """
+        if self.is_null():
+            raise PermissionError("Cannot download a null File!")
+
+        if self._creds is None:
+            raise PermissionError("We have not properly opened the file!")
+
+        if filename is None:
+            filename = self._metadata.name()
+
+        drive_uid = self._metadata.drive().uid()
+
+        if self._creds.is_user():
+            privkey = self._creds.user().session_key()
+        else:
+            from Acquire.Crypto import get_private_key as _get_private_key
+            privkey = _get_private_key("parkey")
+
+        args = {"drive_uid": drive_uid,
+                "filename": self._metadata.name(),
+                "encryption_key": privkey.public_key().to_data(),
+                "must_chunk": True}
+
+        if self._creds.is_user():
+            from Acquire.Client import Authorisation as _Authorisation
+            authorisation = _Authorisation(
+                        resource="download %s %s" % (drive_uid,
+                                                     self._metadata.name()),
+                        user=self._creds.user())
+            args["authorisation"] = authorisation.to_data()
+        elif self._creds.is_par():
+            par = self._creds.par()
+            par.assert_valid()
+            args["par_uid"] = par.uid()
+            args["secret"] = self._creds.secret()
+
+        storage_service = self._creds.storage_service()
+
+        response = storage_service.call_function(
+                                function="download", args=args)
+
+        from Acquire.Client import ChunkDownloader as _ChunkDownloader
+        downloader = _ChunkDownloader.from_data(response["downloader"],
+                                                privkey=privkey,
+                                                service=storage_service)
+
+        downloader._start_download(filename=filename, dir=dir)
+
+        return downloader
+
     def download(self, filename=None, version=None,
                  dir=None, force_par=False):
         """Download this file into the local directory

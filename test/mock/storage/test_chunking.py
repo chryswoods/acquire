@@ -37,3 +37,20 @@ def test_chunking(authenticated_user, tempdir):
 
     assert(lines[0] == "This is some text\n")
     assert(lines[1] == "Here is some more!\n")
+
+    downloader = drive.chunk_download("test_chunking.py", dir=tempdir)
+
+    filename = downloader.local_filename()
+
+    nchunks = 0
+    while downloader.download_next_chunk():
+        nchunks = nchunks + 1
+        if nchunks > 4:
+            assert(False)
+
+    assert(nchunks == 4)  # extra chunk is empty to close
+
+    lines = open(filename).readlines()
+
+    assert(lines[0] == "This is some text\n")
+    assert(lines[1] == "Here is some more!\n")

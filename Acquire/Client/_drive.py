@@ -211,6 +211,23 @@ class Drive:
         return filemeta.open().upload(filename=filename, force_par=force_par,
                                       aclrules=aclrules)
 
+    def chunk_download(self, filename, dir=None, download_name=None,
+                       version=None):
+        """Download the file 'filename' from the Drive to directory 'dir' on
+           this computer (or current directory if not specified), calling
+           the downloaded file 'download_filename' (or 'filename' if not
+           specified). Force transfer using an OSPar is force_par is True
+        """
+        if self.is_null():
+            raise PermissionError("Cannot upload a file to a null drive!")
+
+        from Acquire.Client import FileMeta as _FileMeta
+        filemeta = _FileMeta(filename=filename)
+        filemeta._set_drive_metadata(self._metadata, self._creds)
+
+        return filemeta.open().chunk_download(filename=download_name,
+                                              version=version, dir=dir)
+
     def download(self, filename, dir=None, download_name=None,
                  version=None, force_par=False):
         """Download the file 'filename' from the Drive to directory 'dir' on

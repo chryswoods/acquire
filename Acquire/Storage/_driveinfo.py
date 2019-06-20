@@ -573,7 +573,8 @@ class DriveInfo:
 
     def download(self, filename, authorisation,
                  version=None, encrypt_key=None,
-                 force_par=False, par=None, identifiers=None):
+                 force_par=False, must_chunk=False,
+                 par=None, identifiers=None):
         """Download the file called filename. This will return a
            FileHandle that describes the file. If the file is
            sufficiently small, then the filedata will be embedded
@@ -645,6 +646,10 @@ class DriveInfo:
                     "secret": downloader.secret()}
 
             _ObjectStore.set_object_from_json(bucket, key, data)
+
+        elif must_chunk:
+            raise PermissionError(
+                "Cannot download this file in a chunked manner!")
 
         elif force_par or fileinfo.filesize() > 1048576:
             # the file is too large to include in the download so

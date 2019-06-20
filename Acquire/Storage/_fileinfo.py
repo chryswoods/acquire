@@ -141,8 +141,6 @@ class VersionInfo:
         keys = _ObjectStore.get_all_object_names(bucket=file_bucket,
                                                  prefix=meta_root)
 
-        print(keys)
-
         meta_keys = {}
         for key in keys:
             idx = int(key.split("/")[-1])
@@ -161,13 +159,10 @@ class VersionInfo:
 
             size += meta["filesize"]
             md5.update(meta["checksum"].encode("utf-8"))
-            print(i, size)
 
         self._filesize = size
         self._checksum = md5.hexdigest()
         self._nchunks = nchunks
-
-        print(self.__dict__)
 
     def num_chunks(self):
         """Return the number of chunks used for this file. This is

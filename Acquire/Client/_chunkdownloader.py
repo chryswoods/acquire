@@ -57,6 +57,40 @@ class ChunkDownloader:
         """Return the service that created this downloader"""
         return self._service
 
+    def local_filename(self):
+        """Return the name of the local file to which we are downloading
+           data
+        """
+        return self._downloaded_filename
+
+    def _start_download(self, filename=None, dir=None):
+        """Start the download of the file to 'filename' in 'dir'"""
+        if self.is_null():
+            raise PermissionError(
+                "Cannot download a chunk using a null uploader!")
+
+        if filename is None:
+            filename = self._last_filename
+
+        if filename is None:
+            raise PermissionError(
+                "You must supply a filename to which to download the file!")
+
+        if self._last_filename is None:
+            self._last_filename = filename
+            self._next_index = 0
+            from Acquire.Client import create_new_file as \
+                _create_new_file
+            self._downloaded_filename = _create_new_file(filename=filename,
+                                                         dir=dir)
+            self._FILE = open(self._downloaded_filename, "ab")
+        elif self._last_filename != filename:
+            raise PermissionError(
+                "You cannot change the filename during an active "
+                "streaming download!")
+
+        return self._downloaded_filename
+
     def download_next_chunk(self):
         """Download the next chunk. Returns 'True' if something was
            downloaded, else it returns 'False'
@@ -127,29 +161,8 @@ class ChunkDownloader:
            can call this repeatedly with the same filename (or with
            no filename set) to stream the file back as it is written
         """
-        if self.is_null():
-            raise PermissionError(
-                "Cannot download a chunk using a null uploader!")
-
-        if filename is None:
-            filename = self._last_filename
-
-        if filename is None:
-            raise PermissionError(
-                "You must supply a filename to which to download the file!")
-
-        if self._last_filename is None:
-            self._last_filename = filename
-            self._next_index = 0
-            from Acquire.Client import create_new_file as \
-                _create_new_file
-            self._downloaded_name = _create_new_file(filename=filename,
-                                                     dir=dir)
-            self._FILE = open(self._downloaded_name, "ab")
-        elif self._last_filename != filename:
-            raise PermissionError(
-                "You cannot change the filename during an active "
-                "streaming download!")
+        self._start_download(filename=filename, dir=dir)
+        downloaded_filename = self._downloaded_filename
 
         got_chunk = self.download_next_chunk()
 
@@ -160,7 +173,7 @@ class ChunkDownloader:
             if got_chunk:
                 assert(next_index != self._next_index)
 
-        return self._downloaded_name
+        return downloaded_filename
 
     def is_open(self):
         """Return whether or not the file is open (has been written to)"""
