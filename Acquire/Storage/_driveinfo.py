@@ -5,6 +5,8 @@ _drive_root = "storage/drive"
 
 _fileinfo_root = "storage/file"
 
+_uploader_root = "storage/uploader"
+
 
 def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
     """Call this function to signify that the file associated with
@@ -107,15 +109,18 @@ class DriveInfo:
             raise RequestBucketError(
                 "Unable to open the bucket '%s': %s" % (bucket_name, str(e)))
 
-    def _get_file_bucketname(self):
+    def _get_file_bucketname(self, filekey=None):
         """Return the name of the bucket that will contain all of the
-           files for this drive
+           files for this drive.
+
+           _filekey is passed in as a stub, for a future when we will
+           need to split a drive over multiple object store buckets...
         """
         return "user_files"
 
-    def _get_file_bucket(self):
-        """Return the bucket that contains all of the files for this
-           drive
+    def _get_file_bucket(self, filekey=None):
+        """Return the bucket that contains the file data for the
+           file associated with 'filekey' in this drive
         """
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.Service import get_service_account_bucket \
@@ -124,7 +129,7 @@ class DriveInfo:
 
         service = _get_this_service()
         bucket = _get_service_account_bucket()
-        bucket_name = self._get_file_bucketname()
+        bucket_name = self._get_file_bucketname(filekey=filekey)
 
         try:
             return _ObjectStore.get_bucket(
@@ -191,6 +196,116 @@ class DriveInfo:
 
         return (drive_acl, identifiers)
 
+    def open_uploader(self, filename, aclrules=None, authorisation=None,
+                      par=None, identifiers=None):
+        """Create a return a ChunkUploader that will allow a file
+           to be uploaded chunk-by-chunk (bit-by-bit). The filename
+           of the files is passed as 'filename', and the aclrules
+           specific for the file can also be set (otherwise will
+           inherit from the drive). The authorisation, par and
+           identifiers can be used to authenticate this request
+        """
+        (drive_acl, identifiers) = self._resolve_acl(
+                        authorisation=authorisation,
+                        resource="chunk_upload %s" % filename,
+                        par=par, identifiers=identifiers)
+
+        if not drive_acl.is_writeable():
+            raise PermissionError(
+                "You do not have permission to write to this drive. "
+                "Your permissions are %s" % str(drive_acl))
+
+        # now generate a FileInfo for this file
+        from Acquire.Storage import FileInfo as _FileInfo
+        fileinfo = _FileInfo(drive_uid=self._drive_uid,
+                             filename=filename,
+                             identifiers=identifiers,
+                             upstream=drive_acl,
+                             aclrules=aclrules,
+                             is_chunked=True)
+
+        # resolve the ACL for the file from this FileHandle
+        filemeta = fileinfo.get_filemeta()
+        file_acl = filemeta.acl()
+
+        if not file_acl.is_writeable():
+            raise PermissionError(
+                "Despite having write permission to the drive, you "
+                "do not have write permission for the file. Your file "
+                "permissions are %s" % str(file_acl))
+
+        from Acquire.Client import ChunkUploader as _ChunkUploader
+        uploader = _ChunkUploader(drive_uid=self._drive_uid,
+                                  file_uid=filemeta.uid())
+
+        fileinfo.save()
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+        key = "%s/%s/%s" % (_uploader_root, self._drive_uid, filemeta.uid())
+
+        data = {"filekey": fileinfo.latest_version()._file_key(),
+                "secret": uploader.secret()}
+
+        _ObjectStore.set_object_from_json(bucket, key, data)
+
+        return (filemeta, uploader)
+
+    def upload_chunk(self, file_uid, chunk_index, secret, chunk, checksum):
+        """Upload a chunk of the file with UID 'file_uid'. This is the
+           chunk at index 'chunk_idx', which is set equal to 'chunk'
+           (validated with 'checksum'). The passed secret is used to
+           authenticate this upload. The secret should be the
+           multi_md5 has of the shared secret with the concatenated
+           drive_uid, file_uid and chunk_index
+        """
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+        key = "%s/%s/%s" % (_uploader_root, self._drive_uid, file_uid)
+        data = _ObjectStore.get_object_from_json(bucket, key)
+        shared_secret = data["secret"]
+
+        from Acquire.Crypto import Hash as _Hash
+        shared_secret = _Hash.multi_md5(shared_secret,
+                                        "%s%s%d" % (self._drive_uid,
+                                                    file_uid,
+                                                    chunk_index))
+
+        if secret != shared_secret:
+            raise PermissionError(
+                "Invalid chunked upload secret. You do not have permission "
+                "to upload chunks to this file!")
+
+        # validate the data checksum
+        check = _Hash.md5(chunk)
+
+        if check != checksum:
+            from Acquire.Storage import FileValidationError
+            raise FileValidationError(
+                "Invalid checksum for chunk: %s versus %s" %
+                (check, checksum))
+
+        meta = {"filesize": len(chunk),
+                "checksum": checksum,
+                "compression": "bz2"}
+
+        file_key = data["filekey"]
+        chunk_index = int(chunk_index)
+
+        file_bucket = self._get_file_bucket(file_key)
+        data_key = "%s/data/%d" % (file_key, chunk_index)
+        meta_key = "%s/meta/%d" % (file_key, chunk_index)
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        _ObjectStore.set_object_from_json(file_bucket, meta_key, meta)
+        _ObjectStore.set_object(file_bucket, data_key, chunk)
+
     def upload(self, filehandle, authorisation=None, encrypt_key=None,
                par=None, identifiers=None):
         """Upload the file associated with the passed filehandle.
@@ -242,9 +357,8 @@ class DriveInfo:
                 "do not have write permission for the file. Your file "
                 "permissions are %s" % str(file_acl))
 
-        file_bucket = self._get_file_bucket()
-
         file_key = fileinfo.latest_version()._file_key()
+        file_bucket = self._get_file_bucket(file_key)
 
         filedata = None
 

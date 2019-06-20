@@ -14,7 +14,7 @@ class ChunkUploader:
         """
         self._drive_uid = None
         self._file_uid = None
-        self._chunk_id = None
+        self._chunk_idx = None
         self._service = None
 
         if drive_uid is not None:
@@ -37,6 +37,10 @@ class ChunkUploader:
         """Return whether or not this is null"""
         return self._drive_uid is None or self._file_uid is None
 
+    def secret(self):
+        """Return the secret used to authenticate the upload"""
+        return self._secret
+
     def service(self):
         """Return the service that created this uploader"""
         return self._service
@@ -55,23 +59,28 @@ class ChunkUploader:
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         from Acquire.Crypto import Hash as _Hash
         import bz2 as _bz2
-        chunk = _bytes_to_string(_bz2.compress(chunk))
-        md5 = _Hash.md5(chunk)
 
-        if self._chunk_id is None:
-            self._chunk_id = 0
+        if isinstance(chunk, str):
+            chunk = chunk.encode("utf-8")
+
+        chunk = _bz2.compress(chunk)
+        md5 = _Hash.md5(chunk)
+        chunk = _bytes_to_string(chunk)
+
+        if self._chunk_idx is None:
+            self._chunk_idx = 0
         else:
-            self._chunk_id = self._chunk_id + 1
+            self._chunk_idx = self._chunk_idx + 1
 
         secret = _Hash.multi_md5(self._secret,
                                  "%s%s%d" % (self._drive_uid,
                                              self._file_uid,
-                                             self._chunk_id))
+                                             self._chunk_idx))
 
         args = {}
         args["drive_uid"] = self._drive_uid
         args["file_uid"] = self._file_uid
-        args["chunk_id"] = self._chunk_id
+        args["chunk_index"] = self._chunk_idx
         args["secret"] = secret
         args["data"] = chunk
         args["checksum"] = md5
@@ -80,7 +89,7 @@ class ChunkUploader:
 
     def is_open(self):
         """Return whether or not the file is open (has been written to)"""
-        return self._chunk_id is not None
+        return self._chunk_idx is not None
 
     def close(self):
         """Close the uploader - this will finalise the file"""
@@ -92,7 +101,7 @@ class ChunkUploader:
             self.service().call_function(function="close_uploader",
                                          args=args)
 
-            self._chunk_id = None
+            self._chunk_idx = None
             self._secret = None
             self._drive_uid = None
             self._file_uid = None

@@ -18,7 +18,7 @@ def run(args):
         aclrules = None
 
     try:
-        authorisation = Authorisation.from_data(data["authorisation"])
+        authorisation = Authorisation.from_data(args["authorisation"])
     except:
         authorisation = None
 
@@ -46,8 +46,10 @@ def run(args):
 
     drive = DriveInfo(drive_uid=drive_uid)
 
-    uploader = drive.open_uploader(filename=filename, aclrules=aclrules,
+    (filemeta, uploader) = drive.open_uploader(
+                                   filename=filename, aclrules=aclrules,
                                    authorisation=authorisation,
                                    par=par, identifiers=identifiers)
 
-    return {"uploader": uploader.to_data(pubkey=pubkey)}
+    return {"filemeta": filemeta.to_data(),
+            "uploader": uploader.to_data(pubkey=pubkey)}

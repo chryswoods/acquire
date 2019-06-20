@@ -11,6 +11,7 @@ from ._account import *
 from ._drive import *
 from ._file import *
 from ._fileops import *
+from ._chunkuploader import *
 from ._par import *
 from ._location import *
 from ._wallet import *
