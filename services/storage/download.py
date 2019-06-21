@@ -1,9 +1,7 @@
 
 from Acquire.Identity import Authorisation
 
-from Acquire.Storage import DriveInfo
-
-from Acquire.Client import FileHandle, PAR
+from Acquire.Storage import DriveInfo, PARRegistry
 
 from Acquire.Crypto import PublicKey
 
@@ -13,24 +11,37 @@ def run(args):
 
        Step 1: download - tells the service to download the file. If the
                file is small then the file will be in the response.
-               Otherwise a PAR will be returned that will let you
+               Otherwise a OSPar will be returned that will let you
                download the file. If this is the case, then you must
                call step 2...
 
-       Step 2: downloaded - after you have downloaded the file from the PAR
-               call PAR.close() so that the service knows that the PAR
+       Step 2: downloaded - after you have downloaded the file from the OSPar
+               call OSPar.close() so that the service knows that the OSPar
                is no longer needed and can be deleted
     """
 
     drive_uid = args["drive_uid"]
     filename = args["filename"]
-    authorisation = Authorisation.from_data(args["authorisation"])
+
+    try:
+        authorisation = Authorisation.from_data(args["authorisation"])
+    except:
+        authorisation = None
+
+    try:
+        par_uid = args["par_uid"]
+    except:
+        par_uid = None
+
+    try:
+        secret = args["secret"]
+    except:
+        secret = None
+
     public_key = PublicKey.from_data(args["encryption_key"])
 
     if "version" in args:
-        from Acquire.ObjectStore import string_to_datetime \
-            as _string_to_datetime
-        version = _string_to_datetime(args["version"])
+        version = str(args["version"])
     else:
         version = None
 
@@ -39,18 +50,37 @@ def run(args):
     else:
         force_par = None
 
+    if "must_chunk" in args:
+        must_chunk = args["must_chunk"]
+    else:
+        must_chunk = False
+
+    if must_chunk:
+        must_chunk = True
+
     if force_par:
         force_par = True
+
+    if par_uid is not None:
+        registry = PARRegistry()
+        (par, identifiers) = registry.load(par_uid=par_uid, secret=secret)
+    else:
+        par = None
+        identifiers = None
 
     drive = DriveInfo(drive_uid=drive_uid)
 
     return_value = {}
 
-    (filemeta, filedata, par) = drive.download(filename=filename,
+    (filemeta, filedata, par, downloader) = drive.download(
+                                               filename=filename,
                                                version=version,
                                                authorisation=authorisation,
                                                encrypt_key=public_key,
-                                               force_par=force_par)
+                                               force_par=force_par,
+                                               must_chunk=must_chunk,
+                                               par=par,
+                                               identifiers=identifiers)
 
     if filemeta is not None:
         return_value["filemeta"] = filemeta.to_data()
@@ -61,5 +91,8 @@ def run(args):
 
     if par is not None:
         return_value["download_par"] = par.to_data()
+
+    if downloader is not None:
+        return_value["downloader"] = downloader.to_data(pubkey=public_key)
 
     return return_value

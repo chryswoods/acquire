@@ -5,7 +5,7 @@ from Acquire.Service import get_service_account_bucket
 
 
 def run(args):
-    """Call this function to close a PAR"""
+    """Call this function to close an OSPar"""
 
     par_uid = str(args["par_uid"])
     url_checksum = args["url_checksum"]
