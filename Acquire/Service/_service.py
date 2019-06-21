@@ -175,10 +175,10 @@ class Service:
            is performed automatically when the Registry confirms
            registration
         """
-        if service_type not in ["identity", "access", "compute",
-                                "registry", "accounting", "storage"]:
-            raise ServiceError("Services of type '%s' are not allowed!" %
-                               service_type)
+        #if service_type not in ["identity", "access", "compute",
+        #                        "registry", "accounting", "storage"]:
+        #    raise ServiceError("Services of type '%s' are not allowed!" %
+        #                       service_type)
 
         from Acquire.Crypto import PrivateKey as _PrivateKey
 
