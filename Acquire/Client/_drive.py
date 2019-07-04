@@ -204,12 +204,25 @@ class Drive:
         if dir is not None:
             uploaded_name = "%s/%s" % (dir, uploaded_name)
 
-        from Acquire.Client import FileMeta as _FileMeta
-        filemeta = _FileMeta(filename=uploaded_name)
-        filemeta._set_drive_metadata(self._metadata, self._creds)
+        import os as _os
+        if _os.path.isdir(filename):
+            # we need to upload each file in turn and then
+            # return a location to a directory
+            for f in _os.listdir(filename):
+                self.upload(filename="%s/%s" % (filename, f),
+                            uploaded_name="%s/%s" % (uploaded_name, f),
+                            dir=None, aclrules=aclrules,
+                            force_par=force_par)
 
-        return filemeta.open().upload(filename=filename, force_par=force_par,
-                                      aclrules=aclrules)
+            return "DIRECTORY"
+        else:
+            from Acquire.Client import FileMeta as _FileMeta
+            filemeta = _FileMeta(filename=uploaded_name)
+            filemeta._set_drive_metadata(self._metadata, self._creds)
+
+            return filemeta.open().upload(filename=filename,
+                                          force_par=force_par,
+                                          aclrules=aclrules)
 
     def chunk_download(self, filename, dir=None, download_name=None,
                        version=None):

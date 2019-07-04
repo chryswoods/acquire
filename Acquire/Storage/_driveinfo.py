@@ -761,16 +761,46 @@ class DriveInfo:
         metadata_bucket = self._get_metadata_bucket()
 
         if filename is not None:
+            if dir is not None:
+                filename = "%s/%s" % (dir, filename)
+
             key = "%s/%s/%s" % (_fileinfo_root, self._drive_uid,
                                 _string_to_encoded(filename))
 
             names = [key]
+        elif dir is not None:
+            while dir.endswith("/"):
+                dir = dir[0:-1]
+
+            encoded_dir = _string_to_encoded(dir)
+
+            while encoded_dir.endswith("="):
+                encoded_dir = encoded_dir[0:-1]
+
+            # remove the last two characters, as sometime uuencoding
+            # will change the last characters so they don't match
+            if len(encoded_dir) > 2:
+                encoded_dir = encoded_dir[0:-2]
+            else:
+                encoded_dir = ""
+
+            key = "%s/%s/%s" % (_fileinfo_root, self._drive_uid,
+                                encoded_dir)
+
+            all_names = _ObjectStore.get_all_object_names(metadata_bucket,
+                                                          key)
+
+            names = []
+
+            dir = "%s/" % dir
+
+            for name in all_names:
+                decoded_name = _encoded_to_string(name.split("/")[-1])
+
+                if decoded_name.startswith(dir):
+                    names.append(name)
         else:
             key = "%s/%s" % (_fileinfo_root, self._drive_uid)
-
-            if dir is not None:
-                key = "%s/%s" % (key, _string_to_encoded(dir))
-
             names = _ObjectStore.get_all_object_names(metadata_bucket, key)
 
         files = []

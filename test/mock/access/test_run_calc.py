@@ -1,7 +1,8 @@
 
 from Acquire.Access import RunRequest
 from Acquire.Identity import Authorisation
-from Acquire.Client import Account, deposit, Cheque, Service
+from Acquire.Client import Account, deposit, Cheque, Service, \
+                           Drive, StorageCreds
 
 
 def _testdata():
@@ -24,6 +25,18 @@ def test_run_calc(aaai_services, authenticated_user):
                       accounting_url="accounting")
 
     assert(account.balance() >= 100.0)
+
+    # Upload a directory that will contain all of the input
+    creds = StorageCreds(user=user, service_url="storage")
+    drive = Drive(name="sim", creds=creds, autocreate=True)
+
+    location = drive.upload(_testdata())
+
+    print(drive.list_files(dir="example_sim/input"))
+
+    print(location)
+
+    assert(False)
 
     # create a request for the calculation described in 'run.yaml' and
     # authorise it using the authenticated user (who may be different to the
