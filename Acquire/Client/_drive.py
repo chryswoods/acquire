@@ -181,12 +181,14 @@ class Drive:
     def upload(self, filename, dir=None, uploaded_name=None, aclrules=None,
                force_par=False):
         """Upload the file at 'filename' to this drive, assuming we have
-           write access to this drive. The local file 'filename' will be
-           uploaded to the drive as the file called 'filename' (just the
+           write access to this drive (or all files in the directory
+           at 'filename' if this is really a directory).
+           The local file/directory 'filename' will be uploaded to the drive
+           as the file/directory called 'filename' (just the
            filename - not the full path - if you want to specify a certain
            directory in the Drive then specify that in 'dir').
            If you want to specify the uploaded name then set this as
-           "uploaded_name". The file will be uploaded to the Drive at
+           "uploaded_name". The file/directory will be uploaded to the Drive at
            'dir/uploaded_name'. If a file with this name exists,
            then this will upload a new version (assuming you have permission).
            Otherwise this will create a new file. You can set the
@@ -214,7 +216,11 @@ class Drive:
                             dir=None, aclrules=aclrules,
                             force_par=force_par)
 
-            return "DIRECTORY"
+            from Acquire.Client import DirMeta as _DirMeta
+            dirmeta = _DirMeta(name=uploaded_name)
+            dirmeta._set_drive_metadata(self._metadata, self._creds)
+
+            return dirmeta
         else:
             from Acquire.Client import FileMeta as _FileMeta
             filemeta = _FileMeta(filename=uploaded_name)
