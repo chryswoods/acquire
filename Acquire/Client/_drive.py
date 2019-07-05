@@ -15,11 +15,14 @@ def _create_drive(metadata, creds):
     return drive
 
 
-def _get_drive(creds, name=None, drive_uid=None, autocreate=True):
+def _get_drive(creds, name=None, drive_uid=None,
+               aclrules=None, autocreate=True):
     """Return the drive called 'name' using the passed credentials. The name
        will default to 'main' if it is not set, and the drive will
        be created automatically is 'autocreate' is True and the
-       drive does not exist
+       drive does not exist. If the drive is created, it would
+       be created with the passed aclrules, if specified
+       (this will be user-owner-only if not specified)
     """
     storage_service = creds.storage_service()
 
@@ -40,6 +43,9 @@ def _get_drive(creds, name=None, drive_uid=None, autocreate=True):
 
     args = {"name": name, "autocreate": autocreate,
             "drive_uid": drive_uid}
+
+    if aclrules is not None:
+        args["aclrules"] = aclrules.to_data()
 
     if creds.is_user():
         from Acquire.Client import Authorisation as _Authorisation
@@ -68,7 +74,8 @@ class Drive:
        their own shorthand names.
 
     """
-    def __init__(self, name=None, drive_uid=None, creds=None, autocreate=True):
+    def __init__(self, name=None, drive_uid=None, creds=None,
+                 aclrules=None, autocreate=True):
         """Construct a handle to the drive that the passed user
            calls 'name' on the passed storage service. If
            'autocreate' is True and the user is logged in then
@@ -84,7 +91,7 @@ class Drive:
                 raise TypeError("creds must be type StorageCreds")
 
             drive = _get_drive(creds=creds, name=name, drive_uid=drive_uid,
-                               autocreate=autocreate)
+                               aclrules=aclrules, autocreate=autocreate)
 
             from copy import copy as _copy
             self.__dict__ = _copy(drive.__dict__)

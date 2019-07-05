@@ -28,6 +28,8 @@ class JobSheet:
         else:
             self._uid = None
 
+        self._credit_notes = None
+
     def is_null(self):
         """Return whether or not this JobSheet is null
 
@@ -48,7 +50,7 @@ class JobSheet:
 
     def storage_service(self):
         """Return the storage service that will be used to store
-           the data associated with this job
+           the output data associated with this job
         """
         return None
 
@@ -62,10 +64,8 @@ class JobSheet:
         """Return the total maximum quoted cost for this job. The
            total cost to run the job must not exceed this
 
-           TODO - should this just return constants?
-
-           Returns:
-                int: 0 if no uid is set, else 10
+           TODO - will need to actually work out and return the
+                  real cost - returning dummy values for the moment
         """
         if self.is_null():
             return 0
@@ -85,36 +85,34 @@ class JobSheet:
             return self._job
 
     def authorisation(self):
-        """Return the original authorisation for this job
-
-            Returns:
-                None or Authorisation: If no uid set None, else Authorisation
-
-        """
+        """Return the original authorisation for this job"""
         if self.is_null():
             return None
         else:
             return self._authorisation
 
-    def set_payment(self, cheque):
-        """Pass in and cash that contains the source of value of
-           paying for this job. This will cash the cheque and store
-           the value within credit notes held in this job sheet
+    def user_guid(self):
+        """Return the GUID of the user who requested this job"""
+        if self.is_null():
+            return None
+        else:
+            return self._authorisation.user_guid()
 
-           Args:
-                cheque (Cheque): transfer method for paying for service
-           Returns:
-                None
-
+    def execute(self, cheque):
+        """Execute (start) this job, using the passed cheque for
+           payment. Note that you can't start the same job twice
         """
         if self.is_null():
             from Acquire.Accounting import PaymentError
-            raise PaymentError("You cannot try to pay for a null job!")
+            raise PaymentError("You cannot try to execute a null job!")
 
         from Acquire.Client import Cheque as _Cheque
         if not isinstance(cheque, _Cheque):
             raise TypeError("You must pass a valid Cheque as payment "
                             "for a job")
+
+        if self._credit_notes is not None:
+            raise PermissionError("You cannot start a job twice!")
 
         try:
             credit_notes = cheque.cash(spend=self.total_cost(),
@@ -133,71 +131,81 @@ class JobSheet:
         # save these credit_notes so that they are not lost
         self._credit_notes = credit_notes
 
-        # save the the object store so we always have a record of this value
-        self.save()
-
-    def request_services(self):
-        """Request all of the services needed to perform the job. This
-           will contract a compute service and a storage service to run
-           the job.
-
-           The storage service will provide (1) a file upload pre-authenticated
-           request (PAR) to enable the user to upload the input,
-           and (2) a drive write PAR to enable the compute service
-           to write the output
-
-           The compute service will be supplied with the drive write PAR
-           from the storage service and will supply a run calculation PAR
-           to enable the user to trigger the start of the job
-
-           This returns the upload PAR the user must use to upload the
-           input, the run PAR that the user must call after uploading
-           input to trigger the start of the calculation, and the expiry
-           date when both of these PARs will become invalid (i.e. the user
-           must trigger both of them before that date)
-
-           Returns:
-                tuple (PAR, PAR, datetime) : file upload PAR, bucket write PAR
-                and a datetime object set to 1 hour in the future
-        """
-        from Acquire.Client import Cheque as _Cheque
-
-        # make the requests, make the payments
-        storage_service = self.storage_service()
-        compute_service = self.compute_service()
-
-        # create cheques for payment of the storage and compute
-        # from the principal service user of the access service to
-        # the principal service users of the compute and storage
-        # services
-        storage_cheque = _Cheque()
-        compute_cheque = _Cheque()
-
-        #result = storage_service.call_function(
-        #                            function="stage_job_data",
-        #                            args={"cheque": storage_cheque.to_data(),
-        #                                  "job": self.job().to_data()})
-        #
-        #input_par = result["input_par"]
-        #output_read_par = result["output_read_par"]
-        #output_write_par = result["output_write_par"]
-
-        #result = compute_service.call_function(
-        #                    function="stage_job_compute",
-        #                    args={"cheque": compute_cheque.to_data(),
-        #                            "job": self.job().to_data(),
-        #                            "input_par": input_par.to_data(),
-        #                            "output_par": output_write_par.to_data()})
-        #
-        #compute_par = result["compute_par"]
-
-        # save so we don't lose the debit notes or any value
-        self.save()
-
+        # work out when this job MUST have finished. If the job
+        # has not completed before this time then it will be killed
         from Acquire.ObjectStore import get_datetime_future \
             as _get_datetime_future
 
-        return (None, None, _get_datetime_future(hours=1))
+        job_endtime = _get_datetime_future(days=2)  # this should be calculated
+
+        # save the JobSheet to the object store so we always have a
+        # record of this value
+        self.save()
+
+        from Acquire.Service import get_this_service as _get_this_service
+        service = _get_this_service(need_private_access=True)
+        service_principal = service.login_service_user()
+
+        # now write cheques for the storage and compute services
+        service_account = service.service_user_account()
+
+        compute_cheque = _Cheque.write(
+                                account=service_account,
+                                resource="job %s" % self.uid(),
+                                max_spend=10.0,
+                                recipient_url=compute_service.canonical_url(),
+                                expiry_date=job_endtime)
+
+        storage_cheque = _Cheque.write(
+                                account=service_account,
+                                resource="job %s" % self.uid(),
+                                max_spend=10.0,
+                                recipient_url=storage_service.canonical_url(),
+                                expiry_date=job_endtime)
+
+        # now create a Drive on the storage service that will hold
+        # the output for this job
+        from Acquire.Client import Drive as _Drive
+        from Acquire.Client import StorageCreds as _StorageCreds
+        from Acquire.Client import ACLRule as _ACLRule
+        from Acquire.Client import ACLRules as _ACLRules
+        from Acquire.Client import ACLUserRules as _ACLUserRules
+
+        creds = _StorageCreds(user=service_principal,
+                              storage_service=self.storage_service())
+
+        rule = _ACLUserRules.owner(user_guid=service_principal.guid()).add(
+                    user_guid=self.user_guid(), rule=_ACLRule.reader())
+
+        aclrules = _ACLRules(rule=rule, default_rule=_ACLRule.denied())
+
+        output_drive = _Drive(name="job_output_%s" % self.uid(),
+                              creds=creds, aclrules=aclrules,
+                              cheque=storage_cheque,
+                              max_size="10MB",
+                              autocreate=True)
+
+        self._output_loc = output_drive.metadata().location()
+        self.save()
+
+        from Acquire.Client import PAR as _PAR
+        par = _PAR(location=self._output_loc, user=service_principal,
+                   aclrule=_ACLRule.writer(),
+                   expires_datetime=job_endtime)
+
+        args = {"job": self.job().to_data(),
+                "output_par": par.to_data(compute_service.public_key()),
+                "cheque": compute_cheque.to_data()}
+
+        compute_service.call_function(function="submit_job",
+                                      args=args)
+
+    def output_location(self):
+        """Return the location where the output will be saved"""
+        if self.is_null():
+            return None
+        else:
+            return self._output_loc
 
     def save(self):
         """Save this JobSheet to the object store

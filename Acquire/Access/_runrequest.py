@@ -10,16 +10,20 @@ class RunRequest(_Request):
        Location in which the output from this request can
        be read.
     """
-    def __init__(self, image=None, input=None):
+    def __init__(self, image=None, input=None, resources=None):
         """Construct the request specifying the container image 'image'
            that contains the software used for the calculation,
            and the location of the input files 'input' that will be
-           downloaded and run using this container
+           downloaded and run using this container.
+
+           You can also optionally supply the compute resources
+           (resources) that will be needed to run this job
         """
         super().__init__()
 
         self._uid = None
         self._image = str(image)
+        self._resources = resources
 
         self._input = input
 
@@ -83,6 +87,13 @@ class RunRequest(_Request):
         else:
             return self._input
 
+    def resources(self):
+        """Return the resources requested to run this job"""
+        if self.is_null():
+            return None
+        else:
+            return self._resources
+
     def to_data(self):
         """Return this request as a json-serialisable dictionary"""
         if self.is_null():
@@ -90,8 +101,13 @@ class RunRequest(_Request):
 
         data = super().to_data()
         data["uid"] = self._uid
-        data["image"] = self._image
         data["input"] = self._input.to_data()
+
+        if self._image is not None:
+            data["image"] = self._image
+
+        if self._resources is not None:
+            data["resources"] = str(self._resources)
 
         return data
 
@@ -105,7 +121,12 @@ class RunRequest(_Request):
 
             r._uid = data["uid"]
             r._input = _Location.from_data(data["input"])
-            r._image = str(data["image"])
+
+            if "image" in data:
+                r._image = str(data["image"])
+
+            if "resources" in data:
+                r._resources = str(data["resources"])
 
             return r
 

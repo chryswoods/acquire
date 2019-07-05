@@ -142,7 +142,7 @@ class UserDrives:
 
         return drive
 
-    def get_drive(self, name, autocreate=True):
+    def get_drive(self, name, aclrules=None, autocreate=True):
         """Return the DriveMeta for the Drive that the user has
            called 'name'. If 'autocreate' is True then this
            drive is automatically created if it does not exist. Note
@@ -205,6 +205,7 @@ class UserDrives:
                 drive = _DriveInfo(drive_uid=drive_uid,
                                    identifiers=self._identifiers,
                                    is_authorised=self._is_authorised,
+                                   aclrules=aclrules,
                                    autocreate=True)
 
         if drive is None:

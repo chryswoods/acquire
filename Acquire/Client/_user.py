@@ -418,8 +418,8 @@ class User:
         # first, create a private key that will be used
         # to sign all requests and identify this login
         from Acquire.Client import PrivateKey as _PrivateKey
-        session_key = _PrivateKey()
-        signing_key = _PrivateKey()
+        session_key = _PrivateKey(name="user_session_key %s" % self._username)
+        signing_key = _PrivateKey(name="user_session_cert %s" % self._username)
 
         args = {"username": self._username,
                 "public_key": session_key.public_key().to_data(),

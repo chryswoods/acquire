@@ -97,7 +97,8 @@ class UserAccount:
 
         # now create the primary password for this user and use
         # this to encrypt the special keys for this user
-        privkey = _PrivateKey(auto_generate=True)
+        privkey = _PrivateKey(name="user_secret_key %s %s" % (username,
+                                                              user_uid))
         primary_password = _PrivateKey.random_passphrase()
 
         bucket = _get_service_account_bucket()

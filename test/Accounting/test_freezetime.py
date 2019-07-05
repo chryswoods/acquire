@@ -12,7 +12,7 @@ from Acquire.Identity import Authorisation
 
 from Acquire.ObjectStore import get_datetime_now
 
-from Acquire.Crypto import PrivateKey
+from Acquire.Crypto import PrivateKey, get_private_key
 
 from Acquire.Service import get_service_account_bucket, is_running_service, \
     push_is_running_service, pop_is_running_service
@@ -29,7 +29,7 @@ account2_user = "account12@local"
 account1_overdraft_limit = 1500000
 account2_overdraft_limit = 2500000
 
-testing_key = PrivateKey()
+testing_key = get_private_key("testing")
 
 start_time = get_datetime_now() - datetime.timedelta(days=365)
 

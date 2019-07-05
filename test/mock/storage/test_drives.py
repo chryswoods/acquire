@@ -3,7 +3,7 @@
 import pytest
 import os
 
-from Acquire.Client import Drive, StorageCreds
+from Acquire.Client import Drive, StorageCreds, ACLRules
 from Acquire.ObjectStore import OSPar
 
 
@@ -156,3 +156,11 @@ def test_drives(authenticated_user, tempdir):
                             uploaded_name="/test/one/../two/test.py")
 
     assert(filemeta.filename() == "test/two/test.py")
+
+    # cannot create a new Drive with non-owner ACLs
+    with pytest.raises(PermissionError):
+        drive = Drive(name="broken_acl", creds=creds,
+                      aclrules=ACLRules.owner("12345@z0-z0"))
+
+    drive = Drive(name="working_acl", creds=creds,
+                  aclrules=ACLRules.owner(authenticated_user.guid()))
