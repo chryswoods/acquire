@@ -1,7 +1,7 @@
 
 from enum import Enum as _Enum
 
-__all__ = ["ACLRules", "ACLUserRules", "ACLGroupRules"]
+__all__ = ["ACLRules", "ACLUserRules", "ACLGroupRules", "ACLRuleOperation"]
 
 
 class ACLRuleOperation(_Enum):
