@@ -537,12 +537,16 @@ def create_service_user_account(service, accounting_service_url):
 
     try:
         from Acquire.Client import create_account as _create_account
+        from Acquire.Client import deposit as _deposit
 
         account = _create_account(
                     service_user, "main",
                     "Main account to receive payment for all use on service "
                     "%s (%s)" % (service.canonical_url(), service.uid()),
                     accounting_service=accounting_service)
+
+        _deposit(user=service_user, value=100.0,
+                 account_name="main", accounting_service=accounting_service)
 
         account_uid = account.uid()
 

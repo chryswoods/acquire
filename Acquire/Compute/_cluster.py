@@ -16,6 +16,12 @@ class Cluster:
     def is_null(self):
         return self._uid is None
 
+    def fingerprint(self):
+        """Return a fingerprint of this cluster, suitable for
+           authorisations
+        """
+        return self.uid()
+
     @staticmethod
     def create():
         """Create a new cluster"""
@@ -26,6 +32,8 @@ class Cluster:
         cluster._uid = _create_uid()
         cluster._private_key = _PrivateKey()
         cluster._public_key = cluster._private_key.public_key()
+
+        return cluster
 
     @staticmethod
     def get_cluster():

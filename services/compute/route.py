@@ -5,6 +5,9 @@ def compute_functions(function, args):
     if function == "submit_job":
         from compute.submit_job import run as _submit_job
         return _submit_job(args)
+    elif function == "set_cluster":
+        from compute.set_cluster import run as _set_cluster
+        return _set_cluster(args)
     else:
         from admin.handler import MissingFunctionError
         raise MissingFunctionError()

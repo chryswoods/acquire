@@ -50,4 +50,4 @@ def run(args):
     # Return to the user the UID of the job and also the location
     # to which all output from the job is being written
     return {"uid": worksheet.uid(),
-            "output": worksheet.output_location()}
+            "output": worksheet.output_location().to_string()}
