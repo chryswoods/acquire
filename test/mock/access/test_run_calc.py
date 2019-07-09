@@ -69,6 +69,7 @@ def test_run_calc(aaai_services, authenticated_user):
 
     access_service = Service("access")
 
-    with pytest.raises(LookupError):
-        result = access_service.call_function(func, args)
-        print(result)
+    result = access_service.call_function(func, args)
+    print(result)
+
+    assert(False)

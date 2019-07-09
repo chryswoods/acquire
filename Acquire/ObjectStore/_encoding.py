@@ -43,7 +43,7 @@ __all__ = ["bytes_to_string", "string_to_bytes",
            "create_uuid", "create_uid", "validate_is_uid"]
 
 
-def create_uuid(short_uid=False, include_date=None):
+def create_uuid(short_uid=False, include_date=None, separator="/"):
     """Return a newly created random uuid. This is highly likely
        to be globally unique. If 'short_uid' is True, then a shorter,
        potentially less unique UID will be generated. If
@@ -58,16 +58,22 @@ def create_uuid(short_uid=False, include_date=None):
     if short_uid:
         uid = uid[:8]
 
-    if include_date is not None:
-        include_date = datetime_to_datetime(include_date)
-        uid = "%s/%s" % (include_date.replace(tzinfo=None).isoformat(), uid)
+    if include_date is not None and include_date is not False:
+        if include_date is True:
+            include_date = get_datetime_now()
+        else:
+            include_date = datetime_to_datetime(include_date)
+
+        uid = "%s%s%s" % (include_date.replace(tzinfo=None).isoformat(),
+                          separator, uid)
 
     return uid
 
 
-def create_uid(short_uid=False, include_date=None):
+def create_uid(short_uid=False, include_date=None, separator="/"):
     """Synonym for create_uuid"""
-    return create_uuid(short_uid=short_uid, include_date=include_date)
+    return create_uuid(short_uid=short_uid, include_date=include_date,
+                       separator=separator)
 
 
 def validate_is_uid(uid):

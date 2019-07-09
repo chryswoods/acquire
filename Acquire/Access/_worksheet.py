@@ -1,30 +1,31 @@
 
-__all__ = ["JobSheet"]
+__all__ = ["WorkSheet"]
 
 
-class JobSheet:
-    """This class holds a complete record of a job that the access
+class WorkSheet:
+    """This class holds a complete record of the work that the access
        service has been asked to perform.
     """
-    def __init__(self, job=None, authorisation=None):
-        if job is not None:
+    def __init__(self, request=None, authorisation=None):
+        if request is not None:
             from Acquire.Identity import Authorisation as _Authorisation
             if not isinstance(authorisation, _Authorisation):
-                raise TypeError("You can only authorise a request with "
+                raise TypeError("You can only authorise work with "
                                 "a valid Authorisation object")
 
             from Acquire.Access import RunRequest as _RunRequest
-            if not isinstance(job, _RunRequest):
+            if not isinstance(request, _RunRequest):
                 raise TypeError(
                     "You must pass in a valid RunRequest to request a "
                     "calculation is run. The passed request is the wrong "
-                    "type: %s" % str(job))
+                    "type: %s" % str(request))
 
-            authorisation.verify(job.fingerprint())
+            authorisation.verify(request.fingerprint())
             from Acquire.ObjectStore import create_uid as _create_uid
-            self._job = job
+            self._request = request
             self._authorisation = authorisation
-            self._uid = _create_uid()
+            self._uid = _create_uid(include_date=True, short_uid=True,
+                                    separator="-")
             self._status = "awaiting"
         else:
             self._uid = None
@@ -33,20 +34,15 @@ class JobSheet:
         self._credit_notes = None
 
     def is_null(self):
-        """Return whether or not this JobSheet is null
-
-        Returns:
-            bool: True if uid is set, False otherwise
-
-        """
+        """Return whether or not this WorkSheet is null"""
         return self._uid is None
 
     def uid(self):
-        """Return the UID of this JobSheet"""
+        """Return the UID of this WorkSheet"""
         return self._uid
 
     def status(self):
-        """Return the status of this job"""
+        """Return the status of the work"""
         if self.is_null():
             return None
         else:
@@ -54,7 +50,7 @@ class JobSheet:
 
     def storage_service(self):
         """Return the storage service that will be used to store
-           the output data associated with this job
+           the output data associated with this work
 
            TODO - will eventually have to choose which storage service
                   to use. Currently returning the storage service that
@@ -68,7 +64,7 @@ class JobSheet:
 
     def compute_service(self):
         """Return the compute service that will be used to actually
-           perform the calculation associated with the job
+           perform the calculation associated with this work
 
            TODO - will eventually have to choose which compute service
                   to use. Currently returning the compute service that
@@ -81,8 +77,8 @@ class JobSheet:
         return _get_trusted_service(service_url=compute_url)
 
     def total_cost(self):
-        """Return the total maximum quoted cost for this job. The
-           total cost to run the job must not exceed this
+        """Return the total maximum quoted cost for this work. The
+           total cost to run the work must not exceed this
 
            TODO - will need to actually work out and return the
                   real cost - returning dummy values for the moment
@@ -92,47 +88,42 @@ class JobSheet:
         else:
             return 10
 
-    def job(self):
-        """Return the original job request
-
-            Returns:
-                None or Request: If no uid set None, else job request
-
-        """
+    def request(self):
+        """Return the original work request"""
         if self.is_null():
             return None
         else:
-            return self._job
+            return self._request
 
     def authorisation(self):
-        """Return the original authorisation for this job"""
+        """Return the original authorisation for this request"""
         if self.is_null():
             return None
         else:
             return self._authorisation
 
     def user_guid(self):
-        """Return the GUID of the user who requested this job"""
+        """Return the GUID of the user who requested this work"""
         if self.is_null():
             return None
         else:
             return self._authorisation.user_guid()
 
     def execute(self, cheque):
-        """Execute (start) this job, using the passed cheque for
-           payment. Note that you can't start the same job twice
+        """Execute (start) this work, using the passed cheque for
+           payment. Note that you can't perform the same work twice
         """
         if self.is_null():
             from Acquire.Accounting import PaymentError
-            raise PaymentError("You cannot try to execute a null job!")
+            raise PaymentError("You cannot try to execute null work!")
 
         from Acquire.Client import Cheque as _Cheque
         if not isinstance(cheque, _Cheque):
             raise TypeError("You must pass a valid Cheque as payment "
-                            "for a job")
+                            "for the work")
 
         if self._credit_notes is not None:
-            raise PermissionError("You cannot start a job twice!")
+            raise PermissionError("You cannot start a piece of work twice!")
 
         from Acquire.Service import get_this_service as _get_this_service
 
@@ -150,12 +141,12 @@ class JobSheet:
         access_account = _Account(user=access_user, account_uid=account_uid,
                                   accounting_service=accounting_service)
 
-        # TODO - validate that the cost of the job on the compute
+        # TODO - validate that the cost of the work on the compute
         #        and storage services is covered by the passed cheque
 
         try:
             credit_notes = cheque.cash(spend=self.total_cost(),
-                                       resource=self.job().fingerprint())
+                                       resource=self.request().fingerprint())
         except Exception as e:
             from Acquire.Service import exception_to_string
             from Acquire.Accounting import PaymentError
@@ -180,30 +171,28 @@ class JobSheet:
         from Acquire.ObjectStore import get_datetime_future \
             as _get_datetime_future
 
-        job_endtime = _get_datetime_future(days=2)  # this should be calculated
+        endtime = _get_datetime_future(days=2)  # this should be calculated
 
-        # save the JobSheet to the object store so we don't lose the
+        # save the WorkSheet to the object store so we don't lose the
         # value in the credit notes
         self.save()
 
         compute_cheque = _Cheque.write(
                                 account=access_account,
-                                resource="job %s" % self.uid(),
+                                resource="work %s" % self.uid(),
                                 max_spend=10.0,
                                 recipient_url=compute_service.canonical_url(),
-                                expiry_date=job_endtime)
+                                expiry_date=endtime)
 
         storage_cheque = _Cheque.write(
                                 account=access_account,
-                                resource="job %s" % self.uid(),
+                                resource="work %s" % self.uid(),
                                 max_spend=10.0,
                                 recipient_url=storage_service.canonical_url(),
-                                expiry_date=job_endtime)
+                                expiry_date=endtime)
 
         self._compute_cheque = compute_cheque
         self._storage_cheque = storage_cheque
-
-        # TODO - should I save the cheques with the jobsheet?
 
         # now create a Drive on the storage service that will hold
         # the output for this job
@@ -221,7 +210,7 @@ class JobSheet:
 
         aclrules = _ACLRules(rule=rule, default_rule=_ACLRule.denied())
 
-        output_drive = _Drive(name="job_output_%s" % self.uid(),
+        output_drive = _Drive(name="output_%s" % self.uid(),
                               creds=creds, aclrules=aclrules,
                               cheque=storage_cheque,
                               max_size="10MB",
@@ -234,14 +223,14 @@ class JobSheet:
         from Acquire.Client import PAR as _PAR
         par = _PAR(location=self._output_loc, user=access_user,
                    aclrule=_ACLRule.writer(),
-                   expires_datetime=job_endtime)
+                   expires_datetime=endtime)
 
         secret = compute_service.encrypt_data(par.secret())
 
-        args = {"job_uid": self.uid(),
-                "job": self.job().to_data(),
-                "output_par": par.to_data(),
-                "par_secret": secret,
+        args = {"worksheet_uid": self.uid(),
+                "request": self.request().to_data(),
+                "par": par.to_data(),
+                "secret": secret,
                 "cheque": compute_cheque.to_data()}
 
         self._status = "submitting"
@@ -249,6 +238,8 @@ class JobSheet:
 
         response = compute_service.call_function(function="submit_job",
                                                  args=args)
+
+        print(response)
 
         self._status = "submitted"
         self.save()
@@ -269,7 +260,7 @@ class JobSheet:
             return self._output_loc
 
     def save(self):
-        """Save this JobSheet to the object store
+        """Save this WorkSheet to the object store
             Returns:
                 None
         """
@@ -288,17 +279,13 @@ class JobSheet:
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
-        key = "jobsheets/%s" % self.uid()
+        key = "worksheet/%s" % self.uid()
         _ObjectStore.set_object_from_json(bucket, key, self.to_data())
 
     @staticmethod
     def load(uid):
-        """Return the JobSheet with specified uid loaded from the
+        """Return the WorkSheet with specified uid loaded from the
            ObjectStore
-
-            Returns:
-                JobSheet: an instance of a JobSheet with the specified uid
-
         """
         from Acquire.Service import assert_running_service \
             as _assert_running_service
@@ -315,9 +302,9 @@ class JobSheet:
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
 
-        key = "jobsheets/%s" % str(uid)
+        key = "worksheet/%s" % str(uid)
         data = _ObjectStore.get_object_from_json(bucket, key)
-        return JobSheet.from_data(data)
+        return WorkSheet.from_data(data)
 
     def to_data(self):
         """Get a JSON-serialisable dictionary of this object"""
@@ -331,7 +318,7 @@ class JobSheet:
         data["uid"] = self.uid()
 
         try:
-            data["job"] = self.job().to_data()
+            data["request"] = self.request().to_data()
         except:
             pass
 
@@ -352,29 +339,40 @@ class JobSheet:
         except:
             pass
 
+        try:
+            data["compute_cheque"] = self._compute_cheque.to_data()
+        except:
+            pass
+
+        try:
+            data["storage_cheque"] = self._storage_cheque.to_data()
+        except:
+            pass
+
         return data
 
     @staticmethod
     def from_data(data):
-        """Return a JobSheet constructed from the passed JSON-deserialised
+        """Return a WorkSheet constructed from the passed JSON-deserialised
            dictionary
         """
         if data is None or len(data) == 0:
             return
 
-        j = JobSheet()
+        j = WorkSheet()
 
         from Acquire.Access import RunRequest as _RunRequest
         from Acquire.Client import Authorisation as _Authorisation
         from Acquire.Client import Location as _Location
+        from Acquire.Client import Cheque as _Cheque
         from Acquire.Accounting import CreditNote as _CreditNote
         from Acquire.ObjectStore import string_to_list \
             as _string_to_list
 
         j._uid = str(data["uid"])
 
-        if "job" in data:
-            j._job = _RunRequest.from_data(data["job"])
+        if "request" in data:
+            j._request = _RunRequest.from_data(data["request"])
 
         if "authorisation" in data:
             j._authorisation = _Authorisation.from_data(
@@ -388,5 +386,11 @@ class JobSheet:
 
         if "output_location" in data:
             j._output_loc = _Location.from_string(data["output_location"])
+
+        if "compute_cheque" in data:
+            j._compute_cheque = _Cheque.from_data(data["compute_cheque"])
+
+        if "storage_cheque" in data:
+            j._storage_cheque = _Cheque.from_data(data["storage_cheque"])
 
         return j

@@ -11,7 +11,7 @@ from ._errors import *
 from ._checksum import *
 from ._request import *
 from ._runrequest import *
-from ._jobsheet import *
+from ._worksheet import *
 
 try:
     if __IPYTHON__:

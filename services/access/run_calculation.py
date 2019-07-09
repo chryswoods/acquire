@@ -1,7 +1,7 @@
 
 from Acquire.Identity import Authorisation, AuthorisationError
 
-from Acquire.Access import RunRequest, JobSheet
+from Acquire.Access import RunRequest, WorkSheet
 
 from Acquire.Client import Cheque
 
@@ -42,12 +42,12 @@ def run(args):
             % str(request))
 
     # create a job sheet to record all stages of the job
-    job_sheet = JobSheet(job=request, authorisation=authorisation)
+    worksheet = WorkSheet(request=request, authorisation=authorisation)
 
     # submit the job, recording everything necessary to the JobSheet
-    job_sheet.execute(cheque=cheque)
+    worksheet.execute(cheque=cheque)
 
     # Return to the user the UID of the job and also the location
     # to which all output from the job is being written
-    return {"job_uid": job_sheet.uid(),
-            "output": job_sheet.output_location()}
+    return {"uid": worksheet.uid(),
+            "output": worksheet.output_location()}
