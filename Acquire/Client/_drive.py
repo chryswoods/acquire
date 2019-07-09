@@ -75,7 +75,8 @@ class Drive:
 
     """
     def __init__(self, name=None, drive_uid=None, creds=None,
-                 aclrules=None, autocreate=True):
+                 aclrules=None, cheque=None, max_size=None,
+                 autocreate=True):
         """Construct a handle to the drive that the passed user
            calls 'name' on the passed storage service. If
            'autocreate' is True and the user is logged in then

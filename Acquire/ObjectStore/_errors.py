@@ -1,6 +1,7 @@
 
 
-__all__ = ["ObjectStoreError", "MutexTimeoutError", "EncodingError"]
+__all__ = ["ObjectStoreError", "MutexTimeoutError", "EncodingError",
+           "RequestBucketError"]
 
 
 class ObjectStoreError(Exception):
@@ -12,4 +13,7 @@ class EncodingError(ObjectStoreError):
 
 
 class MutexTimeoutError(Exception):
+    pass
+
+class RequestBucketError(Exception):
     pass
