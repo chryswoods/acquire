@@ -72,4 +72,11 @@ def test_run_calc(aaai_services, authenticated_user):
     result = access_service.call_function(func, args)
     print(result)
 
+    compute_service = Service(service_url="compute")
+
+    pending_uids = compute_service.call_function(
+                                    function="get_pending_job_uids")
+
+    print(pending_uids)
+
     assert(False)

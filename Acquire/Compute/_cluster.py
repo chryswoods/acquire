@@ -191,6 +191,23 @@ class Cluster:
 
         _ObjectStore.set_object_from_json(bucket, key, resource)
 
+    def get_pending_job_uids(self):
+        """Return the UIDs of all of the jobs that need to be submitted"""
+        if self.is_null():
+            return []
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+        prefix = "compute/pending/"
+
+        uids = _ObjectStore.get_all_object_names(bucket=bucket, prefix=prefix,
+                                                 without_prefix=True)
+
+        return uids
+
     def to_data(self, passphrase=None):
         """Return a json-serialisable dictionary of this cluster"""
         if self.is_null():
