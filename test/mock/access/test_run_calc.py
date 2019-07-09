@@ -4,6 +4,8 @@ from Acquire.Identity import Authorisation
 from Acquire.Client import Account, deposit, Cheque, Service, \
                            Drive, StorageCreds
 
+import pytest
+
 
 def _testdata():
     """Return the path to the directory containing test data"""
@@ -66,8 +68,7 @@ def test_run_calc(aaai_services, authenticated_user):
     args["cheque"] = cheque.to_data()
 
     access_service = Service("access")
-    result = access_service.call_function(func, args)
 
-    print(result)
-
-    assert(False)
+    with pytest.raises(LookupError):
+        result = access_service.call_function(func, args)
+        print(result)
