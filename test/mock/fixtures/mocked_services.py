@@ -274,14 +274,6 @@ def aaai_services(tmpdir_factory):
                             "user": compute_user,
                             "response": response}
 
-    from Acquire.Compute import Cluster as _Cluster
-    cluster = _Cluster.create()
-    auth = Authorisation(user=compute_user,
-                         resource="set_cluster %s" % cluster.fingerprint())
-    compute_service.call_function(function="set_cluster",
-                                  args={"authorisation": auth.to_data(),
-                                        "cluster": cluster.to_data()})
-
     assert(compute_service.registry_uid() == registry_service.uid())
     assert(compute_service.uid() not in service_uids)
     service_uids.append(compute_service.uid())

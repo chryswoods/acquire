@@ -1,5 +1,17 @@
 
+from enum import Enum as _Enum
+
 __all__ = ["Cluster"]
+
+
+class JobState(_Enum):
+    PENDING = "pending"
+    SUBMITTING = "submitting"
+    STARTING = "starting"
+    RUNNING = "running"
+    ERROR = "error"
+    TERMINATED = "terminated"
+    COMPLETED = "completed"
 
 
 class Cluster:
@@ -8,7 +20,12 @@ class Cluster:
        one cluster associated with a service, and this
        class provides the handle and functions used to communicate
        between the compute function service and the actual
-       compute cluster
+       compute cluster.
+
+       This class has two sides. On the compute service it provides
+       the means to communicate with the cluster. On the cluster
+       it provides the means to manage jobs and communicate with
+       the compute service.
     """
     def __init__(self):
         self._uid = None
@@ -22,16 +39,79 @@ class Cluster:
         """
         return self.uid()
 
+    def passphrase(self, resource):
+        """Generate a passphrase for the passed resource. This is used
+           by the client running on the cluster to validate that it is
+           allowed to communicate with the cluster on the service
+        """
+        if self.is_null():
+            raise PermissionError(
+                "You cannot generate a passphrase from a null Cluster")
+
+        from Acquire.Crypto import Hash as _Hash
+        return _Hash.multi_md5(self._secret, resource)
+
+    def verify_passphrase(self, resource, passphrase):
+        """Verify that the passed passphrase is correct for the specified
+           resource. This is used on the service to validate that a request
+           for a resource came from the Cluster running on the client
+        """
+        if self.is_null():
+            raise PermissionError(
+                "Invalid passphrase as this is a null Cluster")
+
+        if passphrase != self.passphrase(resource):
+            raise PermissionError(
+                "Invalid passphrase for resource %s" % resource)
+
+    def compute_service(self):
+        """Return the compute service from which this cluster is managed"""
+        if self.is_null():
+            return None
+        elif Cluster._is_running_service():
+            from Acquire.Service import get_this_service as _get_this_service
+            return _get_this_service()
+        else:
+            return self._compute_service
+
     @staticmethod
-    def create():
+    def _is_running_service():
+        """Return whether or not this is the Cluster on the compute
+           service (otherwise it must be on the client)
+        """
+        from Acquire.Service import is_running_service as _is_running_service
+        return _is_running_service()
+
+    @staticmethod
+    def create(service_url=None, service_uid=None, user=None):
         """Create a new cluster"""
+        if Cluster._is_running_service():
+            raise PermissionError(
+                "You cannot create a Cluster on a running service")
+
         from Acquire.Client import PrivateKey as _PrivateKey
         from Acquire.ObjectStore import create_uid as _create_uid
+        from Acquire.Client import Wallet as _Wallet
+
+        wallet = _Wallet()
+        compute_service = wallet.get_service(service_url=service_url,
+                                             service_uid=service_uid)
+
+        if not compute_service.is_compute_service():
+            raise TypeError(
+                "You can only create a cluster that will communicate "
+                "with a valid compute service - not %s" % compute_service)
 
         cluster = Cluster()
         cluster._uid = _create_uid()
         cluster._private_key = _PrivateKey()
         cluster._public_key = cluster._private_key.public_key()
+        cluster._compute_service = compute_service
+        cluster._secret = _PrivateKey.random_passphrase()
+        cluster._oldkeys = []
+
+        if user is not None:
+            Cluster.set_cluster(cluster=cluster, user=user)
 
         return cluster
 
@@ -40,6 +120,10 @@ class Cluster:
         """Return a handle to the single compute cluster that is
            connected to this compute service
         """
+        if not Cluster._is_running_service():
+            raise PermissionError(
+                "You can only call 'get_cluster' on the compute service")
+
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
@@ -61,29 +145,50 @@ class Cluster:
         return Cluster.from_data(data)
 
     @staticmethod
-    def set_cluster(cluster, authorisation):
+    def set_cluster(cluster, authorisation=None, passphrase=None, user=None):
         """Function used to set the single compute cluster that is
            connected to this compute service. This must be authorised
            by an admin user of this compute service
         """
+        if not isinstance(cluster, Cluster):
+            raise TypeError("The cluster must be type Cluster")
+
+        resource = "set_cluster %s" % cluster.fingerprint()
+
         from Acquire.Client import Authorisation as _Authorisation
-        from Acquire.Service import get_this_service as _get_this_service
+        if Cluster._is_running_service():
+            from Acquire.Service import get_this_service as _get_this_service
 
-        if not isinstance(authorisation, _Authorisation):
-            raise TypeError("The authorisation must be type Authorisation")
+            service = _get_this_service(need_private_access=True)
 
-        service = _get_this_service(need_private_access=True)
-        service.assert_admin_authorised(
-                    authorisation,
-                    "set_cluster %s" % cluster.fingerprint())
+            if authorisation is not None:
+                if not isinstance(authorisation, _Authorisation):
+                    raise TypeError(
+                        "The authorisation must be type Authorisation")
 
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.Service import get_service_account_bucket \
-            as _get_service_account_bucket
+                service.assert_admin_authorised(authorisation, resource)
+            else:
+                # we are rotating keys, so check the passphrase against
+                # the old passphrase
+                cluster = Cluster.get_cluster()
+                cluster.verify_passphrase(passphrase=passphrase,
+                                          resource="set_cluster")
 
-        bucket = _get_service_account_bucket()
-        key = "compute/cluster"
-        _ObjectStore.set_object_from_json(bucket, key, cluster.to_data())
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+
+            bucket = _get_service_account_bucket()
+            key = "compute/cluster"
+            _ObjectStore.set_object_from_json(bucket, key, cluster.to_data())
+        else:
+            authorisation = _Authorisation(user=user, resource=resource)
+            compute_service = cluster.compute_service()
+
+            args = {"authorisation": authorisation.to_data(),
+                    "cluster": cluster.to_data()}
+
+            compute_service.call_function(function="set_cluster", args=args)
 
     def uid(self):
         """Return the UID of this cluster"""
@@ -109,6 +214,32 @@ class Cluster:
             raise PermissionError(
                 "You do not have permission to see the private key of "
                 "this cluster")
+
+    def rotate_keys(self):
+        """Call this function to rotate the cluster keys. This is worth
+           performing periodically to ensure that the system remains
+           secure - this will also rotate the cluster secret
+        """
+        if self.is_null():
+            return
+
+        if Cluster._is_running_service():
+            raise PermissionError("Only the client Cluster can rotate keys")
+
+        passphrase = self.passphrase("set_cluster")
+
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        self._oldkeys.append(self._private_key)
+
+        self._private_key = _PrivateKey()
+        self._public_key = self._private_key.public_key()
+        self._secret = _PrivateKey.random_passphrase()
+
+        args = {"passphrase": passphrase,
+                "cluster": self.to_data()}
+
+        self.compute_service().call_function(function="set_cluster",
+                                             args=args)
 
     def encrypt_data(self, data):
         """Encrypt the passed data so that only the daemon running on
@@ -159,54 +290,154 @@ class Cluster:
                 "cluster - unmatched cluster UID: %s versus %s" %
                 (cluster_uid, self.uid()))
 
-        if fingerprint != self.private_key().fingerprint():
-            from Acquire.Crypto import DecryptionError
-            raise DecryptionError(
-                "Cannot decrypt the data as we don't recognise the "
-                "fingerprint of the encryption key: %s versus %s" %
-                (fingerprint, self.private_key().fingerprint()))
+        key = self.private_key()
 
-        data = self.private_key().decrypt(data)
+        try:
+            i = len(self._oldkeys)
+        except:
+            i = 0
+
+        while fingerprint != key.fingerprint():
+            i = i-1
+            if i < 0:
+                from Acquire.Crypto import DecryptionError
+                raise DecryptionError(
+                    "Cannot decrypt the data as we don't recognise the "
+                    "fingerprint of the encryption key: %s" % fingerprint)
+
+            key = self._oldkeys[i]
+
+        data = key.decrypt(data)
         return _json.loads(data)
 
-    def submit_job(self, uid):
-        """Submit the job with specified UID to this cluster. This will
-           put the UID of the job into the "pending" pool, and will
-           signal the cluster to pull that job
+    def get_job(self, uid, start_state="pending", end_state=None,
+                passphrase=None):
+        """Return the job with specified 'uid' in the specified
+           state (start_state) - this will move the job to
+           'end_state' if this is specified. If you are on the
+           service you need to supply a valid passphrase
         """
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.Service import get_service_account_bucket \
-            as _get_service_account_bucket
-        from Acquire.Service import get_this_service as _get_this_service
-        from Acquire.ObjectStore import get_datetime_now_to_string \
-            as _get_datetime_now_to_string
+        if end_state is None:
+            resource = "get_job %s %s" % (uid, start_state)
+        else:
+            resource = "get_job %s %s->%s" % (uid, start_state, end_state)
 
-        bucket = _get_service_account_bucket()
-        key = "compute/pending/%s" % uid
+        if Cluster._is_running_service():
+            self.verify_passphrase(resource=resource, passphrase=passphrase)
 
-        service = _get_this_service(need_private_access=True)
+            start_state = JobState(start_state)
 
-        resource = "%s %s" % (_get_datetime_now_to_string(), uid)
-        resource = service.sign_data(resource)
+            if end_state is not None:
+                end_state = JobState(end_state)
 
-        _ObjectStore.set_object_from_json(bucket, key, resource)
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
 
-    def get_pending_job_uids(self):
+            bucket = _get_service_account_bucket()
+            key = "compute/%s/%s" % (start_state.value, uid)
+
+            if (end_state is None) or (end_state == start_state):
+                try:
+                    data = _ObjectStore.get_object_from_json(bucket=bucket,
+                                                             key=key)
+                except:
+                    data = None
+            else:
+                try:
+                    data = _ObjectStore.take_object_from_json(bucket=bucket,
+                                                              key=key)
+                    key = "compute/%s/%s" % (end_state.value, uid)
+                    _ObjectStore.set_object_from_json(bucket=bucket, key=key,
+                                                      data=data)
+                except:
+                    data = None
+
+            if data is None:
+                raise KeyError(
+                    "There is no job with UID %s in state %s" %
+                    (uid, start_state.value))
+
+            # the data is a dictionary of the submission time and the
+            # job UID
+            if uid != data["uid"]:
+                raise ValueError("The job info for UID %s is corrupt? %s" %
+                                 (uid, data))
+
+            # now load the actual job info
+            from Acquire.Compute import ComputeJob as _ComputeJob
+            return _ComputeJob.load(uid=uid)
+        else:
+            passphrase = self.passphrase(resource)
+            args = {"uid": str(uid),
+                    "passphrase": passphrase,
+                    "start_state": str(start_state)}
+
+            if end_state is not None:
+                args["end_state"] = str(end_state)
+
+            result = self.compute_service().call_function(function="get_job",
+                                                          args=args)
+
+            from Acquire.Compute import ComputeJob as _ComputeJob
+            return _ComputeJob.from_data(self.decrypt_data(result["job"]))
+
+    def submit_job(self, uid):
+        """Submit the job with specified UID to this cluster.
+
+           On the service this will put the UID of the job into the
+           "pending" pool, and will signal the cluster to pull that job
+
+           On the client this will pull the job with that UID from the
+           pending pool, moving it to the "submitting" pool and will
+           pass this job to the cluster submission system
+        """
+        if Cluster._is_running_service():
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
+            from Acquire.ObjectStore import get_datetime_now_to_string \
+                as _get_datetime_now_to_string
+
+            bucket = _get_service_account_bucket()
+            key = "compute/pending/%s" % uid
+            resource = {"submitted": _get_datetime_now_to_string(),
+                        "uid": uid}
+
+            _ObjectStore.set_object_from_json(bucket, key, resource)
+        else:
+            # fetch the pending job and change the status to "submitting"
+            return self.get_job(uid=uid, start_state="pending",
+                                end_state="submitting")
+
+    def get_pending_job_uids(self, passphrase=None):
         """Return the UIDs of all of the jobs that need to be submitted"""
         if self.is_null():
             return []
 
-        from Acquire.ObjectStore import ObjectStore as _ObjectStore
-        from Acquire.Service import get_service_account_bucket \
-            as _get_service_account_bucket
+        if Cluster._is_running_service():
+            from Acquire.ObjectStore import ObjectStore as _ObjectStore
+            from Acquire.Service import get_service_account_bucket \
+                as _get_service_account_bucket
 
-        bucket = _get_service_account_bucket()
-        prefix = "compute/pending/"
+            self.verify_passphrase(resource="get_pending_job_uids",
+                                   passphrase=passphrase)
 
-        uids = _ObjectStore.get_all_object_names(bucket=bucket, prefix=prefix,
-                                                 without_prefix=True)
+            bucket = _get_service_account_bucket()
+            prefix = "compute/pending/"
 
-        return uids
+            uids = _ObjectStore.get_all_object_names(bucket=bucket,
+                                                     prefix=prefix,
+                                                     without_prefix=True)
+
+            return uids
+        else:
+            passphrase = self.passphrase(resource="get_pending_job_uids")
+            args = {"passphrase": passphrase}
+            result = self.compute_service().call_function(
+                            function="get_pending_job_uids", args=args)
+
+            return self.decrypt_data(result["job_uids"])
 
     def to_data(self, passphrase=None):
         """Return a json-serialisable dictionary of this cluster"""
@@ -217,12 +448,23 @@ class Cluster:
 
         data["uid"] = str(self._uid)
         data["public_key"] = self._public_key.to_data()
+        data["secret"] = str(self._secret)
 
-        try:
-            data["private_key"] = self._private_key.to_data(
-                                                passphrase=passphrase)
-        except:
-            pass
+        if passphrase is not None:
+            try:
+                data["private_key"] = self._private_key.to_data(
+                                                    passphrase=passphrase)
+            except:
+                pass
+
+            try:
+                oldkeys = []
+                for key in self._oldkeys:
+                    oldkeys.append(key.to_data(passphrase=passphrase))
+
+                data["oldkeys"] = oldkeys
+            except:
+                pass
 
         return data
 
@@ -238,11 +480,25 @@ class Cluster:
         cluster = Cluster()
         cluster._uid = str(data["uid"])
         cluster._public_key = _PublicKey.from_data(data["public_key"])
+        cluster._secret = str(data["secret"])
 
-        try:
-            cluster._private_key = _PrivateKey.from_data(data["private_key"],
-                                                         passphrase=passphrase)
-        except:
-            pass
+        if passphrase is not None:
+            try:
+                cluster._private_key = _PrivateKey.from_data(
+                                                    data["private_key"],
+                                                    passphrase=passphrase)
+            except:
+                pass
+
+            if "oldkeys" in data:
+                try:
+                    oldkeys = data["oldkeys"]
+                    cluster._oldkeys = []
+
+                    for key in oldkeys:
+                        key = _PrivateKey.from_data(key, passphrase=passphrase)
+                        cluster._oldkeys.append(key)
+                except:
+                    pass
 
         return cluster

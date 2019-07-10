@@ -11,6 +11,16 @@ class ComputeJob:
     def __init__(self):
         self._uid = None
 
+    def __str__(self):
+        if self.is_null():
+            return "ComputeJob::null"
+        else:
+            return "ComputeJob(uid=%s, request=%s, output=%s)" % (
+                self._uid, self._request, self._par.location().to_string())
+
+    def __repr__(self):
+        return self.__str__()
+
     def is_null(self):
         return self._uid is None
 
@@ -110,7 +120,7 @@ class ComputeJob:
         key = "compute/job/%s" % uid
 
         try:
-            data = ObjectStore.set_object_from_json(bucket, key)
+            data = _ObjectStore.get_object_from_json(bucket, key)
         except:
             data = None
 

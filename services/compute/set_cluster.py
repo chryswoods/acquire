@@ -8,9 +8,19 @@ def run(args):
        actually perform jobs
     """
 
-    authorisation = Authorisation.from_data(args["authorisation"])
+    try:
+        authorisation = Authorisation.from_data(args["authorisation"])
+    except:
+        authorisation = None
+
+    try:
+        passphrase = str(args["passphrase"])
+    except:
+        passphrase = None
+
     cluster = Cluster.from_data(args["cluster"])
 
-    Cluster.set_cluster(cluster=cluster, authorisation=authorisation)
+    Cluster.set_cluster(cluster=cluster, authorisation=authorisation,
+                        passphrase=passphrase)
 
     return {"cluster": cluster.to_data()}
