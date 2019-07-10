@@ -344,9 +344,13 @@ class Cluster:
                 except:
                     data = None
             else:
+                from Acquire.ObjectStore import get_datetime_now_to_string \
+                    as _get_datetime_now_to_string
+
                 try:
                     data = _ObjectStore.take_object_from_json(bucket=bucket,
                                                               key=key)
+                    data[end_state.value] = _get_datetime_now_to_string()
                     key = "compute/%s/%s" % (end_state.value, uid)
                     _ObjectStore.set_object_from_json(bucket=bucket, key=key,
                                                       data=data)
@@ -401,7 +405,7 @@ class Cluster:
 
             bucket = _get_service_account_bucket()
             key = "compute/pending/%s" % uid
-            resource = {"submitted": _get_datetime_now_to_string(),
+            resource = {"pending": _get_datetime_now_to_string(),
                         "uid": uid}
 
             _ObjectStore.set_object_from_json(bucket, key, resource)
