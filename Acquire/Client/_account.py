@@ -220,7 +220,7 @@ def create_account(user, account_name, description=None,
     return account
 
 
-def deposit(user, value, description=None,
+def deposit(user, value, description=None, account_name=None,
             accounting_service=None, accounting_url=None):
     """Tell the system to allow the user to deposit 'value' from
        their (real) financial account to the system accounts
@@ -256,6 +256,9 @@ def deposit(user, value, description=None,
 
     args = {"authorisation": authorisation.to_data(),
             "transaction": transaction.to_data()}
+
+    if account_name:
+        args["account_name"] = str(account_name)
 
     result = service.call_function(function="deposit", args=args)
 

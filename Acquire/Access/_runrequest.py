@@ -46,6 +46,9 @@ class RunRequest(_Request):
             return "RunRequest(uid=%s, image=%s, input=%s)" % (
                     self._uid, self._image, self._input)
 
+    def __repr__(self):
+        return self.__str__()
+
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self._uid == other._uid

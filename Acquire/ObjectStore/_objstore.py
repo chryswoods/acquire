@@ -196,9 +196,10 @@ class ObjectStore:
         return _json.loads(data)
 
     @staticmethod
-    def get_all_object_names(bucket, prefix=None):
+    def get_all_object_names(bucket, prefix=None, without_prefix=False):
         """Returns the names of all objects in the passed bucket"""
-        return _objstore_backend.get_all_object_names(bucket, prefix)
+        return _objstore_backend.get_all_object_names(bucket, prefix,
+                                                      without_prefix)
 
     @staticmethod
     def get_all_objects(bucket, prefix=None):

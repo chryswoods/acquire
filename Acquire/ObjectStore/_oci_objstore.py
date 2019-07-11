@@ -634,7 +634,7 @@ class OCI_ObjectStore:
         return data
 
     @staticmethod
-    def get_all_object_names(bucket, prefix=None):
+    def get_all_object_names(bucket, prefix=None, without_prefix=False):
         """Returns the names of all objects in the passed bucket
 
            Args:
@@ -653,6 +653,9 @@ class OCI_ObjectStore:
 
         names = []
 
+        if without_prefix:
+            prefix_len = len(prefix)
+
         for obj in objects.objects:
             if prefix:
                 if obj.name.startswith(prefix):
@@ -665,6 +668,12 @@ class OCI_ObjectStore:
 
             while name.startswith("/"):
                 name = name[1:]
+
+            if without_prefix:
+                name = name[prefix_len:]
+
+                while name.startswith("/"):
+                    name = name[1:]
 
             if len(name) > 0:
                 names.append(name)

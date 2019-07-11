@@ -3,6 +3,7 @@ from Acquire.Access import RunRequest
 from Acquire.Identity import Authorisation
 from Acquire.Client import Account, deposit, Cheque, Service, \
                            Drive, StorageCreds
+from Acquire.Compute import Cluster
 
 import pytest
 
@@ -15,6 +16,10 @@ def _testdata():
 
 
 def test_run_calc(aaai_services, authenticated_user):
+    # create and register the cluster on which this job will take place...
+    cluster = Cluster.create(service_url="compute",
+                             user=aaai_services["compute"]["user"])
+
     user = authenticated_user
     assert(user.is_logged_in())
 
@@ -69,6 +74,19 @@ def test_run_calc(aaai_services, authenticated_user):
 
     access_service = Service("access")
 
-    with pytest.raises(LookupError):
-        result = access_service.call_function(func, args)
-        print(result)
+    result = access_service.call_function(func, args)
+    print(result)
+
+    pending_uids = cluster.get_pending_job_uids()
+
+    print(pending_uids)
+
+    for uid in pending_uids:
+        job = cluster.submit_job(uid)
+        print(job)
+
+    pending_uids = cluster.get_pending_job_uids()
+
+    print(pending_uids)
+
+    #assert(False)

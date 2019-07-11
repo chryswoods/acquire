@@ -263,7 +263,7 @@ class Testing_ObjectStore:
                 raise ObjectStoreError("No object at key '%s'" % key)
 
     @staticmethod
-    def get_all_object_names(bucket, prefix=None):
+    def get_all_object_names(bucket, prefix=None, without_prefix=False):
         """Returns the names of all objects in the passed bucket"""
 
         root = bucket
@@ -272,6 +272,9 @@ class Testing_ObjectStore:
             root = "%s/%s" % (bucket, prefix)
 
         root_len = len(bucket) + 1
+
+        if without_prefix:
+            prefix_len = len(prefix)
 
         subdir_names = _glob.glob("%s*" % root)
 
@@ -288,8 +291,10 @@ class Testing_ObjectStore:
                     while name.endswith("/"):
                         name = name[0:-1]
 
-                    while name.startswith("/"):
-                        name = name[1:]
+                    if without_prefix:
+                        name = name[prefix_len:]
+                        while name.startswith("/"):
+                            name = name[1:]
 
                     if len(name) > 0:
                         object_names.append(name)
