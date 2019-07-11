@@ -89,4 +89,4 @@ def test_run_calc(aaai_services, authenticated_user):
 
     print(pending_uids)
 
-    assert(False)
+    #assert(False)
