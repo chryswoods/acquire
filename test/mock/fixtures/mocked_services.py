@@ -299,6 +299,13 @@ def aaai_services(tmpdir_factory):
     access_service.call_function(
                     function="admin/trust_accounting_service", args=args)
 
+    resource = "trust_accounting_service %s" % accounting_service.uid()
+    args = {"service_url": accounting_service.canonical_url(),
+            "authorisation": Authorisation(user=compute_user,
+                                           resource=resource).to_data()}
+    compute_service.call_function(
+                    function="admin/trust_accounting_service", args=args)
+
     responses["_services"] = _services
 
     return responses

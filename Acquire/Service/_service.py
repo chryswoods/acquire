@@ -175,10 +175,10 @@ class Service:
            is performed automatically when the Registry confirms
            registration
         """
-        if service_type not in ["identity", "access", "compute",
-                                "registry", "accounting", "storage"]:
-            raise ServiceError("Services of type '%s' are not allowed!" %
-                               service_type)
+        # if service_type not in ["identity", "access", "compute",
+        #                        "registry", "accounting", "storage"]:
+        #    raise ServiceError("Services of type '%s' are not allowed!" %
+        #                       service_type)
 
         from Acquire.Crypto import PrivateKey as _PrivateKey
 
@@ -213,8 +213,8 @@ class Service:
 
         service._uid = "STAGE1 %s" % _PrivateKey.random_passphrase()
 
-        service._privkey = _PrivateKey()
-        service._privcert = _PrivateKey()
+        service._privkey = _PrivateKey(name="%s_privkey" % service_url)
+        service._privcert = _PrivateKey(name="%s_privcert" % service_url)
 
         service._pubkey = service._privkey.public_key()
         service._pubcert = service._privcert.public_key()
@@ -229,7 +229,7 @@ class Service:
         service._last_key_update = _get_datetime_now()
         service._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
-        service._skeleton_key = _PrivateKey()
+        service._skeleton_key = _PrivateKey(name="%s_skelkey" % service_url)
         service._public_skeleton_key = service._skeleton_key.public_key()
 
         service._service_user_name = None
@@ -448,8 +448,10 @@ class Service:
 
             # now generate a new key and certificate
             from Acquire.Crypto import PrivateKey as _PrivateKey
-            self._privkey = _PrivateKey()
-            self._privcert = _PrivateKey()
+            self._privkey = _PrivateKey(name="%s_refresh_privkey" %
+                                        self._canonical_url)
+            self._privcert = _PrivateKey(name="%s_refresh_privcert" %
+                                         self._canonical_url)
             self._pubkey = self._privkey.public_key()
             self._pubcert = self._privcert.public_key()
 
@@ -644,6 +646,32 @@ class Service:
         """
         self.assert_unlocked()
         return _login_service_user(self.uid())
+
+    def service_user_account(self, accounting_service_url=None,
+                             accounting_service=None):
+        """Return the actual financial account associated with
+           this service on the passed accounting service
+        """
+        if self.is_null():
+            return None
+
+        from Acquire.Service import get_service_user_account_uid as \
+            _get_service_user_account_uid
+
+        if accounting_service is None:
+            if accounting_service_url is None:
+                raise ValueError(
+                    "You must supply either an accounting service or "
+                    "the URL of a valid accounting service!")
+
+            accounting_service = self.get_trusted_service(
+                                        accounting_service_url)
+
+        if not accounting_service.is_accounting_service():
+            raise TypeError(
+                "The service '%s' is not an accounting service!"
+                % str(accounting_service))
+
 
     def service_user_account_uid(self, accounting_service_url=None,
                                  accounting_service=None):

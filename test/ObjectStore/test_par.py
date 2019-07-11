@@ -3,8 +3,8 @@ import pytest
 import datetime
 import uuid
 
-from Acquire.ObjectStore import ObjectStore, ObjectStoreError
-from Acquire.Client import PAR, PARError, PARPermissionsError
+from Acquire.ObjectStore import ObjectStore, ObjectStoreError, OSPar
+from Acquire.Client import PARError, PARPermissionsError
 
 from Acquire.Service import get_service_account_bucket, \
     push_is_running_service, pop_is_running_service
@@ -68,7 +68,7 @@ def test_par(bucket):
                                  writeable=True, encrypt_key=pubkey)
 
     data = par.to_data()
-    par2 = PAR.from_data(data)
+    par2 = OSPar.from_data(data)
 
     value = "something " + str(uuid.uuid4())
 

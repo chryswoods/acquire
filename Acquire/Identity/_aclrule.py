@@ -234,6 +234,11 @@ class ACLRule:
         return ACLRule(is_owner=None, is_readable=None,
                        is_writeable=None, is_executable=None)
 
+    def fingerprint(self):
+        """A fingerprint that can be used to validate a request"""
+        return "%d.%d.%d.%d" % (self._is_owner, self._is_executable,
+                                self._is_writeable, self._is_readable)
+
     def is_owner(self):
         """Return whether or not the user is the owner of this resource"""
         return self._is_owner
@@ -249,6 +254,10 @@ class ACLRule:
     def is_executable(self):
         """Return whether or not the user can execute this resource"""
         return self._is_executable
+
+    def is_denied(self):
+        """Return whether or not this rule is all denied"""
+        return self.denied_all()
 
     def inherits_owner(self):
         """Return whether or not this inherits the owner status

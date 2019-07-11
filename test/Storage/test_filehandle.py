@@ -1,7 +1,7 @@
 
 import pytest
 
-from Acquire.Client import FileHandle
+from Acquire.Storage import FileHandle
 
 
 def test_filehandle():

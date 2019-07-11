@@ -103,7 +103,7 @@ def get_private_key(key="default"):
     if key in _key_database:
         return _key_database[key]
     else:
-        privkey = PrivateKey()
+        privkey = PrivateKey(name="global_key %s" % key)
         _key_database[key] = privkey
         return privkey
 
@@ -270,10 +270,12 @@ class PublicKey:
 
 class PrivateKey:
     """This is a holder for an in-memory private key"""
-    def __init__(self, private_key=None, auto_generate=True):
+    def __init__(self, private_key=None, auto_generate=True,
+                 name=None):
         """Construct the key either from a passed key, or by generating
            a new key"""
         self._privkey = private_key
+        self._name = name
 
         if self._privkey is None:
             if auto_generate:
