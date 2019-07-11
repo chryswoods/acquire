@@ -101,4 +101,3 @@ def test_drive_par(authenticated_user, tempdir):
     assert(par_file.metadata().acl() == ACLRule.writer())
 
     par_file.upload(__file__)
-_
