@@ -65,14 +65,20 @@ def test_drive_par(authenticated_user, tempdir):
 
     files = par_drive.list_files()
     assert(len(files) == 2)
-    assert(files[0].filename() == "tmp_test.py")
-    assert(files[1].filename() == "tmp_test2.py")
+    f = {}
+    f[files[0].filename()] = files[0]
+    f[files[1].filename()] = files[1]
+    files = f
 
-    downloaded_name = files[1].open().download(dir=tempdir)
+    assert("tmp_test.py" in files)
+    assert("tmp_test2.py" in files)
+
+    downloaded_name = files["tmp_test2.py"].open().download(dir=tempdir)
 
     assert(_same_file(__file__, downloaded_name))
 
-    par = PAR(location=files[0].location(), user=authenticated_user,
+    par = PAR(location=files["tmp_test.py"].location(),
+              user=authenticated_user,
               aclrule=ACLRule.reader())
 
     par_file = par.resolve()
@@ -86,7 +92,8 @@ def test_drive_par(authenticated_user, tempdir):
     with pytest.raises(PermissionError):
         par_file.upload(__file__)
 
-    par = PAR(location=files[0].location(), user=authenticated_user,
+    par = PAR(location=files["tmp_test.py"].location(),
+              user=authenticated_user,
               aclrule=ACLRule.writer())
 
     par_file = par.resolve()

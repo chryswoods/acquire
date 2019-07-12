@@ -15,11 +15,14 @@ def _create_drive(metadata, creds):
     return drive
 
 
-def _get_drive(creds, name=None, drive_uid=None, autocreate=True):
+def _get_drive(creds, name=None, drive_uid=None,
+               aclrules=None, autocreate=True):
     """Return the drive called 'name' using the passed credentials. The name
        will default to 'main' if it is not set, and the drive will
        be created automatically is 'autocreate' is True and the
-       drive does not exist
+       drive does not exist. If the drive is created, it would
+       be created with the passed aclrules, if specified
+       (this will be user-owner-only if not specified)
     """
     storage_service = creds.storage_service()
 
@@ -40,6 +43,9 @@ def _get_drive(creds, name=None, drive_uid=None, autocreate=True):
 
     args = {"name": name, "autocreate": autocreate,
             "drive_uid": drive_uid}
+
+    if aclrules is not None:
+        args["aclrules"] = aclrules.to_data()
 
     if creds.is_user():
         from Acquire.Client import Authorisation as _Authorisation
@@ -68,7 +74,9 @@ class Drive:
        their own shorthand names.
 
     """
-    def __init__(self, name=None, drive_uid=None, creds=None, autocreate=True):
+    def __init__(self, name=None, drive_uid=None, creds=None,
+                 aclrules=None, cheque=None, max_size=None,
+                 autocreate=True):
         """Construct a handle to the drive that the passed user
            calls 'name' on the passed storage service. If
            'autocreate' is True and the user is logged in then
@@ -84,7 +92,7 @@ class Drive:
                 raise TypeError("creds must be type StorageCreds")
 
             drive = _get_drive(creds=creds, name=name, drive_uid=drive_uid,
-                               autocreate=autocreate)
+                               aclrules=aclrules, autocreate=autocreate)
 
             from copy import copy as _copy
             self.__dict__ = _copy(drive.__dict__)
@@ -181,12 +189,14 @@ class Drive:
     def upload(self, filename, dir=None, uploaded_name=None, aclrules=None,
                force_par=False):
         """Upload the file at 'filename' to this drive, assuming we have
-           write access to this drive. The local file 'filename' will be
-           uploaded to the drive as the file called 'filename' (just the
+           write access to this drive (or all files in the directory
+           at 'filename' if this is really a directory).
+           The local file/directory 'filename' will be uploaded to the drive
+           as the file/directory called 'filename' (just the
            filename - not the full path - if you want to specify a certain
            directory in the Drive then specify that in 'dir').
            If you want to specify the uploaded name then set this as
-           "uploaded_name". The file will be uploaded to the Drive at
+           "uploaded_name". The file/directory will be uploaded to the Drive at
            'dir/uploaded_name'. If a file with this name exists,
            then this will upload a new version (assuming you have permission).
            Otherwise this will create a new file. You can set the
@@ -204,12 +214,29 @@ class Drive:
         if dir is not None:
             uploaded_name = "%s/%s" % (dir, uploaded_name)
 
-        from Acquire.Client import FileMeta as _FileMeta
-        filemeta = _FileMeta(filename=uploaded_name)
-        filemeta._set_drive_metadata(self._metadata, self._creds)
+        import os as _os
+        if _os.path.isdir(filename):
+            # we need to upload each file in turn and then
+            # return a location to a directory
+            for f in _os.listdir(filename):
+                self.upload(filename="%s/%s" % (filename, f),
+                            uploaded_name="%s/%s" % (uploaded_name, f),
+                            dir=None, aclrules=aclrules,
+                            force_par=force_par)
 
-        return filemeta.open().upload(filename=filename, force_par=force_par,
-                                      aclrules=aclrules)
+            from Acquire.Client import DirMeta as _DirMeta
+            dirmeta = _DirMeta(name=uploaded_name)
+            dirmeta._set_drive_metadata(self._metadata, self._creds)
+
+            return dirmeta
+        else:
+            from Acquire.Client import FileMeta as _FileMeta
+            filemeta = _FileMeta(filename=uploaded_name)
+            filemeta._set_drive_metadata(self._metadata, self._creds)
+
+            return filemeta.open().upload(filename=filename,
+                                          force_par=force_par,
+                                          aclrules=aclrules)
 
     def chunk_download(self, filename, dir=None, download_name=None,
                        version=None):

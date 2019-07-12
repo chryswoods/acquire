@@ -176,6 +176,15 @@ class PAR:
         else:
             return self._location.service_uid()
 
+    def secret(self):
+        """Return the secret used to access this PAR, if this is held
+           in this PAR
+        """
+        if self.is_null():
+            return None
+        else:
+            return self._secret
+
     def resolve(self, secret=None):
         """Resolve this PAR into the authorised Drive or File object, ready
            for download, upload etc.

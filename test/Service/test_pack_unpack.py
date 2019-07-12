@@ -1,7 +1,7 @@
 
 import pytest
 
-from Acquire.Crypto import PrivateKey
+from Acquire.Crypto import PrivateKey, get_private_key
 from Acquire.Service import pack_arguments, unpack_arguments
 from Acquire.Service import pack_return_value, unpack_return_value
 from Acquire.Service import create_return_value
@@ -20,7 +20,7 @@ def _foo():
 
 
 def test_pack_unpack_args_returnvals():
-    privkey = PrivateKey()
+    privkey = get_private_key("testing")
     pubkey = privkey.public_key()
 
     args = {"message": "Hello, this is a message",

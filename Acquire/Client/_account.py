@@ -220,7 +220,7 @@ def create_account(user, account_name, description=None,
     return account
 
 
-def deposit(user, value, description=None,
+def deposit(user, value, description=None, account_name=None,
             accounting_service=None, accounting_url=None):
     """Tell the system to allow the user to deposit 'value' from
        their (real) financial account to the system accounts
@@ -257,6 +257,9 @@ def deposit(user, value, description=None,
     args = {"authorisation": authorisation.to_data(),
             "transaction": transaction.to_data()}
 
+    if account_name:
+        args["account_name"] = str(account_name)
+
     result = service.call_function(function="deposit", args=args)
 
     return result
@@ -278,7 +281,8 @@ class Account:
        interface that allows the account to be used as a receiver
        of value
     """
-    def __init__(self, user=None, account_name=None, accounting_service=None,
+    def __init__(self, user=None, account_uid=None,
+                 account_name=None, accounting_service=None,
                  accounting_url=None):
         """Construct the Account with the passed account_name, which is owned
            by the passed user. The account must already exist on the service,
@@ -287,14 +291,18 @@ class Account:
            Args:
                 user (User, default=None): User to create account for
                 account_name (str, default=None): Name of account
+                account_uid (str, default=None): UID of the account
                 accounting_service (Service, default=None): Service on which to
                 create account
                 accounting_url (str, default=None): Accounting URL
         """
         if user is not None:
-            if account_name is None:
-                self._account_name = "main"
-            else:
+            self._account_uid = None
+            self._account_name = None
+
+            if account_uid is not None:
+                self._account_uid = str(account_uid)
+            elif account_name is not None:
                 self._account_name = str(account_name)
 
             self._user = user
@@ -317,8 +325,12 @@ class Account:
 
             self._accounting_service = accounting_service
 
-            self._account_uid = _get_account_uid(user, account_name,
-                                                 accounting_service)
+            if self._account_uid is None:
+                if self._account_name is None:
+                    self._account_name = "main"
+
+                self._account_uid = _get_account_uid(user, self._account_name,
+                                                     accounting_service)
         else:
             self._account_uid = None
 
@@ -365,10 +377,10 @@ class Account:
            Returns:
                 str: Globally unique UID of this account
         """
-        return "%s@%s" % (self.accounting_service().uid(), self.uid())
+        return "%s@%s" % (self.uid(), self.accounting_service().uid())
 
     def name(self):
-        """Return the name of this account
+        """Return the name of this account if known
 
            Returns:
                 str: Name of this account
@@ -464,7 +476,8 @@ class Account:
                               user=self._user)
 
         args = {"authorisation": auth.to_data(),
-                "account_name": self.name()}
+                "account_name": self.name(),
+                "account_uid": self.uid()}
 
         result = service.call_function(function="get_info", args=args)
 
