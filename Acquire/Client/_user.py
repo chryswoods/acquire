@@ -105,6 +105,11 @@ class User:
             self._identity_url = s["service_url"]
             self._identity_uid = s["service_uid"]
             self._identity_service = s["service"]
+        elif (identity_uid is None) and (identity_url is None):
+            service = _get_default_service()
+            self._identity_url = service.canonical_url()
+            self._identity_uid = service.uid()
+            self._identity_service = service
         else:
             if identity_url:
                 self._identity_url = identity_url
