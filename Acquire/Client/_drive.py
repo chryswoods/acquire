@@ -74,7 +74,8 @@ class Drive:
        their own shorthand names.
 
     """
-    def __init__(self, name=None, drive_uid=None, creds=None,
+    def __init__(self, name=None, drive_uid=None,
+                 user=None, service=None, creds=None,
                  aclrules=None, cheque=None, max_size=None,
                  autocreate=True):
         """Construct a handle to the drive that the passed user
@@ -85,6 +86,14 @@ class Drive:
         """
         self._metadata = None
         self._creds = None
+
+        if user is not None:
+            from Acquire.Client import StorageCreds as _StorageCreds
+            from Acquire.Service import Service as _Service
+
+            service = _Service.resolve(service, fetch=True)["service"]
+
+            creds = _StorageCreds(user=user, service=service)
 
         if creds is not None:
             from Acquire.Client import StorageCreds as _StorageCreds

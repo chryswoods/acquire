@@ -38,7 +38,7 @@ class StorageCreds:
        Drives and Files. The credentials will either be a logged
        in user, or a valid PAR
     """
-    def __init__(self, user=None, storage_service=None,
+    def __init__(self, user=None, service=None, storage_service=None,
                  service_url=None, par=None, secret=None):
         """Create these credentials either from a logged-in
            user and associated storage service (or URL),
@@ -58,6 +58,11 @@ class StorageCreds:
                 raise PermissionError("The user must be logged in!")
 
             self._user = user
+
+            if service is not None:
+                from Acquire.Service import Service as _Service
+                storage_service = _Service.resolve(service,
+                                                   fetch=True)["service"]
 
             if storage_service is None:
                 storage_service = _get_storage_service(service_url)

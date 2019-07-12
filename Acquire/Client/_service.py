@@ -12,8 +12,8 @@ class Service:
        i.e. during construction it will transform into the class
        of the type of service, e.g. Acquire.Identity.IdentityService
     """
-    def __init__(self, service_url=None, service_uid=None,
-                 service_type=None):
+    def __init__(self, service=None, service_url=None,
+                 service_uid=None, service_type=None):
         """Construct the service that is accessed at the remote
            URL 'service_url'. This will fetch and return the
            details of the remote service. This wrapper is a
@@ -22,23 +22,24 @@ class Service:
 
             service = Acquire.Client.Service("https://identity_service_url")
             service.__class__ == Acquire.Identity.IdentityService
-
-            Args:
-                service_url (str): URL of service
-                service_uid (str): UID of service
         """
-        try:
-            from Acquire.Client import Wallet as _Wallet
-            service = _Wallet().get_service(service_url=service_url,
-                                            service_uid=service_uid,
-                                            service_type=service_type)
+        if service is not None:
+            from Acquire.Service import Service as _Service
+            service = _Service.resolve(service, fetch=True)["service"]
+        else:
+            try:
+                from Acquire.Client import Wallet as _Wallet
+                service = _Wallet().get_service(service_url=service_url,
+                                                service_uid=service_uid,
+                                                service_type=service_type)
 
-            from copy import copy as _copy
-            self.__dict__ = _copy(service.__dict__)
-            self.__class__ = service.__class__
-        except Exception as e:
-            self._failed = True
-            raise e
+            except Exception as e:
+                self._failed = True
+                raise e
+
+        from copy import copy as _copy
+        self.__dict__ = _copy(service.__dict__)
+        self.__class__ = service.__class__
 
     def _fail(self):
         """This is called by all functions as this Service

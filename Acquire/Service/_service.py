@@ -127,6 +127,62 @@ class Service:
         self._uid = None
 
     @staticmethod
+    def resolve(service=None, service_uid=None, service_url=None, fetch=True):
+        """Resolve the passed 'service' into it's object. This
+           will return a dictionary of
+
+           {"service": service, "service_url": service_url,
+            "service_uid": service_uid}
+
+           filled with as much information as available. This
+           is used to process the passed class into the right
+           type for a service.
+
+           If 'fetch' is True, then this will fetch the service
+           if only a service_uid or service_url has been passed
+        """
+        s = {"service": None, "service_url": None, "service_uid": None}
+
+        from Acquire.Service import Service as _Service
+
+        if service is not None:
+            if issubclass(service.__class__, _Service):
+                s["service"] = service
+                s["service_url"] = service.canonical_url()
+                s["service_uid"] = service.uid()
+            elif isinstance(service, str):
+                # this could be a url or uid
+                import re as _re
+                if _re.match(r"([a-z0-9]+)-([a-z0-9]+)", service):
+                    s["service_uid"] = service
+                else:
+                    s["service_url"] = service
+            else:
+                raise TypeError("Cannot recognise service '%s'" % service)
+
+        elif (service_uid is not None) or (service_url is not None):
+            s["service_url"] = service_url
+            s["service_uid"] = service_uid
+        else:
+            raise TypeError(
+                "You must supply one of 'service', 'service_url' or "
+                "'service_uid' to resolve a service")
+
+        if fetch and (s["service"] is None):
+            from Acquire.Service import get_trusted_service \
+                as _get_trusted_service
+
+            service = _get_trusted_service(service_uid=s["service_uid"],
+                                           service_url=s["service_url"],
+                                           autofetch=True)
+
+            s["service"] = service
+            s["service_url"] = service.canonical_url()
+            s["service_uid"] = service.uid()
+
+        return s
+
+    @staticmethod
     def get_canonical_url(service_url, service_type=None):
         """Return the canonical URL from the passed service_url.
            If 'service_type' is specified, then this will also

@@ -275,7 +275,7 @@ class Authorisation:
             return ((now - self._auth_datetime).seconds > stale_time)
         else:
             # datetime returns large positive numbers if time is
-            # in the future - expect a little difference if client 
+            # in the future - expect a little difference if client
             # clock is fast. Give up to 10 seconds of leeway
             return (self._auth_datetime - now).seconds > 10
 
