@@ -308,7 +308,11 @@ class Account:
 
                 accounting_service = s["service"]
             elif accounting_service is None:
-                accounting_service = _get_accounting_service(accounting_url)
+                if accounting_url is None:
+                    accounting_service = user.accounting_service()
+                else:
+                    accounting_service = _get_accounting_service(
+                                                        accounting_url)
 
             from Acquire.Accounting import AccountingService \
                 as _AccountingService
@@ -699,3 +703,16 @@ class Account:
         result = service.call_function(function="refund", args=args)
 
         return result["transaction_record"]
+
+    def write_cheque(self, recipient, resource, max_spend,
+                     expiry_date=None):
+        """Write a cheque that will be to the specified
+           recipient (must be a service), that will be used to pay
+           for 'resource', with a value up to a maximum of
+           'max_spend'. You can optionally specify an expiry_date
+           after which this cheque will no longer be valid
+        """
+        from Acquire.Client import Cheque as _Cheque
+        return _Cheque.write(account=self, resource=resource,
+                             recipient=recipient, max_spend=max_spend,
+                             expiry_date=expiry_date)

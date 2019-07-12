@@ -65,7 +65,10 @@ class StorageCreds:
                                                    fetch=True)["service"]
 
             if storage_service is None:
-                storage_service = _get_storage_service(service_url)
+                if service_url is None:
+                    storage_service = user.storage_service()
+                else:
+                    storage_service = _get_storage_service(service_url)
 
             self._storage_service = storage_service
             assert(storage_service is not None)

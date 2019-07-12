@@ -91,7 +91,10 @@ class Drive:
             from Acquire.Client import StorageCreds as _StorageCreds
             from Acquire.Service import Service as _Service
 
-            service = _Service.resolve(service, fetch=True)["service"]
+            if service is None:
+                service = user.storage_service()
+            else:
+                service = _Service.resolve(service, fetch=True)["service"]
 
             creds = _StorageCreds(user=user, service=service)
 
@@ -393,3 +396,12 @@ class Drive:
             f._set_drive_metadata(self._metadata, self._creds)
 
         return files
+
+    def location(self, name=None, version=None):
+        """Return the unique location identifying the passed file
+           (or directory). If no name is specified, this this will
+           return the location of the Drive itself
+        """
+        from Acquire.Client import Location as _Location
+        return _Location(drive_guid=self.metadata().guid(),
+                         filename=name, version=version)

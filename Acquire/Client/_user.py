@@ -32,43 +32,27 @@ def _output(s, end=None):
         print(s, end=end)
 
 
-def _get_identity_url():
-    """Function to discover and return the default identity url"""
-    return "fn.acquire-aaai.com"
+_default_service = None
 
 
-def _get_identity_service(identity_url=None):
-    """Function to return the identity service for the system"""
-    if identity_url is None:
-        identity_url = _get_identity_url()
+def _set_default_service(service):
+    """Set the defalt identity service to 'service'"""
+    global _default_service
 
-    from Acquire.Service import is_running_service as _is_running_service
-    if _is_running_service():
-        from Acquire.Service import get_trusted_service \
-            as _get_trusted_service
-        return _get_trusted_service(service_url=identity_url,
-                                    service_type='identity')
+    from Acquire.Service import Service as _Service
+    _default_service = _Service.resolve(service, fetch=True)["service"]
 
-    from Acquire.Client import LoginError
 
-    try:
-        from Acquire.Client import Wallet as _Wallet
-        wallet = _Wallet()
-        service = wallet.get_service(service_url=identity_url,
-                                     service_type="identity")
-    except Exception as e:
-        from Acquire.Service import exception_to_string
-        raise LoginError("Have not received the identity service info from "
-                         "the identity service at '%s'\n\nCAUSE: %s" %
-                         (identity_url, exception_to_string(e)))
+def _get_default_service():
+    """Return the default identity service"""
+    global _default_service
 
-    if not service.can_identify_users():
-        raise LoginError(
-            "You can only use a valid identity service to log in! "
-            "The service at '%s' is a '%s'" %
-            (identity_url, service.service_type()))
+    if _default_service is None:
+        from Acquire.Service import Service as _Service
+        _default_service = _Service.resolve("fn.acquire-aaai.com/t/identity",
+                                            fetch=True)["service"]
 
-    return service
+    return _default_service
 
 
 def _get_random_sentence():
@@ -168,6 +152,20 @@ class User:
     def is_null(self):
         """Return whether or not this user is null"""
         return self._username is None
+
+    @staticmethod
+    def get_default_service():
+        """Return the default service used to identify users if one
+           is not specified
+        """
+        return _get_default_service()
+
+    @staticmethod
+    def set_default_service(service):
+        """Set the default identity service to use if one is not
+           specified by the user
+        """
+        _set_default_service(service)
 
     def username(self):
         """Return the username of the user"""
@@ -274,7 +272,7 @@ class User:
 
     def _related_service(self, service_type):
         # TODO: Allow the user to specify their preferred services
-        url = self.identity_service()
+        url = self.identity_service_url()
 
         if not url.endswith("identity"):
             raise ValueError("No default accounting service set for this user")
@@ -295,6 +293,11 @@ class User:
     def storage_service(self):
         """Return the preferred storage service for this user"""
         return self._related_service("storage")
+
+    def authorise(self, resource):
+        """Create an authorisation for the specified resource"""
+        from Acquire.Client import Authorisation as _Authorisation
+        return _Authorisation(user=self, resource=resource)
 
     def login_url(self):
         """Return the URL that the user must connect to to authenticate
@@ -376,13 +379,21 @@ class User:
             return result
 
     @staticmethod
-    def register(username, password, identity_url=None):
+    def register(username, password, identity_url=None, service=None):
         """Request to register a new user with the specified
            username one the identity service running
            at 'identity_url', using the supplied 'password'. This will
            return a QR code that you must use immediately to add this
-           user on the identity service to a QR code generator"""
-        service = _get_identity_service(identity_url=identity_url)
+           user on the identity service to a QR code generator
+        """
+        if service is not None:
+            from Acquire.Service import Service as _Service
+            service = _Service.resolve(service, fetch=True)["service"]
+        elif identity_url is not None:
+            from Acquire.Service import Service as _Service
+            service = _Service.resolve(identity_url, fetch=True)["service"]
+        else:
+            service = _get_default_service()
 
         from Acquire.Client import Credentials as _Credentials
 
