@@ -7,7 +7,8 @@ import os as _os
 
 __all__ = ["ObjectStore", "set_object_store_backend",
            "use_testing_object_store_backend",
-           "use_oci_object_store_backend"]
+           "use_oci_object_store_backend",
+           "use_gcp_object_store_backend"]
 
 _objstore_backend = None
 
@@ -29,6 +30,11 @@ def use_testing_object_store_backend(backend):
 def use_oci_object_store_backend():
     from ._oci_objstore import OCI_ObjectStore as _OCI_ObjectStore
     set_object_store_backend(_OCI_ObjectStore)
+
+
+def use_gcp_object_store_backend():
+    from ._gcp_objstore import GCP_ObjectStore as _GCP_ObjectStore
+    set_object_store_backend(_GCP_ObjectStore)
 
 
 class ObjectStore:
