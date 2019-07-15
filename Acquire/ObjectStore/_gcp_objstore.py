@@ -563,6 +563,8 @@ class GCP_ObjectStore:
            Args:
                 bucket (dict): Bucket containing data
                 prefix (str): Prefix for data
+                without_prefix (str): Whether or not to include the prefix
+                                      in the object name
            Returns:
                 list: List of all objects in bucket
 
@@ -570,16 +572,14 @@ class GCP_ObjectStore:
         if prefix is not None:
             prefix = _clean_key(prefix)
 
-        objects = bucket["client"].list_objects(bucket["namespace"],
-                                                bucket["bucket_name"],
-                                                prefix=prefix).data
+        blobs = bucket["bucket"].list_blobs(prefix=prefix)
 
         names = []
 
         if without_prefix:
             prefix_len = len(prefix)
 
-        for obj in objects.objects:
+        for obj in blobs:
             if prefix:
                 if obj.name.startswith(prefix):
                     name = obj.name
@@ -638,7 +638,7 @@ class GCP_ObjectStore:
                 None
         """
 
-        for obj in OCI_ObjectStore.get_all_object_names(bucket):
+        for obj in GCP_ObjectStore.get_all_object_names(bucket):
             bucket["client"].delete_object(bucket["namespace"],
                                            bucket["bucket_name"],
                                            obj)
