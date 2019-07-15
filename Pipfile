@@ -1,0 +1,26 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+pyotp = "*"
+cachetools = "*"
+qrcode = {extras = ["pil"],version = "*"}
+tblib = "*"
+cryptography = "*"
+requests = "*"
+PyYAML = "*"
+fdk = "==0.0.35"
+oci = "*"
+lazy-import = "*"
+pytest = "*"
+backports-datetime-fromisoformat = "*"
+freezegun = "*"
+google-api-python-client = "*"
+google-cloud-storage = "*"
+
+[requires]
+python_version = "3.6"
