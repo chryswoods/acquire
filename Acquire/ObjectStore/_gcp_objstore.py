@@ -673,7 +673,7 @@ class GCP_ObjectStore:
         key = _clean_key(key)
 
         try:
-            blob = bucket["bucket"].blob(key)
+            blob = bucket["bucket"].get_blob(key)
             checksum = blob.md5_hash
             content_length = blob.size
         except:
