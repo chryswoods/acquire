@@ -61,43 +61,28 @@ class GCP_ObjectStore:
     @staticmethod
     def create_bucket(bucket, bucket_name, compartment=None):
         """Create and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. This will raise an
+           'bucket_name'. This will raise an
            ObjectStoreError if this bucket already exists
 
            Args:
             bucket (dict): Bucket to hold data
             bucket_name (str): Name of bucket to create
-            compartment (str): Compartment in which to create bucket
+            compartment (str): None
 
            Returns:
                 dict: New bucket
         """
         new_bucket = _copy.copy(bucket)
-
-        new_bucket["bucket_name"] = str(bucket_name)
-
-        if compartment is not None:
-            new_bucket["compartment_id"] = str(compartment)
-
+        
         try:
-            from oci.object_storage.models import CreateBucketDetails as \
-                _CreateBucketDetails
-        except:
-            raise ImportError(
-                "Cannot import OCI. Please install OCI, e.g. via "
-                "'pip install oci' so that you can connect to the "
-                "Oracle Cloud Infrastructure")
-
-        try:
-            request = _CreateBucketDetails()
-            request.compartment_id = new_bucket["compartment_id"]
+            from google.cloud import storage as _storage
             client = new_bucket["client"]
-            request.name = _sanitise_bucket_name(bucket_name)
-
-            new_bucket["bucket"] = client.create_bucket(
-                                        client.get_namespace().data,
-                                        request).data
+            bucket_name = _sanitise_bucket_name(bucket_name)
+            bucket_obj = _storage.Bucket(client, name=bucket_name)
+            bucket_obj.location = bucket["bucket"].location
+            bucket_obj.storage_class = "REGIONAL"
+            new_bucket["bucket"] = client.create_bucket(bucket_obj)
+            new_bucket["bucket_name"] = str(bucket_name)
         except Exception as e:
             # couldn't create the bucket - likely because it already
             # exists - try to connect to the existing bucket
@@ -112,16 +97,14 @@ class GCP_ObjectStore:
     def get_bucket(bucket, bucket_name, compartment=None,
                    create_if_needed=True):
         """Find and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. If 'create_if_needed' is True
+           'bucket_name'. If 'create_if_needed' is True
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
 
            Args:
                 bucket (dict): Bucket to hold data
                 bucket_name (str): Name of bucket to create
-                compartment (str, default=None): Compartment in which to
-                create bucket
+                compartment (str, default=None): None
                 create_if_needed (bool, default=None): If True, create bucket,
                 else do
                 not
@@ -132,28 +115,13 @@ class GCP_ObjectStore:
         """
         new_bucket = _copy.copy(bucket)
 
-        new_bucket["bucket_name"] = _sanitise_bucket_name(bucket_name)
-
-        if compartment is not None:
-            new_bucket["compartment_id"] = str(compartment)
-
-        try:
-            from oci.object_storage.models import CreateBucketDetails as \
-                _CreateBucketDetails
-        except:
-            raise ImportError(
-                "Cannot import OCI. Please install OCI, e.g. via "
-                "'pip install oci' so that you can connect to the "
-                "Oracle Cloud Infrastructure")
-
+        
         # try to get the existing bucket
         client = new_bucket["client"]
-        namespace = client.get_namespace().data
-        sanitised_name = _sanitise_bucket_name(bucket_name)
-
+        bucket_name = _sanitise_bucket_name(bucket_name)
+        new_bucket["bucket_name"] = bucket_name
         try:
-            existing_bucket = client.get_bucket(
-                                namespace, sanitised_name).data
+            existing_bucket = client.get_bucket(bucket_name)
         except:
             existing_bucket = None
 
@@ -163,17 +131,8 @@ class GCP_ObjectStore:
 
         if create_if_needed:
             try:
-                request = _CreateBucketDetails()
-                request.compartment_id = new_bucket["compartment_id"]
-                request.name = sanitised_name
-
-                client.create_bucket(namespace, request)
-            except:
-                pass
-
-            try:
-                existing_bucket = client.get_bucket(
-                                    namespace, sanitised_name).data
+                new_bucket = GCP_ObjectStore.create_bucket(bucket, bucket_name)
+                existing_bucket = new_bucket["bucket"]
             except:
                 existing_bucket = None
 
