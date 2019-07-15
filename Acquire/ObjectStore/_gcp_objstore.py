@@ -7,7 +7,7 @@ import os as _os
 import copy as _copy
 import uuid as _uuid
 
-__all__ = ["OCI_ObjectStore"]
+__all__ = ["GCP_ObjectStore"]
 
 
 def _sanitise_bucket_name(bucket_name):
@@ -53,76 +53,9 @@ def _clean_key(key):
     return key
 
 
-def _get_object_url_for_region(region, uri):
-    """Internal function used to get the full URL to the passed PAR URI
-       for the specified region. This has the format;
-
-       https://objectstorage.{region}.oraclecloud.com/{uri}
-
-       Args:
-            region (str): Region for cloud service
-            uri (str): URI for cloud service
-       Returns:
-            str: Full URL for use with cloud service
-    """
-    server = "https://objectstorage.%s.oraclecloud.com" % region
-
-    while uri.startswith("/"):
-        uri = uri[1:]
-
-    return "%s/%s" % (server, uri)
-
-
-def _get_driver_details_from_par(par):
-    """Internal function used to get the OCI driver details from the
-       passed OSPar (pre-authenticated request)
-
-       Args:
-            par (OSPar): PAR holding details
-        Args:
-            dict: Dictionary holding OCI driver details
-    """
-    from Acquire.ObjectStore import datetime_to_string \
-        as _datetime_to_string
-
-    import copy as _copy
-    details = _copy.copy(par._driver_details)
-
-    if details is None:
-        return {}
-    else:
-        # fix any non-string/number objects
-        details["created_datetime"] = _datetime_to_string(
-                                        details["created_datetime"])
-
-    return details
-
-
-def _get_driver_details_from_data(data):
-    """Internal function used to get the OCI driver details from the
-       passed data
-
-       Args:
-            data (dict): Dict holding OCI driver details
-       Returns:
-            dict: Dict holding OCI driver details
-    """
-    from Acquire.ObjectStore import string_to_datetime \
-        as _string_to_datetime
-
-    import copy as _copy
-    details = _copy.copy(data)
-
-    if "created_datetime" in details:
-        details["created_datetime"] = _string_to_datetime(
-                                            details["created_datetime"])
-
-    return details
-
-
-class OCI_ObjectStore:
-    """This is the backend that abstracts using the Oracle Cloud
-       Infrastructure object store
+class GCP_ObjectStore:
+    """This is the backend that abstracts using the Google Cloud Platform
+       object store
     """
 
     @staticmethod
@@ -275,14 +208,16 @@ class OCI_ObjectStore:
                 bool: True if bucket empty, else False
 
         """
-        objects = bucket["client"].list_objects(bucket["namespace"],
-                                                bucket["bucket_name"],
-                                                limit=1).data
+        it = bucket["bucket"].list_blobs(max_results=1)
 
-        for _obj in objects.objects:
+        num_objs = 0
+        for _obj in it:
+            num_objs = num_objs + 1
+
+        if num_objs == 0:
+            return True
+        else:
             return False
-
-        return True
 
     @staticmethod
     def delete_bucket(bucket, force=False):
@@ -300,15 +235,15 @@ class OCI_ObjectStore:
            Returns:
                 None
         """
-        is_empty = OCI_ObjectStore.is_bucket_empty(bucket=bucket)
+        is_empty = GCP_ObjectStore.is_bucket_empty(bucket=bucket)
 
         if not is_empty:
             if force:
-                OCI_ObjectStore.delete_all_objects(bucket=bucket)
+                GCP_ObjectStore.delete_all_objects(bucket=bucket)
             else:
                 raise PermissionError(
                     "You cannot delete the bucket %s as it is not empty" %
-                    OCI_ObjectStore.get_bucket_name(bucket=bucket))
+                    GCP_ObjectStore.get_bucket_name(bucket=bucket))
 
         # the bucket is empty - delete it
         client = bucket["client"]
@@ -517,7 +452,7 @@ class OCI_ObjectStore:
         bucket = _get_service_account_bucket()
 
         # now get the bucket accessed by the OSPar...
-        bucket = OCI_ObjectStore.get_bucket(bucket=bucket,
+        bucket = GCP_ObjectStore.get_bucket(bucket=bucket,
                                             bucket_name=par_bucket)
 
         client = bucket["client"]
@@ -557,16 +492,15 @@ class OCI_ObjectStore:
 
         key = _clean_key(key)
 
+        blob = bucket["bucket"].blob(key)
+
         try:
-            response = bucket["client"].get_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   key)
+            response = blob.download_as_string()
             is_chunked = False
         except:
             try:
-                response = bucket["client"].get_object(bucket["namespace"],
-                                                       bucket["bucket_name"],
-                                                       "%s/1" % key)
+                blob = bucket["bucket"].blob("%s/1" % key)
+                response = blob.download_as_string()
                 is_chunked = True
             except:
                 is_chunked = False
@@ -577,14 +511,7 @@ class OCI_ObjectStore:
                 from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError("No data at key '%s'" % key)
 
-        data = None
-
-        for chunk in response.data.raw.stream(1024 * 1024,
-                                              decode_content=False):
-            if not data:
-                data = chunk
-            else:
-                data += chunk
+        data = response
 
         if is_chunked:
             # keep going through to find more chunks
@@ -594,20 +521,16 @@ class OCI_ObjectStore:
                 next_chunk += 1
 
                 try:
-                    response = bucket["client"].get_object(
-                                        bucket["namespace"],
-                                        bucket["bucket_name"],
-                                        "%s/%d" % (key, next_chunk))
+                    blob = bucket["bucket"].blob("%s/%s" % (key, next_chunk))
+                    response = blob.download_as_string()
                 except:
                     response = None
                     break
 
-                for chunk in response.data.raw.stream(1024 * 1024,
-                                                      decode_content=False):
-                    if not data:
-                        data = chunk
-                    else:
-                        data += chunk
+                if not data:
+                    data = response
+                else:
+                    data += response
 
         return data
 
@@ -624,10 +547,10 @@ class OCI_ObjectStore:
                 bytes: Binary data
         """
         # ideally the get and delete should be atomic... would like this API
-        data = OCI_ObjectStore.get_object(bucket, key)
+        data = GCP_ObjectStore.get_object(bucket, key)
 
         try:
-            OCI_ObjectStore.delete_object(bucket, key)
+            GCP_ObjectStore.delete_object(bucket, key)
         except:
             pass
 
@@ -695,12 +618,13 @@ class OCI_ObjectStore:
         if data is None:
             data = b'0'
 
-        f = _io.BytesIO(data)
+        if isinstance(data, str):
+            data = data.encode("utf-8")
 
         key = _clean_key(key)
-        bucket["client"].put_object(bucket["namespace"],
-                                    bucket["bucket_name"],
-                                    key, f)
+
+        blob = bucket["bucket"].blob(key)
+        blob.upload_from_string(data)
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
@@ -730,7 +654,7 @@ class OCI_ObjectStore:
         """
         try:
             bucket["bucket"].blob(key).delete()
-            
+
         except:
             pass
 
