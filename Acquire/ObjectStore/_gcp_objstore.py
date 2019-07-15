@@ -713,11 +713,10 @@ class OCI_ObjectStore:
             Returns:
                 None
         """
+        blobs = bucket["bucket"].list_blobs()
 
-        for obj in OCI_ObjectStore.get_all_object_names(bucket):
-            bucket["client"].delete_object(bucket["namespace"],
-                                           bucket["bucket_name"],
-                                           obj)
+        for blob in blobs:
+            blob.delete()
 
     @staticmethod
     def delete_object(bucket, key):
@@ -730,10 +729,8 @@ class OCI_ObjectStore:
                 None
         """
         try:
-            key = _clean_key(key)
-            bucket["client"].delete_object(bucket["namespace"],
-                                           bucket["bucket_name"],
-                                           key)
+            bucket["bucket"].blob(key).delete()
+            
         except:
             pass
 
@@ -752,16 +749,12 @@ class OCI_ObjectStore:
         key = _clean_key(key)
 
         try:
-            response = bucket["client"].get_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   key)
+            blob = bucket["bucket"].blob(key)
+            checksum = blob.md5_hash
+            content_length = blob.size
         except:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError("No data at key '%s'" % key)
-
-        content_length = response.headers["Content-Length"]
-        checksum = response.headers["Content-MD5"]
-
         # the checksum is a base64 encoded Content-MD5 header
         # described as standard part of HTTP RFC 2616. Need to
         # convert this back to a hexdigest
