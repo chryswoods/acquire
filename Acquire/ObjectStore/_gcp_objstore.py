@@ -235,15 +235,15 @@ class GCP_ObjectStore:
            Returns:
                 None
         """
-        is_empty = OCI_ObjectStore.is_bucket_empty(bucket=bucket)
+        is_empty = GCP_ObjectStore.is_bucket_empty(bucket=bucket)
 
         if not is_empty:
             if force:
-                OCI_ObjectStore.delete_all_objects(bucket=bucket)
+                GCP_ObjectStore.delete_all_objects(bucket=bucket)
             else:
                 raise PermissionError(
                     "You cannot delete the bucket %s as it is not empty" %
-                    OCI_ObjectStore.get_bucket_name(bucket=bucket))
+                    GCP_ObjectStore.get_bucket_name(bucket=bucket))
 
         # the bucket is empty - delete it
         client = bucket["client"]
@@ -452,7 +452,7 @@ class GCP_ObjectStore:
         bucket = _get_service_account_bucket()
 
         # now get the bucket accessed by the OSPar...
-        bucket = OCI_ObjectStore.get_bucket(bucket=bucket,
+        bucket = GCP_ObjectStore.get_bucket(bucket=bucket,
                                             bucket_name=par_bucket)
 
         client = bucket["client"]
@@ -637,11 +637,10 @@ class GCP_ObjectStore:
             Returns:
                 None
         """
+        blobs = bucket["bucket"].list_blobs()
 
-        for obj in GCP_ObjectStore.get_all_object_names(bucket):
-            bucket["client"].delete_object(bucket["namespace"],
-                                           bucket["bucket_name"],
-                                           obj)
+        for blob in blobs:
+            blob.delete()
 
     @staticmethod
     def delete_object(bucket, key):
@@ -654,10 +653,8 @@ class GCP_ObjectStore:
                 None
         """
         try:
-            key = _clean_key(key)
-            bucket["client"].delete_object(bucket["namespace"],
-                                           bucket["bucket_name"],
-                                           key)
+            bucket["bucket"].blob(key).delete()
+
         except:
             pass
 
@@ -676,16 +673,12 @@ class GCP_ObjectStore:
         key = _clean_key(key)
 
         try:
-            response = bucket["client"].get_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   key)
+            blob = bucket["bucket"].blob(key)
+            checksum = blob.md5_hash
+            content_length = blob.size
         except:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError("No data at key '%s'" % key)
-
-        content_length = response.headers["Content-Length"]
-        checksum = response.headers["Content-MD5"]
-
         # the checksum is a base64 encoded Content-MD5 header
         # described as standard part of HTTP RFC 2616. Need to
         # convert this back to a hexdigest
