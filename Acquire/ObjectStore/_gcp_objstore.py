@@ -235,15 +235,15 @@ class GCP_ObjectStore:
            Returns:
                 None
         """
-        is_empty = OCI_ObjectStore.is_bucket_empty(bucket=bucket)
+        is_empty = GCP_ObjectStore.is_bucket_empty(bucket=bucket)
 
         if not is_empty:
             if force:
-                OCI_ObjectStore.delete_all_objects(bucket=bucket)
+                GCP_ObjectStore.delete_all_objects(bucket=bucket)
             else:
                 raise PermissionError(
                     "You cannot delete the bucket %s as it is not empty" %
-                    OCI_ObjectStore.get_bucket_name(bucket=bucket))
+                    GCP_ObjectStore.get_bucket_name(bucket=bucket))
 
         # the bucket is empty - delete it
         client = bucket["client"]
@@ -452,7 +452,7 @@ class GCP_ObjectStore:
         bucket = _get_service_account_bucket()
 
         # now get the bucket accessed by the OSPar...
-        bucket = OCI_ObjectStore.get_bucket(bucket=bucket,
+        bucket = GCP_ObjectStore.get_bucket(bucket=bucket,
                                             bucket_name=par_bucket)
 
         client = bucket["client"]
@@ -638,7 +638,7 @@ class GCP_ObjectStore:
                 None
         """
 
-        for obj in OCI_ObjectStore.get_all_object_names(bucket):
+        for obj in GCP_ObjectStore.get_all_object_names(bucket):
             bucket["client"].delete_object(bucket["namespace"],
                                            bucket["bucket_name"],
                                            obj)
