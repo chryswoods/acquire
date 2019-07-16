@@ -68,7 +68,7 @@ class GCPAccount:
            created bucket. If the bucket already exists this will return
            a handle to the existing bucket
         """
-        GCPAccount.connect_to_bucket(login_details, bucket_name)
+        return GCPAccount.connect_to_bucket(login_details, bucket_name)
 
     @staticmethod
     def connect_to_bucket(login_details, bucket_name):
