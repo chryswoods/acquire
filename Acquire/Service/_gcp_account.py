@@ -101,5 +101,6 @@ class GCPAccount:
         bucket["credentials"] = creds
         bucket["bucket"] = b
         bucket["bucket_name"] = bucket_name
+        bucket["unique_suffix"] = login["unique_suffix"]
 
         return bucket

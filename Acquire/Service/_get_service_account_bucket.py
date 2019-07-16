@@ -161,7 +161,7 @@ def get_service_account_bucket(testing_dir=None):
             _os.environ[key] = config[key]
 
     try:
-        cloud_backend = config["cloud_backend"]
+        cloud_backend = config["CLOUD_BACKEND"]
     except:
         cloud_backend = "oci"
 
