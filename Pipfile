@@ -4,7 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-
+#pytest may need to be in dev-packages but keep it stay in general section for now
 [packages]
 pyotp = "*"
 cachetools = "*"
