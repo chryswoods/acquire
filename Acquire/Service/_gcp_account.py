@@ -95,7 +95,13 @@ class GCPAccount:
         client = _storage.Client(credentials=creds,
                                  project=login["project"])
 
-        b = client.get_bucket(bucket_name)
+        try:
+            b = client.get_bucket(bucket_name)
+        except Exception as e:
+            from Acquire.Service import ServiceAccountError
+            raise ServiceAccountError(
+                "Cannot connect to GCP - invalid credentials for bucket %s" %
+                bucket_name, e)
 
         bucket["client"] = client
         bucket["credentials"] = creds
