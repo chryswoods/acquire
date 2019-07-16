@@ -5,7 +5,6 @@ import uuid as _uuid
 import json as _json
 import os as _os
 import copy as _copy
-import uuid as _uuid
 
 __all__ = ["GCP_ObjectStore"]
 
@@ -52,6 +51,50 @@ def _clean_key(key):
 
     return key
 
+def _get_driver_details_from_par(par):
+    """Internal function used to get the GCP driver details from the
+       passed OSPar (pre-authenticated request)
+
+       Args:
+            par (OSPar): PAR holding details
+        Args:
+            dict: Dictionary holding GCP driver details
+    """
+    from Acquire.ObjectStore import datetime_to_string \
+        as _datetime_to_string
+
+    import copy as _copy
+    details = _copy.copy(par._driver_details)
+
+    if details is None:
+        return {}
+    else:
+        # fix any non-string/number objects
+        details["created_datetime"] = _datetime_to_string(
+                                        details["created_datetime"])
+
+    return details
+
+def _get_driver_details_from_data(data):
+    """Internal function used to get the GCP driver details from the
+       passed data
+
+       Args:
+            data (dict): Dict holding GCP driver details
+       Returns:
+            dict: Dict holding GCP driver details
+    """
+    from Acquire.ObjectStore import string_to_datetime \
+        as _string_to_datetime
+
+    import copy as _copy
+    details = _copy.copy(data)
+
+    if "created_datetime" in details:
+        details["created_datetime"] = _string_to_datetime(
+                                            details["created_datetime"])
+
+    return details    
 
 class GCP_ObjectStore:
     """This is the backend that abstracts using the Google Cloud Platform
@@ -258,108 +301,53 @@ class GCP_ObjectStore:
                 "You must supply a valid PublicKey to encrypt the "
                 "returned OSPar")
 
-        # get the UTC datetime when this OSPar should expire
-        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
-        expires_datetime = _get_datetime_now() + \
-            _datetime.timedelta(seconds=duration)
-
         is_bucket = (key is None)
 
-        # Limitation of OCI - cannot have a bucket OSPar with
-        # read permissions!
-        if is_bucket and readable:
-            from Acquire.Client import PARError
-            raise PARError(
-                "You cannot create a Bucket OSPar that has read permissions "
-                "due to a limitation in the underlying platform")
-
-        try:
-            from oci.object_storage.models import \
-                CreatePreauthenticatedRequestDetails as \
-                _CreatePreauthenticatedRequestDetails
-        except:
-            raise ImportError(
-                "Cannot import OCI. Please install OCI, e.g. via "
-                "'pip install oci' so that you can connect to the "
-                "Oracle Cloud Infrastructure")
-
-        oci_par = None
-
-        request = _CreatePreauthenticatedRequestDetails()
-
-        if is_bucket:
-            request.access_type = "AnyObjectWrite"
-        elif readable and writeable:
-            request.access_type = "ObjectReadWrite"
+        if writeable:
+            method = "PUT"
         elif readable:
-            request.access_type = "ObjectRead"
-        elif writeable:
-            request.access_type = "ObjectWrite"
+            method = "GET"
         else:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unsupported permissions model for OSPar!")
 
-        request.name = str(_uuid.uuid4())
-
-        if not is_bucket:
-            request.object_name = _clean_key(key)
-
-        request.time_expires = expires_datetime
-
-        client = bucket["client"]
-
         try:
-            response = client.create_preauthenticated_request(
-                                        client.get_namespace().data,
-                                        bucket["bucket_name"],
-                                        request)
+            # get the UTC datetime when this OSPar should expire
+            from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+            created_datetime = _get_datetime_now()
+            expires_datetime = _get_datetime_now() + _datetime.timedelta(seconds=duration)
+            bucket_obj = bucket["bucket"]
+            if is_bucket:
+                url = bucket_obj.generate_signed_url(version='v4', expiration=expires_datetime, method=method)
+            else:
+                blob = bucket_obj.blob(key)
+                url = blob.generate_signed_url(version='v4', expiration=expires_datetime, method=method)
 
         except Exception as e:
             # couldn't create the preauthenticated request
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unable to create the OSPar '%s': %s" %
-                (str(request), str(e)))
+                (key, str(e)))
 
-        if response.status != 200:
+        if url is None:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
-                "Unable to create the OSPar '%s': Status %s, Error %s" %
-                (str(request), response.status, str(response.data)))
-
-        oci_par = response.data
-
-        if oci_par is None:
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError(
-                "Unable to create the preauthenticated request!")
-
-        created_datetime = oci_par.time_created.replace(
-                                tzinfo=_datetime.timezone.utc)
-
-        expires_datetime = oci_par.time_expires.replace(
-                                tzinfo=_datetime.timezone.utc)
-
-        # the URI returned by OCI does not include the server. We need
-        # to get the server based on the region of this bucket
-        url = _get_object_url_for_region(bucket["region"],
-                                         oci_par.access_uri)
+                "Unable to create the signed URL!")
 
         # get the checksum for this URL - used to validate the close
         # request
         from Acquire.ObjectStore import OSPar as _OSPar
         from Acquire.ObjectStore import OSParRegistry as _OSParRegistry
         url_checksum = _OSPar.checksum(url)
-
-        driver_details = {"driver": "oci",
-                          "bucket": bucket["bucket_name"],
-                          "created_datetime": created_datetime,
-                          "par_id": oci_par.id,
-                          "par_name": oci_par.name}
+        bucket_name = bucket["bucket_name"]
+        driver_details = {"driver": "gcp",
+                          "bucket": bucket_name,
+                          "created_datetime": created_datetime}
 
         par = _OSPar(url=url, encrypt_key=encrypt_key,
-                     key=oci_par.object_name,
+                     key=key,
                      expires_datetime=expires_datetime,
                      is_readable=readable,
                      is_writeable=writeable,
@@ -397,41 +385,9 @@ class GCP_ObjectStore:
         if not isinstance(par, _OSPar):
             raise TypeError("The OSPar must be of type OSPar")
 
-        if par.driver() != "oci":
+        if par.driver() != "gcp":
             raise ValueError("Cannot delete a OSPar that was not created "
-                             "by the OCI object store")
-
-        # delete the PAR
-        from Acquire.Service import get_service_account_bucket \
-            as _get_service_account_bucket
-
-        par_bucket = par.driver_details()["bucket"]
-        par_id = par.driver_details()["par_id"]
-
-        bucket = _get_service_account_bucket()
-
-        # now get the bucket accessed by the OSPar...
-        bucket = GCP_ObjectStore.get_bucket(bucket=bucket,
-                                            bucket_name=par_bucket)
-
-        client = bucket["client"]
-
-        try:
-            response = client.delete_preauthenticated_request(
-                                            client.get_namespace().data,
-                                            bucket["bucket_name"],
-                                            par_id)
-        except Exception as e:
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError(
-                "Unable to delete a OSPar '%s' : Error %s" %
-                (par_id, str(e)))
-
-        if response.status not in [200, 204]:
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError(
-                "Unable to delete a OSPar '%s' : Status %s, Error %s" %
-                (par_id, response.status, str(response.data)))
+                             "by the GCP object store")
 
         # close the OSPar - this will trigger any close_function(s)
         _OSParRegistry.close(par=par)
