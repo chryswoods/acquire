@@ -248,24 +248,15 @@ class GCP_ObjectStore:
                     GCP_ObjectStore.get_bucket_name(bucket=bucket))
 
         # the bucket is empty - delete it
-        client = bucket["client"]
-        namespace = client.get_namespace().data
-        bucket_name = bucket["bucket_name"]
-
         try:
-            response = client.delete_bucket(namespace, bucket_name)
+            bucket['bucket'].delete()
         except Exception as e:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unable to delete bucket '%s'. Please check the "
-                "compartment and access permissions: Error %s" %
-                (bucket_name, str(e)))
+                "access permissions: Error %s" %
+                (bucket['bucket_name'], str(e)))
 
-        if response.status not in [200, 204]:
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError(
-                "Unable to delete a bucket '%s' : Status %s, Error %s" %
-                (bucket_name, response.status, str(response.data)))
 
     @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
