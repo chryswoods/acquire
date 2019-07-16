@@ -78,10 +78,15 @@ else:
 # package all of the config data into a dictionary
 data = {}
 
-data["service_type"] = service_type
-data["bucket"] = bucket
-data["key"] = key
-data["passphrase"] = None
+login = {}
+
+login["service_type"] = service_type
+login["bucket"] = bucket
+login["key"] = key
+login["passphrase"] = None
+
+data["LOGIN"] = login
+data["BUCKET"] = bucket
 
 for key in provider_config.keys():
     data[key] = provider_config[key]
@@ -94,7 +99,7 @@ secret_config = bytes_to_string(secret_config)
 
 passphrase = PrivateKey.random_passphrase()
 
-secret_key = config_key.to_data(passphrase=passphrase)
+secret_key = json.dumps(config_key.to_data(passphrase=passphrase))
 
 with open("../secret_key", "w") as FILE:
     FILE.write("%s\n" % passphrase)
