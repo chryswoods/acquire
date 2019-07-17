@@ -127,6 +127,62 @@ class Service:
         self._uid = None
 
     @staticmethod
+    def resolve(service=None, service_uid=None, service_url=None, fetch=True):
+        """Resolve the passed 'service' into it's object. This
+           will return a dictionary of
+
+           {"service": service, "service_url": service_url,
+            "service_uid": service_uid}
+
+           filled with as much information as available. This
+           is used to process the passed class into the right
+           type for a service.
+
+           If 'fetch' is True, then this will fetch the service
+           if only a service_uid or service_url has been passed
+        """
+        s = {"service": None, "service_url": None, "service_uid": None}
+
+        from Acquire.Service import Service as _Service
+
+        if service is not None:
+            if issubclass(service.__class__, _Service):
+                s["service"] = service
+                s["service_url"] = service.canonical_url()
+                s["service_uid"] = service.uid()
+            elif isinstance(service, str):
+                # this could be a url or uid
+                import re as _re
+                if _re.match(r"([a-z0-9]+)-([a-z0-9]+)", service):
+                    s["service_uid"] = service
+                else:
+                    s["service_url"] = service
+            else:
+                raise TypeError("Cannot recognise service '%s'" % service)
+
+        elif (service_uid is not None) or (service_url is not None):
+            s["service_url"] = service_url
+            s["service_uid"] = service_uid
+        else:
+            raise TypeError(
+                "You must supply one of 'service', 'service_url' or "
+                "'service_uid' to resolve a service")
+
+        if fetch and (s["service"] is None):
+            from Acquire.Service import get_trusted_service \
+                as _get_trusted_service
+
+            service = _get_trusted_service(service_uid=s["service_uid"],
+                                           service_url=s["service_url"],
+                                           autofetch=True)
+
+            s["service"] = service
+            s["service_url"] = service.canonical_url()
+            s["service_uid"] = service.uid()
+
+        return s
+
+    @staticmethod
     def get_canonical_url(service_url, service_type=None):
         """Return the canonical URL from the passed service_url.
            If 'service_type' is specified, then this will also
@@ -175,7 +231,7 @@ class Service:
            is performed automatically when the Registry confirms
            registration
         """
-        #if service_type not in ["identity", "access", "compute",
+        # if service_type not in ["identity", "access", "compute",
         #                        "registry", "accounting", "storage"]:
         #    raise ServiceError("Services of type '%s' are not allowed!" %
         #                       service_type)
@@ -213,8 +269,8 @@ class Service:
 
         service._uid = "STAGE1 %s" % _PrivateKey.random_passphrase()
 
-        service._privkey = _PrivateKey()
-        service._privcert = _PrivateKey()
+        service._privkey = _PrivateKey(name="%s_privkey" % service_url)
+        service._privcert = _PrivateKey(name="%s_privcert" % service_url)
 
         service._pubkey = service._privkey.public_key()
         service._pubcert = service._privcert.public_key()
@@ -229,7 +285,7 @@ class Service:
         service._last_key_update = _get_datetime_now()
         service._key_update_interval = 3600 * 24 * 7  # update keys weekly
 
-        service._skeleton_key = _PrivateKey()
+        service._skeleton_key = _PrivateKey(name="%s_skelkey" % service_url)
         service._public_skeleton_key = service._skeleton_key.public_key()
 
         service._service_user_name = None
@@ -448,8 +504,10 @@ class Service:
 
             # now generate a new key and certificate
             from Acquire.Crypto import PrivateKey as _PrivateKey
-            self._privkey = _PrivateKey()
-            self._privcert = _PrivateKey()
+            self._privkey = _PrivateKey(name="%s_refresh_privkey" %
+                                        self._canonical_url)
+            self._privcert = _PrivateKey(name="%s_refresh_privcert" %
+                                         self._canonical_url)
             self._pubkey = self._privkey.public_key()
             self._pubcert = self._privcert.public_key()
 
@@ -644,6 +702,32 @@ class Service:
         """
         self.assert_unlocked()
         return _login_service_user(self.uid())
+
+    def service_user_account(self, accounting_service_url=None,
+                             accounting_service=None):
+        """Return the actual financial account associated with
+           this service on the passed accounting service
+        """
+        if self.is_null():
+            return None
+
+        from Acquire.Service import get_service_user_account_uid as \
+            _get_service_user_account_uid
+
+        if accounting_service is None:
+            if accounting_service_url is None:
+                raise ValueError(
+                    "You must supply either an accounting service or "
+                    "the URL of a valid accounting service!")
+
+            accounting_service = self.get_trusted_service(
+                                        accounting_service_url)
+
+        if not accounting_service.is_accounting_service():
+            raise TypeError(
+                "The service '%s' is not an accounting service!"
+                % str(accounting_service))
+
 
     def service_user_account_uid(self, accounting_service_url=None,
                                  accounting_service=None):

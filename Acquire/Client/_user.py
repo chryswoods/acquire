@@ -12,6 +12,18 @@ class _LoginStatus(_Enum):
     ERROR = 4
 
 
+def _rreplace(s, old, new, occurrence=1):
+    """Simple function to replace the last 'occurrence' values of 'old'
+       with 'new' in the string 's'
+
+       Thanks to https://stackoverflow.com/questions/2556108/
+                       rreplace-how-to-replace-the-last-occurrence-
+                       of-an-expression-in-a-string
+    """
+    s = s.rsplit(old, occurrence)
+    return new.join(s)
+
+
 def _output(s, end=None):
     """Simple output function that can be removed during testing"""
     if end is None:
@@ -20,43 +32,27 @@ def _output(s, end=None):
         print(s, end=end)
 
 
-def _get_identity_url():
-    """Function to discover and return the default identity url"""
-    return "fn.acquire-aaai.com"
+_default_service = None
 
 
-def _get_identity_service(identity_url=None):
-    """Function to return the identity service for the system"""
-    if identity_url is None:
-        identity_url = _get_identity_url()
+def _set_default_service(service):
+    """Set the defalt identity service to 'service'"""
+    global _default_service
 
-    from Acquire.Service import is_running_service as _is_running_service
-    if _is_running_service():
-        from Acquire.Service import get_trusted_service \
-            as _get_trusted_service
-        return _get_trusted_service(service_url=identity_url,
-                                    service_type='identity')
+    from Acquire.Service import Service as _Service
+    _default_service = _Service.resolve(service, fetch=True)["service"]
 
-    from Acquire.Client import LoginError
 
-    try:
-        from Acquire.Client import Wallet as _Wallet
-        wallet = _Wallet()
-        service = wallet.get_service(service_url=identity_url,
-                                     service_type="identity")
-    except Exception as e:
-        from Acquire.Service import exception_to_string
-        raise LoginError("Have not received the identity service info from "
-                         "the identity service at '%s'\n\nCAUSE: %s" %
-                         (identity_url, exception_to_string(e)))
+def _get_default_service():
+    """Return the default identity service"""
+    global _default_service
 
-    if not service.can_identify_users():
-        raise LoginError(
-            "You can only use a valid identity service to log in! "
-            "The service at '%s' is a '%s'" %
-            (identity_url, service.service_type()))
+    if _default_service is None:
+        from Acquire.Service import Service as _Service
+        _default_service = _Service.resolve("fn.acquire-aaai.com/t/identity",
+                                            fetch=True)["service"]
 
-    return service
+    return _default_service
 
 
 def _get_random_sentence():
@@ -84,7 +80,7 @@ class User:
        This represents a single client login, and is the
        user-facing part of Acquire
     """
-    def __init__(self, username=None,
+    def __init__(self, username=None, service=None,
                  identity_url=None, identity_uid=None,
                  scope=None, permissions=None, auto_logout=True):
         """Construct the user with specified 'username', who will
@@ -102,13 +98,26 @@ class User:
         self._scope = scope
         self._permissions = permissions
 
-        if identity_url:
-            self._identity_url = identity_url
+        if service is not None:
+            from Acquire.Service import Service as _Service
+            s = _Service.resolve(service, fetch=False)
 
-        if identity_uid:
-            self._identity_uid = identity_uid
+            self._identity_url = s["service_url"]
+            self._identity_uid = s["service_uid"]
+            self._identity_service = s["service"]
+        elif (identity_uid is None) and (identity_url is None):
+            service = _get_default_service()
+            self._identity_url = service.canonical_url()
+            self._identity_uid = service.uid()
+            self._identity_service = service
         else:
-            self._identity_uid = None
+            if identity_url:
+                self._identity_url = identity_url
+
+            if identity_uid:
+                self._identity_uid = identity_uid
+            else:
+                self._identity_uid = None
 
         self._user_uid = None
 
@@ -148,6 +157,20 @@ class User:
     def is_null(self):
         """Return whether or not this user is null"""
         return self._username is None
+
+    @staticmethod
+    def get_default_service():
+        """Return the default service used to identify users if one
+           is not specified
+        """
+        return _get_default_service()
+
+    @staticmethod
+    def set_default_service(service):
+        """Set the default identity service to use if one is not
+           specified by the user
+        """
+        _set_default_service(service)
 
     def username(self):
         """Return the username of the user"""
@@ -215,29 +238,17 @@ class User:
         """Return the identity service info object for the identity
            service used to validate the identity of this user
         """
-        if self._identity_service:
+        if self._identity_service is not None:
             return self._identity_service
 
-        identity_service = _get_identity_service(
-                                identity_url=self.identity_service_url())
+        from Acquire.Service import Service as _Service
+        service = _Service.resolve(service_url=self._identity_url,
+                                   service_uid=self._identity_uid,
+                                   fetch=True)["service"]
 
-        # if the user supplied the UID then validate this is correct
-        # pylint: disable=assignment-from-none
-        if self._identity_uid:
-            if identity_service.uid() != self._identity_uid:
-                from Acquire.Client import LoginError
-                raise LoginError(
-                    "The UID of the identity service at '%s', which is "
-                    "%s, does not match that supplied by the user, '%s'. "
-                    "You should double-check that the UID is correct, or "
-                    "that you have supplied the correct identity_url" %
-                    (self.identity_service_url(), identity_service.uid(),
-                     self._identity_uid))
-        else:
-            self._identity_uid = identity_service.uid()
-        # pylint: enable=assignment-from-none
-
-        self._identity_service = identity_service
+        self._identity_service = service
+        self._identity_url = service.canonical_url()
+        self._identity_uid = service.uid()
 
         return self._identity_service
 
@@ -249,20 +260,49 @@ class User:
         if self._identity_uid is not None:
             return self._identity_uid
         else:
-            return self._identity_service.uid()
+            return self.identity_service().uid()
 
     def identity_service_url(self):
         """Return the URL to the identity service. This is the full URL
            to the service, minus the actual function to be called, e.g.
            https://function_service.com/t/identity
         """
-        self._check_for_error()
-
         try:
-            return self._identity_url
+            if self._identity_url is not None:
+                return self._identity_url
         except:
-            # return the default URL - this should be discovered...
-            return _get_identity_url()
+            pass
+
+        return self.identity_service().canonical_url()
+
+    def _related_service(self, service_type):
+        # TODO: Allow the user to specify their preferred services
+        url = self.identity_service_url()
+
+        if not url.endswith("identity"):
+            raise ValueError("No default accounting service set for this user")
+
+        from Acquire.Service import Service as _Service
+        url = _rreplace(url, "identity", service_type)
+
+        return _Service.resolve(url)["service"]
+
+    def accounting_service(self):
+        """Return the preferred accounting service for this user"""
+        return self._related_service("accounting")
+
+    def access_service(self):
+        """Return the preferred access service for this user"""
+        return self._related_service("access")
+
+    def storage_service(self):
+        """Return the preferred storage service for this user"""
+        return self._related_service("storage")
+
+    def authorise(self, resource):
+        """Create an authorisation for the specified resource"""
+        from Acquire.Client import Authorisation as _Authorisation
+        return _Authorisation(user=self, resource=resource)
 
     def login_url(self):
         """Return the URL that the user must connect to to authenticate
@@ -344,13 +384,21 @@ class User:
             return result
 
     @staticmethod
-    def register(username, password, identity_url=None):
+    def register(username, password, identity_url=None, service=None):
         """Request to register a new user with the specified
            username one the identity service running
            at 'identity_url', using the supplied 'password'. This will
            return a QR code that you must use immediately to add this
-           user on the identity service to a QR code generator"""
-        service = _get_identity_service(identity_url=identity_url)
+           user on the identity service to a QR code generator
+        """
+        if service is not None:
+            from Acquire.Service import Service as _Service
+            service = _Service.resolve(service, fetch=True)["service"]
+        elif identity_url is not None:
+            from Acquire.Service import Service as _Service
+            service = _Service.resolve(identity_url, fetch=True)["service"]
+        else:
+            service = _get_default_service()
 
         from Acquire.Client import Credentials as _Credentials
 
@@ -418,8 +466,8 @@ class User:
         # first, create a private key that will be used
         # to sign all requests and identify this login
         from Acquire.Client import PrivateKey as _PrivateKey
-        session_key = _PrivateKey()
-        signing_key = _PrivateKey()
+        session_key = _PrivateKey(name="user_session_key %s" % self._username)
+        signing_key = _PrivateKey(name="user_session_cert %s" % self._username)
 
         args = {"username": self._username,
                 "public_key": session_key.public_key().to_data(),

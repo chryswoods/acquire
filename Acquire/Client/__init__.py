@@ -9,6 +9,8 @@ from ._qrcode import *
 from ._user import *
 from ._account import *
 from ._drive import *
+from ._job import *
+from ._resources import *
 from ._file import *
 from ._fileops import *
 from ._chunkuploader import *
@@ -25,13 +27,10 @@ from ._storagecreds import *
 # The below objects are useful for the client, so are pulled into
 # this module to discourage people using the other Acquire modules
 # directly... One day I want to lazy-load all of these...
-from Acquire.Crypto import PublicKey
-from Acquire.Crypto import PrivateKey
-from Acquire.Crypto import OTP
-from Acquire.Identity import Authorisation
-from Acquire.Storage import ACLRule
-from Acquire.Storage import FileMeta
-from Acquire.Storage import DriveMeta
+from Acquire.Crypto import PublicKey, PrivateKey, OTP
+from Acquire.Identity import Authorisation, ACLRule, ACLRules, ACLUserRules, \
+                             ACLGroupRules, ACLRuleOperation
+from Acquire.Storage import DirMeta, FileMeta, DriveMeta
 
 try:
     if __IPYTHON__:

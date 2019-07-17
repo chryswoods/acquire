@@ -1248,17 +1248,7 @@ class Account:
             self._save_account(bucket=bucket)
 
     def set_overdraft_limit(self, limit, bucket=None):
-        """Set the overdraft limit of this account to 'limit'
-
-            Args:
-                limit (int): Limit to set overdraft to
-                TODO
-                bucket (dict, default=None):
-
-            Returns:
-                None
-
-        """
+        """Set the overdraft limit of this account to 'limit'"""
         if self.is_null():
             return
 

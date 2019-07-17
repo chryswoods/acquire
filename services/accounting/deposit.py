@@ -27,9 +27,6 @@ def run(args):
                 the deposit into the account and invoice data
     """
 
-    status = 0
-    message = None
-
     transaction_records = None
     invoice_value = None
     invoice_user = None
@@ -49,6 +46,11 @@ def run(args):
         raise ValueError("You must supply a valid transaction that "
                          "represents the deposit")
 
+    try:
+        account_name = str(args["account_name"])
+    except:
+        account_name = "deposits"
+
     if transaction.value() > 0:
         user_guid = authorisation.user_guid()
 
@@ -57,9 +59,9 @@ def run(args):
         accounts = Accounts(user_guid=user_guid)
 
         # deposits are made by transferring funds from the user's
-        # 'billing' account to their 'deposits' account.
+        # 'billing' account to their named account (or 'deposits' account)
         deposit_account = accounts.create_account(
-                            "deposits", "Deposit account",
+                            account_name, "Deposit account",
                             bucket=bucket)
 
         billing_account = accounts.create_account(

@@ -2,7 +2,7 @@
 import pytest
 
 from Acquire.Identity import Authorisation
-from Acquire.Crypto import PrivateKey
+from Acquire.Crypto import PrivateKey, get_private_key
 from Acquire.Service import call_function, Service, get_this_service, \
                 push_testing_objstore, pop_testing_objstore, \
                 push_is_running_service, pop_is_running_service
@@ -16,7 +16,7 @@ from Acquire.Service import call_function, Service, get_this_service, \
                           ("compute")])
 def test_service(service_url, aaai_services):
     # get the public service from the default API frontend
-    privkey = PrivateKey()
+    privkey = get_private_key("testing")
     response = call_function(service_url, response_key=privkey)
     service = Service.from_data(response["service_info"])
 

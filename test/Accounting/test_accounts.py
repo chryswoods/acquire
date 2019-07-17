@@ -5,7 +5,7 @@ from Acquire.Accounting import Accounts
 
 from Acquire.Identity import ACLRules, ACLRule, Authorisation
 
-from Acquire.Crypto import PrivateKey
+from Acquire.Crypto import PrivateKey, get_private_key
 
 from Acquire.Service import get_service_account_bucket, push_is_running_service
 
@@ -33,7 +33,7 @@ def test_accounts(bucket):
 
         created_accounts = {}
 
-        testing_key = PrivateKey()
+        testing_key = get_private_key("testing")
 
         for name in account_names:
             authorisation = Authorisation(resource="create_account %s" % name,

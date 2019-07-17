@@ -148,7 +148,7 @@ class Wallet:
         password = _get_wallet_password(confirm_password=True)
 
         from Acquire.Client import PrivateKey as _PrivateKey
-        key = _PrivateKey()
+        key = _PrivateKey(name="wallet_key")
 
         bytes = key.bytes(password)
 

@@ -255,6 +255,10 @@ class ACLRule:
         """Return whether or not the user can execute this resource"""
         return self._is_executable
 
+    def is_denied(self):
+        """Return whether or not this rule is all denied"""
+        return self.denied_all()
+
     def inherits_owner(self):
         """Return whether or not this inherits the owner status
            from upstream

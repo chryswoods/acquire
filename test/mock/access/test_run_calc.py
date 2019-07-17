@@ -1,7 +1,11 @@
 
 from Acquire.Access import RunRequest
 from Acquire.Identity import Authorisation
-from Acquire.Client import Account, deposit, Cheque, Service
+from Acquire.Client import Account, deposit, Cheque, Service, \
+                           Drive, StorageCreds
+from Acquire.Compute import Cluster
+
+import pytest
 
 
 def _testdata():
@@ -12,6 +16,10 @@ def _testdata():
 
 
 def test_run_calc(aaai_services, authenticated_user):
+    # create and register the cluster on which this job will take place...
+    cluster = Cluster.create(service_url="compute",
+                             user=aaai_services["compute"]["user"])
+
     user = authenticated_user
     assert(user.is_logged_in())
 
@@ -25,12 +33,25 @@ def test_run_calc(aaai_services, authenticated_user):
 
     assert(account.balance() >= 100.0)
 
-    # create a request for the calculation described in 'run.yaml' and
+    # Upload a directory that will contain all of the input
+    creds = StorageCreds(user=user, service_url="storage")
+    drive = Drive(name="sim", creds=creds, autocreate=True)
+
+    uploaded = drive.upload(_testdata())
+    location = uploaded.location()
+
+    print(drive.list_files(dir="example_sim/input"))
+    print(location)
+
+    # create a request for a job to be run using:
+    #  1. 'image_name' as the specified container image for the software
+    #  2. 'location' as the location containing all input files
+
     # authorise it using the authenticated user (who may be different to the
     # user who pays for the job - hence the need for a different
     # authorisation for the request and for the cheque)
-    runfile = "%s/run.yaml" % _testdata()
-    r = RunRequest(runfile=runfile)
+    r = RunRequest(image="docker://test_image:latest",
+                   input=location)
 
     # now write a cheque which will provide authorisation to spend money from
     # this account to pay for this request. This will be written to the access
@@ -52,4 +73,20 @@ def test_run_calc(aaai_services, authenticated_user):
     args["cheque"] = cheque.to_data()
 
     access_service = Service("access")
+
     result = access_service.call_function(func, args)
+    print(result)
+
+    pending_uids = cluster.get_pending_job_uids()
+
+    print(pending_uids)
+
+    for uid in pending_uids:
+        job = cluster.submit_job(uid)
+        print(job)
+
+    pending_uids = cluster.get_pending_job_uids()
+
+    print(pending_uids)
+
+    #assert(False)

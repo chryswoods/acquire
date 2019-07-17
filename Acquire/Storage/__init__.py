@@ -18,6 +18,7 @@ from ._driveinfo import *
 from ._filemeta import *
 from ._parregistry import *
 from ._drivemeta import *
+from ._dirmeta import *
 
 try:
     if __IPYTHON__:

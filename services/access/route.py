@@ -2,15 +2,6 @@
 def access_functions(function, args):
     """ This function routes the passed arguments to the function
         selected by the function parameter.
-        
-        Args:
-            function (str) : the function we want to run
-            args : arguments to be passed to these functions
-
-
-        Returns:
-            function : selected function with args passed
-
     """
 
     if function == "request":
