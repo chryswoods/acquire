@@ -145,7 +145,13 @@ def generate_ssl_key(name, passphrase):
     if not (os.path.exists(privkey) and os.path.exists(pubkey)):
         raise PermissionError("Cannot find the necessary SSH keys!")
 
-    return (privkey, pubkey)
+    # now get the fingerprint of the key
+    cmd = "openssl rsa -in %s -passin pass:%s -pubout -outform DER | " \
+          "openssl md5 -c" % (privkey, passphrase)
+    lines = os.popen(cmd, "r").readlines()
+    fingerprint = lines[0][0:-1]
+
+    return (privkey, pubkey, fingerprint)
 
 if provider == "gcp":
     key = provider_config["key"]
@@ -173,9 +179,8 @@ elif provider == "oci":
 
     if generate_key:
         print("Generating new keys...")
-        (privkey, pubkey) = generate_ssl_key("oci_key", passphrase)
-        sshkey = PrivateKey.read(privkey, passphrase)
-        fingerprint = sshkey.fingerprint()
+        (privkey, pubkey, fingerprint) = generate_ssl_key("oci_key",
+                                                          passphrase)
         with open(privkey, "r") as FILE:
             key = FILE.readlines()
         config["credentials"]["key"] = key
