@@ -150,6 +150,7 @@ def generate_ssl_key(name, passphrase):
           "openssl md5 -c" % (privkey, passphrase)
     lines = os.popen(cmd, "r").readlines()
     fingerprint = lines[0][0:-1]
+    fingerprint = fingerprint.split(" ")[-1]
 
     return (privkey, pubkey, fingerprint)
 
