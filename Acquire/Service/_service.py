@@ -153,7 +153,8 @@ class Service:
             elif isinstance(service, str):
                 # this could be a url or uid
                 import re as _re
-                if _re.match(r"([a-z0-9]+)-([a-z0-9]+)", service):
+                m = _re.match(r"([a-z0-9]+)-([a-z0-9]+)", service)
+                if m and (m.group() == m.string):
                     s["service_uid"] = service
                 else:
                     s["service_url"] = service

@@ -200,24 +200,44 @@ class Wallet:
         self._wallet_key = wallet_key
         return wallet_key
 
-    def _get_userinfo_filename(self, user_uid, identity_uid):
+    @staticmethod
+    def _get_service_dir(service_uid):
+        """Return (creating if necessary) the directory that will store
+           all wallet info for the service with specified service uid
+        """
+        assert(service_uid is not None)
+
+        service_dir = "%s/%s" % (_get_wallet_dir(), service_uid)
+
+        import os as _os
+        if not _os.path.exists(service_dir):
+            _os.makedirs(service_dir, mode=0o700)
+
+        if not _os.path.isdir(service_dir):
+            raise PermissionError(
+                "Unable to get the directory to store wallet data for the "
+                "service with UID '%s'" % service_uid)
+
+        return service_dir
+
+    def _get_userinfo_filename(self, user_uid, service_uid):
         """Return the filename for the passed user_uid logging into the
-           passed identity service with identity_uid
+           passed identity service with service_uid
         """
         assert(user_uid is not None)
-        assert(identity_uid is not None)
 
-        return "%s/user_%s_%s_encrypted" % (
-            self._wallet_dir, user_uid, identity_uid)
+        service_dir = Wallet._get_service_dir(service_uid)
 
-    def _set_userinfo(self, userinfo, user_uid, identity_uid):
+        return "%s/user_%s.json" % (service_dir, user_uid)
+
+    def _set_userinfo(self, userinfo, user_uid, service_uid):
         """Save the userfile for the passed user_uid logging into the
-           passed identity service with identity_uid
+           passed identity service with service_uid
         """
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
         import json as _json
         filename = self._get_userinfo_filename(user_uid=user_uid,
-                                               identity_uid=identity_uid)
+                                               service_uid=service_uid)
         key = self._get_wallet_key().public_key()
         data = _bytes_to_string(key.encrypt(_json.dumps(userinfo)))
 
@@ -239,24 +259,24 @@ class Wallet:
         result["user_uid"] = userinfo["user_uid"]
         return result
 
-    def _get_userinfo(self, user_uid, identity_uid):
+    def _get_userinfo(self, user_uid, service_uid):
         """Read all info for the passed user at the identity service
-           reached at 'identity_url'
+           with UID service_uid
         """
         filename = self._get_userinfo_filename(user_uid=user_uid,
-                                               identity_uid=identity_uid)
+                                               service_uid=service_uid)
         userinfo = _read_json(filename=filename)
         return self._unlock_userinfo(userinfo)
 
-    def _find_userinfo(self, username=None, password=None):
+    def _find_userinfo(self, username=None, password=None, service_uid=None):
         """Function to find a user_info automatically, of if that fails,
            to ask the user
         """
-        wallet_dir = self._wallet_dir
+        service_dir = Wallet._get_service_dir(service_uid)
 
         import glob as _glob
 
-        userfiles = _glob.glob("%s/user_*_encrypted" % wallet_dir)
+        userfiles = _glob.glob("%s/user_*.json" % service_dir)
 
         userinfos = []
 
@@ -348,7 +368,7 @@ class Wallet:
     def get_services(self):
         """Return all of the trusted services known to this wallet"""
         import glob as _glob
-        service_files = _glob.glob("%s/service_*" % self._wallet_dir)
+        service_files = _glob.glob("%s/*/service_*.json" % self._wallet_dir)
 
         services = []
 
@@ -357,7 +377,50 @@ class Wallet:
 
         return services
 
-    def get_service(self, service_url=None, service_uid=None,
+    def _get_service_from_registry(self, service_url=None, service_uid=None):
+        """Return the service fetched from the registry"""
+        from Acquire.Registry import get_trusted_registry_service \
+            as _get_trusted_registry_service
+        from Acquire.ObjectStore import string_to_safestring \
+            as _string_to_safestring
+
+        _output("Connecting to registry...")
+        _flush_output()
+
+        registry = _get_trusted_registry_service(service_uid=service_uid,
+                                                 service_url=service_url)
+
+        _output("...connected to registry %s" % registry)
+        _flush_output()
+
+        # ensure we cache this registry...
+        service_dir = Wallet._get_service_dir(registry.uid())
+        registry_file = "%s/service_%s.json" % (
+            service_dir, _string_to_safestring(registry.canonical_url()))
+        _write_service(service=registry, filename=registry_file)
+
+        if service_url is not None:
+            _output("Securely fetching keys for %s..." % service_url)
+            _flush_output()
+        else:
+            _output("Securely fetching keys for UID %s..." % service_uid)
+            _flush_output()
+
+        service = registry.get_service(service_url=service_url,
+                                       service_uid=service_uid)
+
+        _output("...success.\nFetched %s" % service)
+        _flush_output()
+
+        return service
+
+    def clear_cache(self):
+        """Clear the in-memory cache of services"""
+        from Acquire.Service import clear_services_cache \
+            as _clear_services_cache
+        _clear_services_cache()
+
+    def get_service(self, service=None, service_url=None, service_uid=None,
                     service_type=None, autofetch=True):
         """Return the service at either 'service_url', or that
            has UID 'service_uid'. This will return the
@@ -366,8 +429,19 @@ class Wallet:
         """
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
+        from Acquire.Service import Service as _Service
+
+        if service is not None:
+            s = _Service.resolve(service, fetch=False)
+
+            if s["service"] is not None:
+                return s["service"]
+
+            service_uid = s["service_uid"]
+            service_url = s["service_url"]
 
         service = None
+        import glob as _glob
 
         if service_url is None:
             if service_uid is None:
@@ -375,8 +449,8 @@ class Wallet:
                     "You need to specify one of service_uid or service_url")
 
             # we need to look up the name...
-            import glob as _glob
-            service_files = _glob.glob("%s/service_*" % self._wallet_dir)
+            service_dir = Wallet._get_service_dir(service_uid)
+            service_files = _glob.glob("%s/service_*.json" % service_dir)
 
             for service_file in service_files:
                 s = _read_service(service_file)
@@ -388,14 +462,15 @@ class Wallet:
             service_url = _Service.get_canonical_url(service_url,
                                                      service_type=service_type)
 
-            service_file = "%s/service_%s" % (
-                self._wallet_dir,
-                _string_to_safestring(service_url))
+            service_files = _glob.glob("%s/*/service_%s.json" % (
+                                       self._wallet_dir,
+                                       _string_to_safestring(service_url)))
 
-            try:
-                service = _read_service(service_file)
-            except:
-                pass
+            for service_file in service_files:
+                s = _read_service(service_file)
+                if s.canonical_url() == service_url:
+                    service = s
+                    break
 
         must_write = False
 
@@ -406,44 +481,25 @@ class Wallet:
                                    (service_url, service_uid))
 
             # we need to look this service up from the registry
-            from Acquire.Registry import get_trusted_registry_service \
-                as _get_trusted_registry_service
-
-            _output("Connecting to registry...")
-            _flush_output()
-
-            registry = _get_trusted_registry_service(service_uid=service_uid,
-                                                     service_url=service_url)
-
-            _output("...connected to registry %s" % registry)
-            _flush_output()
-
-            # ensure we cache this registry...
-            registry_file = "%s/service_%s" % (
-                self._wallet_dir,
-                _string_to_safestring(registry.canonical_url()))
-            _write_service(service=registry, filename=registry_file)
-
-            if service_url is not None:
-                _output("Securely fetching keys for %s..." % service_url)
-                _flush_output()
-            else:
-                _output("Securely fetching keys for UID %s..." % service_uid)
-                _flush_output()
-
-            service = registry.get_service(service_url=service_url,
-                                           service_uid=service_uid)
-
-            _output("...success.\nFetched %s" % service)
-            _flush_output()
-
+            service = self._get_service_from_registry(service_url=service_url,
+                                                      service_uid=service_uid)
             must_write = True
 
         # check if the keys need rotating - if they do, load up
         # the new keys and save them to the service file...
-        if service.should_refresh_keys():
-            service.refresh_keys()
-            must_write = True
+        elif service.should_refresh_keys():
+            try:
+                service.refresh_keys()
+                must_write = True
+            except:
+                # something went wrong refreshing keys - go back to the
+                # registry...
+                _output("Something went wrong refreshing keys...")
+                _output("Refreshing service from the registry.")
+                service = self._get_service_from_registry(
+                                                service_url=service_url,
+                                                service_uid=service_uid)
+                must_write = True
 
         if service_uid is not None:
             if service.uid() != service_uid:
@@ -452,9 +508,9 @@ class Wallet:
                     (service, service_uid))
 
         if must_write:
-            service_file = "%s/service_%s" % (
-                self._wallet_dir,
-                _string_to_safestring(service.canonical_url()))
+            service_dir = Wallet._get_service_dir(service.uid())
+            service_file = "%s/service_%s.json" % (
+                service_dir, _string_to_safestring(service.canonical_url()))
             _write_service(service=service, filename=service_file)
 
         return service
@@ -463,7 +519,7 @@ class Wallet:
         """Remove all trusted services from this Wallet"""
         import glob as _glob
         import os as _os
-        service_files = _glob.glob("%s/service_*" % self._wallet_dir)
+        service_files = _glob.glob("%s/*/service_*.json" % self._wallet_dir)
 
         for service_file in service_files:
             if _os.path.exists(service_file):
@@ -472,16 +528,19 @@ class Wallet:
     def remove_service(self, service):
         """Remove the cached service info for the passed service"""
         if isinstance(service, str):
-            service_url = service
-        else:
-            service_url = service.canonical_url()
+            try:
+                service = self.get_service(service)
+            except:
+                return
+
+        service_url = service.canonical_url()
 
         from Acquire.ObjectStore import string_to_safestring \
             as _string_to_safestring
 
-        service_file = "%s/service_%s" % (
-            self._wallet_dir,
-            _string_to_safestring(service_url))
+        service_dir = Wallet._get_service_dir(service.uid())
+        service_file = "%s/service_%s.json" % (
+            service_dir, _string_to_safestring(service_url))
 
         import os as _os
 
@@ -536,7 +595,8 @@ class Wallet:
                 "a valid identity service!" % (service))
 
         userinfo = self._find_userinfo(username=username,
-                                       password=password)
+                                       password=password,
+                                       service_uid=service_uid)
 
         if username is None:
             username = userinfo["username"]
@@ -628,4 +688,5 @@ class Wallet:
             pass
 
         self._set_userinfo(userinfo=userinfo,
-                           user_uid=user_uid, identity_uid=service.uid())
+                           user_uid=user_uid,
+                           service_uid=service.uid())
