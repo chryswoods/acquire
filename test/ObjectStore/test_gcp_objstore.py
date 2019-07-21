@@ -33,7 +33,9 @@ def test_create_bucket(new_gcp_bucket, location, regional):
         bucket_mock.name.return_value = bucket_name
         bucket_mock.location.return_value = location
         client_mock = MagicMock()
-        bucket_dict = {'bucket': bucket_mock, 'client': client_mock, 'bucket_name': bucket_name}
+        bucket_dict = {'bucket': bucket_mock, 'client': client_mock,
+                       'bucket_name': bucket_name,
+                       'unique_suffix': "test_suffix"}
 
         GCP_ObjectStore.create_bucket(bucket_dict, new_gcp_bucket)
         client_mock.call_count == 1
@@ -41,7 +43,7 @@ def test_create_bucket(new_gcp_bucket, location, regional):
         new_bucket_obj = client_mock.mock_calls[0][1][0]
         assert new_bucket_obj.location == bucket_mock.location
         assert new_bucket_obj.storage_class == regional
-        assert new_bucket_obj.name == expected_gcp_bucket
+        assert new_bucket_obj.name == "test_suffix__%s" % expected_gcp_bucket
 
 
 @pytest.mark.parametrize("gcp_bucket, exist, create", [('exist_gcp_bucket', True, False)
@@ -65,7 +67,8 @@ def test_get_bucket(gcp_bucket, exist, create):
         client_mock.get_bucket.return_value = new_bucket_mock
     else:
         client_mock.get_bucket.return_value = None
-    bucket_dict = {'bucket': bucket_mock, 'client': client_mock, 'bucket_name': gcp_bucket}
+    bucket_dict = {'bucket': bucket_mock, 'client': client_mock,
+                   'bucket_name': gcp_bucket, 'unique_suffix': "test_suffix"}
 
     result = GCP_ObjectStore.get_bucket(bucket_dict, gcp_bucket, create_if_needed=create)
 

@@ -9,22 +9,29 @@ import copy as _copy
 __all__ = ["GCP_ObjectStore"]
 
 
-def _sanitise_bucket_name(bucket_name):
+def _sanitise_bucket_name(bucket_name, unique_prefix):
     """This function sanitises the passed bucket name. It will always
         return a valid bucket name. If "None" is passed, then a new,
         unique bucket name will be generated
 
-        Args:
-            bucket_name (str): Bucket name to clean
-        Returns:
-            str: Cleaned bucket name
-
-        """
+        This will always prepend 'unique_prefix' to the bucket name,
+        as google requires globally unique names...
+    """
 
     if bucket_name is None:
-        return str(_uuid.uuid4())
+        bucket_name = str(_uuid.uuid4())
 
-    return "_".join(bucket_name.split())
+    unique_prefix = ("_".join(unique_prefix.split())).lower()
+    bucket_name = ("_".join(bucket_name.split())).lower()
+
+    bucket_name = "%s__%s" % (unique_prefix, bucket_name)
+
+    if len(bucket_name) > 63:
+        bucket_name = bucket_name[0:63]
+
+    bucket_name = bucket_name.replace("google", "acquir")
+
+    return bucket_name
 
 
 def _clean_key(key):
@@ -94,7 +101,8 @@ def _get_driver_details_from_data(data):
         details["created_datetime"] = _string_to_datetime(
                                             details["created_datetime"])
 
-    return details    
+    return details
+
 
 class GCP_ObjectStore:
     """This is the backend that abstracts using the Google Cloud Platform
@@ -102,25 +110,18 @@ class GCP_ObjectStore:
     """
 
     @staticmethod
-    def create_bucket(bucket, bucket_name, compartment=None):
+    def create_bucket(bucket, bucket_name):
         """Create and return a new bucket in the object store called
            'bucket_name'. This will raise an
            ObjectStoreError if this bucket already exists
-
-           Args:
-            bucket (dict): Bucket to hold data
-            bucket_name (str): Name of bucket to create
-            compartment (str): None
-
-           Returns:
-                dict: New bucket
         """
         new_bucket = _copy.copy(bucket)
-        
+
         try:
             from google.cloud import storage as _storage
             client = new_bucket["client"]
-            bucket_name = _sanitise_bucket_name(bucket_name)
+            bucket_name = _sanitise_bucket_name(bucket_name,
+                                                bucket["unique_suffix"])
             bucket_obj = _storage.Bucket(client, name=bucket_name)
             bucket_obj.location = bucket["bucket"].location
             bucket_obj.storage_class = "REGIONAL"
@@ -137,31 +138,18 @@ class GCP_ObjectStore:
         return new_bucket
 
     @staticmethod
-    def get_bucket(bucket, bucket_name, compartment=None,
-                   create_if_needed=True):
+    def get_bucket(bucket, bucket_name, create_if_needed=True):
         """Find and return a new bucket in the object store called
            'bucket_name'. If 'create_if_needed' is True
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
-
-           Args:
-                bucket (dict): Bucket to hold data
-                bucket_name (str): Name of bucket to create
-                compartment (str, default=None): None
-                create_if_needed (bool, default=None): If True, create bucket,
-                else do
-                not
-
-           Returns:
-                dict: New bucket
-
         """
         new_bucket = _copy.copy(bucket)
 
-        
         # try to get the existing bucket
         client = new_bucket["client"]
-        bucket_name = _sanitise_bucket_name(bucket_name)
+        bucket_name = _sanitise_bucket_name(bucket_name,
+                                            bucket["unique_suffix"])
         new_bucket["bucket_name"] = bucket_name
         try:
             existing_bucket = client.get_bucket(bucket_name)
@@ -183,7 +171,7 @@ class GCP_ObjectStore:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "There is not bucket called '%s'. Please check the "
-                "compartment and access permissions." % bucket_name)
+                "access permissions." % bucket_name)
 
         new_bucket["bucket"] = existing_bucket
 

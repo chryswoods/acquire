@@ -165,6 +165,8 @@ def get_service_account_bucket(testing_dir=None):
     except:
         cloud_backend = "oci"
 
+    _os.environ["CLOUD_BACKEND"] = cloud_backend
+
     if cloud_backend == "oci":
         # we have OCI login details, so make sure that we are using
         # the OCI object store backend
@@ -188,7 +190,7 @@ def get_service_account_bucket(testing_dir=None):
 
     elif cloud_backend == "gcp":
         # we have valid GCP login details, so make sure that we are
-        # using the GCP object store backend
+        # using the GCP object store backend
         from Acquire.ObjectStore import use_gcp_object_store_backend as \
             _use_gcp_object_store_backend
 
