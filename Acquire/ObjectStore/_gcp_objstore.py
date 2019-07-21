@@ -5,27 +5,33 @@ import uuid as _uuid
 import json as _json
 import os as _os
 import copy as _copy
-import uuid as _uuid
 
-__all__ = ["OCI_ObjectStore"]
+__all__ = ["GCP_ObjectStore"]
 
 
-def _sanitise_bucket_name(bucket_name):
+def _sanitise_bucket_name(bucket_name, unique_prefix):
     """This function sanitises the passed bucket name. It will always
         return a valid bucket name. If "None" is passed, then a new,
         unique bucket name will be generated
 
-        Args:
-            bucket_name (str): Bucket name to clean
-        Returns:
-            str: Cleaned bucket name
-
-        """
+        This will always prepend 'unique_prefix' to the bucket name,
+        as google requires globally unique names...
+    """
 
     if bucket_name is None:
-        return str(_uuid.uuid4())
+        bucket_name = str(_uuid.uuid4())
 
-    return "_".join(bucket_name.split())
+    unique_prefix = ("_".join(unique_prefix.split())).lower()
+    bucket_name = ("_".join(bucket_name.split())).lower()
+
+    bucket_name = "%s__%s" % (unique_prefix, bucket_name)
+
+    if len(bucket_name) > 63:
+        bucket_name = bucket_name[0:63]
+
+    bucket_name = bucket_name.replace("google", "acquir")
+
+    return bucket_name
 
 
 def _clean_key(key):
@@ -52,35 +58,14 @@ def _clean_key(key):
 
     return key
 
-
-def _get_object_url_for_region(region, uri):
-    """Internal function used to get the full URL to the passed PAR URI
-       for the specified region. This has the format;
-
-       https://objectstorage.{region}.oraclecloud.com/{uri}
-
-       Args:
-            region (str): Region for cloud service
-            uri (str): URI for cloud service
-       Returns:
-            str: Full URL for use with cloud service
-    """
-    server = "https://objectstorage.%s.oraclecloud.com" % region
-
-    while uri.startswith("/"):
-        uri = uri[1:]
-
-    return "%s/%s" % (server, uri)
-
-
 def _get_driver_details_from_par(par):
-    """Internal function used to get the OCI driver details from the
+    """Internal function used to get the GCP driver details from the
        passed OSPar (pre-authenticated request)
 
        Args:
             par (OSPar): PAR holding details
         Args:
-            dict: Dictionary holding OCI driver details
+            dict: Dictionary holding GCP driver details
     """
     from Acquire.ObjectStore import datetime_to_string \
         as _datetime_to_string
@@ -97,15 +82,14 @@ def _get_driver_details_from_par(par):
 
     return details
 
-
 def _get_driver_details_from_data(data):
-    """Internal function used to get the OCI driver details from the
+    """Internal function used to get the GCP driver details from the
        passed data
 
        Args:
-            data (dict): Dict holding OCI driver details
+            data (dict): Dict holding GCP driver details
        Returns:
-            dict: Dict holding OCI driver details
+            dict: Dict holding GCP driver details
     """
     from Acquire.ObjectStore import string_to_datetime \
         as _string_to_datetime
@@ -120,9 +104,9 @@ def _get_driver_details_from_data(data):
     return details
 
 
-class OCI_ObjectStore:
-    """This is the backend that abstracts using the Oracle Cloud
-       Infrastructure object store
+class GCP_ObjectStore:
+    """This is the backend that abstracts using the Google Cloud Platform
+       object store
     """
 
     @staticmethod
@@ -130,36 +114,19 @@ class OCI_ObjectStore:
         """Create and return a new bucket in the object store called
            'bucket_name'. This will raise an
            ObjectStoreError if this bucket already exists
-
-           Args:
-            bucket (dict): Bucket to hold data
-            bucket_name (str): Name of bucket to create
-
-           Returns:
-                dict: New bucket
         """
         new_bucket = _copy.copy(bucket)
 
-        new_bucket["bucket_name"] = str(bucket_name)
-
         try:
-            from oci.object_storage.models import CreateBucketDetails as \
-                _CreateBucketDetails
-        except:
-            raise ImportError(
-                "Cannot import OCI. Please install OCI, e.g. via "
-                "'pip install oci' so that you can connect to the "
-                "Oracle Cloud Infrastructure")
-
-        try:
-            request = _CreateBucketDetails()
-            request.compartment_id = new_bucket["compartment_id"]
+            from google.cloud import storage as _storage
             client = new_bucket["client"]
-            request.name = _sanitise_bucket_name(bucket_name)
-
-            new_bucket["bucket"] = client.create_bucket(
-                                        client.get_namespace().data,
-                                        request).data
+            bucket_name = _sanitise_bucket_name(bucket_name,
+                                                bucket["unique_suffix"])
+            bucket_obj = _storage.Bucket(client, name=bucket_name)
+            bucket_obj.location = bucket["bucket"].location
+            bucket_obj.storage_class = "REGIONAL"
+            new_bucket["bucket"] = client.create_bucket(bucket_obj)
+            new_bucket["bucket_name"] = str(bucket_name)
         except Exception as e:
             # couldn't create the bucket - likely because it already
             # exists - try to connect to the existing bucket
@@ -179,25 +146,13 @@ class OCI_ObjectStore:
         """
         new_bucket = _copy.copy(bucket)
 
-        new_bucket["bucket_name"] = _sanitise_bucket_name(bucket_name)
-
-        try:
-            from oci.object_storage.models import CreateBucketDetails as \
-                _CreateBucketDetails
-        except:
-            raise ImportError(
-                "Cannot import OCI. Please install OCI, e.g. via "
-                "'pip install oci' so that you can connect to the "
-                "Oracle Cloud Infrastructure")
-
         # try to get the existing bucket
         client = new_bucket["client"]
-        namespace = client.get_namespace().data
-        sanitised_name = _sanitise_bucket_name(bucket_name)
-
+        sanitised_name = _sanitise_bucket_name(bucket_name,
+                                               bucket["unique_suffix"])
+        new_bucket["bucket_name"] = sanitised_name
         try:
-            existing_bucket = client.get_bucket(
-                                namespace, sanitised_name).data
+            existing_bucket = client.get_bucket(sanitised_name)
         except:
             existing_bucket = None
 
@@ -207,17 +162,8 @@ class OCI_ObjectStore:
 
         if create_if_needed:
             try:
-                request = _CreateBucketDetails()
-                request.compartment_id = new_bucket["compartment_id"]
-                request.name = sanitised_name
-
-                client.create_bucket(namespace, request)
-            except:
-                pass
-
-            try:
-                existing_bucket = client.get_bucket(
-                                    namespace, sanitised_name).data
+                new_bucket = GCP_ObjectStore.create_bucket(bucket, bucket_name)
+                existing_bucket = new_bucket["bucket"]
             except:
                 existing_bucket = None
 
@@ -225,7 +171,7 @@ class OCI_ObjectStore:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "There is not bucket called '%s'. Please check the "
-                "compartment and access permissions." % bucket_name)
+                "access permissions." % bucket_name)
 
         new_bucket["bucket"] = existing_bucket
 
@@ -252,14 +198,16 @@ class OCI_ObjectStore:
                 bool: True if bucket empty, else False
 
         """
-        objects = bucket["client"].list_objects(bucket["namespace"],
-                                                bucket["bucket_name"],
-                                                limit=1).data
+        it = bucket["bucket"].list_blobs(max_results=1)
 
-        for _obj in objects.objects:
+        num_objs = 0
+        for _obj in it:
+            num_objs = num_objs + 1
+
+        if num_objs == 0:
+            return True
+        else:
             return False
-
-        return True
 
     @staticmethod
     def delete_bucket(bucket, force=False):
@@ -277,35 +225,26 @@ class OCI_ObjectStore:
            Returns:
                 None
         """
-        is_empty = OCI_ObjectStore.is_bucket_empty(bucket=bucket)
+        is_empty = GCP_ObjectStore.is_bucket_empty(bucket=bucket)
 
         if not is_empty:
             if force:
-                OCI_ObjectStore.delete_all_objects(bucket=bucket)
+                GCP_ObjectStore.delete_all_objects(bucket=bucket)
             else:
                 raise PermissionError(
                     "You cannot delete the bucket %s as it is not empty" %
-                    OCI_ObjectStore.get_bucket_name(bucket=bucket))
+                    GCP_ObjectStore.get_bucket_name(bucket=bucket))
 
         # the bucket is empty - delete it
-        client = bucket["client"]
-        namespace = client.get_namespace().data
-        bucket_name = bucket["bucket_name"]
-
         try:
-            response = client.delete_bucket(namespace, bucket_name)
+            bucket['bucket'].delete()
         except Exception as e:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unable to delete bucket '%s'. Please check the "
-                "compartment and access permissions: Error %s" %
-                (bucket_name, str(e)))
+                "access permissions: Error %s" %
+                (bucket['bucket_name'], str(e)))
 
-        if response.status not in [200, 204]:
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError(
-                "Unable to delete a bucket '%s' : Status %s, Error %s" %
-                (bucket_name, response.status, str(response.data)))
 
     @staticmethod
     def create_par(bucket, encrypt_key, key=None, readable=True,
@@ -341,108 +280,53 @@ class OCI_ObjectStore:
                 "You must supply a valid PublicKey to encrypt the "
                 "returned OSPar")
 
-        # get the UTC datetime when this OSPar should expire
-        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
-        expires_datetime = _get_datetime_now() + \
-            _datetime.timedelta(seconds=duration)
-
         is_bucket = (key is None)
 
-        # Limitation of OCI - cannot have a bucket OSPar with
-        # read permissions!
-        if is_bucket and readable:
-            from Acquire.Client import PARError
-            raise PARError(
-                "You cannot create a Bucket OSPar that has read permissions "
-                "due to a limitation in the underlying platform")
-
-        try:
-            from oci.object_storage.models import \
-                CreatePreauthenticatedRequestDetails as \
-                _CreatePreauthenticatedRequestDetails
-        except:
-            raise ImportError(
-                "Cannot import OCI. Please install OCI, e.g. via "
-                "'pip install oci' so that you can connect to the "
-                "Oracle Cloud Infrastructure")
-
-        oci_par = None
-
-        request = _CreatePreauthenticatedRequestDetails()
-
-        if is_bucket:
-            request.access_type = "AnyObjectWrite"
-        elif readable and writeable:
-            request.access_type = "ObjectReadWrite"
+        if writeable:
+            method = "PUT"
         elif readable:
-            request.access_type = "ObjectRead"
-        elif writeable:
-            request.access_type = "ObjectWrite"
+            method = "GET"
         else:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unsupported permissions model for OSPar!")
 
-        request.name = str(_uuid.uuid4())
-
-        if not is_bucket:
-            request.object_name = _clean_key(key)
-
-        request.time_expires = expires_datetime
-
-        client = bucket["client"]
-
         try:
-            response = client.create_preauthenticated_request(
-                                        client.get_namespace().data,
-                                        bucket["bucket_name"],
-                                        request)
+            # get the UTC datetime when this OSPar should expire
+            from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+            created_datetime = _get_datetime_now()
+            expires_datetime = _get_datetime_now() + _datetime.timedelta(seconds=duration)
+            bucket_obj = bucket["bucket"]
+            if is_bucket:
+                url = bucket_obj.generate_signed_url(version='v4', expiration=expires_datetime, method=method)
+            else:
+                blob = bucket_obj.blob(key)
+                url = blob.generate_signed_url(version='v4', expiration=expires_datetime, method=method)
 
         except Exception as e:
             # couldn't create the preauthenticated request
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
                 "Unable to create the OSPar '%s': %s" %
-                (str(request), str(e)))
+                (key, str(e)))
 
-        if response.status != 200:
+        if url is None:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError(
-                "Unable to create the OSPar '%s': Status %s, Error %s" %
-                (str(request), response.status, str(response.data)))
-
-        oci_par = response.data
-
-        if oci_par is None:
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError(
-                "Unable to create the preauthenticated request!")
-
-        created_datetime = oci_par.time_created.replace(
-                                tzinfo=_datetime.timezone.utc)
-
-        expires_datetime = oci_par.time_expires.replace(
-                                tzinfo=_datetime.timezone.utc)
-
-        # the URI returned by OCI does not include the server. We need
-        # to get the server based on the region of this bucket
-        url = _get_object_url_for_region(bucket["region"],
-                                         oci_par.access_uri)
+                "Unable to create the signed URL!")
 
         # get the checksum for this URL - used to validate the close
         # request
         from Acquire.ObjectStore import OSPar as _OSPar
         from Acquire.ObjectStore import OSParRegistry as _OSParRegistry
         url_checksum = _OSPar.checksum(url)
-
-        driver_details = {"driver": "oci",
-                          "bucket": bucket["bucket_name"],
-                          "created_datetime": created_datetime,
-                          "par_id": oci_par.id,
-                          "par_name": oci_par.name}
+        bucket_name = bucket["bucket_name"]
+        driver_details = {"driver": "gcp",
+                          "bucket": bucket_name,
+                          "created_datetime": created_datetime}
 
         par = _OSPar(url=url, encrypt_key=encrypt_key,
-                     key=oci_par.object_name,
+                     key=key,
                      expires_datetime=expires_datetime,
                      is_readable=readable,
                      is_writeable=writeable,
@@ -480,41 +364,9 @@ class OCI_ObjectStore:
         if not isinstance(par, _OSPar):
             raise TypeError("The OSPar must be of type OSPar")
 
-        if par.driver() != "oci":
+        if par.driver() != "gcp":
             raise ValueError("Cannot delete a OSPar that was not created "
-                             "by the OCI object store")
-
-        # delete the PAR
-        from Acquire.Service import get_service_account_bucket \
-            as _get_service_account_bucket
-
-        par_bucket = par.driver_details()["bucket"]
-        par_id = par.driver_details()["par_id"]
-
-        bucket = _get_service_account_bucket()
-
-        # now get the bucket accessed by the OSPar...
-        bucket = OCI_ObjectStore.get_bucket(bucket=bucket,
-                                            bucket_name=par_bucket)
-
-        client = bucket["client"]
-
-        try:
-            response = client.delete_preauthenticated_request(
-                                            client.get_namespace().data,
-                                            bucket["bucket_name"],
-                                            par_id)
-        except Exception as e:
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError(
-                "Unable to delete a OSPar '%s' : Error %s" %
-                (par_id, str(e)))
-
-        if response.status not in [200, 204]:
-            from Acquire.ObjectStore import ObjectStoreError
-            raise ObjectStoreError(
-                "Unable to delete a OSPar '%s' : Status %s, Error %s" %
-                (par_id, response.status, str(response.data)))
+                             "by the GCP object store")
 
         # close the OSPar - this will trigger any close_function(s)
         _OSParRegistry.close(par=par)
@@ -534,16 +386,15 @@ class OCI_ObjectStore:
 
         key = _clean_key(key)
 
+        blob = bucket["bucket"].blob(key)
+
         try:
-            response = bucket["client"].get_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   key)
+            response = blob.download_as_string()
             is_chunked = False
         except:
             try:
-                response = bucket["client"].get_object(bucket["namespace"],
-                                                       bucket["bucket_name"],
-                                                       "%s/1" % key)
+                blob = bucket["bucket"].blob("%s/1" % key)
+                response = blob.download_as_string()
                 is_chunked = True
             except:
                 is_chunked = False
@@ -554,14 +405,7 @@ class OCI_ObjectStore:
                 from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError("No data at key '%s'" % key)
 
-        data = None
-
-        for chunk in response.data.raw.stream(1024 * 1024,
-                                              decode_content=False):
-            if not data:
-                data = chunk
-            else:
-                data += chunk
+        data = response
 
         if is_chunked:
             # keep going through to find more chunks
@@ -571,20 +415,16 @@ class OCI_ObjectStore:
                 next_chunk += 1
 
                 try:
-                    response = bucket["client"].get_object(
-                                        bucket["namespace"],
-                                        bucket["bucket_name"],
-                                        "%s/%d" % (key, next_chunk))
+                    blob = bucket["bucket"].blob("%s/%s" % (key, next_chunk))
+                    response = blob.download_as_string()
                 except:
                     response = None
                     break
 
-                for chunk in response.data.raw.stream(1024 * 1024,
-                                                      decode_content=False):
-                    if not data:
-                        data = chunk
-                    else:
-                        data += chunk
+                if not data:
+                    data = response
+                else:
+                    data += response
 
         return data
 
@@ -601,10 +441,10 @@ class OCI_ObjectStore:
                 bytes: Binary data
         """
         # ideally the get and delete should be atomic... would like this API
-        data = OCI_ObjectStore.get_object(bucket, key)
+        data = GCP_ObjectStore.get_object(bucket, key)
 
         try:
-            OCI_ObjectStore.delete_object(bucket, key)
+            GCP_ObjectStore.delete_object(bucket, key)
         except:
             pass
 
@@ -617,6 +457,8 @@ class OCI_ObjectStore:
            Args:
                 bucket (dict): Bucket containing data
                 prefix (str): Prefix for data
+                without_prefix (str): Whether or not to include the prefix
+                                      in the object name
            Returns:
                 list: List of all objects in bucket
 
@@ -624,16 +466,14 @@ class OCI_ObjectStore:
         if prefix is not None:
             prefix = _clean_key(prefix)
 
-        objects = bucket["client"].list_objects(bucket["namespace"],
-                                                bucket["bucket_name"],
-                                                prefix=prefix).data
+        blobs = bucket["bucket"].list_blobs(prefix=prefix)
 
         names = []
 
         if without_prefix:
             prefix_len = len(prefix)
 
-        for obj in objects.objects:
+        for obj in blobs:
             if prefix:
                 if obj.name.startswith(prefix):
                     name = obj.name
@@ -672,12 +512,13 @@ class OCI_ObjectStore:
         if data is None:
             data = b'0'
 
-        f = _io.BytesIO(data)
+        if isinstance(data, str):
+            data = data.encode("utf-8")
 
         key = _clean_key(key)
-        bucket["client"].put_object(bucket["namespace"],
-                                    bucket["bucket_name"],
-                                    key, f)
+
+        blob = bucket["bucket"].blob(key)
+        blob.upload_from_string(data)
 
     @staticmethod
     def delete_all_objects(bucket, prefix=None):
@@ -690,11 +531,10 @@ class OCI_ObjectStore:
             Returns:
                 None
         """
+        blobs = bucket["bucket"].list_blobs()
 
-        for obj in OCI_ObjectStore.get_all_object_names(bucket):
-            bucket["client"].delete_object(bucket["namespace"],
-                                           bucket["bucket_name"],
-                                           obj)
+        for blob in blobs:
+            blob.delete()
 
     @staticmethod
     def delete_object(bucket, key):
@@ -707,10 +547,8 @@ class OCI_ObjectStore:
                 None
         """
         try:
-            key = _clean_key(key)
-            bucket["client"].delete_object(bucket["namespace"],
-                                           bucket["bucket_name"],
-                                           key)
+            bucket["bucket"].blob(key).delete()
+
         except:
             pass
 
@@ -729,16 +567,12 @@ class OCI_ObjectStore:
         key = _clean_key(key)
 
         try:
-            response = bucket["client"].get_object(bucket["namespace"],
-                                                   bucket["bucket_name"],
-                                                   key)
+            blob = bucket["bucket"].get_blob(key)
+            checksum = blob.md5_hash
+            content_length = blob.size
         except:
             from Acquire.ObjectStore import ObjectStoreError
             raise ObjectStoreError("No data at key '%s'" % key)
-
-        content_length = response.headers["Content-Length"]
-        checksum = response.headers["Content-MD5"]
-
         # the checksum is a base64 encoded Content-MD5 header
         # described as standard part of HTTP RFC 2616. Need to
         # convert this back to a hexdigest

@@ -1,0 +1,16 @@
+name: Simulation name
+author: Someone made this
+type: amber-molecular-dynamics
+version: 1.0
+input:
+    - mdin: input/mdinput
+      mdrst: input/mdrst
+      mdprm: input/mdprm
+output: testoutput
+comments: >
+    Some notes about this input file, e.g. how this was set up and 
+    what this file contains. This should describe the background
+    of how the files were created
+metadata: >
+    Something about the software stack that produced this file
+

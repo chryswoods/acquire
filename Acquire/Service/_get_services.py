@@ -6,7 +6,7 @@ _cache_local_serviceinfo = _LRUCache(maxsize=5)
 _cache_local_serviceinfos = _LRUCache(maxsize=5)
 
 __all__ = ["get_trusted_service", "get_trusted_services",
-           "clear_services_cache"]
+           "clear_services_cache", "refetch_trusted_service"]
 
 
 def clear_services_cache():
@@ -66,6 +66,28 @@ def get_trusted_services():
         from Acquire.Client import Wallet as _Wallet
         wallet = _Wallet()
         return wallet.get_services()
+
+
+def refetch_trusted_service(service):
+    """Refetch the trusted service 'service'. This will refetch the
+       keys for this service from the registry. This is sometimes needed
+       if we lose the chain of keys to the service (e.g. if the service
+       admin resets the service)
+    """
+    from Acquire.Service import Service as _Service
+    from Acquire.Registry import get_trusted_registry_service \
+        as _get_trusted_registry_service
+
+    s = _Service.resolve(service, fetch=False)
+
+    registry = _get_trusted_registry_service(service_uid=service.uid())
+    clear_services_cache()
+    service = registry.get_service(service_uid=s["service_uid"],
+                                   service_url=s["service_url"])
+
+    from Acquire.Service import trust_service as _trust_service
+    _trust_service(service)
+    return service
 
 
 # Cached as the remote service information will not change too often
