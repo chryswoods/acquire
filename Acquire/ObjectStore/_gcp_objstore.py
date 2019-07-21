@@ -148,11 +148,11 @@ class GCP_ObjectStore:
 
         # try to get the existing bucket
         client = new_bucket["client"]
-        bucket_name = _sanitise_bucket_name(bucket_name,
-                                            bucket["unique_suffix"])
-        new_bucket["bucket_name"] = bucket_name
+        sanitised_name = _sanitise_bucket_name(bucket_name,
+                                               bucket["unique_suffix"])
+        new_bucket["bucket_name"] = sanitised_name
         try:
-            existing_bucket = client.get_bucket(bucket_name)
+            existing_bucket = client.get_bucket(sanitised_name)
         except:
             existing_bucket = None
 
