@@ -9,6 +9,9 @@ __pycache__/
 # Profiling
 prof/
 
+# Temporary files that should not be in git
+tmp/
+
 # Distribution / packaging
 .Python
 build/

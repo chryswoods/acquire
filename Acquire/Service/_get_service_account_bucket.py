@@ -127,7 +127,7 @@ def get_service_account_bucket(testing_dir=None):
     if config is None:
         from Acquire.Service import ServiceAccountError
         raise ServiceAccountError(
-            "You must supply the encrypted config in teh 'SECRET_CONFIG' "
+            "You must supply the encrypted config in the 'SECRET_CONFIG' "
             "environment variable!")
 
     try:
@@ -160,24 +160,50 @@ def get_service_account_bucket(testing_dir=None):
         if key not in ["LOGIN", "BUCKET", "PASSWORD"]:
             _os.environ[key] = config[key]
 
-    # we have OCI login details, so make sure that we are using
-    # the OCI object store backend
-    from Acquire.ObjectStore import use_oci_object_store_backend as \
-        _use_oci_object_store_backend
-
-    _use_oci_object_store_backend()
-
-    # now login and create/load the bucket for this account
     try:
-        from ._oci_account import OCIAccount as _OCIAccount
+        cloud_backend = config["CLOUD_BACKEND"]
+    except:
+        cloud_backend = "oci"
 
-        account_bucket = _OCIAccount.create_and_connect_to_bucket(
-                                    access_data,
-                                    bucket_data["compartment"],
-                                    bucket_data["bucket"])
-    except Exception as e:
-        from Acquire.Service import ServiceAccountError
-        raise ServiceAccountError(
-             "Error connecting to the service account: %s" % str(e))
+    if cloud_backend == "oci":
+        # we have OCI login details, so make sure that we are using
+        # the OCI object store backend
+        from Acquire.ObjectStore import use_oci_object_store_backend as \
+            _use_oci_object_store_backend
+
+        _use_oci_object_store_backend()
+
+        # now login and create/load the bucket for this account
+        try:
+            from ._oci_account import OCIAccount as _OCIAccount
+
+            account_bucket = _OCIAccount.create_and_connect_to_bucket(
+                                            access_data,
+                                            bucket_data["compartment"],
+                                            bucket_data["bucket"])
+        except Exception as e:
+            from Acquire.Service import ServiceAccountError
+            raise ServiceAccountError(
+                "Error connecting to the service account: %s" % str(e))
+
+    elif cloud_backend == "gcp":
+        # we have valid GCP login details, so make sure that we are
+        # using the GCP object store backend
+        from Acquire.ObjectStore import use_gcp_object_store_backend as \
+            _use_gcp_object_store_backend
+
+        _use_gcp_object_store_backend()
+
+        # now login and create/load the bucket for this account
+        try:
+            from ._gcp_account import GCPAccount as _GCPAccount
+
+            account_bucket = _GCPAccount.create_and_connect_to_bucket(
+                                            access_data,
+                                            bucket_data["bucket"])
+        except Exception as e:
+            from Acquire.Service import ServiceAccountError
+            raise ServiceAccountError(
+                "Error connecting to the service account: %s" % str(e))
 
     return account_bucket

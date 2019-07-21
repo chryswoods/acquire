@@ -16,6 +16,8 @@ requests
 # Apache license dependencies
 fdk==0.0.35
 oci
+google-cloud-storage
+
 # GPL 3+ license dependencies
 lazy_import
 

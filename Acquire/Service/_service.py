@@ -153,7 +153,8 @@ class Service:
             elif isinstance(service, str):
                 # this could be a url or uid
                 import re as _re
-                if _re.match(r"([a-z0-9]+)-([a-z0-9]+)", service):
+                m = _re.match(r"([a-z0-9]+)-([a-z0-9]+)", service)
+                if m and (m.group() == m.string):
                     s["service_uid"] = service
                 else:
                     s["service_url"] = service
@@ -843,6 +844,29 @@ class Service:
 
         if self.should_refresh_keys():
             self.refresh_keys()
+
+        from Acquire.Service import ServiceAccountMissingKeyError
+
+        try:
+            return _call_function(service_url=self.service_url(),
+                                  function=function,
+                                  args=args,
+                                  args_key=self.public_key(),
+                                  public_cert=self.public_certificate(),
+                                  response_key=_get_private_key("function"))
+
+        except ServiceAccountMissingKeyError:
+            # the service's keys have changed and we can no longer
+            # connect - we need to fetch new keys from the registry
+            # and try again...
+            pass
+
+        from Acquire.Service import refetch_trusted_service \
+            as _refetch_trusted_service
+        service = _refetch_trusted_service(self)
+
+        from copy import copy as _copy
+        self.__dict__ = _copy(service.__dict__)
 
         return _call_function(service_url=self.service_url(),
                               function=function,
