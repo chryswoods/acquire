@@ -39,7 +39,8 @@ setuptools.setup(
     ],
     entry_points={
         "console_scripts": [
-           "acquire_login = Acquire.Client.Scripts.__acquire_login__:main"
+           "acquire_login = Acquire.Client.Scripts.__acquire_login__:main",
+           "aq = Acquire.Client.Scripts.__aq__:main"
         ]
     },
     install_requires=[

@@ -3,7 +3,8 @@
 import pytest
 import os
 
-from Acquire.Client import Drive, PAR
+from Acquire.Client import Drive, StorageCreds, ACLRules
+from Acquire.ObjectStore import OSPar
 
 
 @pytest.fixture(scope="session")
@@ -12,55 +13,25 @@ def tempdir(tmpdir_factory):
     return str(d)
 
 
-def _test_bulk_upload(authenticated_user, tempdir):
-    drive_name = "bulk upload"
-    drive = Drive(user=authenticated_user, name=drive_name,
-                  storage_url="storage")
-
-    assert(drive.name() == drive_name)
-    assert(drive.acl().is_owner())
-
-    files = drive.list_files()
-    assert(len(files) == 0)
-
-    par = drive.bulk_upload(max_size=1024*1024)
-
-    assert(isinstance(par, PAR))
-    assert(not par.is_null())
-    assert(par.is_bucket())
-    assert(par.is_writeable())
-
-    par.write().set_object_from_file("test_file.py", __file__)
-    par.write().set_string_object("test_newfile.py", "Here is\nsome text\n")
-
-    par.close()
-
-    assert(par.is_null())
-
-    files = drive.list_files()
-    assert(len(files) == 2)
-
-    # (filename, filemeta) = drive.download()
-
-
 def test_drives(authenticated_user, tempdir):
 
-    drive_name = "test å∫ç∂ something"
-    drive = Drive(user=authenticated_user, name=drive_name,
-                  storage_url="storage")
+    creds = StorageCreds(user=authenticated_user, service_url="storage")
 
-    assert(drive.name() == drive_name)
-    assert(drive.acl().is_owner())
+    nstart = len(Drive.list_toplevel_drives(creds=creds))
+
+    drive_name = "test å∫ç∂ something"
+    drive = Drive(name=drive_name, creds=creds, autocreate=True)
+
+    assert(drive.metadata().name() == drive_name)
+    assert(drive.metadata().acl().is_owner())
 
     drive2_name = "test/this/is/a/../../dir"
 
-    drive2 = Drive(user=authenticated_user, name=drive2_name,
-                   storage_url="storage")
+    drive2 = Drive(name=drive2_name, creds=creds)
 
-    drives = Drive.list_toplevel_drives(user=authenticated_user,
-                                        storage_url="storage")
+    drives = Drive.list_toplevel_drives(creds=creds)
 
-    assert(len(drives) == 2)
+    assert(len(drives) == nstart + 2)
 
     drives = drive2.list_drives()
 
@@ -77,7 +48,7 @@ def test_drives(authenticated_user, tempdir):
 
     filemeta = drive.upload(filename=filename)
 
-    assert(filemeta.has_metadata())
+    assert(filemeta.is_complete())
     assert(filemeta.acl().is_owner())
     assert(filemeta.acl().is_readable())
     assert(filemeta.acl().is_writeable())
@@ -95,14 +66,14 @@ def test_drives(authenticated_user, tempdir):
     assert(len(files) == 1)
 
     assert(files[0].filename() == filemeta.filename())
-    assert(not files[0].has_metadata())
+    assert(not files[0].is_complete())
 
     files = drive.list_files(include_metadata=True)
 
     assert(len(files) == 1)
 
     assert(files[0].filename() == filemeta.filename())
-    assert(files[0].has_metadata())
+    assert(files[0].is_complete())
 
     assert(files[0].uid() == filemeta.uid())
     assert(files[0].filesize() == filemeta.filesize())
@@ -114,7 +85,8 @@ def test_drives(authenticated_user, tempdir):
     assert(files[0].uploaded_by() == authenticated_user.guid())
     assert(files[0].uploaded_when() == upload_datetime)
 
-    (filename, filemeta) = drive.download(files[0].filename(), dir=tempdir)
+    f = files[0].open()
+    filename = f.download(dir=tempdir)
 
     # make sure that the two files are identical
     with open(filename, "rb") as FILE:
@@ -138,33 +110,19 @@ def test_drives(authenticated_user, tempdir):
     assert(files[0].uploaded_by() == authenticated_user.guid())
     assert(files[0].uploaded_when() == upload_datetime)
 
-    versions = drive.list_versions(filename=filemeta.filename())
+    versions = f.list_versions()
 
     assert(len(versions) == 1)
     assert(versions[0].filename() == filemeta.filename())
     assert(versions[0].uploaded_when() == filemeta.uploaded_when())
-
-    versions = drive.list_versions(filename=filemeta.filename(),
-                                   include_metadata=True)
-
-    assert(len(versions) == 1)
-    assert(versions[0].filename() == filemeta.filename())
-    assert(versions[0].uploaded_when() == filemeta.uploaded_when())
-
-    assert(versions[0] == filemeta)
 
     new_filemeta = drive.upload(filename=__file__, force_par=True)
 
-    versions = drive.list_versions(filename=filemeta.filename())
+    versions = f.list_versions()
 
     assert(len(versions) == 2)
 
-    versions = drive.list_versions(filename=filemeta.filename(),
-                                   include_metadata=True)
-
-    assert(len(versions) == 2)
-
-    (filename, new_filemeta) = drive.download(filemeta.filename(), dir=tempdir)
+    filename = new_filemeta.open().download(dir=tempdir)
 
     # make sure that the two files are identical
     with open(filename, "rb") as FILE:
@@ -179,11 +137,10 @@ def test_drives(authenticated_user, tempdir):
     assert(data1 == data2)
 
     # should be in upload order
-    assert(versions[0] == filemeta)
-    assert(versions[1] == new_filemeta)
+    assert(versions[0].uid() == filemeta.uid())
+    assert(versions[1].uid() == new_filemeta.uid())
 
-    (filename, new_filemeta) = drive.download(filemeta.filename(),
-                                              dir=tempdir, force_par=True)
+    filename = new_filemeta.open().download(dir=tempdir, force_par=True)
 
     # make sure that the two files are identical
     with open(filename, "rb") as FILE:
@@ -193,3 +150,17 @@ def test_drives(authenticated_user, tempdir):
     os.unlink(filename)
 
     assert(data1 == data2)
+
+    # try to upload a file with path to the drive
+    filemeta = drive.upload(filename=__file__,
+                            uploaded_name="/test/one/../two/test.py")
+
+    assert(filemeta.filename() == "test/two/test.py")
+
+    # cannot create a new Drive with non-owner ACLs
+    with pytest.raises(PermissionError):
+        drive = Drive(name="broken_acl", creds=creds,
+                      aclrules=ACLRules.owner("12345@z0-z0"))
+
+    drive = Drive(name="working_acl", creds=creds,
+                  aclrules=ACLRules.owner(authenticated_user.guid()))

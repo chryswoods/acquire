@@ -373,6 +373,56 @@ def get_admin_users():
     return admin_users
 
 
+def _refresh_this_service_keys_and_certs(service_info, service_password):
+    from Acquire.Service import Service as _Service
+    service = _Service.from_data(service_info, service_password)
+
+    if service._uid == "STAGE1":
+        return service_info
+
+    if not service.should_refresh_keys():
+        return service_info
+
+    oldkeys = service.dump_keys(include_old_keys=False)
+
+    # now write the old keys to storage
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.ObjectStore import Mutex as _Mutex
+    from Acquire.Service import get_service_account_bucket as \
+        _get_service_account_bucket
+
+    bucket = _get_service_account_bucket()
+    key = "%s/oldkeys/%s" % (_service_key, oldkeys["datetime"])
+    _ObjectStore.set_object_from_json(bucket, key, oldkeys)
+
+    # now write the pointers from fingerprint to file...
+    for fingerprint in oldkeys.keys():
+        if fingerprint not in ["datetime", "encrypted_passphrase"]:
+            _ObjectStore.set_string_object(
+                bucket, "%s/oldkeys/fingerprints/%s" %
+                (_service_key, fingerprint), key)
+
+    # generate new keys
+    last_update = service.last_key_update()
+    service.refresh_keys()
+
+    # now lock the object store so that we are the only function
+    # that can write the new keys to global state
+    m = _Mutex(key=service.uid(), bucket=bucket)
+
+    service_data = _ObjectStore.get_object_from_json(bucket, _service_key)
+    service_info = _Service.from_data(service_data)
+
+    if service_info.last_key_update() == last_update:
+        # no-one else has beaten us - write the updated keys to global state
+        _ObjectStore.set_object_from_json(bucket, _service_key,
+                                          service.to_data(service_password))
+
+    m.unlock()
+
+    return service_data
+
+
 @_cached(_cache_service_info)
 def get_this_service(need_private_access=False):
     """Return the service info object for this service. If private
@@ -410,7 +460,19 @@ def get_this_service(need_private_access=False):
             "Unable to create the ServiceAccount object: %s %s" %
             (e.__class__, str(e)))
 
-    return service
+    if service.should_refresh_keys():
+        if service_password is None:
+            service_password = _get_service_password()
+
+        service_info = _refresh_this_service_keys_and_certs(service_info,
+                                                            service_password)
+
+        if need_private_access:
+            return _Service.from_data(service_info, service_password)
+        else:
+            return _Service.from_data(service_info)
+    else:
+        return service
 
 
 @_cached(_cache_service_account_uid)
@@ -475,12 +537,16 @@ def create_service_user_account(service, accounting_service_url):
 
     try:
         from Acquire.Client import create_account as _create_account
+        from Acquire.Client import deposit as _deposit
 
         account = _create_account(
                     service_user, "main",
                     "Main account to receive payment for all use on service "
                     "%s (%s)" % (service.canonical_url(), service.uid()),
                     accounting_service=accounting_service)
+
+        _deposit(user=service_user, value=100.0,
+                 account_name="main", accounting_service=accounting_service)
 
         account_uid = account.uid()
 
@@ -567,6 +633,9 @@ def refresh_service_keys_and_certs(service, force_refresh=False):
     """
     assert_running_service()
 
+    if service._uid == "STAGE1":
+        return service
+
     if (not force_refresh) and (not service.should_refresh_keys()):
         return service
 
@@ -621,8 +690,8 @@ def get_service_private_key(fingerprint=None):
             try:
                 return load_service_key_from_objstore(fingerprint)
             except Exception as e:
-                from Acquire.Service import ServiceAccountError
-                raise ServiceAccountError(
+                from Acquire.Service import ServiceAccountMissingKeyError
+                raise ServiceAccountMissingKeyError(
                     "Cannot find a private key for '%s' that matches "
                     "the fingerprint %s. This is either because you are "
                     "using a key that is too old or "

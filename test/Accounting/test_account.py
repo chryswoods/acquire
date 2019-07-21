@@ -13,7 +13,7 @@ from Acquire.Service import get_service_account_bucket, \
     push_is_running_service, pop_is_running_service, \
     is_running_service
 
-from Acquire.Crypto import PrivateKey
+from Acquire.Crypto import PrivateKey, get_private_key
 
 from Acquire.ObjectStore import get_datetime_now
 
@@ -23,7 +23,7 @@ account2_overdraft_limit = 2500000
 account1_user = "account1@local"
 account2_user = "account2@local"
 
-testing_key = PrivateKey()
+testing_key = get_private_key("testing")
 
 
 def assert_packable(obj):

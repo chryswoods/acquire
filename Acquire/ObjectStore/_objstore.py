@@ -7,7 +7,8 @@ import os as _os
 
 __all__ = ["ObjectStore", "set_object_store_backend",
            "use_testing_object_store_backend",
-           "use_oci_object_store_backend"]
+           "use_oci_object_store_backend",
+           "use_gcp_object_store_backend"]
 
 _objstore_backend = None
 
@@ -29,6 +30,11 @@ def use_testing_object_store_backend(backend):
 def use_oci_object_store_backend():
     from ._oci_objstore import OCI_ObjectStore as _OCI_ObjectStore
     set_object_store_backend(_OCI_ObjectStore)
+
+
+def use_gcp_object_store_backend():
+    from ._gcp_objstore import GCP_ObjectStore as _GCP_ObjectStore
+    set_object_store_backend(_GCP_ObjectStore)
 
 
 class ObjectStore:
@@ -100,31 +106,31 @@ class ObjectStore:
                    writeable=False, duration=3600, cleanup_function=None):
         """Create a pre-authenticated request for the passed bucket and
            key (if key is None then the request is for the entire bucket).
-           This will return a PAR object that will contain a URL that can
+           This will return a OSPar object that will contain a URL that can
            be used to access the object/bucket. If writeable is true, then
            the URL will also allow the object/bucket to be written to.
            PARs are time-limited. Set the lifetime in seconds by passing
            in 'duration' (by default this is one hour). Note that you must
-           pass in a public key that will be used to encrypt this PAR. This is
-           necessary as the PAR grants access to anyone who can decrypt
+           pass in a public key that will be used to encrypt this OSPar. This
+           is necessary as the OSPar grants access to anyone who can decrypt
            the URL
         """
-        from Acquire.Client import PAR as _PAR
+        from Acquire.ObjectStore import OSPar as _OSPar
 
         par = _objstore_backend.create_par(
                     bucket=bucket, encrypt_key=encrypt_key, key=key,
                     readable=readable, writeable=writeable,
                     duration=duration, cleanup_function=cleanup_function)
 
-        if not isinstance(par, _PAR):
+        if not isinstance(par, _OSPar):
             raise TypeError("A create_par request should always return an "
-                            "value of type PAR: %s is not correct!" % par)
+                            "value of type OSPar: %s is not correct!" % par)
 
         return par
 
     @staticmethod
     def close_par(par=None, par_uid=None, url_checksum=None):
-        """Close the passed PAR, which provides access to data in the
+        """Close the passed OSPar, which provides access to data in the
            passed bucket
         """
         _objstore_backend.close_par(par=par,
@@ -196,9 +202,10 @@ class ObjectStore:
         return _json.loads(data)
 
     @staticmethod
-    def get_all_object_names(bucket, prefix=None):
+    def get_all_object_names(bucket, prefix=None, without_prefix=False):
         """Returns the names of all objects in the passed bucket"""
-        return _objstore_backend.get_all_object_names(bucket, prefix)
+        return _objstore_backend.get_all_object_names(bucket, prefix,
+                                                      without_prefix)
 
     @staticmethod
     def get_all_objects(bucket, prefix=None):

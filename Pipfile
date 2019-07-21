@@ -1,0 +1,23 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+#pytest may need to be in dev-packages but keep it stay in general section for now
+[packages]
+pyotp = "*"
+cachetools = "*"
+qrcode = {extras = ["pil"],version = "*"}
+tblib = "*"
+urllib3 = ">=1.24.2"
+cryptography = "*"
+requests = ">=2.20.0"
+PyYAML = "*"
+lazy-import = "*"
+pytest = "*"
+backports-datetime-fromisoformat = "*"
+freezegun = "*"
+
+[requires]
+python_version = "3.7"

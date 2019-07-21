@@ -1,5 +1,5 @@
 
-from Acquire.Identity import Authorisation
+from Acquire.Identity import Authorisation, ACLRules
 
 from Acquire.Storage import UserDrives, DriveInfo
 
@@ -24,9 +24,15 @@ def run(args):
     except:
         autocreate = True
 
+    if autocreate and "aclrules" in args:
+        aclrules = ACLRules.from_data(args["aclrules"])
+    else:
+        aclrules = None
+
     drives = UserDrives(authorisation=authorisation)
 
-    drive = drives.get_drive(name=name, autocreate=autocreate)
+    drive = drives.get_drive(name=name, aclrules=aclrules,
+                             autocreate=autocreate)
 
     return_value = {}
 

@@ -46,7 +46,7 @@ class UserCredentials:
         if device_uid is None:
             device_uid = user_uid
 
-        privkey = _PrivateKey(auto_generate=True)
+        privkey = _PrivateKey(name="user_creds_key %s" % user_uid)
         otp = _OTP()
         otpsecret = otp.encrypt(privkey.public_key())
         primary_password = privkey.encrypt(primary_password)

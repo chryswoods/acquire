@@ -3,7 +3,7 @@ from Acquire.Identity import Authorisation
 
 from Acquire.Service import push_is_running_service, pop_is_running_service, \
     get_service_account_bucket, is_running_service
-from Acquire.Crypto import PrivateKey, PublicKey
+from Acquire.Crypto import PrivateKey, PublicKey, get_private_key
 
 import pytest
 import uuid
@@ -27,7 +27,7 @@ def test_authorisation(bucket):
     push_is_running_service()
 
     try:
-        key = PrivateKey()
+        key = get_private_key("testing")
 
         resource = uuid.uuid4()
 
