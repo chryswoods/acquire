@@ -29,6 +29,10 @@ def trust_service(service):
         from Acquire.Service import clear_services_cache \
             as _clear_services_cache
         _clear_services_cache()
+    else:
+        from Acquire.Client import Wallet as _Wallet
+        wallet = _Wallet()
+        wallet.add_service(service)
 
 
 def untrust_service(service):

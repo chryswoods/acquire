@@ -420,6 +420,20 @@ class Wallet:
             as _clear_services_cache
         _clear_services_cache()
 
+    def add_service(self, service):
+        """Add the passed service to this wallet"""
+        from Acquire.Service import Service as _Service
+        from Acquire.ObjectStore import string_to_safestring \
+            as _string_to_safestring
+
+        s = _Service.resolve(service, fetch=True)
+        service = s["service"]
+
+        service_dir = Wallet._get_service_dir(service.uid())
+        service_file = "%s/service_%s.json" % (
+            service_dir, _string_to_safestring(service.canonical_url()))
+        _write_service(service=service, filename=service_file)
+
     def get_service(self, service=None, service_url=None, service_uid=None,
                     service_type=None, autofetch=True):
         """Return the service at either 'service_url', or that
@@ -435,6 +449,7 @@ class Wallet:
             s = _Service.resolve(service, fetch=False)
 
             if s["service"] is not None:
+                self.add_service(s["service"])
                 return s["service"]
 
             service_uid = s["service_uid"]
@@ -508,10 +523,7 @@ class Wallet:
                     (service, service_uid))
 
         if must_write:
-            service_dir = Wallet._get_service_dir(service.uid())
-            service_file = "%s/service_%s.json" % (
-                service_dir, _string_to_safestring(service.canonical_url()))
-            _write_service(service=service, filename=service_file)
+            self.add_service(service)
 
         return service
 
