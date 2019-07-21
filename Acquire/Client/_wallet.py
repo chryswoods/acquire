@@ -19,8 +19,13 @@ def _get_wallet_password(confirm_password=False):
        mess with the user's main wallet
     """
     import getpass as _getpass
-    password = _getpass.getpass(
-                prompt="Please enter a password to encrypt your wallet: ")
+    if confirm_password:
+        password = _getpass.getpass(
+                    prompt="Please enter a password to encrypt your wallet: ")
+    else:
+        password = _getpass.getpass(
+                    prompt="Please enter the password to decrypt your wallet: "
+        )
 
     if not confirm_password:
         return password
