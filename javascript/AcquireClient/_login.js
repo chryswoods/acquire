@@ -281,9 +281,41 @@ Acquire.Login.submit_url = async function(wallet, service_uid, short_uid)
     catch(err)
     {
         console.log(err);
-        Acquire.Login.show_fail("Could not get the login session info!",
-                                err);
-        return
+
+        //this could have failed because we have old keys for the service.
+        //We need to refetch the keys
+        wallet.remove_service({service_uid:service.uid(),
+                               service_url:service.canonical_url()});
+
+        try
+        {
+            Acquire.Login.set_progress("Connecting to login service...", 50);
+            service = await wallet.get_service({service_uid:service_uid});
+        }
+        catch(err)
+        {
+            console.log(err);
+            Acquire.Login.show_fail("Could not connect to the login service!",
+                                    err);
+            return;
+        }
+
+        try
+        {
+            Acquire.Login.set_progress("Getting session info...", 75);
+            let args = {"short_uid":short_uid,
+                        "status":"pending"};
+            let result = await service.call_function({func:"get_session_info",
+                                                    args:args});
+            message = result["login_message"];
+        }
+        catch(err)
+        {
+            console.log(err);
+            Acquire.Login.show_fail("Could not get the login session info!",
+                                    err);
+            return
+        }
     }
 
     //save the service and short_uid

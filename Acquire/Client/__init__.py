@@ -9,6 +9,8 @@ from ._qrcode import *
 from ._user import *
 from ._account import *
 from ._drive import *
+from ._job import *
+from ._resources import *
 from ._file import *
 from ._fileops import *
 from ._chunkuploader import *

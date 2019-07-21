@@ -281,20 +281,13 @@ class Account:
        interface that allows the account to be used as a receiver
        of value
     """
-    def __init__(self, user=None, account_uid=None,
+    def __init__(self, user=None, name=None, service=None,
+                 account_uid=None,
                  account_name=None, accounting_service=None,
                  accounting_url=None):
         """Construct the Account with the passed account_name, which is owned
            by the passed user. The account must already exist on the service,
            or else an exception will be raised
-
-           Args:
-                user (User, default=None): User to create account for
-                account_name (str, default=None): Name of account
-                account_uid (str, default=None): UID of the account
-                accounting_service (Service, default=None): Service on which to
-                create account
-                accounting_url (str, default=None): Accounting URL
         """
         if user is not None:
             self._account_uid = None
@@ -304,24 +297,35 @@ class Account:
                 self._account_uid = str(account_uid)
             elif account_name is not None:
                 self._account_name = str(account_name)
+            elif name is not None:
+                self._account_name = str(name)
 
             self._user = user
 
-            if accounting_service is None:
-                accounting_service = _get_accounting_service(accounting_url)
-            else:
-                from Acquire.Accounting import AccountingService \
-                    as _AccountingService
+            if service is not None:
+                from Acquire.Service import Service as _Service
+                s = _Service.resolve(service, fetch=True)
 
-                if not isinstance(accounting_service, _AccountingService):
-                    raise TypeError(
-                        "You can only create an account on a valid "
-                        "AccountingService object")
+                accounting_service = s["service"]
+            elif accounting_service is None:
+                if accounting_url is None:
+                    accounting_service = user.accounting_service()
+                else:
+                    accounting_service = _get_accounting_service(
+                                                        accounting_url)
 
-                if not accounting_service.is_accounting_service():
-                    raise TypeError(
-                        "The passed service - %s - is not an accounting "
-                        "service." % str(accounting_service))
+            from Acquire.Accounting import AccountingService \
+                as _AccountingService
+
+            if not isinstance(accounting_service, _AccountingService):
+                raise TypeError(
+                    "You can only create an account on a valid "
+                    "AccountingService object")
+
+            if not accounting_service.is_accounting_service():
+                raise TypeError(
+                    "The passed service - %s - is not an accounting "
+                    "service." % str(accounting_service))
 
             self._accounting_service = accounting_service
 
@@ -380,11 +384,7 @@ class Account:
         return "%s@%s" % (self.uid(), self.accounting_service().uid())
 
     def name(self):
-        """Return the name of this account if known
-
-           Returns:
-                str: Name of this account
-        """
+        """Return the name of this account if known"""
         if self.is_null():
             return None
         else:
@@ -567,6 +567,19 @@ class Account:
         self._refresh(force_update)
         return self._balance.is_overdrawn(self._overdraft_limit)
 
+    def deposit(self, value, description=None):
+        """Deposit 'value' into this account. This will raise a charge
+           to your real money account to transfer value into this account.
+           This is how we pay real money into the system
+        """
+        if not self.is_logged_in():
+            raise PermissionError(
+                "You must log into this account to deposit new funds")
+
+        deposit(user=self._user, value=value, description=description,
+                account_name=self.name(),
+                accounting_service=self._accounting_service)
+
     def perform(self, transaction, credit_account, is_provisional=False):
         """Tell this accounting service to apply the transfer described
            in 'transaction' from this account to the passed account. Note
@@ -690,3 +703,16 @@ class Account:
         result = service.call_function(function="refund", args=args)
 
         return result["transaction_record"]
+
+    def write_cheque(self, recipient, resource, max_spend,
+                     expiry_date=None):
+        """Write a cheque that will be to the specified
+           recipient (must be a service), that will be used to pay
+           for 'resource', with a value up to a maximum of
+           'max_spend'. You can optionally specify an expiry_date
+           after which this cheque will no longer be valid
+        """
+        from Acquire.Client import Cheque as _Cheque
+        return _Cheque.write(account=self, resource=resource,
+                             recipient=recipient, max_spend=max_spend,
+                             expiry_date=expiry_date)
