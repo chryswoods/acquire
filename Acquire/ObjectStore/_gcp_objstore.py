@@ -152,7 +152,7 @@ class GCP_ObjectStore:
                                                bucket["unique_suffix"])
         new_bucket["bucket_name"] = sanitised_name
         try:
-            existing_bucket = client.get_bucket(bucket_name)
+            existing_bucket = client.get_bucket(sanitised_name)
         except:
             existing_bucket = None
 
