@@ -24,7 +24,6 @@ def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
 
     file_bucket = _ObjectStore.get_bucket(
                         bucket=bucket, bucket_name=file_bucket,
-                        compartment=service.storage_compartment(),
                         create_if_needed=True)
 
     # check that the file uploaded matches what was promised
@@ -99,7 +98,6 @@ class DriveInfo:
         try:
             return _ObjectStore.get_bucket(
                             bucket=bucket, bucket_name=bucket_name,
-                            compartment=service.storage_compartment(),
                             create_if_needed=True)
         except Exception as e:
             from Acquire.ObjectStore import RequestBucketError
@@ -131,7 +129,6 @@ class DriveInfo:
         try:
             return _ObjectStore.get_bucket(
                             bucket=bucket, bucket_name=bucket_name,
-                            compartment=service.storage_compartment(),
                             create_if_needed=True)
         except Exception as e:
             from Acquire.ObjectStore import RequestBucketError
