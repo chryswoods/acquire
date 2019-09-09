@@ -276,8 +276,9 @@ class Authorisation:
         else:
             # datetime returns large positive numbers if time is
             # in the future - expect a little difference if client
-            # clock is fast. Give up to 10 seconds of leeway
-            return (self._auth_datetime - now).seconds > 10
+            # clock is fast. Give up to 30 seconds of leeway
+            leeway_seconds = 30
+            return (self._auth_datetime - now).seconds > leeway_seconds
 
     def _get_user_public_cert(self, scope=None, permissions=None):
         """Internal function that returns the public certificate
@@ -511,6 +512,8 @@ class Authorisation:
 
         from Acquire.ObjectStore import get_datetime_now \
             as _get_datetime_now
+
+        import datetime as _datetime
 
         if self.is_stale(stale_time):
             now = _get_datetime_now()
