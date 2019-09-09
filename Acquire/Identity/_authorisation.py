@@ -509,6 +509,9 @@ class Authorisation:
         if self.is_null():
             raise PermissionError("Cannot verify a null Authorisation")
 
+        from Acquire.ObjectStore import get_datetime_now \
+            as _get_datetime_now
+
         if self.is_stale(stale_time):
             now = _get_datetime_now()
             if now < self._auth_datetime:
