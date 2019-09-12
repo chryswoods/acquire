@@ -15,9 +15,12 @@ def create_qrcode(uri):
     """Return a QR code for the passed URI"""
     try:
         import qrcode as _qrcode
+        return _qrcode.make(uri)
     except:
         from Acquire.Client import QRCodeError
         raise QRCodeError("Cannot find the qrcode library needed to generate "
                           "QR codes. Please install and try again.")
+    
 
-    return _qrcode.make(uri)
+
+    
