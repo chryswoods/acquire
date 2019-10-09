@@ -424,20 +424,13 @@ class User:
         result = {}
         result["provisioning_uri"] = provisioning_uri
 
-        try:
-            import re
-            otpsecret = re.search(r"secret=([\w\d+]+)&issuer",
-                                  provisioning_uri).groups()[0]
-            result["otpsecret"] = otpsecret
-        except:
-            pass
-
-        try:
-            from Acquire.Client import create_qrcode as _create_qrcode
-            result["qrcode"] = _create_qrcode(provisioning_uri)
-        except:
-            pass
-
+        import re
+        otpsecret = re.search(r"secret=([\w\d+]+)&issuer", provisioning_uri).groups()[0]
+        result["otpsecret"] = otpsecret
+        
+        from Acquire.Client import create_qrcode as _create_qrcode
+        result["qrcode"] = _create_qrcode(provisioning_uri)
+        
         return result
 
     def request_login(self, login_message=None):
