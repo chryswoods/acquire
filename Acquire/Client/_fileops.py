@@ -30,7 +30,7 @@ def compress(inputfile=None, outputfile=None,
 
             # compress to a tmpfile and then move to outputfile later...
             import tempfile as _tempfile
-            (fd, bz2file) = _tempfile.mkstemp()
+            (fd, bz2file) = _tempfile.mkstemp(dir="/tmp")
             _os.close(fd)
 
             try:
@@ -99,7 +99,7 @@ def uncompress(inputfile=None, outputfile=None,
 
             # compress to a tmpfile and then move to outputfile later...
             import tempfile as _tempfile
-            (fd, bz2file) = _tempfile.mkstemp()
+            (fd, bz2file) = _tempfile.mkstemp(dir="/tmp")
             _os.close(fd)
 
             try:
