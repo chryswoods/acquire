@@ -6,4 +6,4 @@ cd access && fn --verbose deploy --local --all && cd -
 cd accounting && fn --verbose deploy --local --all && cd -
 cd storage && fn --verbose deploy --local --all && cd -
 cd compute && fn --verbose deploy --local --all && cd -
-cd registry && fn --verbose deploy --local --all & cd -
+#cd registry && fn --verbose deploy --local --all & cd -

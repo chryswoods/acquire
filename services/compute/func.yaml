@@ -1,6 +1,6 @@
 schema_version: 20180708
 name: compute-root
-version: 0.0.4
+version: 0.0.32
 runtime: docker
 format: http-stream
 type: sync

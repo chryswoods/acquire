@@ -17,30 +17,20 @@ secret_config = {}
 
 ## First create the login info to connect to the account
 
-"""
-[DEFAULT]
-user=ocid1.user.oc1..aaaaaaaahxlrqhcgfzdv52ias5yt6go6ybgmb5hv7at5amepal22tagvaczq
-fingerprint=11:7e:8f:d4:2a:c8:73:e9:0c:e6:08:94:16:3b:72:e4
-key_file=~/.oci/oci_api_key.pem
-pass_phrase=XXXXXX
-tenancy=ocid1.tenancy.oc1..aaaaaaaa3eiex6fbfj626uwhs3dg24oygknrhhgfj4khqearluf4i74zdt2a
-region=eu-frankfurt-1
-"""
-
 data = {}
 
-# OCID for the user
-data["user"] = "ocid1.user.oc1..aaaaaaaaoilljypbl7eehxqxw5o63vvb3kfjjbxacskufhxfbird5k763drq"
+# OCID for the user "bss-auth-service"
+data["user"] = "ocid1.user.oc1..aaaaaaaahex4rfu5wrhufoh4leoq3tbpqygoxxls6du3mcrzzix4liwtdvra"
 
 # Fingerprint for the login keyfile
-data["fingerprint"] = "c1:d4:4a:1f:ff:8f:09:4c:f7:a1:3b:b1:d0:dc:32:ae"
+data["fingerprint"] = "01:70:66:fa:f8:09:56:9e:a1:e7:c2:00:99:ef:1b:cf"
 
 # The keyfile itself - we will now read the file and pull it into text
 keyfile = sys.argv[1]
 data["key_lines"] = open(sys.argv[1],"r").readlines()
 
 # The tenancy in which this user and everything exists!
-data["tenancy"] = "ocid1.tenancy.oc1..aaaaaaaa3eiex6fbfj626uwhs3dg24oygknrhhgfj4khqearluf4i74zdt2a"
+data["tenancy"] = "ocid1.tenancy.oc1..aaaaaaaaadarqjzv7bxmb3scckyhmqlqyok3dfqenmzyirrbpjv32uyy74ca"
 
 # The passphrase to unlock the key - VERY SECRET!!!
 data["pass_phrase"] = sys.argv[2]
@@ -57,8 +47,8 @@ secret_config["LOGIN"] = data
 ## that will store all data related to logging into accounts
 
 data = {}
-data["compartment"] = "ocid1.compartment.oc1..aaaaaaaat33j7w74mdyjenwoinyeawztxe7ri6qkfbm5oihqb5zteamvbpzq"
-data["bucket"] = "acquire_accounting"
+data["compartment"] = "ocid1.compartment.oc1..aaaaaaaawwwf4eocadm6suukafuemsxqfk74frirbmzskptqa4rkrwumtnpa"
+data["bucket"] = "hugs_accounting"
 
 secret_config["BUCKET"] = data
 
