@@ -7,6 +7,8 @@ Service
 """
 
 from ._compute_service import *
+from ._cluster import *
+from ._computejob import *
 from ._errors import *
 
 try:

@@ -1,7 +1,7 @@
 
 from enum import Enum as _Enum
 
-__all__ = ["ACLRules", "ACLUserRules", "ACLGroupRules"]
+__all__ = ["ACLRules", "ACLUserRules", "ACLGroupRules", "ACLRuleOperation"]
 
 
 class ACLRuleOperation(_Enum):
@@ -9,6 +9,12 @@ class ACLRuleOperation(_Enum):
     MIN = "min"  # add rules together (least permissive)
     SUB = "sub"  # subtract rules (why?)
     SET = "set"  # break - set first matching fully-resolved rule
+
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.value
 
     def to_data(self):
         return self.value
@@ -128,6 +134,10 @@ class ACLGroupRules:
     def add_group_rule(self, group_guid, rule):
         """Add a rule for the used with passed 'group_guid'"""
         self._group_rules[group_guid] = rule
+        return self
+
+    def add(self, group_guid, rule):
+        return self.add_group_rule(group_guid=group_guid, rule=rule)
 
     def to_data(self):
         """Return a json-serialisable representation of these rules"""
@@ -171,6 +181,9 @@ class ACLUserRules:
         for user, rule in self._user_rules.items():
             s.append("%s => %s" % (user, rule))
         return "User{%s}" % ", ".join(s)
+
+    def __repr__(self):
+        return self.__str__()
 
     def resolve(self, must_resolve=True, identifiers=None,
                 upstream=None, unresolved=False):
@@ -216,6 +229,10 @@ class ACLUserRules:
     def add_user_rule(self, user_guid, rule):
         """Add a rule for the used with passed 'user_guid'"""
         self._user_rules[user_guid] = rule
+        return self
+
+    def add(self, user_guid, rule):
+        return self.add_user_rule(user_guid=user_guid, rule=rule)
 
     @staticmethod
     def _create(aclrule, user_guid, user_guids):
@@ -353,12 +370,15 @@ class ACLRules:
 
         s = []
         for rule in self._rules:
-            s.append("%s" % rule)
+            s.append(str(rule))
 
         if self._default_rule is not None:
             s.append("DEFAULT %s" % self._default_rule)
 
         return "ACLRules{\n%s\n}" % "\n".join(s)
+
+    def __repr__(self):
+        return self.__str__()
 
     @staticmethod
     def _create(rule, user_guid=None, group_guid=None,
@@ -534,10 +554,14 @@ class ACLRules:
         self.insert(idx=idx, aclrule=aclrule,
                     operation=operation, ensure_owner=ensure_owner)
 
+        return self
+
     def prepend(self, aclrule, operation=None, ensure_owner=False):
         """Prepend a rule onto the set of rules"""
         self.insert(idx=0, aclrule=aclrule,
                     operation=operation, ensure_owner=ensure_owner)
+
+        return self
 
     def insert(self, idx, aclrule, operation=None, ensure_owner=False):
         """Insert the passed rule at index 'idx', specifying the operation
@@ -566,6 +590,8 @@ class ACLRules:
         if ensure_owner:
             # need to write code to ensure there is at least one owner
             pass
+
+        return self
 
     def rules(self):
         """Return the list of ACL rules that will be applied

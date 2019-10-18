@@ -22,8 +22,21 @@ class Cheque:
         self._cheque = None
         self._accounting_service_url = None
 
+    def is_null(self):
+        return self._cheque is None
+
+    def __str__(self):
+        if self.is_null():
+            return "Cheque::null"
+        else:
+            return "Cheque(service_uid=%s, fingerprint=%s)" % (
+                self._cheque["service_uid"], self._cheque["fingerprint"])
+
+    def __repr__(self):
+        return self.__str__()
+
     @staticmethod
-    def write(account=None, resource=None,
+    def write(account=None, resource=None, recipient=None,
               recipient_url=None, max_spend=None,
               expiry_date=None):
         """Create and return a cheque that can be used at any point
@@ -44,14 +57,6 @@ class Cheque:
            not affect the account. If there are insufficient funds
            when the cheque is cashed (or it breaks spending limits)
            then the cheque will bounce.
-
-           Args:
-                account (Account, default=None): Account to use to write
-                cheque
-                resource (str, default=None): Define the resource to pay for
-                recipient_url (str, default=None): URL of service to use
-                max_spend (Decimal, default=None): Limit of cheque
-                expiry_date (datetime, default=None): Cheque's expiry date
         """
 
         from Acquire.Client import Account as _Account
@@ -70,16 +75,25 @@ class Cheque:
                 as _datetime_to_string
             expiry_date = _datetime_to_string(expiry_date)
 
-        if recipient_url is not None:
-            recipient_url = str(recipient_url)
+        if recipient is not None:
+            from Acquire.Service import Service as _Service
+            recipient_url = _Service.resolve(recipient)["service_url"]
+        elif recipient_url is not None:
+            from Acquire.Service import Service as _Service
+            recipient_url = _Service.resolve(recipient_url)["service_url"]
+        else:
+            raise PermissionError(
+                "You have to specify the recipient of the cheque!")
 
-        from Acquire.ObjectStore import create_uuid as _create_uuid
+        from Acquire.ObjectStore import create_uid as _create_uid
         from Acquire.Identity import Authorisation as _Authorisation
+
+        cheque_uid = _create_uid(include_date=True, short_uid=True)
 
         info = _json.dumps({"recipient_url": recipient_url,
                             "max_spend": max_spend,
                             "expiry_date": expiry_date,
-                            "uid": _create_uuid(),
+                            "uid": cheque_uid,
                             "resource": str(resource),
                             "account_uid": account.uid()})
 

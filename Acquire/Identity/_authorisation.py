@@ -271,7 +271,14 @@ class Authorisation:
 
         now = _get_datetime_now()
 
-        return ((now - self._auth_datetime).seconds > stale_time)
+        if now >= self._auth_datetime:
+            return ((now - self._auth_datetime).seconds > stale_time)
+        else:
+            # datetime returns large positive numbers if time is
+            # in the future - expect a little difference if client
+            # clock is fast. Give up to 30 seconds of leeway
+            leeway_seconds = 30
+            return (self._auth_datetime - now).seconds > leeway_seconds
 
     def _get_user_public_cert(self, scope=None, permissions=None):
         """Internal function that returns the public certificate
@@ -389,7 +396,11 @@ class Authorisation:
             raise PermissionError("Cannot assert_once a null Authorisation")
 
         if self.is_stale(stale_time):
-            raise PermissionError("Cannot assert_once a stale Authorisation")
+            if now < self._auth_datetime:
+                raise PermissionError("Cannot assert_once an Authorisation signed "
+                                      "in the future - please check your clock")
+            else:
+                raise PermissionError("Cannot assert_once a stale Authorisation")
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.Service import get_service_account_bucket \
@@ -499,8 +510,18 @@ class Authorisation:
         if self.is_null():
             raise PermissionError("Cannot verify a null Authorisation")
 
+        from Acquire.ObjectStore import get_datetime_now \
+            as _get_datetime_now
+
+        import datetime as _datetime
+
         if self.is_stale(stale_time):
-            raise PermissionError("Cannot verify a stale Authorisation")
+            now = _get_datetime_now()
+            if now < self._auth_datetime:
+                raise PermissionError("Cannot verify an Authorisation signed "
+                                      "in the future - please check your clock")
+            else:
+                raise PermissionError("Cannot verify a stale Authorisation")
 
         matched_resource = False
 

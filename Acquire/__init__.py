@@ -17,7 +17,7 @@ Service = _lazy_import.lazy_module("Acquire.Service")
 Client = _lazy_import.lazy_module("Acquire.Client")
 Registry = _lazy_import.lazy_module("Acquire.Registry")
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 
 __all__ = ["Access", "Accounting", "Client", "Crypto",
            "Identity", "ObjectStore", "Registry", "Service"]

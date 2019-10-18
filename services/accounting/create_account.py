@@ -16,12 +16,8 @@ def run(args):
         Returns:
             dict: contains status, status message and details regarding
                 the created account
-    
+
     """
-
-    status = 0
-    message = None
-
     account_uid = None
 
     try:

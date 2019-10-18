@@ -126,16 +126,14 @@ class OCI_ObjectStore:
     """
 
     @staticmethod
-    def create_bucket(bucket, bucket_name, compartment=None):
+    def create_bucket(bucket, bucket_name):
         """Create and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. This will raise an
+           'bucket_name'. This will raise an
            ObjectStoreError if this bucket already exists
 
            Args:
             bucket (dict): Bucket to hold data
             bucket_name (str): Name of bucket to create
-            compartment (str): Compartment in which to create bucket
 
            Returns:
                 dict: New bucket
@@ -143,9 +141,6 @@ class OCI_ObjectStore:
         new_bucket = _copy.copy(bucket)
 
         new_bucket["bucket_name"] = str(bucket_name)
-
-        if compartment is not None:
-            new_bucket["compartment_id"] = str(compartment)
 
         try:
             from oci.object_storage.models import CreateBucketDetails as \
@@ -176,33 +171,15 @@ class OCI_ObjectStore:
         return new_bucket
 
     @staticmethod
-    def get_bucket(bucket, bucket_name, compartment=None,
-                   create_if_needed=True):
+    def get_bucket(bucket, bucket_name, create_if_needed=True):
         """Find and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. If 'create_if_needed' is True
+           'bucket_name'. If 'create_if_needed' is True
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
-
-           Args:
-                bucket (dict): Bucket to hold data
-                bucket_name (str): Name of bucket to create
-                compartment (str, default=None): Compartment in which to
-                create bucket
-                create_if_needed (bool, default=None): If True, create bucket,
-                else do
-                not
-
-           Returns:
-                dict: New bucket
-
         """
         new_bucket = _copy.copy(bucket)
 
         new_bucket["bucket_name"] = _sanitise_bucket_name(bucket_name)
-
-        if compartment is not None:
-            new_bucket["compartment_id"] = str(compartment)
 
         try:
             from oci.object_storage.models import CreateBucketDetails as \
@@ -634,7 +611,7 @@ class OCI_ObjectStore:
         return data
 
     @staticmethod
-    def get_all_object_names(bucket, prefix=None):
+    def get_all_object_names(bucket, prefix=None, without_prefix=False):
         """Returns the names of all objects in the passed bucket
 
            Args:
@@ -653,6 +630,9 @@ class OCI_ObjectStore:
 
         names = []
 
+        if without_prefix:
+            prefix_len = len(prefix)
+
         for obj in objects.objects:
             if prefix:
                 if obj.name.startswith(prefix):
@@ -665,6 +645,12 @@ class OCI_ObjectStore:
 
             while name.startswith("/"):
                 name = name[1:]
+
+            if without_prefix:
+                name = name[prefix_len:]
+
+                while name.startswith("/"):
+                    name = name[1:]
 
             if len(name) > 0:
                 names.append(name)

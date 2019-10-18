@@ -1,4 +1,6 @@
 
+__all__ = ["Location"]
+
 
 class Location:
     """This class holds a globally-resolvable location for a

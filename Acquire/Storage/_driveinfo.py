@@ -24,7 +24,6 @@ def _validate_file_upload(par, file_bucket, file_key, objsize, checksum):
 
     file_bucket = _ObjectStore.get_bucket(
                         bucket=bucket, bucket_name=file_bucket,
-                        compartment=service.storage_compartment(),
                         create_if_needed=True)
 
     # check that the file uploaded matches what was promised
@@ -51,16 +50,12 @@ class DriveInfo:
     """
     def __init__(self, drive_uid=None, identifiers=None,
                  is_authorised=False, parent_drive_uid=None,
-                 autocreate=False):
+                 aclrules=None, autocreate=False):
         """Construct a DriveInfo for the drive with UID 'drive_uid',
            and optionally the GUID of the user making the request
            (and whether this was authorised). If this drive
            has a parent then it is a sub-drive and not recorded
            in the list of top-level drives
-
-           If 'aclrule' is passed, then this drive can only be
-           opened with a maximum of the permissions in the passed
-           aclrule
         """
         self._drive_uid = drive_uid
         self._parent_drive_uid = parent_drive_uid
@@ -68,7 +63,7 @@ class DriveInfo:
         self._is_authorised = is_authorised
 
         if self._drive_uid is not None:
-            self.load(autocreate=autocreate)
+            self.load(aclrules=aclrules, autocreate=autocreate)
 
     def __str__(self):
         if self.is_null():
@@ -103,7 +98,6 @@ class DriveInfo:
         try:
             return _ObjectStore.get_bucket(
                             bucket=bucket, bucket_name=bucket_name,
-                            compartment=service.storage_compartment(),
                             create_if_needed=True)
         except Exception as e:
             from Acquire.ObjectStore import RequestBucketError
@@ -135,7 +129,6 @@ class DriveInfo:
         try:
             return _ObjectStore.get_bucket(
                             bucket=bucket, bucket_name=bucket_name,
-                            compartment=service.storage_compartment(),
                             create_if_needed=True)
         except Exception as e:
             from Acquire.ObjectStore import RequestBucketError
@@ -761,16 +754,46 @@ class DriveInfo:
         metadata_bucket = self._get_metadata_bucket()
 
         if filename is not None:
+            if dir is not None:
+                filename = "%s/%s" % (dir, filename)
+
             key = "%s/%s/%s" % (_fileinfo_root, self._drive_uid,
                                 _string_to_encoded(filename))
 
             names = [key]
+        elif dir is not None:
+            while dir.endswith("/"):
+                dir = dir[0:-1]
+
+            encoded_dir = _string_to_encoded(dir)
+
+            while encoded_dir.endswith("="):
+                encoded_dir = encoded_dir[0:-1]
+
+            # remove the last two characters, as sometime uuencoding
+            # will change the last characters so they don't match
+            if len(encoded_dir) > 2:
+                encoded_dir = encoded_dir[0:-2]
+            else:
+                encoded_dir = ""
+
+            key = "%s/%s/%s" % (_fileinfo_root, self._drive_uid,
+                                encoded_dir)
+
+            all_names = _ObjectStore.get_all_object_names(metadata_bucket,
+                                                          key)
+
+            names = []
+
+            dir = "%s/" % dir
+
+            for name in all_names:
+                decoded_name = _encoded_to_string(name.split("/")[-1])
+
+                if decoded_name.startswith(dir):
+                    names.append(name)
         else:
             key = "%s/%s" % (_fileinfo_root, self._drive_uid)
-
-            if dir is not None:
-                key = "%s/%s" % (key, _string_to_encoded(dir))
-
             names = _ObjectStore.get_all_object_names(metadata_bucket, key)
 
         files = []
@@ -846,7 +869,7 @@ class DriveInfo:
 
         return result
 
-    def load(self, autocreate=False):
+    def load(self, aclrules=None, autocreate=False):
         """Load the metadata about this drive from the object store"""
         if self.is_null():
             return
@@ -893,7 +916,23 @@ class DriveInfo:
             from Acquire.Identity import ACLRule as _ACLRule
             from Acquire.Identity import ACLRules as _ACLRules
 
-            self._aclrules = _ACLRules.owner(user_guid=user_guid)
+            if aclrules is not None:
+                if not isinstance(aclrules, _ACLRules):
+                    raise TypeError("The aclrules must be type ACLRules")
+
+                aclrule = aclrules.resolve(
+                            identifiers=self._identifiers)
+
+                if not aclrule.is_owner():
+                    raise PermissionError(
+                        "You cannot set the permission of a new drive such "
+                        "that you are not the owner! aclrules = %s, resolved "
+                        "aclrule for identifiers = %s is %s" %
+                        (aclrules, self._identifiers, aclrule))
+
+                self._aclrules = aclrules
+            else:
+                self._aclrules = _ACLRules.owner(user_guid=user_guid)
 
             data = self.to_data()
 
