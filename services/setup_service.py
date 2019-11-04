@@ -52,6 +52,7 @@ if os.path.exists(service_file):
         password = getpass.getpass(
                     prompt="Please enter the service primary password: ")
 
+        skeleton_password = password
         password = Hash.multi_md5(password, service_salt)
 
         try:
@@ -77,6 +78,7 @@ else:
         print("Passwords not equal - please try again")
 
     service_salt = PrivateKey.random_passphrase()
+    skeleton_password = password
     password = Hash.multi_md5(password, service_salt)
 
     old_config = None
@@ -237,7 +239,7 @@ if provider == "oci" and service_type == "storage":
 
 # password used to verify that the Acquire function is able to
 # decrypt the skeleton key for the Acquire service in this object store
-data["PASSWORD"] = password
+data["PASSWORD"] = skeleton_password
 data["CLOUD_BACKEND"] = provider
 
 if verbose:
@@ -268,3 +270,4 @@ run_command(cmd)
 
 cmd = "fn config app %s SECRET_KEY '%s'" % (service_name, secret_key)
 run_command(cmd)
+
