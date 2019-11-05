@@ -29,7 +29,7 @@ def run(args):
 
     identity_uid = auth.identity_uid()
 
-    service = get_this_service(need_private_access=True)
+    service = get_this_service(need_private_access=False)
 
     if service.uid() != identity_uid:
         raise PermissionError(
@@ -39,4 +39,31 @@ def run(args):
 
     user_uid = auth.user_uid()
 
-    return (user_uid, reset_otp)
+    # move all of below into UserCredentials
+    from Acquire.ObjectStore import ObjectStore as _ObjectStore
+    from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+    from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+    from Acquire.Crypto import PrivateKey as _PrivateKey
+    from Acquire.Crypto import OTP as _OTP
+
+    key = "%s/credentials/%s/%s" % (_user_root, user_uid, user_uid)
+    secrets = _ObjectStore.get_object_from_json(bucket=bucket, key=key)
+
+    privkey = _PrivateKey.from_data(data=secrets["private_key"],
+                                    passphrase=password)
+
+    data = _string_to_bytes(secrets["otpsecret"])
+    otpsecret = privkey.decrypt(data)
+
+    # all ok - we have validated we have the right password and can
+    # see the original otpsecret
+
+    if reset_otp:
+        otp = _OTP()
+        otpsecret = otp.encrypt(privkey.public_key())
+        secrets["otpsecret"] = _bytes_to_string(otpsecret)
+        _ObjectStore.set_object_from_json(bucket=bucket, key=key, data=secrets)
+    else:
+        otp = _OTP(secret=otpsecret)
+
+    return otp

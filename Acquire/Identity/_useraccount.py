@@ -64,7 +64,7 @@ class UserAccount:
            This returns a tuple of the user_uid and OTP for the
            newly-created account
         """
-        from Acquire.ObjectStore import create_uuid as _create_uuid
+        from Acquire.ObjectStore import create_uid as _create_uid
         from Acquire.Crypto import PrivateKey as _PrivateKey
         from Acquire.Crypto import PublicKey as _PublicKey
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
@@ -93,7 +93,7 @@ class UserAccount:
             service_uid = _service_uid
 
         # create a UID for this new user
-        user_uid = _create_uuid()
+        user_uid = _create_uid()
 
         # now create the primary password for this user and use
         # this to encrypt the special keys for this user

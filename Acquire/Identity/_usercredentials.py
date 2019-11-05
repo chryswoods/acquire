@@ -207,9 +207,9 @@ class UserCredentials:
 
         if device_uid is None and remember_device:
             # create a new OTP that is unique for this device
-            from Acquire.ObjectStore import create_uuid as _create_uuid
+            from Acquire.ObjectStore import create_uid as _create_uid
             from Acquire.Client import Credentials as _Credentials
-            device_uid = _create_uuid()
+            device_uid = _create_uid()
             device_password = _Credentials.encode_device_uid(
                                                 encoded_password=password,
                                                 device_uid=device_uid)
