@@ -25,7 +25,7 @@ def run(args):
     except:
         reset_otp = False
 
-    auth.verify(resource="reset_otp")
+    auth.verify(resource="recover_otp")
 
     identity_uid = auth.identity_uid()
 
