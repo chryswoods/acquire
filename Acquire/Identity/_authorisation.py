@@ -199,11 +199,23 @@ class Authorisation:
         return {"user_guid": self.user_guid()}
 
     def session_uid(self):
-        """Return the login session that authenticated the user"""
+        """Return the UID of the login session that authenticated the user"""
         if self.is_null():
             return None
         else:
             return self._session_uid
+
+    def short_uid(self):
+        """Return the short version of the UID of the login session that
+           authenticated the user
+        """
+        session_uid = self.session_uid()
+
+        if session_uid:
+            from Acquire.Identity import LoginSession as _LoginSession
+            return _LoginSession.to_short_uid(session_uid)
+        else:
+            return None
 
     def identity_url(self):
         """Return the URL of the identity service that authenticated
@@ -396,11 +408,18 @@ class Authorisation:
             raise PermissionError("Cannot assert_once a null Authorisation")
 
         if self.is_stale(stale_time):
+            from Acquire.ObjectStore import get_datetime_now \
+                as _get_datetime_now
+
+            now = _get_datetime_now()
+
             if now < self._auth_datetime:
-                raise PermissionError("Cannot assert_once an Authorisation signed "
-                                      "in the future - please check your clock")
+                raise PermissionError(
+                            "Cannot assert_once an Authorisation signed "
+                            "in the future - please check your clock")
             else:
-                raise PermissionError("Cannot assert_once a stale Authorisation")
+                raise PermissionError(
+                        "Cannot assert_once a stale Authorisation")
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
         from Acquire.Service import get_service_account_bucket \

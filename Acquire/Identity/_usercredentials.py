@@ -26,6 +26,59 @@ class UserCredentials:
         return result
 
     @staticmethod
+    def recover_otp(user_uid, password, reset_otp=False):
+        """Recover the OTP secret for the user with passed user_uid
+           logging in via the specified password. This will return
+           the OTP for the this user. If 'reset_otp' is True,
+           then the original OTP will be replaced by a new OTP,
+           which will then be returned
+        """
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket as \
+            _get_service_account_bucket
+        from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
+        from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
+        from Acquire.Crypto import PrivateKey as _PrivateKey
+        from Acquire.Crypto import OTP as _OTP
+
+        bucket = _get_service_account_bucket()
+        key = "%s/credentials/%s/%s" % (_user_root, user_uid, user_uid)
+
+        try:
+            secrets = _ObjectStore.get_object_from_json(bucket=bucket, key=key)
+        except:
+            secrets = None
+
+        if secrets is None:
+            raise PermissionError(
+                "There is no account associated with user_uid %s" % user_uid)
+
+        try:
+            privkey = _PrivateKey.from_data(data=secrets["private_key"],
+                                            passphrase=password)
+        except Exception as e:
+            from Acquire.Identity import UserValidationError
+            raise UserValidationError(
+                    "Invalid password: cannot recover OTP", e)
+
+        data = _string_to_bytes(secrets["otpsecret"])
+        otpsecret = privkey.decrypt(data)
+
+        # all ok - we have validated we have the right password and can
+        # see the original otpsecret
+
+        if reset_otp:
+            otp = _OTP()
+            otpsecret = otp.encrypt(privkey.public_key())
+            secrets["otpsecret"] = _bytes_to_string(otpsecret)
+            _ObjectStore.set_object_from_json(bucket=bucket, key=key,
+                                              data=secrets)
+        else:
+            otp = _OTP(secret=otpsecret)
+
+        return otp
+
+    @staticmethod
     def create(user_uid, password, primary_password,
                device_uid=None):
         """Create the credentials for the user with specified
@@ -170,7 +223,7 @@ class UserCredentials:
 
         otpsecret = privkey.decrypt(data)
         otp = _OTP(secret=otpsecret)
-        otp.verify(code=otpcode, once_only=True)
+        otp.verify(code=otpcode)
 
         # everything is ok - we can load the user account via the
         # decrypted primary password
@@ -204,6 +257,39 @@ class UserCredentials:
             from Acquire.Identity import UserValidationError
             raise UserValidationError(
                 "Unable to validate user as mismatch in user_uids!")
+
+        # finally, verify that this OTP code has not been used before for
+        # this user for this OTP
+        key = "%s/otpcodes/%s/%s/%s" % (_user_root, user_uid,
+                                        device_uid, otpcode)
+
+        from Acquire.ObjectStore import get_datetime_now as _get_datetime_now
+        now = _get_datetime_now()
+
+        try:
+            data = _ObjectStore.get_string_object(bucket=bucket, key=key)
+        except:
+            data = None
+
+        if data is not None:
+            from Acquire.ObjectStore import string_to_datetime \
+                as _string_to_datetime
+            old = _string_to_datetime(data)
+
+            if (old - now).total_seconds() < 240:
+                from Acquire.Crypto import RepeatedOTPCodeError
+                raise RepeatedOTPCodeError(
+                    "You cannot re-use the same OTP code. Please wait "
+                    "a minute to get a new code, and then try again. "
+                    "If you haven't used this code, then somebody "
+                    "may be trying to hack your account.")
+        else:
+            # save the new time of using this code
+            from Acquire.ObjectStore import datetime_to_string \
+                as _datetime_to_string
+            data = _datetime_to_string(now)
+            _ObjectStore.set_string_object(bucket=bucket, key=key,
+                                            string_data=data)
 
         if device_uid is None and remember_device:
             # create a new OTP that is unique for this device

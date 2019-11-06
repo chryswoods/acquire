@@ -3,7 +3,7 @@ from Acquire.Service import ServiceError
 
 __all__ = ["IdentityServiceError", "LoginSessionError", "UsernameError",
            "ExistingAccountError", "UserValidationError",
-           "AuthorisationError"]
+           "AuthorisationError", "MissingAccountError"]
 
 
 class IdentityServiceError(ServiceError):
@@ -27,4 +27,7 @@ class UserValidationError(Exception):
 
 
 class AuthorisationError(Exception):
+    pass
+
+class MissingAccountError(Exception):
     pass

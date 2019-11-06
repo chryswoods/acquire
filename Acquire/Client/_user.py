@@ -334,12 +334,25 @@ class User:
 
     def session_uid(self):
         """Return the UID of the current login session. Returns None
-           if there is no valid login session"""
+           if there is no valid login session
+        """
         self._check_for_error()
 
         try:
             return self._session_uid
         except:
+            return None
+
+    def short_uid(self):
+        """Return the short version of the UID of the current login session.
+           Returns None if there is no valid login session
+        """
+        session_uid = self.session_uid()
+
+        if session_uid:
+            from Acquire.Identity import LoginSession as _LoginSession
+            return _LoginSession.to_short_uid(session_uid)
+        else:
             return None
 
     def is_empty(self):
@@ -427,10 +440,10 @@ class User:
         import re
         otpsecret = re.search(r"secret=([\w\d+]+)&issuer", provisioning_uri).groups()[0]
         result["otpsecret"] = otpsecret
-        
+
         from Acquire.Client import create_qrcode as _create_qrcode
         result["qrcode"] = _create_qrcode(provisioning_uri)
-        
+
         return result
 
     def request_login(self, login_message=None):
@@ -535,6 +548,51 @@ class User:
         return {"login_url": self._login_url,
                 "session_uid": session_uid,
                 "short_uid": _LoginSession.to_short_uid(session_uid)}
+
+    def recover_otp(self, password, reset_otp=False):
+        """Recover the primary OTP that is used to log into this account.
+           This will return the current OTP object, unless "reset_otp"
+           is True (in which case, a new OTP will be generated and
+           set for the account). Note that you must have already logged
+           in before you can call this function, and you must pass in your
+           password again to verify that you are the right person who
+           can request that the OTP is recovered or reset.
+           If you have lost your password or OTP and cannot log in,
+           then you will need to use the "recover_account" function to
+           gain a one-time-login, and then reset/recover the OTP using
+           this function (after calling 'change_password' if you have
+           also forgotten your password!)
+        """
+        if not self.is_logged_in():
+            raise PermissionError(
+                "You must be logged in to be able to recover or reset your "
+                "OTP. If you can't log in, the use the 'recover_account' "
+                "function to gain a one-time-login, and then call this "
+                "function again.")
+
+        auth = self.authorise(resource="recover_otp")
+        service = self.identity_service()
+
+        # securely package up the password to send to the service
+        from Acquire.Client import Credentials as _Credentials
+        creds = _Credentials(username=self.username(),
+                             short_uid=self.short_uid(),
+                             password=password,
+                             otpcode=0)
+
+        data = creds.to_data(identity_uid=service.uid())
+        creds = None
+        password = None
+
+        args = {"authorisation": auth.to_data(),
+                "credentials" : data,
+                "reset_otp" : bool(reset_otp)}
+
+        result = service.call_function(function="recover_otp",
+                                       args=args)
+
+        from Acquire.Crypto import OTP as _OTP
+        return _OTP.from_provisioning_uri(result["provisioning_uri"])
 
     def _poll_session_status(self):
         """Function used to query the identity service for this session

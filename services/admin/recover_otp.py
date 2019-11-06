@@ -1,7 +1,7 @@
 
+from Acquire.Client import Credentials
 from Acquire.Service import get_this_service
-
-from Acquire.Identity import Authorisation
+from Acquire.Identity import Authorisation, UserCredentials, UserAccount
 
 
 def run(args):
@@ -19,6 +19,7 @@ def run(args):
     """
 
     auth = Authorisation.from_data(args["authorisation"])
+    creds = args["credentials"]
 
     try:
         reset_otp = bool(args["reset_otp"])
@@ -26,6 +27,7 @@ def run(args):
         reset_otp = False
 
     auth.verify(resource="recover_otp")
+    auth.assert_once()  # remove possibility of replay attack
 
     identity_uid = auth.identity_uid()
 
@@ -38,32 +40,22 @@ def run(args):
             (service.uid(), identity_uid))
 
     user_uid = auth.user_uid()
+    user = UserAccount.load(user_uid=user_uid)
 
-    # move all of below into UserCredentials
-    from Acquire.ObjectStore import ObjectStore as _ObjectStore
-    from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
-    from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
-    from Acquire.Crypto import PrivateKey as _PrivateKey
-    from Acquire.Crypto import OTP as _OTP
+    creds = Credentials.from_data(data=creds, username=user.name(),
+                                  short_uid=auth.short_uid())
 
-    key = "%s/credentials/%s/%s" % (_user_root, user_uid, user_uid)
-    secrets = _ObjectStore.get_object_from_json(bucket=bucket, key=key)
+    otp = UserCredentials.recover_otp(user_uid=user_uid,
+                                      password=creds.password(),
+                                      reset_otp=reset_otp)
 
-    privkey = _PrivateKey.from_data(data=secrets["private_key"],
-                                    passphrase=password)
+    issuer = "%s@%s" % (service.service_type(), service.hostname())
+    provisioning_uri = otp.provisioning_uri(username=user.name(),
+                                            issuer=issuer)
 
-    data = _string_to_bytes(secrets["otpsecret"])
-    otpsecret = privkey.decrypt(data)
+    return_value = {}
 
-    # all ok - we have validated we have the right password and can
-    # see the original otpsecret
+    return_value["user_uid"] = user_uid
+    return_value["provisioning_uri"] = provisioning_uri
 
-    if reset_otp:
-        otp = _OTP()
-        otpsecret = otp.encrypt(privkey.public_key())
-        secrets["otpsecret"] = _bytes_to_string(otpsecret)
-        _ObjectStore.set_object_from_json(bucket=bucket, key=key, data=secrets)
-    else:
-        otp = _OTP(secret=otpsecret)
-
-    return otp
+    return return_value

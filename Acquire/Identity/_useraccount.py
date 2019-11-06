@@ -37,7 +37,7 @@ class UserAccount:
 
     def __init__(self, username=None, user_uid=None,
                  private_key=None, status=None):
-        """Construct from the passed username"""
+        """Construct from the passed details"""
         self._username = username
         self._uid = user_uid
         self._privkey = private_key
@@ -138,11 +138,7 @@ class UserAccount:
                                 string_data=_get_datetime_now_to_string())
 
         # finally(!) save the account itself to the object store
-        key = "%s/uids/%s" % (_user_root, user_uid)
-        data = user.to_data(passphrase=primary_password)
-        _ObjectStore.set_object_from_json(bucket=bucket,
-                                          key=key,
-                                          data=data)
+        user.save(passphrase=primary_password)
 
         # return the OTP and user_uid
         return (user_uid, otp)
@@ -232,11 +228,16 @@ class UserAccount:
             return self._status == "active"
 
     def public_key(self):
-        """Return the lines of the public key for this account"""
+        """Return the public key for this account"""
         return self._privkey.public_key()
 
     def private_key(self):
-        """Return the lines of the private key for this account"""
+        """Return the private key for this account"""
+        if self._privkey is None:
+            raise PermissionError(
+                "You don't have permission to see the keys "
+                "for this account")
+
         return self._privkey
 
     def status(self):
@@ -245,6 +246,49 @@ class UserAccount:
             return "invalid"
 
         return self._status
+
+    @staticmethod
+    def load(user_uid, passphrase=None, mangleFunction=None):
+        """Load the user account with specified UID from the object store"""
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+
+        try:
+            key = "%s/uids/%s" % (_user_root, user_uid)
+            data = _ObjectStore.get_object_from_json(bucket=bucket,
+                                                     key=key)
+        except:
+            data = None
+
+        if data is None:
+            from Acquire.Identity import MissingAccountError
+            raise MissingAccountError(
+                "There is no user account known with UID %s" % user_uid)
+
+        return UserAccount.from_data(data, passphrase=passphrase,
+                                     mangleFunction=mangleFunction)
+
+    def save(self, passphrase, mangleFunction=None):
+        """Save the user account to the object store"""
+        if passphrase is None:
+            raise PermissionError(
+                "You cannot save an account without a passphrase!")
+
+        from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.Service import get_service_account_bucket \
+            as _get_service_account_bucket
+
+        bucket = _get_service_account_bucket()
+
+        key = "%s/uids/%s" % (_user_root, self.uid())
+        data = self.to_data(passphrase=passphrase,
+                            mangleFunction=mangleFunction)
+        _ObjectStore.set_object_from_json(bucket=bucket,
+                                          key=key,
+                                          data=data)
 
     def to_data(self, passphrase, mangleFunction=None):
         """Return a data representation of this object (dictionary)"""
@@ -262,11 +306,10 @@ class UserAccount:
         return data
 
     @staticmethod
-    def from_data(data, passphrase, mangleFunction=None):
+    def from_data(data, passphrase=None, mangleFunction=None):
         """Return a UserAccount constructed from the passed
            data (dictionary)
         """
-
         user = UserAccount()
 
         if data is not None and len(data) > 0:
@@ -275,9 +318,13 @@ class UserAccount:
             user._username = data["username"]
             user._status = data["status"]
             user._uid = data["uid"]
-            user._privkey = _PrivateKey.from_data(
-                                            data=data["private_key"],
-                                            passphrase=passphrase,
-                                            mangleFunction=mangleFunction)
+
+            if passphrase is not None:
+                user._privkey = _PrivateKey.from_data(
+                                                data=data["private_key"],
+                                                passphrase=passphrase,
+                                                mangleFunction=mangleFunction)
+            else:
+                user._privkey = None
 
         return user

@@ -588,6 +588,7 @@ class Wallet:
 
         try:
             (service_uid, short_uid) = idcode.split("/")
+            short_uid = short_uid.replace(".", "")
         except:
             from Acquire.Client import LoginError
             raise LoginError(

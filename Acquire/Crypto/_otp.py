@@ -24,6 +24,9 @@ class OTP:
         """Return a string representation of this OTP"""
         return "OTP()"
 
+    def __eq__(self, other):
+        return self._secret == other._secret
+
     @staticmethod
     def decrypt(secret, key):
         """Construct a OTP from the passed encrypted secret
@@ -81,19 +84,20 @@ class OTP:
                 "Cannot extract the otp secret from the provisioning URL "
                 "'%s': %s" % (provisioning_uri, str(e)))
 
+    @staticmethod
+    def from_provisioning_uri(provisioning_uri):
+        """Construct and return an OTP from the passed provisioning URI"""
+        return OTP(secret=OTP.extract_secret(provisioning_uri))
+
     def generate(self):
         """Generate and return the current OTP code"""
         totp = self._totp()
         return totp.now()
 
-    def verify(self, code, once_only=False):
+    def verify(self, code):
         """Verify that the passed code is correct. This raises an exception
            if the code is incorrect, or does nothing if the code is correct
-
-           If 'once_only' is True, then this will attempt to store global
-           state to ensure that the passed code can be used only once.
         """
-
         # the OTP is valid for 1 minute. We will extend this so that
         # it is valid for 3 minutes (1 minute before and after). This
         # improves usability and tolerance for clock drift with only
@@ -101,9 +105,3 @@ class OTP:
         if not self._totp().verify(code, valid_window=1):
             from Acquire.Crypto import OTPError
             raise OTPError("The passed OTP code is incorrect")
-
-        # note that, ideally, we need to save whether or not this code
-        # has been used, as we need to prevent the case of someone
-        # eves-dropping on the password and code and using it again
-        # within the 3-minute window. We will leave this to the caller
-        # of this function to record!
