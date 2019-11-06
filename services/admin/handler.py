@@ -68,6 +68,9 @@ def _route_function(function, args, additional_functions=None):
     elif function == "admin/logout":
         from admin.logout import run as _logout
         return _logout(args)
+    elif function == "admin/recover_otp":
+        from admin.recover_otp import run as _recover_otp
+        return _recover_otp(args)
     elif function == "admin/refresh_keys":
         from admin.refresh_keys import run as _refresh_keys
         return _refresh_keys(args)
