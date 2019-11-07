@@ -247,7 +247,6 @@ class Credentials:
         data = [encoded_password, device_uid, otpcode]
         string_data = "|".join(data)
 
-        short_uid = short_uid.replace(".", "")
         uname_shortid = _Hash.md5(username) + _Hash.md5(short_uid)
 
         data = _SymmetricKey(symmetric_key=uname_shortid).encrypt(string_data)
@@ -289,7 +288,6 @@ class Credentials:
         from Acquire.ObjectStore import string_to_bytes as _string_to_bytes
         from Acquire.ObjectStore import bytes_to_string as _bytes_to_string
 
-        short_uid = short_uid.replace(".", "")
         uname_shortid = _Hash.md5(username) + _Hash.md5(short_uid)
 
         data = _string_to_bytes(data)
@@ -297,7 +295,16 @@ class Credentials:
         try:
             data = _SymmetricKey(symmetric_key=uname_shortid).decrypt(data)
         except:
-            data = None
+            if short_uid.find(".") != -1:
+                short_uid = short_uid.replace(".", "")
+                uname_shortid = _Hash.md5(username) + _Hash.md5(short_uid)
+                try:
+                    data = _SymmetricKey(
+                                symmetric_key=uname_shortid).decrypt(data)
+                except:
+                    data = None
+            else:
+                data = None
 
         if data is None:
             raise PermissionError("Cannot unpackage/decrypt the credentials")
