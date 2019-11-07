@@ -433,16 +433,18 @@ class User:
                 "the identity service at '%s'!" %
                 (username, identity_url))
 
-        # return a QR code for the provisioning URI
         result = {}
         result["provisioning_uri"] = provisioning_uri
 
-        import re
-        otpsecret = re.search(r"secret=([\w\d+]+)&issuer", provisioning_uri).groups()[0]
-        result["otpsecret"] = otpsecret
+        from Acquire.Crypto import OTP as _OTP
+        result["otp"] = _OTP.from_provisioning_uri(result["provisioning_uri"])
 
-        from Acquire.Client import create_qrcode as _create_qrcode
-        result["qrcode"] = _create_qrcode(provisioning_uri)
+        try:
+            # return a QR code for the provisioning URI
+            from Acquire.Client import create_qrcode as _create_qrcode
+            result["qrcode"] = _create_qrcode(provisioning_uri)
+        except:
+            pass
 
         return result
 
@@ -545,11 +547,20 @@ class User:
 
         from Acquire.Identity import LoginSession as _LoginSession
 
-        return {"login_url": self._login_url,
-                "session_uid": session_uid,
-                "short_uid": _LoginSession.to_short_uid(session_uid)}
+        result = {"login_url": self._login_url,
+                  "session_uid": session_uid,
+                  "short_uid": _LoginSession.to_short_uid(session_uid)}
 
-    def recover_otp(self, password, reset_otp=False):
+        try:
+            # return a QR code for the provisioning URI
+            from Acquire.Client import create_qrcode as _create_qrcode
+            result["qrcode"] = _create_qrcode(self._login_url)
+        except:
+            pass
+
+        return result
+
+    def recover_otp(self, password=None, reset_otp=False):
         """Recover the primary OTP that is used to log into this account.
            This will return the current OTP object, unless "reset_otp"
            is True (in which case, a new OTP will be generated and
@@ -569,6 +580,11 @@ class User:
                 "OTP. If you can't log in, the use the 'recover_account' "
                 "function to gain a one-time-login, and then call this "
                 "function again.")
+
+        if password is None:
+            import getpass as _getpass
+            password = _getpass.getpass(
+                            prompt="Please enter your login password: ")
 
         auth = self.authorise(resource="recover_otp")
         service = self.identity_service()
@@ -591,8 +607,22 @@ class User:
         result = service.call_function(function="recover_otp",
                                        args=args)
 
+        provisioning_uri = result["provisioning_uri"]
+
+        result = {}
+        result["provisioning_uri"] = provisioning_uri
+
         from Acquire.Crypto import OTP as _OTP
-        return _OTP.from_provisioning_uri(result["provisioning_uri"])
+        result["otp"] = _OTP.from_provisioning_uri(result["provisioning_uri"])
+
+        try:
+            # return a QR code for the provisioning URI
+            from Acquire.Client import create_qrcode as _create_qrcode
+            result["qrcode"] = _create_qrcode(provisioning_uri)
+        except:
+            pass
+
+        return result
 
     def _poll_session_status(self):
         """Function used to query the identity service for this session
