@@ -23,9 +23,7 @@ def test_login_fails(aaai_services, tmpdir):
 
     assert(type(result) is dict)
 
-    otpsecret1 = result["otpsecret"]
-
-    otp1 = OTP(otpsecret1)
+    otp1 = result["otp"]
 
     user1 = User(username=username1, identity_url="identity",
                  auto_logout=False)
@@ -36,9 +34,7 @@ def test_login_fails(aaai_services, tmpdir):
 
     assert(type(result) is dict)
 
-    otpsecret2 = result["otpsecret"]
-
-    otp2 = OTP(otpsecret2)
+    otp2 = result["otp"]
 
     user2 = User(username=username2, identity_url="identity",
                  auto_logout=False)

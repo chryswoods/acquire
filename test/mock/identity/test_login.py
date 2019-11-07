@@ -28,9 +28,7 @@ def test_login(username, password, aaai_services, tmpdir):
 
     assert(type(result) is dict)
 
-    otpsecret = result["otpsecret"]
-
-    otp = OTP(otpsecret)
+    otp = result["otp"]
 
     user = User(username=username, identity_url="identity",
                 auto_logout=False)

@@ -17,8 +17,7 @@ def test_reset_creds(aaai_services, tmpdir):
                            password=password,
                            identity_url="identity")
 
-    otpsecret = result["otpsecret"]
-    otp = OTP(otpsecret)
+    otp = result["otp"]
 
     # now login as the user
     user = User(username=username, identity_url="identity",
@@ -38,6 +37,7 @@ def test_reset_creds(aaai_services, tmpdir):
 
     # now fetch the OTP
     new_otp = user.recover_otp(password=password, reset_otp=False)
+    new_otp = new_otp["otp"]
 
     print(new_otp.generate(), otp.generate())
 
@@ -45,6 +45,7 @@ def test_reset_creds(aaai_services, tmpdir):
 
     # now reset the OTP
     new_otp = user.recover_otp(password=password, reset_otp=True)
+    new_otp = new_otp["otp"]
 
     print(new_otp.generate(), otp.generate())
 
@@ -71,6 +72,7 @@ def test_reset_creds(aaai_services, tmpdir):
 
     # now fetch the OTP
     new_otp = user.recover_otp(password=password, reset_otp=False)
+    new_otp = new_otp["otp"]
 
     print(new_otp.generate(), otp.generate())
 

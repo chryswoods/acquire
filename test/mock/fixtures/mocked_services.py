@@ -323,8 +323,7 @@ def authenticated_user(aaai_services):
                            password=password,
                            identity_url="identity")
 
-    otpsecret = result["otpsecret"]
-    otp = OTP(otpsecret)
+    otp = result["otp"]
 
     # now log the user in
     user = User(username=username, identity_url="identity", auto_logout=False)

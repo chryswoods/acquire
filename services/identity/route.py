@@ -19,6 +19,9 @@ def identity_functions(function, args):
     elif function == "login":
         from admin.login import run as _login
         return _login(args)
+    elif function == "login_devices":
+        from admin.login_devices import run as _login_devices
+        return _login_devices(args)
     elif function == "logout":
         from admin.logout import run as _logout
         return _logout(args)
