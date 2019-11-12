@@ -13,6 +13,4 @@ def run(args):
 
     devices = UserCredentials.list_devices(user_uid=user_uid)
 
-    print(devices)
-
     return devices

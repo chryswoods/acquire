@@ -50,7 +50,8 @@ class UserCredentials:
         from Acquire.Crypto import OTP as _OTP
 
         try:
-            self._privkey = _PrivateKey.from_data(data, passphrase=password)
+            self._privkey = _PrivateKey.from_data(self._privkey,
+                                                  passphrase=password)
         except:
             from Acquire.Identity import UserValidationError
             raise UserValidationError("Incorrect password")
@@ -84,8 +85,8 @@ class UserCredentials:
         bucket = _get_service_account_bucket()
         device_key = "%s/credentials/%s" % (_user_root, user_uid)
 
-        devices = _ObjectStore.get_all_objects(bucket=bucket,
-                                               prefix=device_key)
+        devices = _ObjectStore.get_all_objects_from_json(bucket=bucket,
+                                                         prefix=device_key)
 
         return devices
 
@@ -147,7 +148,7 @@ class UserCredentials:
         if self.is_locked():
             raise PermissionError("Cannot verify a locked set of credentials!")
 
-        self._otp.verify(otpcode=otpcode)
+        self._otp.verify(otpcode)
 
         # the code is correct, but has it been used before? If so, then
         # we may be suffering a replay attack!
@@ -248,14 +249,10 @@ class UserCredentials:
                 except _RepeatedOTPCodeError as e:
                     # if the OTP code is entered twice, then we need
                     # to invalidate the other session
-                    print(e)
                     raise e
-                except Exception as e:
+                except:
                     # this is not the matching user...
-                    print("ERROR %s" % e)
                     pass
-
-        print("I AM HERE %s" % verified_creds)
 
         if verified_creds is not None:
             # everything is ok - we can load the user account via the
@@ -351,7 +348,6 @@ class UserCredentials:
             as _get_service_account_bucket
 
         key = "%s/credentials/%s/%s" % (_user_root, user_uid, device_uid)
-
         bucket = _get_service_account_bucket()
 
         try:
@@ -404,8 +400,8 @@ class UserCredentials:
 
         creds = UserCredentials()
 
-        creds._primary_password = data["primary_password"]
-        creds._privkey = data["prikey"]
+        creds._primary_password = _string_to_bytes(data["primary_password"])
+        creds._privkey = data["privkey"]
         creds._otp = _string_to_bytes(data["otp"])
 
         return creds

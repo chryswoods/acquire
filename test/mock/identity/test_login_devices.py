@@ -40,5 +40,3 @@ def test_login_devices(aaai_services, tmpdir):
                                    args={"user_uid": user.uid()})
 
     print(result)
-
-    raise PermissionError()
