@@ -382,8 +382,8 @@ class UserCredentials:
         data = {}
 
         data["primary_password"] = _bytes_to_string(self._primary_password)
-        data["privkey"] = self._privkey
-        data["otp"] = _bytes_to_string(self._otp)
+        data["private_key"] = self._privkey
+        data["otpsecret"] = _bytes_to_string(self._otp)
 
         return data
 
@@ -401,7 +401,7 @@ class UserCredentials:
         creds = UserCredentials()
 
         creds._primary_password = _string_to_bytes(data["primary_password"])
-        creds._privkey = data["privkey"]
-        creds._otp = _string_to_bytes(data["otp"])
+        creds._privkey = data["private_key"]
+        creds._otp = _string_to_bytes(data["otpsecret"])
 
         return creds
