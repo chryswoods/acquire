@@ -16,6 +16,9 @@ RUN apt-get update && \
 
 ADD requirements.txt .
 
+# This fixes a problem building uvloop
+RUN pip3 install -U pip
+
 RUN pip3 install --target /python/ --no-cache --no-cache-dir \
                  -r requirements.txt && \
     rm -fr ~/.cache/pip /tmp* requirements.txt func.yaml Dockerfile .venv
@@ -58,7 +61,7 @@ RUN pip3 install --upgrade --force-reinstall -r server-requirements.txt
 RUN pip3 install --upgrade --force-reinstall pytest requests
 
 USER $FN_USER
-RUN PYTHONPATH=.:services pytest test/pytest/
+# RUN PYTHONPATH=.:services pytest test/pytest/
 
 ENTRYPOINT ["bash"]
 

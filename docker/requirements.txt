@@ -14,7 +14,7 @@ tblib
 cryptography
 requests
 # Apache license dependencies
-fdk==0.0.35
+fdk
 oci
 # GPL 3+ license dependencies
 lazy_import

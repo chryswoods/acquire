@@ -1,4 +1,4 @@
 # Apache license dependencies
-fdk==0.0.35
+fdk
 oci
 google-cloud-storage
