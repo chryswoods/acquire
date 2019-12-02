@@ -7,6 +7,6 @@ docker build -t garj/acquire-base:latest .
 
 rm -rf Acquire admin
 
-docker push garj/acquire-base:latest
+# docker push garj/acquire-base:latest
 
 #docker run --rm -it chryswoods/acquire-base:latest

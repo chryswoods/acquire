@@ -16,6 +16,8 @@ RUN apt-get update && \
 
 ADD requirements.txt .
 
+RUN pip3 install --upgrade pip
+
 RUN pip3 install --target /python/ --no-cache --no-cache-dir \
                  -r requirements.txt && \
     rm -fr ~/.cache/pip /tmp* requirements.txt func.yaml Dockerfile .venv
@@ -28,7 +30,7 @@ FROM fnproject/python:3.7
 # Configure environment
 ENV SHELL=/bin/bash \
     FN_USER=fnuser \
-    FN_UID=1000 \
+    FN_UID=1001 \
     FN_GID=100
 
 ENV HOME=/function

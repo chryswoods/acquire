@@ -3,7 +3,7 @@
 rsync -a --verbose ../../Acquire . --exclude '__pycache__'
 rsync -a --verbose ../admin . --exclude '__pycache__'
 
-docker build -t chryswoods/acquire-base:latest .
+docker build -t local_acquire_base:latest .
 
 rm -rf Acquire admin
 
