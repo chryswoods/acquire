@@ -31,7 +31,8 @@ FROM fnproject/python:3.7
 ENV SHELL=/bin/bash \
     FN_USER=fnuser \
     FN_UID=1001 \
-    FN_GID=100
+    FN_GID=100 \
+    FN_FORMAT=http-stream
 
 ENV HOME=/function
 COPY --from=build-stage /function $HOME
