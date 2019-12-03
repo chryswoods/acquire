@@ -1,4 +1,4 @@
-FROM chryswoods/acquire-base:latest
+FROM local_acquire_base:latest
 
 # Need to be user root or Fn exits with
 # {"message":"internal server error"}
