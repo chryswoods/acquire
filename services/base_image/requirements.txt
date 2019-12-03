@@ -17,8 +17,9 @@ requests
 fdk
 oci
 google-cloud-storage
+# Required for use of async_http module within fdk
+uvloop
 
 # GPL 3+ license dependencies
 lazy_import
 
-uvloop
