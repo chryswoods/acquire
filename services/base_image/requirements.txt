@@ -21,4 +21,4 @@ google-cloud-storage
 # GPL 3+ license dependencies
 lazy_import
 
-
+uvloop
