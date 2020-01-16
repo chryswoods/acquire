@@ -38,7 +38,7 @@ ADD fix-permissions /usr/bin/fix-permissions
 
 # Create fn user with UID=1000 and in the 'users' group
 # and make sure these dirs are writable by the `users` group.
-RUN useradd -m -s /bin/bash -N -u $FN_UID $FN_USER && \
+RUN useradd -m -s /bin/bash -N -o -u $FN_UID $FN_USER && \
     fix-permissions $HOME
 
 WORKDIR /function

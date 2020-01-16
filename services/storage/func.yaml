@@ -1,8 +1,7 @@
 schema_version: 20180708
 name: storage-root
-version: 0.0.92
+version: 0.0.97
 runtime: docker
-format: http-stream
 type: sync
 timeout: 20
 triggers:
