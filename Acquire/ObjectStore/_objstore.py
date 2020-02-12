@@ -7,7 +7,8 @@ import os as _os
 
 __all__ = ["ObjectStore", "set_object_store_backend",
            "use_testing_object_store_backend",
-           "use_oci_object_store_backend"]
+           "use_oci_object_store_backend",
+           "use_gcp_object_store_backend"]
 
 _objstore_backend = None
 
@@ -31,49 +32,29 @@ def use_oci_object_store_backend():
     set_object_store_backend(_OCI_ObjectStore)
 
 
+def use_gcp_object_store_backend():
+    from ._gcp_objstore import GCP_ObjectStore as _GCP_ObjectStore
+    set_object_store_backend(_GCP_ObjectStore)
+
+
 class ObjectStore:
     @staticmethod
-    def create_bucket(bucket, bucket_name, compartment=None):
+    def create_bucket(bucket, bucket_name):
         """Create and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. This will raise an
+           'bucket_name'. This will raise an
            ObjectStoreError if this bucket already exists
-
-           Args:
-                bucket (dict): Bucket to store data in
-                bucket_name (str): Name for bucket
-                compartment (str, default=None): Compartment to store
-                the bucket
-
-           Returns:
-                dict: New bucket
         """
-        return _objstore_backend.create_bucket(bucket, bucket_name,
-                                               compartment)
+        return _objstore_backend.create_bucket(bucket, bucket_name)
 
     @staticmethod
-    def get_bucket(bucket, bucket_name, compartment=None,
-                   create_if_needed=True):
+    def get_bucket(bucket, bucket_name, create_if_needed=True):
         """Find and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. If 'create_if_needed' is True
+           'bucket_name'. If 'create_if_needed' is True
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
-
-           Args:
-                bucket (dict): Bucket to store data in
-                bucket_name (str): Name for bucket
-                compartment (str, default=None): Compartment to store
-                the bucket
-                create_if_needed (bool, default=True): Create new bucket if
-                true, don't if False
-
-            Returns:
-                dict: Requested bucket
-
         """
         return _objstore_backend.get_bucket(bucket, bucket_name,
-                                            compartment, create_if_needed)
+                                            create_if_needed)
 
     @staticmethod
     def get_bucket_name(bucket):

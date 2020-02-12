@@ -690,8 +690,8 @@ def get_service_private_key(fingerprint=None):
             try:
                 return load_service_key_from_objstore(fingerprint)
             except Exception as e:
-                from Acquire.Service import ServiceAccountError
-                raise ServiceAccountError(
+                from Acquire.Service import ServiceAccountMissingKeyError
+                raise ServiceAccountMissingKeyError(
                     "Cannot find a private key for '%s' that matches "
                     "the fingerprint %s. This is either because you are "
                     "using a key that is too old or "

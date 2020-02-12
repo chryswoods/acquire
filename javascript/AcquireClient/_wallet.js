@@ -39,6 +39,16 @@ Acquire.Private._readWalletData = function(name)
     }
 }
 
+/** Delete the wallet data from the browser at key 'name' */
+Acquire.Private._removeWalletData = function(name)
+{
+    if (typeof(Storage) != "undefined")
+    {
+        let key = `Acquire/Wallet/${name}`;
+        localStorage.removeItem(key);
+    }
+}
+
 /** https://stackoverflow.com/questions/901115/
  *          how-can-i-get-query-string-values-in-javascript */
 Acquire.Private._getParameterByName = function(name, url)
@@ -122,6 +132,19 @@ Acquire.Wallet = class
             throw new Acquire.ServiceError(
                 "Failed to connect to the trusted registry service a0-a0",
                 err);
+        }
+    }
+
+    remove_service({service_uid=undefined, service_url=undefined})
+    {
+        if (service_uid)
+        {
+            Acquire.Private._removeWalletData(`service_uid/${service_uid}`);
+        }
+
+        if (service_url)
+        {
+            Acquire.Private._removeWalletData(`service_url/${service_url}`);
         }
     }
 

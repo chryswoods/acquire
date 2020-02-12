@@ -49,19 +49,12 @@ class Testing_ObjectStore:
        the standard posix filesystem when running tests
     """
     @staticmethod
-    def create_bucket(bucket, bucket_name, compartment=None):
+    def create_bucket(bucket, bucket_name):
         """Create and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. This will raise an
+           'bucket_name'. This will raise an
            ObjectStoreError if this bucket already exists
         """
         bucket_name = str(bucket_name)
-
-        if compartment is not None:
-            if compartment.endswith("/"):
-                bucket = compartment
-            else:
-                bucket = "%s/" % compartment
 
         full_name = _os.path.join(_os.path.split(bucket)[0], bucket_name)
 
@@ -71,21 +64,13 @@ class Testing_ObjectStore:
         return full_name
 
     @staticmethod
-    def get_bucket(bucket, bucket_name, compartment=None,
-                   create_if_needed=True):
+    def get_bucket(bucket, bucket_name, create_if_needed=True):
         """Find and return a new bucket in the object store called
-           'bucket_name', optionally placing it into the compartment
-           identified by 'compartment'. If 'create_if_needed' is True
+           'bucket_name'. If 'create_if_needed' is True
            then the bucket will be created if it doesn't exist. Otherwise,
            if the bucket does not exist then an exception will be raised.
         """
         bucket_name = str(bucket_name)
-
-        if compartment is not None:
-            if compartment.endswith("/"):
-                bucket = compartment
-            else:
-                bucket = "%s/" % compartment
 
         full_name = _os.path.join(_os.path.split(bucket)[0], bucket_name)
 
@@ -95,8 +80,8 @@ class Testing_ObjectStore:
             else:
                 from Acquire.ObjectStore import ObjectStoreError
                 raise ObjectStoreError(
-                    "There is no bucket available called '%s' in "
-                    "compartment '%s'" % (bucket_name, compartment))
+                    "There is no bucket available called '%s'"
+                    % (bucket_name))
 
         return full_name
 
