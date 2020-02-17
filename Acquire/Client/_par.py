@@ -70,8 +70,7 @@ class PAR:
 
         service = location.service()
 
-        result = service.call_function(function="create_par",
-                                       args=args)
+        result = service.call_function(function="create_par", args=args)
 
         self._set_uid(result["par_uid"])
 

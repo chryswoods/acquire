@@ -154,8 +154,7 @@ class PublicKey:
     @staticmethod
     def read_bytes(data):
         """Read and return a public key from 'data'"""
-        public_key = _serialization.load_pem_public_key(
-                        data, backend=_default_backend())
+        public_key = _serialization.load_pem_public_key(data, backend=_default_backend())
 
         return PublicKey(public_key)
 
@@ -194,10 +193,10 @@ class PublicKey:
                             algorithm=_hashes.SHA256(),
                             label=None)
                         )
-        except:
+        except ValueError:
             pass
-
-        # this is a longer message that cannot be encoded using
+        
+        # This is a longer message that cannot be encoded using
         # an asymmetric key - need to use a symmetric key
         key = _fernet.Fernet.generate_key()
         f = _fernet.Fernet(key)
@@ -255,17 +254,13 @@ class PublicKey:
         """Construct from the passed json-deserialised dictionary"""
         if isinstance(data, str):
             return PublicKey.read_bytes(_string_to_bytes(data))
-
         elif isinstance(data, bytes):
             return PublicKey.read_bytes(data)
-
+        elif isinstance(data, dict):
+            key_bytes = data["bytes"]
+            return PublicKey.read_bytes(_string_to_bytes(key_bytes))
         else:
-            key = PublicKey()
-
-            if (data and len(data) > 0):
-                key = PublicKey.read_bytes(_string_to_bytes(data["bytes"]))
-
-            return key
+            raise TypeError("Cannot create public key from the passed data")
 
 
 class PrivateKey:
@@ -404,6 +399,7 @@ class PrivateKey:
            specified then this is written to the passed file"""
 
         if self._privkey is None:
+
             return None
 
         return PublicKey(self._privkey.public_key())
@@ -536,8 +532,7 @@ class PrivateKey:
             return PrivateKey.read_bytes(_string_to_bytes(data["bytes"]),
                                          passphrase, mangleFunction)
         else:
-            return None
-
+            raise TypeError("Cannot create key from the passed data : ", data)
 
 class SymmetricKey:
     """This is a holder for an in-memory symmetric key

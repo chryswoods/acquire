@@ -63,7 +63,7 @@ def get_registry_details(registry_uid):
                                    package="Acquire.Registry")
             registry["public_key"] = _keys.public_key
             registry["public_certificate"] = _keys.public_certificate
-        except:
+        except ImportError:
             pass
 
     import copy as _copy

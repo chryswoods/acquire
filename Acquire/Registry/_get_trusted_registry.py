@@ -82,11 +82,13 @@ def get_trusted_registry_service(registry_uid=None,
     pubkey = _PublicKey.from_data(details["public_key"])
     pubcert = _PublicKey.from_data(details["public_certificate"])
 
-    # ask the registry to return to us their latest details - use
+    challenge = _PrivateKey.random_passphrase()
+
+    # Ask the registry to return to us their latest details - use
     # a challenge-response to make sure that the response is
     # properly returned
-    challenge = _PrivateKey.random_passphrase()
     encrypted_challenge = _bytes_to_string(pubkey.encrypt(challenge))
+
     args = {"challenge": encrypted_challenge,
             "fingerprint": pubkey.fingerprint()}
 
