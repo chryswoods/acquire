@@ -68,6 +68,7 @@ class PARRegistry:
         _validate_is_uid(par_uid)
 
         from Acquire.ObjectStore import ObjectStore as _ObjectStore
+        from Acquire.ObjectStore import ObjectStoreError as _ObjectStoreError
         from Acquire.Service import get_service_account_bucket \
             as _get_service_account_bucket
 
@@ -82,10 +83,9 @@ class PARRegistry:
             identifiers = _json.loads(data["identifiers"])
 
             if secret != data["secret"]:
-                raise PermissionError()
-        except:
-            raise PermissionError(
-                "There is no valid PAR at ID '%s'" % par_uid)
+                raise PermissionError("Secrets do not match")
+        except ObjectStoreError:
+            raise PermissionError("There is no valid PAR at ID '%s'" % par_uid)
 
         if par.expired():
             raise PermissionError(

@@ -60,10 +60,10 @@ class Testing_ObjectStore:
 
         if _os.path.exists(full_name):
             from Acquire.ObjectStore import ObjectStoreError
-            
             raise ObjectStoreError(
                 "CANNOT CREATE NEW BUCKET '%s': EXISTS!" % bucket_name)
-                _os.makedirs(full_name)
+
+        _os.makedirs(full_name)
 
         return full_name
 

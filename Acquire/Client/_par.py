@@ -58,8 +58,7 @@ class PAR:
         self._aclrule = aclrule
 
         from Acquire.Client import Authorisation as _Authorisation
-        auth = _Authorisation(user=user,
-                              resource="create_par %s" % self.fingerprint())
+        auth = _Authorisation(user=user, resource="create_par %s" % self.fingerprint())
 
         from Acquire.Crypto import PrivateKey as _PrivateKey
         self._secret = _PrivateKey.random_passphrase()
