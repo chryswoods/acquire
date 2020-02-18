@@ -467,7 +467,7 @@ def call_function(service_url, function=None, args=None, args_key=None,
         from Acquire.Service import RemoteFunctionCallError
         raise RemoteFunctionCallError(
             "Cannot call remote function '%s' at '%s' because of a possible "
-            "network issue: requests exeption = '%s'" %
+            "network issue: requests exception = '%s'" %
             (function, service_url, str(e)))
 
     args = None

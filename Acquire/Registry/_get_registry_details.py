@@ -53,14 +53,15 @@ def get_registry_details(registry_uid):
     """
     try:
         registry = _registries[registry_uid]
-    except:
+    except KeyError:
         registry = _registries["a0-a0"]
 
     if registry["public_key"] is None:
         try:
             from importlib import import_module as _import_module
-            _keys = _import_module("._keys_%s" % registry_uid,
-                                   package="Acquire.Registry")
+            
+            _keys = _import_module("._keys_%s" % registry_uid, package="Acquire.Registry")
+            
             registry["public_key"] = _keys.public_key
             registry["public_certificate"] = _keys.public_certificate
         except ImportError:
