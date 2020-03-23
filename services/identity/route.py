@@ -11,7 +11,7 @@ def identity_functions(function, args):
        Returns:
             function: If valid function selected, function with args passed
             else None
-    
+
        """
     if function == "get_session_info":
         from admin.get_session_info import run as _get_session_info
@@ -22,6 +22,9 @@ def identity_functions(function, args):
     elif function == "logout":
         from admin.logout import run as _logout
         return _logout(args)
+    elif function == "recover_otp":
+        from admin.recover_otp import run as _recover_otp
+        return _recover_otp(args)
     elif function == "register":
         from admin.register import run as _register
         return _register(args)

@@ -1,0 +1,11 @@
+service:
+  type: registry
+  name: registry
+  bucket: acquire_registry
+  provider: 
+    backend: oci
+    oci:
+      tenancy: ocid1.tenancy.oc1.XXXXXX
+      region: eu-frankfurt-1
+      user: ocid1.user.oc1.XXXXXX
+      compartment: ocid1.compartment.oc1.XXXXXX
