@@ -1,6 +1,6 @@
 # Acquire
 
-[![Build Status](https://dev.azure.com/bristolrse/Acquire/_apis/build/status/chryswoods.acquire?branchName=devel)](https://dev.azure.com/bristolrse/Acquire/_build/latest?definitionId=1&branchName=devel)
+# WARNING: This is an archived project that has had no further development since 2018. It is left up for reference and inspiration, but should not be used in production.
 
 (C) Christopher Woods 2018 - Released under the [Apache 2 License](LICENSE)
 
